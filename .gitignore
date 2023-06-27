@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+python_packages/
+
+# ignore raw data files
+*.pkl
+*.csv
+*.txt
+*.log
+*.npy
+*.zip
+*.xlsx
+*.docx
+*.json
+
+# ignore tempory files
+*.tmp
+
+# ignore pictures
+*.png
+*.jpg
+*.pcd
+
+
+# C extensions
+*.so
+*.m
+
+# ignore visualization tools
+Latex_files/
+rename_files.py
+remove_files.py
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+
