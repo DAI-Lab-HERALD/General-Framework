@@ -20,6 +20,7 @@ python_packages/
 *.png
 *.jpg
 *.pcd
+*.xcf
 
 
 # C extensions
