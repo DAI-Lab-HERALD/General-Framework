@@ -74,7 +74,7 @@ class ETH_interactive(data_set_template):
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
-    def calculate_distance(self, path, domain):
+    def calculate_distance(self, path, t, domain):
         r'''
         This function calculates the abridged distance of the relevant agents in a scenarion
         for each of the possible classification type. If the classification is not yet reached,

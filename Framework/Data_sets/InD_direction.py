@@ -307,15 +307,16 @@ class InD_direction(data_set_template):
             t = np.array(track_i.frame / 25)
             
             # collect domain data
-            domain = pd.Series(np.zeros(8, object), index = ['location', 'rot_angle', 'x_center', 'y_center', 
+            domain = pd.Series(np.zeros(8, object), index = ['location', 'image_id', 'rot_angle', 'x_center', 'y_center', 
                                                              'behavior', 'class', 'neighbor_veh', 'neighbor_ped'])
-            domain.location = agent_i.locationId
-            domain.rot_angle = angle
-            domain.x_center = center[0]
-            domain.y_center = center[1]
-            domain['class'] = agent_i['class']
+            domain.location    = agent_i.locationId
+            domain.image_id    = agent_i.locationId
+            domain.rot_angle   = angle
+            domain.x_center    = center[0]
+            domain.y_center    = center[1]
+            domain['class']    = agent_i['class']
             domain['behavior'] = agent_i['behavior']
-            domain['old_id'] = agent_i.trackId
+            domain['old_id']   = agent_i.trackId
             
             # Divide neighbors by class
             neighbor_id    = agent_i.otherVehicles
@@ -336,9 +337,7 @@ class InD_direction(data_set_template):
         self.Domain_old = pd.DataFrame(self.Domain_old)
          
         
-        
-        
-    def calculate_distance(self, path, domain):
+    def calculate_distance(self, path, t, domain):
         r'''
         This function calculates the abridged distance of the relevant agents in a scenarion
         for each of the possible classification type. If the classification is not yet reached,
@@ -392,6 +391,7 @@ class InD_direction(data_set_template):
         
         Dist = pd.Series(list(D), index = self.Behaviors)
         return Dist
+    
     
     def evaluate_scenario(self, path, D_class, domain):
         r'''
@@ -508,7 +508,7 @@ class InD_direction(data_set_template):
         t_help = np.concatenate([[I_t[0] - self.dt], I_t])
         # search for vehicles
         Neighbor_veh = domain.neighbor_veh.copy()
-        Pos_veh = np.ones((len(Neighbor_veh), len(I_t) + 2,2)) * np.nan
+        Pos_veh = np.ones((len(Neighbor_veh), len(I_t) + 1,2)) * np.nan
         for i, n in enumerate(Neighbor_veh):
             track_n = self.Data.loc[n].track
             t = track_n.frame / 25
@@ -536,7 +536,7 @@ class InD_direction(data_set_template):
         
         # search for pedestrians
         Neighbor_ped = domain.neighbor_ped.copy()
-        Pos_ped = np.ones((len(Neighbor_ped), len(I_t) + 2,2)) * np.nan
+        Pos_ped = np.ones((len(Neighbor_ped), len(I_t) + 1,2)) * np.nan
         for i, n in enumerate(Neighbor_ped):
             track_n = self.Data.loc[n].track
             t = track_n.frame / 25

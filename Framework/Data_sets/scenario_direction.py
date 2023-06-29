@@ -16,7 +16,7 @@ class scenario_direction(scenario_template):
         return 'Direction prediction at intersection'
         
     def can_provide_general_input(self = None):
-        return True
+        return ['D_decision']
         
     def pov_agent(self = None):
         return None

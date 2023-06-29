@@ -48,8 +48,11 @@ class data_set_template():
         self.classification_useful = len(self.Behaviors) > 1
 
         # Check if general input is possible
-        self.general_input_available = (self.scenario.can_provide_general_input() and
+        self.general_input_available = (self.scenario.can_provide_general_input() != False and
                                         self.classification_useful)
+        
+        if self.general_input_available:
+            self.extra_input = self.scenario.can_provide_general_input()
 
         # Needed agents
         self.pov_agent = self.scenario.pov_agent()
@@ -102,14 +105,15 @@ class data_set_template():
                 
                 
                 if self.includes_images():
-                    if not 'location' in self.Domain_old.columns:
-                        raise AttributeError('Location is missing')
+                    if not 'image_id' in self.Domain_old.columns:
+                        raise AttributeError('Image identification is missing')
                     if not hasattr(self, 'Images'):
                         raise AttributeError('Images are missing.')
-                    if not hasattr(self, 'Target_MeterPerPx'):
-                        raise AttributeError('Images without Px to Meter scaling are useless.')
-                        
-                    self.Images['Target_MeterPerPx'] = self.Target_MeterPerPx
+                    if not hasattr(self.Images, 'Target_MeterPerPx'):
+                        if not hasattr(self, 'Target_MeterPerPx'):
+                            raise AttributeError('Images without Px to Meter scaling are useless.')
+                        else:
+                            self.Images['Target_MeterPerPx'] = self.Target_MeterPerPx
                 else:
                     self.Images = None
 
@@ -227,7 +231,7 @@ class data_set_template():
 
         if self.classification_useful:
             path_extra_dim = self.increase_path_dim(path)
-            Dist = self.calculate_distance(path_extra_dim, domain)
+            Dist = self.calculate_distance(path_extra_dim, t, domain)
             Dist = self.decrease_dist_dim(Dist)
 
             in_position = self.evaluate_scenario(path, Dist, domain)
@@ -319,9 +323,12 @@ class data_set_template():
         if self.general_input_available:
             path_extra_dim = self.increase_path_dim(path)
 
-            Dist = self.calculate_distance(path_extra_dim, domain)
+            Dist = self.calculate_distance(path_extra_dim, t, domain)
             Dist = self.decrease_dist_dim(Dist)
+            
             Dist_oth = self.calculate_additional_distances(path, t, domain)
+            for index in self.extra_input:
+                assert index in Dist_oth.index, "A required extracted input is missing."
 
             Pred = pd.concat([Dist, Dist_oth])
             return Pred
@@ -926,8 +933,40 @@ class data_set_template():
         else:
             file = file_old
         return path + os.sep + file
-
-
+    
+    
+    def _interpolate_image(self, imgs_rot, pos_old, imgs_n):
+        useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= imgs_n.shape[2] - 1) &
+                  (0 <= pos_old[...,1]) & (pos_old[...,1] <= imgs_n.shape[1] - 1))
+        
+        useful_ind, useful_row, useful_col = torch.where(useful)
+        pos_old = pos_old[useful_ind, useful_row, useful_col,:]
+        
+        pos_up  = torch.ceil(pos_old).to(dtype = torch.int64)
+        pos_low = torch.floor(pos_old).to(dtype = torch.int64)
+        
+        imgs_rot_uu = imgs_n[useful_ind, pos_up[:,1],  pos_up[:,0]]
+        imgs_rot_ul = imgs_n[useful_ind, pos_up[:,1],  pos_low[:,0]]
+        imgs_rot_lu = imgs_n[useful_ind, pos_low[:,1], pos_up[:,0]]
+        imgs_rot_ll = imgs_n[useful_ind, pos_low[:,1], pos_low[:,0]]
+        
+        del pos_up, pos_low
+        
+        pos_fac = torch.remainder(pos_old, 1)
+        
+        imgs_rot_u = imgs_rot_uu * (pos_fac[:,[0]]) + imgs_rot_ul * (1 - pos_fac[:,[0]])
+        imgs_rot_l = imgs_rot_lu * (pos_fac[:,[0]]) + imgs_rot_ll * (1 - pos_fac[:,[0]])
+        
+        del imgs_rot_uu, imgs_rot_ul, imgs_rot_lu, imgs_rot_ll
+        
+        imgs_rot_v = imgs_rot_u * (pos_fac[:,[1]]) + imgs_rot_l * (1 - pos_fac[:,[1]])
+        
+        if imgs_rot.shape[-1] == 1:
+            imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = imgs_n.dtype)
+        else:
+            imgs_rot[useful] = imgs_rot_v.to(dtype = imgs_n.dtype)
+            
+        return imgs_rot
 
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale = False):
         if self.includes_images():
@@ -951,7 +990,7 @@ class data_set_template():
             
             print('')
             print('Get locations:', flush = True)
-            Locations = domain.location.to_numpy()
+            Locations = domain.image_id.to_numpy()
             Imgs_shape = np.stack(self.Images.Image.to_list(), 0).shape
             
             print('Extract rotation matrix', flush = True)
@@ -1039,11 +1078,6 @@ class data_set_template():
                 M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[Locations[Index]].to_numpy()).to(device = device)
                 M2px_n = M2px_n.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(dtype = torch.float32)
                 
-                if grayscale:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 1), dtype = imgs_n.dtype, device = device)
-                else:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 3), dtype = imgs_n.dtype, device = device)
-                
                 pos_old = Pos_old * M2px_n
                 
                 if first_stage:
@@ -1058,33 +1092,17 @@ class data_set_template():
                 
                 pos_old[...,1] *= -1
                 
-                pos_fac = torch.remainder(pos_old, 1)
-                pos_up = torch.ceil(pos_old).to(dtype = torch.int64)
-                pos_low = torch.floor(pos_old).to(dtype = torch.int64)
-                
-                useful = ((0 <= pos_low[...,0]) & (pos_up[...,0] < imgs_n.shape[2]) &
-                          (0 <= pos_low[...,1]) & (pos_up[...,1] < imgs_n.shape[1]))
-                
-                useful_ind, useful_row, useful_col = torch.where(useful)
-                pos_up  = pos_up[useful_ind, useful_row, useful_col, :]
-                pos_low = pos_low[useful_ind, useful_row, useful_col, :]
-                pos_fac = pos_fac[useful_ind, useful_row, useful_col, :]
-                
-                imgs_rot_uu = imgs_n[useful_ind, pos_up[:,1], pos_up[:,0]]
-                imgs_rot_ul = imgs_n[useful_ind, pos_up[:,1], pos_low[:,0]]
-                imgs_rot_lu = imgs_n[useful_ind, pos_low[:,1], pos_up[:,0]]
-                imgs_rot_ll = imgs_n[useful_ind, pos_low[:,1], pos_low[:,0]]
-                
-                imgs_rot_u = imgs_rot_uu * (pos_fac[:,[0]]) + imgs_rot_ul * (1 - pos_fac[:,[0]])
-                imgs_rot_l = imgs_rot_lu * (pos_fac[:,[0]]) + imgs_rot_ll * (1 - pos_fac[:,[0]])
-                
-                imgs_rot_v = imgs_rot_u * (pos_fac[:,[1]]) + imgs_rot_l * (1 - pos_fac[:,[1]])
+                torch.cuda.empty_cache()
                 
                 # Enforce grayscale here using the gpu
                 if grayscale:
-                    imgs_rot_v = imgs_rot_v.mean(-1, keepdims = True)
-                imgs_rot[useful] = imgs_rot_v.to(dtype = imgs_n.dtype)
+                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 1), dtype = imgs_n.dtype, device = device)
+                else:
+                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 3), dtype = imgs_n.dtype, device = device)
+                    
+                imgs_rot = self._interpolate_image(imgs_rot, pos_old, imgs_n)
                 
+                torch.cuda.empty_cache()
                 col_pad = (max_size - target_width) * 0.5
                 row_pad = (max_size - target_height) * 0.5
             
@@ -1233,7 +1251,7 @@ class data_set_template():
     def path_to_class_and_time_sample(self, paths, t, domain):
         if self.classification_useful:
             # Compared to before, the paths here are of a self.num_path_pred \times len(t) shape
-            Dist = self.calculate_distance(paths, domain)
+            Dist = self.calculate_distance(paths, t, domain)
     
             T = np.zeros((self.num_samples_path_pred, len(self.Behaviors)), float)
             for i_beh, beh in enumerate(self.Behaviors):
@@ -1547,7 +1565,7 @@ class data_set_template():
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
-    def calculate_distance(self, path, domain):
+    def calculate_distance(self, path, t, domain):
         r'''
         If the choosen scenario contains a number of possible behaviors, as which recored or
         predicted trajectories might be defined, this function calculates the abridged distance of the 

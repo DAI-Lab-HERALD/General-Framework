@@ -481,6 +481,7 @@ class trajectron_salzmann(model_template):
                                 model = self.trajectron.node_models_dict[node_type]
                                 
                                 # Run forward pass
+                                assert False
                                 train_loss = model.train_loss(inputs                = S_batch.to(self.trajectron.device),
                                                               inputs_st             = S_st_batch.to(self.trajectron.device),
                                                               first_history_indices = first_h.to(self.trajectron.device),

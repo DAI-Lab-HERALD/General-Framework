@@ -123,12 +123,13 @@ class RounD_round_about(data_set_template):
 
         t = np.array(tar_track_l.index / 25)
         
-        domain = pd.Series(np.zeros(5, object), index = ['location', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain = pd.Series(np.zeros(5, object), index = ['location', 'image_id', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain.location  = data_i.locationId
+        domain.image_id  = data_i.locationId
         domain.rot_angle = original_angle
-        domain.x_center = Rot_center[0,0]
-        domain.y_center = Rot_center[0,1]
-        domain.location = data_i.locationId
-        domain['class'] = data_i['class']
+        domain.x_center  = Rot_center[0,0]
+        domain.y_center  = Rot_center[0,1]
+        domain['class']  = data_i['class']
         
         self.Path.append(path)
         self.T.append(t)
@@ -455,7 +456,7 @@ class RounD_round_about(data_set_template):
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
     
-    def calculate_distance(self, path, domain):
+    def calculate_distance(self, path, t, domain):
         r'''
         This function calculates the abridged distance of the relevant agents in a scenarion
         for each of the possible classification type. If the classification is not yet reached,

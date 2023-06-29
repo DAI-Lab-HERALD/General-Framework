@@ -160,14 +160,14 @@ class data_interface(object):
         
         self.num_behaviors = np.zeros(len(self.Behaviors), int)
         
-        self.Images = pd.DataFrame(np.zeros((0,2), object), columns = ['Image', 'Target_MeterPerPx'])
-        
         for data_set in self.Datasets.values():
             self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
             self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
             
             self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
             self.Output_T_E       = np.concatenate((self.Output_T_E, data_set.Output_T_E), axis = 0)
+            
+            self.Domain           = pd.concat((self.Domain, data_set.Domain))
             
             if self.scenario.get_name() != data_set.scenario.get_name():
                 assert self.scenario.get_name() == 'No specific scenario'
@@ -199,13 +199,6 @@ class data_interface(object):
                 
                 self.num_behaviors += data_set.num_behaviors
         
-            if data_set.includes_images():
-                self.Domain = pd.concat((self.Domain, data_set.Domain))
-                
-            else:
-                DN = data_set.Domain
-                DN['location'] = '0'
-                self.Domain = pd.concat((self.Domain, DN))
         
         # Ensure that the same order of agents is maintained for input and output paths
         self.Output_path = self.Output_path[self.Input_path.columns]
@@ -223,7 +216,7 @@ class data_interface(object):
         
     
     def get_Target_MeterPerPx(self, domain):
-        return self.Datasets[domain['Scenario']].Images.Target_MeterPerPx.loc[domain.location]
+        return self.Datasets[domain['Scenario']].Images.Target_MeterPerPx.loc[domain.image_id]
     
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale = False):
