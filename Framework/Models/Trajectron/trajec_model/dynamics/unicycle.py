@@ -1,68 +1,99 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+# http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch
 import torch.nn as nn
-import numpy as np
+
+from Trajectron.trajec_model.components import GMM2D
 from Trajectron.trajec_model.dynamics import Dynamic
 from Trajectron.utils import block_diag
-from Trajectron.trajec_model.components import GMM2D
 
 
 class Unicycle(Dynamic):
-    def init_constants(self):
-        self.F_s = torch.eye(4, device=self.device, dtype=torch.float32)
-        self.F_s[0:2, 2:] = torch.eye(2, device=self.device, dtype=torch.float32) * self.dt
-        self.F_s_t = self.F_s.transpose(-2, -1)
-
     def create_graph(self, xz_size):
         model_if_absent = nn.Linear(xz_size + 1, 1)
-        self.p0_model = self.model_registrar.get_model(f"{self.node_type}/unicycle_initializer", model_if_absent)
+        self.p0_model = self.model_registrar.get_model(
+            f"{self.node_type}/unicycle_initializer", model_if_absent
+        )
 
-    def dynamic(self, x, u):
+    def dynamic(self, x_0, us, dt_orig):
         r"""
         TODO: Boris: Add docstring
-        :param x:
-        :param u:
+        :param x_0: [4, B] which is (x, y, phi, v)
+        :param u: [2, B, T, K (= components)] which is (dphi, longitudinal acc)
         :return:
         """
-        x_p = x[0]
-        y_p = x[1]
-        phi = x[2]
-        v = x[3]
-        dphi = u[0]
-        a = u[1]
+        # Making room for time and components dimensions.
+        x_init = x_0.unsqueeze(-1).unsqueeze(-1)
+        dphi = us[0]
+        a = us[1]
+        dt = dt_orig.unsqueeze(1)
+
+        phi = x_init[2] + torch.cumsum(dphi * dt, dim=1)
+        v = x_init[3] + torch.cumsum(a * dt, dim=1)
 
         mask = torch.abs(dphi) <= 1e-2
         dphi = ~mask * dphi + (mask) * 1
 
-        phi_p_omega_dt = phi + dphi * self.dt
-        dsin_domega = (torch.sin(phi_p_omega_dt) - torch.sin(phi)) / dphi
-        dcos_domega = (torch.cos(phi_p_omega_dt) - torch.cos(phi)) / dphi
+        dt_sq = torch.square(dt)
+        phi_p_omega_dt = phi + dphi * dt
+        sin_phi = torch.sin(phi)
+        cos_phi = torch.cos(phi)
+        sin_phi_p_omega_dt = torch.sin(phi_p_omega_dt)
+        cos_phi_p_omega_dt = torch.cos(phi_p_omega_dt)
 
-        d1 = torch.stack([(x_p
-                           + (a / dphi) * dcos_domega
-                           + v * dsin_domega
-                           + (a / dphi) * torch.sin(phi_p_omega_dt) * self.dt),
-                          (y_p
-                           - v * dcos_domega
-                           + (a / dphi) * dsin_domega
-                           - (a / dphi) * torch.cos(phi_p_omega_dt) * self.dt),
-                          phi + dphi * self.dt,
-                          v + a * self.dt], dim=0)
-        d2 = torch.stack([x_p + v * torch.cos(phi) * self.dt + (a / 2) * torch.cos(phi) * self.dt ** 2,
-                          y_p + v * torch.sin(phi) * self.dt + (a / 2) * torch.sin(phi) * self.dt ** 2,
-                          phi * torch.ones_like(a),
-                          v + a * self.dt], dim=0)
-        return torch.where(~mask, d1, d2)
+        one_on_dphi = torch.reciprocal(dphi)
+        dsin_domega = (sin_phi_p_omega_dt - sin_phi) * one_on_dphi
+        dcos_domega = (cos_phi_p_omega_dt - cos_phi) * one_on_dphi
+        a_on_dphi = a * one_on_dphi
 
-    def integrate_samples(self, control_samples, x=None):
+        x_regular = x_init[0] + torch.cumsum(
+            a_on_dphi * dcos_domega
+            + v * dsin_domega
+            + a_on_dphi * sin_phi_p_omega_dt * dt,
+            dim=1,
+        )
+        y_regular = x_init[1] + torch.cumsum(
+            -v * dcos_domega
+            + a_on_dphi * dsin_domega
+            - a_on_dphi * cos_phi_p_omega_dt * dt,
+            dim=1,
+        )
+
+        x_small_dphi = x_init[0] + torch.cumsum(
+            v * cos_phi * dt + (a / 2) * cos_phi * dt_sq, dim=1
+        )
+        y_small_dphi = x_init[1] + torch.cumsum(
+            v * sin_phi * dt + (a / 2) * sin_phi * dt_sq, dim=1
+        )
+
+        states_regular = torch.stack((x_regular, y_regular, phi, v), dim=-1)
+        states_small_dphi = torch.stack((x_small_dphi, y_small_dphi, phi, v), dim=-1)
+
+        return torch.where(~mask.unsqueeze(-1), states_regular, states_small_dphi)
+
+    def integrate_samples(self, control_samples, x, dt):
         r"""
         TODO: Boris: Add docstring
-        :param x:
-        :param u:
+        :param x: (x, y, phi, v)
+        :param u: (dphi, longitudinal acc)
         :return:
         """
-        ph = control_samples.shape[-2]
-        p_0 = self.initial_conditions['pos'].unsqueeze(1)
-        v_0 = self.initial_conditions['vel'].unsqueeze(1)
+        num_samples, batch_num, timesteps, control_dim = control_samples.shape
+        p_0 = self.initial_conditions["pos"].unsqueeze(1)
+        v_0 = self.initial_conditions["vel"].unsqueeze(1)
 
         # In case the input is batched because of the robot in online use we repeat this to match the batch size of x.
         if p_0.size()[0] != x.size()[0]:
@@ -73,180 +104,261 @@ class Unicycle(Dynamic):
 
         phi_0 = phi_0 + torch.tanh(self.p0_model(torch.cat((x, phi_0), dim=-1)))
 
-        u = torch.stack([control_samples[..., 0], control_samples[..., 1]], dim=0)
-        x = torch.stack([p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim = 0).squeeze(dim=-1)
+        u = control_samples.permute((3, 0, 1, 2)).unsqueeze(-1)
+        x = torch.stack(
+            [p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0
+        ).squeeze(dim=-1)
 
-        mus_list = []
-        for t in range(ph):
-            x = self.dynamic(x, u[..., t])
-            mus_list.append(torch.stack((x[0], x[1]), dim=-1))
+        integrated = self.dynamic(
+            x, u.reshape(u.shape[0], -1, *u.shape[3:]), dt.unsqueeze(-1)
+        )[..., 0, :2]
+        return integrated.reshape(num_samples, batch_num, timesteps, control_dim)
 
-        pos_mus = torch.stack(mus_list, dim=2)
-        return pos_mus
-
-    def compute_control_jacobian(self, sample_batch_dim, components, x, u):
+    def compute_control_jacobians(
+        self, xs: torch.Tensor, us: torch.Tensor, dt_orig: torch.Tensor
+    ) -> torch.Tensor:
         r"""
         TODO: Boris: Add docstring
-        :param x:
-        :param u:
+        :param x: (x, y, phi, v)
+        :param u: (dphi, longitudinal acc)
         :return:
         """
-        F = torch.zeros(sample_batch_dim + [components, 4, 2],
-                        device=self.device,
-                        dtype=torch.float32)
+        num_samples, batch_size, ph, num_components, state_dim = xs.shape
+        control_dim = us.shape[-1]
+        Gs = torch.zeros(
+            (num_samples, batch_size, ph, num_components, state_dim, control_dim),
+            device=self.device,
+            dtype=torch.float32,
+        )
 
-        phi = x[2]
-        v = x[3]
-        dphi = u[0]
-        a = u[1]
+        phi = xs[..., 2]
+        v = xs[..., 3]
+        dphi = us[..., 0]
+        a = us[..., 1]
+        dt = dt_orig.unsqueeze(0).unsqueeze(-1)
+        dt_sq = torch.square(dt)
 
         mask = torch.abs(dphi) <= 1e-2
         dphi = ~mask * dphi + (mask) * 1
 
-        phi_p_omega_dt = phi + dphi * self.dt
-        dsin_domega = (torch.sin(phi_p_omega_dt) - torch.sin(phi)) / dphi
-        dcos_domega = (torch.cos(phi_p_omega_dt) - torch.cos(phi)) / dphi
+        phi_p_omega_dt = phi + dphi * dt
+        sin_phi = torch.sin(phi)
+        cos_phi = torch.cos(phi)
+        sin_phi_p_omega_dt = torch.sin(phi_p_omega_dt)
+        cos_phi_p_omega_dt = torch.cos(phi_p_omega_dt)
 
-        F[..., 0, 0] = ((v / dphi) * torch.cos(phi_p_omega_dt) * self.dt
-                        - (v / dphi) * dsin_domega
-                        - (2 * a / dphi ** 2) * torch.sin(phi_p_omega_dt) * self.dt
-                        - (2 * a / dphi ** 2) * dcos_domega
-                        + (a / dphi) * torch.cos(phi_p_omega_dt) * self.dt ** 2)
-        F[..., 0, 1] = (1 / dphi) * dcos_domega + (1 / dphi) * torch.sin(phi_p_omega_dt) * self.dt
+        one_on_dphi = torch.reciprocal(dphi)
+        dsin_domega = (sin_phi_p_omega_dt - sin_phi) * one_on_dphi
+        dcos_domega = (cos_phi_p_omega_dt - cos_phi) * one_on_dphi
 
-        F[..., 1, 0] = ((v / dphi) * dcos_domega
-                        - (2 * a / dphi ** 2) * dsin_domega
-                        + (2 * a / dphi ** 2) * torch.cos(phi_p_omega_dt) * self.dt
-                        + (v / dphi) * torch.sin(phi_p_omega_dt) * self.dt
-                        + (a / dphi) * torch.sin(phi_p_omega_dt) * self.dt ** 2)
-        F[..., 1, 1] = (1 / dphi) * dsin_domega - (1 / dphi) * torch.cos(phi_p_omega_dt) * self.dt
+        v_on_dphi = v * one_on_dphi
+        a_on_dphi = a * one_on_dphi
+        two_a_on_dphi_sq = 2 * torch.square(a_on_dphi)
 
-        F[..., 2, 0] = self.dt
+        Gs[..., 0, 0] = (
+            v_on_dphi * cos_phi_p_omega_dt * dt
+            - v_on_dphi * dsin_domega
+            - two_a_on_dphi_sq * sin_phi_p_omega_dt * dt
+            - two_a_on_dphi_sq * dcos_domega
+            + a_on_dphi * cos_phi_p_omega_dt * dt_sq
+        )
+        Gs[..., 0, 1] = (
+            one_on_dphi * dcos_domega + one_on_dphi * sin_phi_p_omega_dt * dt
+        )
 
-        F[..., 3, 1] = self.dt
+        Gs[..., 1, 0] = (
+            v_on_dphi * dcos_domega
+            - two_a_on_dphi_sq * dsin_domega
+            + two_a_on_dphi_sq * cos_phi_p_omega_dt * dt
+            + v_on_dphi * sin_phi_p_omega_dt * dt
+            + a_on_dphi * sin_phi_p_omega_dt * dt_sq
+        )
+        Gs[..., 1, 1] = (
+            one_on_dphi * dsin_domega - one_on_dphi * cos_phi_p_omega_dt * dt
+        )
 
-        F_sm = torch.zeros(sample_batch_dim + [components, 4, 2],
-                           device=self.device,
-                           dtype=torch.float32)
+        Gs[..., 2, 0] = dt
 
-        F_sm[..., 0, 1] = (torch.cos(phi) * self.dt ** 2) / 2
+        Gs[..., 3, 1] = dt
 
-        F_sm[..., 1, 1] = (torch.sin(phi) * self.dt ** 2) / 2
+        Gs_sm = torch.zeros(
+            (num_samples, batch_size, ph, num_components, state_dim, control_dim),
+            device=self.device,
+            dtype=torch.float32,
+        )
 
-        F_sm[..., 3, 1] = self.dt
+        Gs_sm[..., 0, 1] = cos_phi * dt_sq / 2
 
-        return torch.where(~mask.unsqueeze(-1).unsqueeze(-1), F, F_sm)
+        Gs_sm[..., 1, 1] = sin_phi * dt_sq / 2
 
-    def compute_jacobian(self, sample_batch_dim, components, x, u):
+        Gs_sm[..., 3, 1] = dt
+
+        return torch.where(~mask.unsqueeze(-1).unsqueeze(-1), Gs, Gs_sm)
+
+    def compute_jacobians(
+        self, xs: torch.Tensor, us: torch.Tensor, dt_orig: torch.Tensor
+    ) -> torch.Tensor:
         r"""
         TODO: Boris: Add docstring
-        :param x:
-        :param u:
+        :param x: (x, y, phi, v)
+        :param u: (dphi, longitudinal acc)
         :return:
         """
-        one = torch.tensor(1)
-        F = torch.zeros(sample_batch_dim + [components, 4, 4],
-                        device=self.device,
-                        dtype=torch.float32)
+        num_samples, batch_size, ph, num_components, state_dim = xs.shape
+        Fs = torch.zeros(
+            (num_samples, batch_size, ph, num_components, state_dim, state_dim),
+            device=xs.device,
+            dtype=xs.dtype,
+        )
 
-        phi = x[2]
-        v = x[3]
-        dphi = u[0]
-        a = u[1]
+        phi = xs[..., 2]
+        v = xs[..., 3]
+        dphi = us[..., 0]
+        a = us[..., 1]
+        dt = dt_orig.unsqueeze(0).unsqueeze(-1)
+        dt_sq = torch.square(dt)
 
         mask = torch.abs(dphi) <= 1e-2
         dphi = ~mask * dphi + (mask) * 1
 
-        phi_p_omega_dt = phi + dphi * self.dt
-        dsin_domega = (torch.sin(phi_p_omega_dt) - torch.sin(phi)) / dphi
-        dcos_domega = (torch.cos(phi_p_omega_dt) - torch.cos(phi)) / dphi
+        phi_p_omega_dt = phi + dphi * dt
+        sin_phi = torch.sin(phi)
+        cos_phi = torch.cos(phi)
+        sin_phi_p_omega_dt = torch.sin(phi_p_omega_dt)
+        cos_phi_p_omega_dt = torch.cos(phi_p_omega_dt)
 
-        F[..., 0, 0] = one
-        F[..., 1, 1] = one
-        F[..., 2, 2] = one
-        F[..., 3, 3] = one
+        one_on_dphi = torch.reciprocal(dphi)
+        dsin_domega = (sin_phi_p_omega_dt - sin_phi) * one_on_dphi
+        dcos_domega = (cos_phi_p_omega_dt - cos_phi) * one_on_dphi
 
-        F[..., 0, 2] = v * dcos_domega - (a / dphi) * dsin_domega + (a / dphi) * torch.cos(phi_p_omega_dt) * self.dt
-        F[..., 0, 3] = dsin_domega
+        a_on_dphi = a * one_on_dphi
 
-        F[..., 1, 2] = v * dsin_domega + (a / dphi) * dcos_domega + (a / dphi) * torch.sin(phi_p_omega_dt) * self.dt
-        F[..., 1, 3] = -dcos_domega
+        Fs[..., 0, 0] = 1
+        Fs[..., 1, 1] = 1
+        Fs[..., 2, 2] = 1
+        Fs[..., 3, 3] = 1
 
-        F_sm = torch.zeros(sample_batch_dim + [components, 4, 4],
-                           device=self.device,
-                           dtype=torch.float32)
+        Fs[..., 0, 2] = (
+            v * dcos_domega
+            - a_on_dphi * dsin_domega
+            + a_on_dphi * cos_phi_p_omega_dt * dt
+        )
+        Fs[..., 0, 3] = dsin_domega
 
-        F_sm[..., 0, 0] = one
-        F_sm[..., 1, 1] = one
-        F_sm[..., 2, 2] = one
-        F_sm[..., 3, 3] = one
+        Fs[..., 1, 2] = (
+            v * dsin_domega
+            + a_on_dphi * dcos_domega
+            + a_on_dphi * sin_phi_p_omega_dt * dt
+        )
+        Fs[..., 1, 3] = -dcos_domega
 
-        F_sm[..., 0, 2] = -v * torch.sin(phi) * self.dt - (a * torch.sin(phi) * self.dt ** 2) / 2
-        F_sm[..., 0, 3] = torch.cos(phi) * self.dt
+        Fs_sm = torch.zeros(
+            (num_samples, batch_size, ph, num_components, state_dim, state_dim),
+            device=self.device,
+            dtype=torch.float32,
+        )
 
-        F_sm[..., 1, 2] = v * torch.cos(phi) * self.dt + (a * torch.cos(phi) * self.dt ** 2) / 2
-        F_sm[..., 1, 3] = torch.sin(phi) * self.dt
+        Fs_sm[..., 0, 0] = 1
+        Fs_sm[..., 1, 1] = 1
+        Fs_sm[..., 2, 2] = 1
+        Fs_sm[..., 3, 3] = 1
 
-        return torch.where(~mask.unsqueeze(-1).unsqueeze(-1), F, F_sm)
+        Fs_sm[..., 0, 2] = -v * sin_phi * dt - a * sin_phi * dt_sq / 2
+        Fs_sm[..., 0, 3] = cos_phi * dt
 
-    def integrate_distribution(self, control_dist_dphi_a, x):
-        r"""
-        TODO: Boris: Add docstring
-        :param x:
-        :param u:
-        :return:
+        Fs_sm[..., 1, 2] = v * cos_phi * dt + a * cos_phi * dt_sq / 2
+        Fs_sm[..., 1, 3] = sin_phi * dt
+
+        return torch.where(~mask.unsqueeze(-1).unsqueeze(-1), Fs, Fs_sm)
+
+    def integrate_distribution(
+        self,
+        control_dist_dphi_a: GMM2D,
+        encoded_context: torch.Tensor,
+        dt: torch.Tensor,
+    ):
+        """_summary_
+
+        Args:
+            control_dist_dphi_a (GMM2D): _description_
+            encoded_context (torch.Tensor): _description_
+            dt (torch.Tensor): _description_
+
+        Returns:
+            _type_: _description_
         """
-        sample_batch_dim = list(control_dist_dphi_a.mus.shape[0:2])
-        ph = control_dist_dphi_a.mus.shape[-3]
-        p_0 = self.initial_conditions['pos'].unsqueeze(1)
-        v_0 = self.initial_conditions['vel'].unsqueeze(1)
+        (
+            num_samples,
+            batch_dim,
+            ph,
+            num_components,
+            control_dim,
+        ) = control_dist_dphi_a.mus.shape
+        p_0 = self.initial_conditions["pos"].unsqueeze(1)
+        v_0 = self.initial_conditions["vel"].unsqueeze(1)
 
         # In case the input is batched because of the robot in online use we repeat this to match the batch size of x.
-        if p_0.size()[0] != x.size()[0]:
-            p_0 = p_0.repeat(x.size()[0], 1, 1)
-            v_0 = v_0.repeat(x.size()[0], 1, 1)
+        if p_0.shape[0] != encoded_context.shape[0]:
+            p_0 = p_0.repeat(encoded_context.shape[0], 1, 1)
+            v_0 = v_0.repeat(encoded_context.shape[0], 1, 1)
 
         phi_0 = torch.atan2(v_0[..., 1], v_0[..., 0])
 
-        phi_0 = phi_0 + torch.tanh(self.p0_model(torch.cat((x, phi_0), dim=-1)))
+        phi_0 = phi_0 + torch.tanh(
+            self.p0_model(torch.cat((encoded_context, phi_0), dim=-1))
+        )
 
-        dist_sigma_matrix = control_dist_dphi_a.get_covariance_matrix()
-        
-        # if not dist_sigma_matrix.isfinite().all():
-        #     print('some of sigma_matrix for control is nan')
-        #     raise TypeError('How?')
-        
-        pos_dist_sigma_matrix_t = torch.zeros(sample_batch_dim + [control_dist_dphi_a.components, 4, 4],
-                                              device=self.device)
+        # Adding a new dimension so dt's resulting
+        # (batch_shape, 1) shape broadcasts easily.
+        dt = dt[:, None]
+        us = control_dist_dphi_a.mus.permute((4, 0, 1, 2, 3))
+        x_0 = torch.stack(
+            [p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0
+        )
 
-        u = torch.stack([control_dist_dphi_a.mus[..., 0], control_dist_dphi_a.mus[..., 1]], dim=0)
-        x = torch.stack([p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0)
+        # Combining the sample and batch dimensions here,
+        # since they're essentially just a batch here.
+        xs: torch.Tensor = self.dynamic(
+            x_0.reshape(x_0.shape[0], -1),
+            us.reshape(us.shape[0], -1, *us.shape[3:]),
+            dt,
+        )  # [S*B, T, K, 4]
 
-        pos_dist_sigma_matrix_list = []
-        mus_list = []
-        for t in range(ph):
-            
-           
-                
-            F_t = self.compute_jacobian(sample_batch_dim, control_dist_dphi_a.components, x, u[:, :, :, t])
-                
-            G_t = self.compute_control_jacobian(sample_batch_dim, control_dist_dphi_a.components, x, u[:, :, :, t])
-            
-            dist_sigma_matrix_t = dist_sigma_matrix[:, :, t]
-            
-            pos_dist_sigma_matrix_t = (F_t.matmul(pos_dist_sigma_matrix_t.matmul(F_t.transpose(-2, -1)))
-                                       + G_t.matmul(dist_sigma_matrix_t.matmul(G_t.transpose(-2, -1))))
-            
-            
-            pos_dist_sigma_matrix_list.append(pos_dist_sigma_matrix_t[..., :2, :2])
+        # [S, B, T, K, 4]
+        xs = xs.reshape(num_samples, batch_dim, *xs.shape[1:])
 
-            x = self.dynamic(x, u[:, :, :, t])
+        # Precomputing all the Jacobians we'll need.
+        us = us.permute((1, 2, 3, 4, 0))
+        Fs = self.compute_jacobians(xs, us, dt)
+        Gs = self.compute_control_jacobians(xs, us, dt)
 
-            mus_list.append(torch.stack((x[0], x[1]), dim=-1))
+        # Getting Sigma_u
+        dist_sigma_matrix: torch.Tensor = control_dist_dphi_a.get_covariance_matrix()
 
-        pos_dist_sigma_matrix = torch.stack(pos_dist_sigma_matrix_list, dim=2)
-        
-        
-        pos_mus = torch.stack(mus_list, dim=2)
-        
-        return GMM2D.from_log_pis_mus_cov_mats(control_dist_dphi_a.log_pis, pos_mus, pos_dist_sigma_matrix)
+        # Precomputing all G @ Sigma_u @ G^T
+        quadform_G_Sigmau: torch.Tensor = Gs.matmul(dist_sigma_matrix.matmul(Gs.mT))
+
+        # Precomputing the first Sigma_x, which is easy as
+        # Sigma_x_0 = F_0 @ ZERO @ F_0^T + G_0 @ Sigma_u_0 @ G_0^T
+        #           = G_0 @ Sigma_u_0 @ G_0^T
+        state_dist_sigma_matrix_t: torch.Tensor = quadform_G_Sigmau[:, :, 0]
+
+        pos_dist_sigma_matrix: torch.Tensor = torch.empty(
+            (num_samples, batch_dim, ph, num_components, 2, 2),
+            dtype=xs.dtype,
+            device=xs.device,
+        )
+        pos_dist_sigma_matrix[:, :, 0] = state_dist_sigma_matrix_t[..., :2, :2]
+        for t in range(1, ph):
+            F_t = Fs[:, :, t]
+            state_dist_sigma_matrix_t = (
+                F_t.matmul(state_dist_sigma_matrix_t.matmul(F_t.mT))
+                + quadform_G_Sigmau[:, :, t]
+            )
+            pos_dist_sigma_matrix[:, :, t] = state_dist_sigma_matrix_t[..., :2, :2]
+
+        return GMM2D.from_log_pis_mus_cov_mats(
+            log_pis=control_dist_dphi_a.log_pis,
+            mus=xs[..., :2],
+            cov_mats=pos_dist_sigma_matrix,
+        )

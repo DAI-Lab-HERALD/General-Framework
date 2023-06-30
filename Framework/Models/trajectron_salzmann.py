@@ -6,8 +6,9 @@ from torch import nn, optim
 import random
 from Trajectron.trajec_model.trajectron import Trajectron
 from Trajectron.trajec_model.model_registrar import ModelRegistrar
-from Trajectron.environment.environment import Environment
-from attrdict import AttrDict
+from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
+import json
+import os
 
 class trajectron_salzmann(model_template):
     
@@ -18,7 +19,7 @@ class trajectron_salzmann(model_template):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        batch_size = 256
+        
         # Get params
         self.num_timesteps_in = len(self.Input_path_train.to_numpy()[0,0])
         self.num_timesteps_out = np.zeros(len(self.Output_T_train), int)
@@ -33,164 +34,31 @@ class trajectron_salzmann(model_template):
         self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], 100)
         
         self.use_map = self.data_set.includes_images()
-        self.target_width = 180
+        self.target_width = 175
         self.target_height = 100
+        
+        config_path = os.sep.join(os.path.dirname(self.model_file).split(os.sep)[:-3])
+        config_path += os.sep + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
         
         
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
-        
-            hyperparams = {'batch_size': batch_size,
-                           'grad_clip': 1.0,
-                           'learning_rate_style': 'exp',
-                           'learning_rate': 0.001, # for ETH: 0.001 for inD/rounD: 0.003,
-                           'min_learning_rate': 1e-05,
-                           'learning_decay_rate': 0.9999,
-                           'prediction_horizon': self.num_timesteps_out.max(),
-                           'minimum_history_length': 2,
-                           'maximum_history_length': self.num_timesteps_in - 1,
-                           'map_encoder': {'PEDESTRIAN': {'heading_state_index': 6,
-                                                          'patch_size': [50, 10, 50, 90],
-                                                          'map_channels': 3,
-                                                          'hidden_channels': [10, 20, 10, 1],
-                                                          'output_size': 32,
-                                                          "masks": [5, 5, 5, 5], 
-                                                          "strides": [1, 1, 1, 1], 
-                                                          'dropout': 0.5}},
-                           'k': 1,
-                           'k_eval': 25,
-                           'kl_min': 0.07,
-                           'kl_weight': 100.0,
-                           'kl_weight_start': 0,
-                           'kl_decay_rate': 0.99995,
-                           'kl_crossover': 400,
-                           'kl_sigmoid_divisor': 4,
-                           'rnn_kwargs': {'dropout_keep_prob': 0.75},
-                           'MLP_dropout_keep_prob': 0.9,
-                           'enc_rnn_dim_edge': 32,
-                           'enc_rnn_dim_edge_influence': 32,
-                           'enc_rnn_dim_history': 32,
-                           'enc_rnn_dim_future': 32,
-                           'dec_rnn_dim': 128,
-                           'q_z_xy_MLP_dims': None,
-                           'p_z_x_MLP_dims': 32,
-                           'GMM_components': 1,
-                           'log_p_yt_xz_max': 6,
-                           'N': 1, # numbver of states per dimension of conditional distribution
-                           'K': 25, # number of dimension of conditional distribution
-                           'tau_init': 2.0,
-                           'tau_final': 0.05,
-                           'tau_decay_rate': 0.997,
-                           'use_z_logit_clipping': True,
-                           'z_logit_clip_start': 0.05,
-                           'z_logit_clip_final': 5.0,
-                           'z_logit_clip_crossover': 300,
-                           'z_logit_clip_divisor': 5,
-                           "dynamic": {"PEDESTRIAN": {"name": "SingleIntegrator",
-                                                      "distribution": True,
-                                                      "limits": {}}}, 
-                           "state": {"PEDESTRIAN": {"position": ["x", "y"],
-                                                    "velocity": ["x", "y"], 
-                                                    "acceleration": ["x", "y"]}}, 
-                           "pred_state": {"PEDESTRIAN": {"position": ["x", "y"]}},
-                           'log_histograms': False,
-                           'dynamic_edges': 'yes',
-                           'edge_state_combine_method': 'sum',
-                           'edge_influence_combine_method': 'attention',
-                           'edge_addition_filter': [0.25, 0.5, 0.75, 1.0],
-                           'edge_removal_filter': [1.0, 0.0],
-                           'offline_scene_graph': 'yes',
-                           'incl_robot_node': False,
-                           'node_freq_mult_train': False,
-                           'node_freq_mult_eval': False,
-                           'scene_freq_mult_train': False,
-                           'scene_freq_mult_eval': False,
-                           'scene_freq_mult_viz': False,
-                           'edge_encoding': True,
-                           'use_map_encoding': self.use_map,
-                           'augment': True,
-                           'override_attention_radius': []}
+            config_file = config_path + 'pedestrian.json' 
+            with open(config_file) as json_file:
+                hyperparams = json.load(json_file)
         else:
-            hyperparams = {'batch_size': batch_size,
-                           'grad_clip': 1.0,
-                           'learning_rate_style': 'exp',
-                           'learning_rate': 0.003,
-                           'min_learning_rate': 1e-05,
-                           'learning_decay_rate': 0.9999,
-                           'prediction_horizon': self.num_timesteps_out.max(),
-                           'minimum_history_length': 2,
-                           'maximum_history_length': self.num_timesteps_in - 1,
-                           'map_encoder': {'VEHICLE': {'heading_state_index': 6,
-                                                       'patch_size': [50, 10, 50, 90],
-                                                       'map_channels': 3,
-                                                       'hidden_channels': [10, 20, 10, 1],
-                                                       'output_size': 32,
-                                                       'masks': [5, 5, 5, 3],
-                                                       'strides': [2, 2, 1, 1],
-                                                       'dropout': 0.5}},
-                           'k': 1,
-                           'k_eval': 25,
-                           'kl_min': 0.07,
-                           'kl_weight': 100.0,
-                           'kl_weight_start': 0,
-                           'kl_decay_rate': 0.99995,
-                           'kl_crossover': 400,
-                           'kl_sigmoid_divisor': 4,
-                           'rnn_kwargs': {'dropout_keep_prob': 0.75},
-                           'MLP_dropout_keep_prob': 0.9,
-                           'enc_rnn_dim_edge': 32,
-                           'enc_rnn_dim_edge_influence': 32,
-                           'enc_rnn_dim_history': 32,
-                           'enc_rnn_dim_future': 32,
-                           'dec_rnn_dim': 128,
-                           'q_z_xy_MLP_dims': None,
-                           'p_z_x_MLP_dims': 32,
-                           'GMM_components': 1,
-                           'log_p_yt_xz_max': 6,
-                           'N': 1, # numbver of states per dimension of conditional distribution
-                           'K': 25, # number of dimension of conditional distribution
-                           'tau_init': 2.0,
-                           'tau_final': 0.05,
-                           'tau_decay_rate': 0.997,
-                           'use_z_logit_clipping': True,
-                           'z_logit_clip_start': 0.05,
-                           'z_logit_clip_final': 5.0,
-                           'z_logit_clip_crossover': 300,
-                           'z_logit_clip_divisor': 5,
-                           'dynamic': {'PEDESTRIAN': {'name': 'SingleIntegrator',
-                                                      'distribution': True,
-                                                      'limits': {}},
-                                       'VEHICLE': {'name': 'Unicycle',
-                                                   'distribution': True,
-                                                   'limits': {'max_a': 4,
-                                                              'min_a': -5,
-                                                              'max_heading_change': 0.7,
-                                                              'min_heading_change': -0.7}}},
-                           'state': {'PEDESTRIAN': {'position': ['x', 'y'],
-                                                    'velocity': ['x', 'y'],
-                                                    'acceleration': ['x', 'y']},
-                                     'VEHICLE': {'position': ['x', 'y'],
-                                                 'velocity': ['x', 'y'],
-                                                 'acceleration': ['x', 'y'],
-                                                 'heading': ['°', 'd°']}},
-                           'pred_state': {'VEHICLE': {'position': ['x', 'y']},
-                                          'PEDESTRIAN': {'position': ['x', 'y']}},
-                           'log_histograms': False,
-                           'dynamic_edges': 'yes',
-                           'edge_state_combine_method': 'sum',
-                           'edge_influence_combine_method': 'attention',
-                           'edge_addition_filter': [0.25, 0.5, 0.75, 1.0],
-                           'edge_removal_filter': [1.0, 0.0],
-                           'offline_scene_graph': 'yes',
-                           'incl_robot_node': False,
-                           'node_freq_mult_train': False,
-                           'node_freq_mult_eval': False,
-                           'scene_freq_mult_train': False,
-                           'scene_freq_mult_eval': False,
-                           'scene_freq_mult_viz': False,
-                           'edge_encoding': True,
-                           'use_map_encoding': self.use_map,
-                           'augment': True,
-                           'override_attention_radius': []}
+            config_file = config_path + 'nuScenes.json' 
+            with open(config_file) as json_file:
+                hyperparams = json.load(json_file)
+            
+        hyperparams["dec_final_dim"]                 = 32
+        
+        hyperparams["map_encoding"]                  = self.use_map
+        hyperparams["incl_robot_node"]               = False
+        
+        hyperparams["edge_encoding"]                 = True
+        hyperparams["edge_influence_combine_method"] = "attention"
+        hyperparams["edge_state_combine_method"]     = "sum"
+        hyperparams["adaptive"]                      = False
         
         self.std_pos_ped = 1
         self.std_vel_ped = 2
@@ -201,48 +69,26 @@ class trajectron_salzmann(model_template):
         self.std_hea_veh = np.pi
         self.std_d_h_veh = 1
         
-        
         # Set time step
         self.dt = self.Input_T_train[0][-1] - self.Input_T_train[0][-2]
         
-        # Offline Calculate Scene Graph
-        model_registrar = ModelRegistrar(None, self.device)
-        self.trajectron = Trajectron(model_registrar,
-                                     hyperparams,
-                                     None,
-                                     self.device)
-        
-        # Set train environment
-        scenes = [AttrDict({'dt': self.dt})]
-        
-        
-        if self.data_set.get_name()['file'][:3] == 'ETH':
-            node_type_list = ['PEDESTRIAN']
-        else:
-            node_type_list = ['PEDESTRIAN', 'VEHICLE']
-        
-        train_env = Environment(node_type_list = node_type_list,
-                                standardization = None,
-                                scenes = scenes,
-                                attention_radius = None, 
-                                robot_type = None)
-        
         # Prepare models
-        self.trajectron.set_environment(train_env)
+        model_registrar = ModelRegistrar(None, self.device)
+        self.trajectron = Trajectron(model_registrar, hyperparams, None, self.device)
+        self.trajectron.set_environment()
         self.trajectron.set_annealing_params()
         
     def extract_data(self, DIM, train = True):
         attention_radius = dict()
-
-        # for ETH
-        if self.data_set.get_name()['file'][:3] == 'ETH':
-            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 3.0
+        
+        if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 3.0
         else:
             # for inD/rounD
-            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 10.0
-            attention_radius[('PEDESTRIAN', 'VEHICLE')] = 50.0
-            attention_radius[('VEHICLE', 'PEDESTRIAN')] = 25.0
-            attention_radius[('VEHICLE', 'VEHICLE')] = 150.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 10.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.VEHICLE)] = 25.0
+            attention_radius[(AgentType.VEHICLE, AgentType.PEDESTRIAN)] = 25.0
+            attention_radius[(AgentType.VEHICLE, AgentType.VEHICLE)] = 50.0
             
         
         if train:
@@ -257,7 +103,8 @@ class trajectron_salzmann(model_template):
             self.domain_old = self.Domain_test
         
         Agents = np.array([name[2:] for name in np.array(self.input_names_train)])
-        Types  = np.array(['PEDESTRIAN' if name[0] == 'P' else 'VEHICLE'  for name in np.array(self.input_names_train)])
+        Types  = np.array([AgentType.PEDESTRIAN if name[0] == 'P' else AgentType.VEHICLE  
+                           for name in np.array(self.input_names_train)], dtype = AgentType)
         
         # Extract predicted agents
         Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
@@ -287,14 +134,25 @@ class trajectron_salzmann(model_template):
         A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
         A = np.concatenate((A[...,[0],:], A), axis = -2)
         
-        H = np.angle(V[...,0] + 1j * V[...,1])
+        H = np.angle(V[...,0] + 1j * V[...,1])[...,np.newaxis]
         
-        DH = np.unwrap(H, axis = -1) 
-        DH = (DH[:,:,1:] - DH[:,:,:-1]) / self.dt
-        DH = np.concatenate((DH[:,:,[0]], DH), axis = -1)
+        Sin = np.sin(H)
+        Cos = np.cos(H)
         
         #final state S
-        S = np.concatenate((X, V, A, H[...,np.newaxis], DH[...,np.newaxis]), axis = -1).astype(np.float32)
+        S = np.concatenate((X, V, A, Sin, Cos), axis = -1).astype(np.float32)
+        
+        Ped_agents = Types == AgentType.PEDESTRIAN
+        
+        S_st = S.copy()
+        S_st[:,Ped_agents,:,0:2]  /= self.std_pos_ped
+        S_st[:,~Ped_agents,:,0:2] /= self.std_pos_veh
+        S_st[:,Ped_agents,:,2:4]  /= self.std_vel_ped
+        S_st[:,~Ped_agents,:,2:4] /= self.std_vel_veh
+        S_st[:,Ped_agents,:,4:6]  /= self.std_acc_ped
+        S_st[:,~Ped_agents,:,4:6] /= self.std_acc_veh
+        S_st[:,~Ped_agents,:,6]   /= self.std_hea_veh
+        S_st[:,~Ped_agents,:,7]   /= self.std_d_h_veh
         
         D = np.min(np.sqrt(np.sum((X[:,:,np.newaxis] - X[:,np.newaxis]) ** 2, axis = -1)), axis = - 1)
         D_max = np.array([[attention_radius[(Types[j_v], Types[i_v])] 
@@ -322,14 +180,14 @@ class trajectron_salzmann(model_template):
                     Neighbor_edge_values[agent][key] = []
                     Dim = DIM[node_goal]
                     
-                    for i_sample in range(S.shape[0]):
+                    for i_sample in range(S_st.shape[0]):
                         Neighbors[agent][key].append([])
                         
                         I_agent_goal = np.where(Neighbor_bool[i_sample, i_agent] & feasible_goals)[0]
                         
                         Neighbor_edge_values[agent][key].append(torch.from_numpy(np.ones(len(I_agent_goal), np.float32)))
                         for i_agent_goal in I_agent_goal:
-                            Neighbors[agent][key][i_sample].append(torch.from_numpy(S[i_sample, i_agent_goal, :, :Dim]))
+                            Neighbors[agent][key][i_sample].append(torch.from_numpy(S_st[i_sample, i_agent_goal, :, :Dim]))
         
         if self.use_map:
             centre = X[:,Pred_agents,-1,:].reshape(-1, 2)
@@ -337,45 +195,37 @@ class trajectron_salzmann(model_template):
             rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
             domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(Pred_agents.sum())]
             
-            img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                    target_height = self.target_height, 
-                                                    target_width = self.target_width, grayscale = False)
+            img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
+                                                                  target_height = self.target_height, 
+                                                                  target_width = self.target_width, 
+                                                                  grayscale = False, return_resolution = True)
             
-            img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], Pred_agents.sum(), 3, 
-                                                          self.target_height, self.target_width - 80)
+            img = img[:,:,75:].transpose(0,3,1,2).reshape(X.shape[0], Pred_agents.sum(), 3, 
+                                                          self.target_height, self.target_width - 75)
             
+            img_m_per_px = img_m_per_px.reshape(X.shape[0], Pred_agents.sum()).astype('float32')
         else:
             img = None
+            img_m_per_px = None
             
             
-        Ped_agents = Types == 'PEDESTRIAN'
-        
-        S_st = S.copy()
-        S_st[:,Ped_agents,:,0:2]  /= self.std_pos_ped
-        S_st[:,~Ped_agents,:,0:2] /= self.std_pos_veh
-        S_st[:,Ped_agents,:,2:4]  /= self.std_vel_ped
-        S_st[:,~Ped_agents,:,2:4] /= self.std_vel_veh
-        S_st[:,Ped_agents,:,4:6]  /= self.std_acc_ped
-        S_st[:,~Ped_agents,:,4:6] /= self.std_acc_veh
-        S_st[:,~Ped_agents,:,6]   /= self.std_hea_veh
-        S_st[:,~Ped_agents,:,7]   /= self.std_d_h_veh
         
         if train:
             Y_st = Y.copy()
             Y_st[:,Ped_agents]  /= self.std_pos_ped
             Y_st[:,~Ped_agents] /= self.std_pos_veh
-            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, Y, Y_st
+            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, img_m_per_px, Y, Y_st
         else:
-            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img
+            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, img_m_per_px
     
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
         lr_scheduler = dict()
         for node_type in Pred_types:
-            if node_type  in self.trajectron.hyperparams['pred_state']:
+            if node_type.name in self.trajectron.hyperparams['pred_state']:
                 optimizer[node_type] = optim.Adam([{'params': self.trajectron.model_registrar.get_all_but_name_match('map_encoder').parameters()},
                                                    {'params': self.trajectron.model_registrar.get_name_match('map_encoder').parameters(), 
-                                                    'lr': 0.0008}], 
+                                                    'lr': self.trajectron.hyperparams['map_enc_learning_rate']}], 
                                                   lr = self.trajectron.hyperparams['learning_rate'])
                 # Set Learning Rate
                 if self.trajectron.hyperparams['learning_rate_style'] == 'const':
@@ -392,10 +242,12 @@ class trajectron_salzmann(model_template):
     def train_method(self, epochs = 100): 
         # prepare input data
         
-        DIM = {'VEHICLE': 8, 'PEDESTRIAN': 6}
+        DIM = {AgentType.VEHICLE: 8, AgentType.PEDESTRIAN: 8}
         
         # Classify agents
-        Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, Y, Y_st = self.extract_data(DIM, train = True)
+        (Pred_agents, Agents, Types, S, S_st, 
+         Neighbors, Neighbor_edge_values, 
+         img, img_m_per_px, Y, Y_st) = self.extract_data(DIM, train = True)
         Pred_types = np.unique(Types[Pred_agents])
         
         # Get gradient clipping values              
@@ -437,7 +289,8 @@ class trajectron_salzmann(model_template):
                     Index_use = Index_num[batch][Index_num_start[batch]:Index_num_start[batch] + batch_size]
                     
                     if len(Index_use) > 1:
-                        first_h = torch.from_numpy(np.zeros(len(Index_use), np.int32))
+                        state_len = torch.from_numpy(np.ones(len(Index_use) * S_st.shape[2], np.int32))
+                        fut_len   = torch.from_numpy(np.ones(len(Index_use) * num_steps, np.int32))
                         Index_num_start[batch] += 50
                         
                         print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch '.format(epochs) + 
@@ -445,12 +298,12 @@ class trajectron_salzmann(model_template):
                         
                         
                         self.trajectron.set_curr_iter(curr_iter)
+                        self.trajectron.step_annealers()
                         
                         i_pred_agent = 0
                         for i_agent, agent in enumerate(Agents):
                             if Pred_agents[i_agent]:
-                                node_type = str(Types[i_agent])
-                                self.trajectron.step_annealers(node_type)
+                                node_type = Types[i_agent]
                                 optimizer[node_type].zero_grad()
                                 
                                 S_batch    = torch.from_numpy(S[Index_use,i_agent,:,:DIM[node_type]])
@@ -461,36 +314,50 @@ class trajectron_salzmann(model_template):
                                 if self.use_map:
                                     img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
                                     img_batch = img_batch.to(device = self.trajectron.device) / 255
+                                    res_batch = 1 / torch.from_numpy(img_m_per_px[Index_use, i_pred_agent])
                                 else:
                                     img_batch = None
+                                    res_batch = None
                                     
                                 # Get batch data
                                 Neighbor_batch = {}
                                 Neighbor_edge_value_batch = {}
-                                for node_goal in DIM.keys():
+                                num_neigh = []
+                                for i_dim, node_goal in enumerate(DIM.keys()):
+                                    num_neigh.append([])
                                     key = (node_type, node_goal)
                                     Neighbor_batch[key] = []
                                     Neighbor_edge_value_batch[key] = []
                                     
                                     for i_sample in Index_use:
+                                        num_neigh[i_dim].append(len(Neighbors[agent][key][i_sample]))
                                         Neighbor_batch[key].append(Neighbors[agent][key][i_sample])
                                         Neighbor_edge_value_batch[key].append(Neighbor_edge_values[agent][key][i_sample]) 
-                                
+                                num_neigh = torch.tensor(num_neigh, dtype = torch.int32)
+                                num_neigh = num_neigh.sum(0)
                                 # Get Weights and model
                                 Weights = list(self.trajectron.model_registrar.parameters())
                                 model = self.trajectron.node_models_dict[node_type]
                                 
+                                # Built Agent_batch
+                                assert False
+                                # TODO: rethin neighbers
+                                batch = AgentBatch(dt = self.dt, 
+                                                   agent_name = agent, 
+                                                   agent_type = node_type, 
+                                                   agent_hist = S_st_batch, 
+                                                   agent_hist_len = state_len, 
+                                                   agent_fut = Y_batch,
+                                                   agent_fut_len = fut_len, 
+                                                   num_neigh = num_neigh, 
+                                                   neigh_types = 'something', 
+                                                   neigh_hist = 'something', 
+                                                   neigh_hist_len = 'something', 
+                                                   maps = img_batch, 
+                                                   maps_resolution = 1 / res_batch)
+                                
                                 # Run forward pass
-                                train_loss = model.train_loss(inputs                = S_batch.to(self.trajectron.device),
-                                                              inputs_st             = S_st_batch.to(self.trajectron.device),
-                                                              first_history_indices = first_h.to(self.trajectron.device),
-                                                              labels                = Y_batch.to(self.trajectron.device),
-                                                              labels_st             = Y_st_batch.to(self.trajectron.device),
-                                                              neighbors             = Neighbor_batch,
-                                                              neighbors_edge_value  = Neighbor_edge_value_batch,       
-                                                              robot                 = None,
-                                                              map                   = img_batch,
-                                                              prediction_horizon    = num_steps)
+                                train_loss = model.train_loss(batch = batch.to(device = self.trajectron.device))
                 
                                 assert train_loss.isfinite().all(), "The overall loss of the model is nan"
                 
@@ -542,8 +409,13 @@ class trajectron_salzmann(model_template):
         for i_sample in range(len(self.Output_T_pred_test)):
             self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
             
-        DIM = {'VEHICLE': 8, 'PEDESTRIAN': 6}
-        Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img = self.extract_data(DIM, train = False)
+        
+        DIM = {AgentType.VEHICLE: 8, AgentType.PEDESTRIAN: 8}
+        
+        # Classify agents
+        (Pred_agents, Agents, Types, S, S_st, 
+         Neighbors, Neighbor_edge_values, 
+         img, img_m_per_px) = self.extract_data(DIM, train = False)
         
         
         Path_names = np.array([name for name in self.Output_path_train.columns])
@@ -571,6 +443,7 @@ class trajectron_salzmann(model_template):
                               for i in range(int(np.ceil(len(Index_num)/ batch_size_real)))] 
             
             for Index_use in Index_uses:
+                state_len = torch.from_numpy(np.ones(len(Index_use) * S_st.shape[2], np.int32))
                 i_pred_agent = 0
                 for i_agent, agent in enumerate(Agents):
                     if Pred_agents[i_agent]:
@@ -582,36 +455,49 @@ class trajectron_salzmann(model_template):
                         if self.use_map:
                             img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
                             img_batch = img_batch.to(device = self.trajectron.device) / 255
+                            res_batch = 1 / torch.from_numpy(img_m_per_px[Index_use, i_pred_agent])
                         else:
                             img_batch = None
+                            res_batch = None
                             
                         # Get batch data
                         Neighbor_batch = {}
                         Neighbor_edge_value_batch = {}
-                        for node_goal in DIM.keys():
-                            key = (node_type,node_goal)
+                        num_neigh = []
+                        for i_dim, node_goal in enumerate(DIM.keys()):
+                            num_neigh.append([])
+                            key = (node_type, node_goal)
                             Neighbor_batch[key] = []
                             Neighbor_edge_value_batch[key] = []
                             
                             for i_sample in Index_use:
+                                num_neigh[i_dim].append(len(Neighbors[agent][key][i_sample]))
                                 Neighbor_batch[key].append(Neighbors[agent][key][i_sample])
                                 Neighbor_edge_value_batch[key].append(Neighbor_edge_values[agent][key][i_sample]) 
+                        num_neigh = torch.tensor(num_neigh, dtype = torch.int32)
+                        num_neigh = num_neigh.sum(0)
                         
-                        first_h = torch.from_numpy(np.zeros(len(Index_use), np.int32))
+                        batch = AgentBatch(dt = self.dt, 
+                                           agent_name = agent, 
+                                           agent_type = node_type, 
+                                           agent_hist = S_st_batch, 
+                                           agent_hist_len = state_len, 
+                                           num_neigh = num_neigh, 
+                                           neigh_types = 'something', 
+                                           neigh_hist = 'something', 
+                                           neigh_hist_len = 'something', 
+                                           maps = img_batch, 
+                                           maps_resolution = 1 / res_batch)
+                        
+                        
                         # Run prediction pass
                         model = self.trajectron.node_models_dict[node_type]
                         
                         self.trajectron.model_registrar.to(self.trajectron.device)
                         with torch.no_grad(): # Do not build graph for backprop
-                            predictions = model.predict(inputs                = S_batch.to(self.trajectron.device),
-                                                        inputs_st             = S_st_batch.to(self.trajectron.device),
-                                                        first_history_indices = first_h.to(self.trajectron.device),
-                                                        neighbors             = Neighbor_batch,
-                                                        neighbors_edge_value  = Neighbor_edge_value_batch,
-                                                        robot                 = None,
-                                                        map                   = img_batch,
-                                                        prediction_horizon    = num,
-                                                        num_samples           = self.num_samples_path_pred)
+                            predictions = model.predict(batch              = batch.to(self.trajectron.device),
+                                                        prediction_horizon = num,
+                                                        num_samples        = self.num_samples_path_pred)
                         
                         Pred = predictions.detach().cpu().numpy()
                         torch.cuda.empty_cache()

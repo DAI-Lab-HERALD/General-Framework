@@ -1,3 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+# http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import numpy as np
 
 
@@ -6,10 +21,15 @@ def make_continuous_copy(alpha):
     continuous_x = np.zeros_like(alpha)
     continuous_x[0] = alpha[0]
     for i in range(1, len(alpha)):
-        if not (np.sign(alpha[i]) == np.sign(alpha[i - 1])) and np.abs(alpha[i]) > np.pi / 2:
-            continuous_x[i] = continuous_x[i - 1] + (
-                    alpha[i] - alpha[i - 1]) - np.sign(
-                (alpha[i] - alpha[i - 1])) * 2 * np.pi
+        if (
+            not (np.sign(alpha[i]) == np.sign(alpha[i - 1]))
+            and np.abs(alpha[i]) > np.pi / 2
+        ):
+            continuous_x[i] = (
+                continuous_x[i - 1]
+                + (alpha[i] - alpha[i - 1])
+                - np.sign((alpha[i] - alpha[i - 1])) * 2 * np.pi
+            )
         else:
             continuous_x[i] = continuous_x[i - 1] + (alpha[i] - alpha[i - 1])
 
@@ -31,3 +51,15 @@ def derivative_of(x, dt=1, radian=False):
 
     return dx
 
+
+def gradient_of(x, dt=1, radian=False):
+    if radian:
+        x = make_continuous_copy(x)
+
+    if x[~np.isnan(x)].shape[-1] < 2:
+        return np.zeros_like(x)
+
+    dx = np.full_like(x, np.nan)
+    dx[~np.isnan(x)] = np.gradient(x[~np.isnan(x)], dt)
+
+    return dx

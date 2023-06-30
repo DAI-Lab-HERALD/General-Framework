@@ -18,7 +18,7 @@ Data_params = [{'dt': 0.2, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (10,
 Splitters = [{'Type': 'Random_split', 'repetition': 0, 'test_part': 0.2}]
 
 # Select the models to be trained
-Models = ['commotions_markkula_L1', 'trajectron_salzmann', 'logit_theofilatos', 'logit_theofilatos_general']
+Models = ['trajectron_salzmann']
 
 # Select the metrics to be used
 Metrics = ['ROC_curve']

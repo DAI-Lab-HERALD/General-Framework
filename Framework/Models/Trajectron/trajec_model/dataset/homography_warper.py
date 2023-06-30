@@ -1,8 +1,23 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+# http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional
-
 
 pi = torch.tensor(3.14159265358979323846)
 
@@ -15,10 +30,9 @@ def deg2rad(tensor: torch.Tensor) -> torch.Tensor:
         torch.Tensor: tensor with same shape as input.
     """
     if not isinstance(tensor, torch.Tensor):
-        raise TypeError("Input type is not a torch.Tensor. Got {}".format(
-            type(tensor)))
+        raise TypeError("Input type is not a torch.Tensor. Got {}".format(type(tensor)))
 
-    return tensor * pi.to(tensor.device).type(tensor.dtype) / 180.
+    return tensor * pi.to(tensor.device).type(tensor.dtype) / 180.0
 
 
 def angle_to_rotation_matrix(angle: torch.Tensor) -> torch.Tensor:
@@ -42,9 +56,8 @@ def angle_to_rotation_matrix(angle: torch.Tensor) -> torch.Tensor:
 
 
 def get_rotation_matrix2d(
-        center: torch.Tensor,
-        angle: torch.Tensor,
-        scale: torch.Tensor) -> torch.Tensor:
+    center: torch.Tensor, angle: torch.Tensor, scale: torch.Tensor
+) -> torch.Tensor:
     r"""Calculates an affine matrix of 2D rotation.
     The function calculates the following matrix:
     .. math::
@@ -80,28 +93,35 @@ def get_rotation_matrix2d(
                  [-0.7071,  0.7071,  0.0000]]])
     """
     if not torch.is_tensor(center):
-        raise TypeError("Input center type is not a torch.Tensor. Got {}"
-                        .format(type(center)))
+        raise TypeError(
+            "Input center type is not a torch.Tensor. Got {}".format(type(center))
+        )
     if not torch.is_tensor(angle):
-        raise TypeError("Input radian type is not a torch.Tensor. Got {}"
-                        .format(type(angle)))
+        raise TypeError(
+            "Input radian type is not a torch.Tensor. Got {}".format(type(angle))
+        )
     if not torch.is_tensor(scale):
-        raise TypeError("Input scale type is not a torch.Tensor. Got {}"
-                        .format(type(scale)))
+        raise TypeError(
+            "Input scale type is not a torch.Tensor. Got {}".format(type(scale))
+        )
     if not (len(center.shape) == 2 and center.shape[1] == 2):
-        raise ValueError("Input center must be a Bx2 tensor. Got {}"
-                         .format(center.shape))
+        raise ValueError(
+            "Input center must be a Bx2 tensor. Got {}".format(center.shape)
+        )
     if not len(angle.shape) == 1:
-        raise ValueError("Input radian must be a B tensor. Got {}"
-                         .format(angle.shape))
+        raise ValueError("Input radian must be a B tensor. Got {}".format(angle.shape))
     if not len(scale.shape) == 1:
-        raise ValueError("Input scale must be a B tensor. Got {}"
-                         .format(scale.shape))
+        raise ValueError("Input scale must be a B tensor. Got {}".format(scale.shape))
     if not (center.shape[0] == angle.shape[0] == scale.shape[0]):
-        raise ValueError("Inputs must have same batch size dimension. Got {}"
-                         .format(center.shape, angle.shape, scale.shape))
+        raise ValueError(
+            "Inputs must have same batch size dimension. Got {}".format(
+                center.shape, angle.shape, scale.shape
+            )
+        )
     # convert radian and apply scale
-    scaled_rotation: torch.Tensor = angle_to_rotation_matrix(angle) * scale.view(-1, 1, 1)
+    scaled_rotation: torch.Tensor = angle_to_rotation_matrix(angle) * scale.view(
+        -1, 1, 1
+    )
     alpha: torch.Tensor = scaled_rotation[:, 0, 0]
     beta: torch.Tensor = scaled_rotation[:, 0, 1]
 
@@ -112,11 +132,13 @@ def get_rotation_matrix2d(
     # create output tensor
     batch_size: int = center.shape[0]
     M: torch.Tensor = torch.zeros(
-        batch_size, 2, 3, device=center.device, dtype=center.dtype)
+        batch_size, 2, 3, device=center.device, dtype=center.dtype
+    )
     M[..., 0:2, 0:2] = scaled_rotation
-    M[..., 0, 2] = (torch.tensor(1.) - alpha) * x - beta * y
-    M[..., 1, 2] = beta * x + (torch.tensor(1.) - alpha) * y
+    M[..., 0, 2] = (torch.tensor(1.0) - alpha) * x - beta * y
+    M[..., 1, 2] = beta * x + (torch.tensor(1.0) - alpha) * y
     return M
+
 
 def convert_points_to_homogeneous(points: torch.Tensor) -> torch.Tensor:
     r"""Function that converts points from Euclidean to homogeneous space.
@@ -125,29 +147,30 @@ def convert_points_to_homogeneous(points: torch.Tensor) -> torch.Tensor:
         >>> output = kornia.convert_points_to_homogeneous(input)  # BxNx4
     """
     if not isinstance(points, torch.Tensor):
-        raise TypeError("Input type is not a torch.Tensor. Got {}".format(
-            type(points)))
+        raise TypeError("Input type is not a torch.Tensor. Got {}".format(type(points)))
     if len(points.shape) < 2:
-        raise ValueError("Input must be at least a 2D tensor. Got {}".format(
-            points.shape))
+        raise ValueError(
+            "Input must be at least a 2D tensor. Got {}".format(points.shape)
+        )
 
     return torch.nn.functional.pad(points, [0, 1], "constant", 1.0)
 
 
 def convert_points_from_homogeneous(
-        points: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    points: torch.Tensor, eps: float = 1e-8
+) -> torch.Tensor:
     r"""Function that converts points from homogeneous to Euclidean space.
     Examples::
         >>> input = torch.rand(2, 4, 3)  # BxNx3
         >>> output = kornia.convert_points_from_homogeneous(input)  # BxNx2
     """
     if not isinstance(points, torch.Tensor):
-        raise TypeError("Input type is not a torch.Tensor. Got {}".format(
-            type(points)))
+        raise TypeError("Input type is not a torch.Tensor. Got {}".format(type(points)))
 
     if len(points.shape) < 2:
-        raise ValueError("Input must be at least a 2D tensor. Got {}".format(
-            points.shape))
+        raise ValueError(
+            "Input must be at least a 2D tensor. Got {}".format(points.shape)
+        )
 
     # we check for points at infinity
     z_vec: torch.Tensor = points[..., -1:]
@@ -157,12 +180,13 @@ def convert_points_from_homogeneous(
     # https://github.com/opencv/opencv/pull/14411/files
     mask: torch.Tensor = torch.abs(z_vec) > eps
     scale: torch.Tensor = torch.ones_like(z_vec).masked_scatter_(
-        mask, torch.tensor(1.0).to(points.device) / z_vec[mask])
+        mask, torch.tensor(1.0).to(points.device) / z_vec[mask]
+    )
 
     return scale * points[..., :-1]
 
-def transform_points(trans_01: torch.Tensor,
-                     points_1: torch.Tensor) -> torch.Tensor:
+
+def transform_points(trans_01: torch.Tensor, points_1: torch.Tensor) -> torch.Tensor:
     r"""Function that applies transformations to a set of points.
     Args:
         trans_01 (torch.Tensor): tensor for transformations of shape
@@ -188,15 +212,14 @@ def transform_points(trans_01: torch.Tensor,
     # to homogeneous
     points_1_h = convert_points_to_homogeneous(points_1)  # BxNxD+1
     # transform coordinates
-    points_0_h = torch.matmul(
-        trans_01.unsqueeze(1), points_1_h.unsqueeze(-1))
+    points_0_h = torch.matmul(trans_01.unsqueeze(1), points_1_h.unsqueeze(-1))
     points_0_h = torch.squeeze(points_0_h, dim=-1)
     # to euclidean
     points_0 = convert_points_from_homogeneous(points_0_h)  # BxNxD
     return points_0
 
 
-def multi_linspace(a, b, num, endpoint=True, device='cpu', dtype=torch.float):
+def multi_linspace(a, b, num, endpoint=True, device="cpu", dtype=torch.float):
     """This function is just like np.linspace, but will create linearly
     spaced vectors from a start to end vector.
     Inputs:
@@ -207,17 +230,20 @@ def multi_linspace(a, b, num, endpoint=True, device='cpu', dtype=torch.float):
                    Otherwise, it is not included. Default is True.
     """
 
-    return a[..., None] + (b-a)[..., None]/(num-endpoint) * torch.arange(num, device=device, dtype=dtype)
+    return a[..., None] + (b - a)[..., None] / (num - endpoint) * torch.arange(
+        num, device=device, dtype=dtype
+    )
 
 
 def create_batched_meshgrid(
-        x_min: torch.Tensor,
-        y_min: torch.Tensor,
-        x_max: torch.Tensor,
-        y_max: torch.Tensor,
-        height: int,
-        width: int,
-        device: Optional[torch.device] = torch.device('cpu')) -> torch.Tensor:
+    x_min: torch.Tensor,
+    y_min: torch.Tensor,
+    x_max: torch.Tensor,
+    y_max: torch.Tensor,
+    height: int,
+    width: int,
+    device: Optional[torch.device] = torch.device("cpu"),
+) -> torch.Tensor:
     """Generates a coordinate grid for an image.
     When the flag `normalized_coordinates` is set to True, the grid is
     normalized to be in the range [-1,1] to be consistent with the pytorch
@@ -240,17 +266,21 @@ def create_batched_meshgrid(
     bs = x_min.shape[0]
     batched_grid_i_list = list()
     for i in range(bs):
-        batched_grid_i_list.append(torch.stack(torch.meshgrid([xs[i], ys[i]])).transpose(1, 2))  # 2xHxW
+        batched_grid_i_list.append(
+            torch.stack(torch.meshgrid([xs[i], ys[i]])).transpose(1, 2)
+        )  # 2xHxW
     batched_grid: torch.Tensor = torch.stack(batched_grid_i_list, dim=0)
     return batched_grid.permute(0, 2, 3, 1)  # BxHxWx2
 
 
-def homography_warp(patch_src: torch.Tensor,
-                    centers: torch.Tensor,
-                    dst_homo_src: torch.Tensor,
-                    dsize: Tuple[int, int],
-                    mode: str = 'bilinear',
-                    padding_mode: str = 'zeros') -> torch.Tensor:
+def homography_warp(
+    patch_src: torch.Tensor,
+    centers: torch.Tensor,
+    dst_homo_src: torch.Tensor,
+    dsize: Tuple[int, int],
+    mode: str = "bilinear",
+    padding_mode: str = "zeros",
+) -> torch.Tensor:
     r"""Function that warps image patchs or tensors by homographies.
     See :class:`~kornia.geometry.warp.HomographyWarper` for details.
     Args:
@@ -274,19 +304,21 @@ def homography_warp(patch_src: torch.Tensor,
 
     out_height, out_width = dsize
     image_height, image_width = patch_src.shape[-2:]
-    x_min = 2. * (centers[..., 0] - out_width/2) / image_width - 1.
-    y_min = 2. * (centers[..., 1] - out_height/2) / image_height - 1.
-    x_max = 2. * (centers[..., 0] + out_width/2) / image_width - 1.
-    y_max = 2. * (centers[..., 1] + out_height/2) / image_height - 1.
-    warper = HomographyWarper(x_min, y_min, x_max, y_max, out_height, out_width, mode, padding_mode)
+    x_min = 2.0 * (centers[..., 0] - out_width / 2) / image_width - 1.0
+    y_min = 2.0 * (centers[..., 1] - out_height / 2) / image_height - 1.0
+    x_max = 2.0 * (centers[..., 0] + out_width / 2) / image_width - 1.0
+    y_max = 2.0 * (centers[..., 1] + out_height / 2) / image_height - 1.0
+    warper = HomographyWarper(
+        x_min, y_min, x_max, y_max, out_height, out_width, mode, padding_mode
+    )
     return warper(patch_src, dst_homo_src)
 
 
 def normal_transform_pixel(height, width):
 
-    tr_mat = torch.Tensor([[1.0, 0.0, -1.0],
-                           [0.0, 1.0, -1.0],
-                           [0.0, 0.0, 1.0]])  # 1x3x3
+    tr_mat = torch.Tensor(
+        [[1.0, 0.0, -1.0], [0.0, 1.0, -1.0], [0.0, 0.0, 1.0]]
+    )  # 1x3x3
 
     tr_mat[0, 0] = tr_mat[0, 0] * 2.0 / (width - 1.0)
     tr_mat[1, 1] = tr_mat[1, 1] * 2.0 / (height - 1.0)
@@ -296,8 +328,11 @@ def normal_transform_pixel(height, width):
     return tr_mat
 
 
-def src_norm_to_dst_norm(dst_pix_trans_src_pix: torch.Tensor,
-                         dsize_src: Tuple[int, int], dsize_dst: Tuple[int, int]) -> torch.Tensor:
+def src_norm_to_dst_norm(
+    dst_pix_trans_src_pix: torch.Tensor,
+    dsize_src: Tuple[int, int],
+    dsize_dst: Tuple[int, int],
+) -> torch.Tensor:
     # source and destination sizes
     src_h, src_w = dsize_src
     dst_h, dst_w = dsize_dst
@@ -305,28 +340,38 @@ def src_norm_to_dst_norm(dst_pix_trans_src_pix: torch.Tensor,
     device: torch.device = dst_pix_trans_src_pix.device
     dtype: torch.dtype = dst_pix_trans_src_pix.dtype
     # compute the transformation pixel/norm for src/dst
-    src_norm_trans_src_pix: torch.Tensor = normal_transform_pixel(
-        src_h, src_w).to(device, dtype)
+    src_norm_trans_src_pix: torch.Tensor = normal_transform_pixel(src_h, src_w).to(
+        device, dtype
+    )
     src_pix_trans_src_norm = torch.inverse(src_norm_trans_src_pix)
-    dst_norm_trans_dst_pix: torch.Tensor = normal_transform_pixel(
-        dst_h, dst_w).to(device, dtype)
+    dst_norm_trans_dst_pix: torch.Tensor = normal_transform_pixel(dst_h, dst_w).to(
+        device, dtype
+    )
     # compute chain transformations
-    dst_norm_trans_src_norm: torch.Tensor = (
-        dst_norm_trans_dst_pix @ (dst_pix_trans_src_pix @ src_pix_trans_src_norm)
+    dst_norm_trans_src_norm: torch.Tensor = dst_norm_trans_dst_pix @ (
+        dst_pix_trans_src_pix @ src_pix_trans_src_norm
     )
     return dst_norm_trans_src_norm
 
 
-def transform_warp_impl(src: torch.Tensor, centers: torch.Tensor, dst_pix_trans_src_pix: torch.Tensor,
-                        dsize_src: Tuple[int, int], dsize_dst: Tuple[int, int],
-                        grid_mode: str, padding_mode: str) -> torch.Tensor:
-    """Compute the transform in normalized cooridnates and perform the warping.
-    """
+def transform_warp_impl(
+    src: torch.Tensor,
+    centers: torch.Tensor,
+    dst_pix_trans_src_pix: torch.Tensor,
+    dsize_src: Tuple[int, int],
+    dsize_dst: Tuple[int, int],
+    grid_mode: str,
+    padding_mode: str,
+) -> torch.Tensor:
+    """Compute the transform in normalized cooridnates and perform the warping."""
     dst_norm_trans_src_norm: torch.Tensor = src_norm_to_dst_norm(
-        dst_pix_trans_src_pix, dsize_src, dsize_src)
+        dst_pix_trans_src_pix, dsize_src, dsize_src
+    )
 
     src_norm_trans_dst_norm = torch.inverse(dst_norm_trans_src_norm)
-    return homography_warp(src, centers, src_norm_trans_dst_norm, dsize_dst, grid_mode, padding_mode)
+    return homography_warp(
+        src, centers, src_norm_trans_dst_norm, dsize_dst, grid_mode, padding_mode
+    )
 
 
 class HomographyWarper(nn.Module):
@@ -343,15 +388,16 @@ class HomographyWarper(nn.Module):
     """
 
     def __init__(
-            self,
-            x_min: torch.Tensor,
-            y_min: torch.Tensor,
-            x_max: torch.Tensor,
-            y_max: torch.Tensor,
-            height: int,
-            width: int,
-            mode: str = 'bilinear',
-            padding_mode: str = 'zeros') -> None:
+        self,
+        x_min: torch.Tensor,
+        y_min: torch.Tensor,
+        x_max: torch.Tensor,
+        y_max: torch.Tensor,
+        height: int,
+        width: int,
+        mode: str = "bilinear",
+        padding_mode: str = "zeros",
+    ) -> None:
         super(HomographyWarper, self).__init__()
         self.width: int = width
         self.height: int = height
@@ -359,7 +405,9 @@ class HomographyWarper(nn.Module):
         self.padding_mode: str = padding_mode
 
         # create base grid to compute the flow
-        self.grid: torch.Tensor = create_batched_meshgrid(x_min, y_min, x_max, y_max, height, width)
+        self.grid: torch.Tensor = create_batched_meshgrid(
+            x_min, y_min, x_max, y_max, height, width
+        )
 
     def warp_grid(self, dst_homo_src: torch.Tensor) -> torch.Tensor:
         r"""Computes the grid to warp the coordinates grid by an homography.
@@ -380,13 +428,13 @@ class HomographyWarper(nn.Module):
         # perform the actual grid transformation,
         # the grid is copied to input device and casted to the same type
         flow: torch.Tensor = transform_points(
-            dst_homo_src, grid.to(device).to(dtype))  # NxHxWx2
+            dst_homo_src, grid.to(device).to(dtype)
+        )  # NxHxWx2
         return flow.view(batch_size, self.height, self.width, 2)  # NxHxWx2
 
     def forward(  # type: ignore
-            self,
-            patch_src: torch.Tensor,
-            dst_homo_src: torch.Tensor) -> torch.Tensor:
+        self, patch_src: torch.Tensor, dst_homo_src: torch.Tensor
+    ) -> torch.Tensor:
         r"""Warps an image or tensor from source into reference frame.
         Args:
             patch_src (torch.Tensor): The image or tensor to warp.
@@ -406,17 +454,30 @@ class HomographyWarper(nn.Module):
             >>> output = warper(input, homography)  # NxCxHxW
         """
         if not dst_homo_src.device == patch_src.device:
-            raise TypeError("Patch and homography must be on the same device. \
-                            Got patch.device: {} dst_H_src.device: {}."
-                            .format(patch_src.device, dst_homo_src.device))
+            raise TypeError(
+                "Patch and homography must be on the same device. \
+                            Got patch.device: {} dst_H_src.device: {}.".format(
+                    patch_src.device, dst_homo_src.device
+                )
+            )
 
-        return F.grid_sample(patch_src, self.warp_grid(dst_homo_src),  # type: ignore
-                             mode=self.mode, padding_mode=self.padding_mode, align_corners=True)
+        return F.grid_sample(
+            patch_src,
+            self.warp_grid(dst_homo_src),  # type: ignore
+            mode=self.mode,
+            padding_mode=self.padding_mode,
+            align_corners=True,
+        )
 
 
-def warp_affine_crop(src: torch.Tensor, centers: torch.Tensor, M: torch.Tensor,
-                dsize: Tuple[int, int], flags: str = 'bilinear',
-                padding_mode: str = 'zeros') -> torch.Tensor:
+def warp_affine_crop(
+    src: torch.Tensor,
+    centers: torch.Tensor,
+    M: torch.Tensor,
+    dsize: Tuple[int, int],
+    flags: str = "bilinear",
+    padding_mode: str = "zeros",
+) -> torch.Tensor:
     r"""Applies an affine transformation to a tensor.
 
     The function warp_affine transforms the source tensor using
@@ -446,24 +507,21 @@ def warp_affine_crop(src: torch.Tensor, centers: torch.Tensor, M: torch.Tensor,
        tutorials/warp_affine.html>`__.
     """
     if not torch.is_tensor(src):
-        raise TypeError("Input src type is not a torch.Tensor. Got {}"
-                        .format(type(src)))
+        raise TypeError(
+            "Input src type is not a torch.Tensor. Got {}".format(type(src))
+        )
 
     if not torch.is_tensor(M):
-        raise TypeError("Input M type is not a torch.Tensor. Got {}"
-                        .format(type(M)))
+        raise TypeError("Input M type is not a torch.Tensor. Got {}".format(type(M)))
 
     if not len(src.shape) == 4:
-        raise ValueError("Input src must be a BxCxHxW tensor. Got {}"
-                         .format(src.shape))
+        raise ValueError("Input src must be a BxCxHxW tensor. Got {}".format(src.shape))
 
     if not (len(M.shape) == 3 or M.shape[-2:] == (2, 3)):
-        raise ValueError("Input M must be a Bx2x3 tensor. Got {}"
-                         .format(src.shape))
+        raise ValueError("Input M must be a Bx2x3 tensor. Got {}".format(src.shape))
 
     # we generate a 3x3 transformation matrix from 2x3 affine
-    M_3x3: torch.Tensor = F.pad(M, [0, 0, 0, 1, 0, 0],
-                                mode="constant", value=0)
+    M_3x3: torch.Tensor = F.pad(M, [0, 0, 0, 1, 0, 0], mode="constant", value=0)
     M_3x3[:, 2, 2] += 1.0
 
     # launches the warper

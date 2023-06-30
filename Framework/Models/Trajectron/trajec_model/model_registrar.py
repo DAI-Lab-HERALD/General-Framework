@@ -1,4 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+# http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
+
 import torch
 import torch.nn as nn
 
@@ -15,7 +31,9 @@ class ModelRegistrar(nn.Module):
         self.device = device
 
     def forward(self):
-        raise NotImplementedError('Although ModelRegistrar is a nn.Module, it is only to store parameters.')
+        raise NotImplementedError(
+            "Although ModelRegistrar is a nn.Module, it is only to store parameters."
+        )
 
     def get_model(self, name, model_if_absent=None):
         # 4 cases: name in self.model_dict and model_if_absent is None         (OK)
@@ -31,7 +49,7 @@ class ModelRegistrar(nn.Module):
             return self.model_dict[name]
 
         else:
-            raise ValueError(f'{name} was never initialized in this Registrar!')
+            raise ValueError(f"{name} was never initialized in this Registrar!")
 
     def get_name_match(self, name):
         ret_model_list = nn.ModuleList()
@@ -52,24 +70,17 @@ class ModelRegistrar(nn.Module):
 
     def save_models(self, curr_iter):
         # Create the model directiory if it's not present.
-        save_path = os.path.join(self.model_dir,
-                                 'model_registrar-%d.pt' % curr_iter)
+        save_path = os.path.join(self.model_dir, "model_registrar-%d.pt" % curr_iter)
 
         torch.save(self.model_dict, save_path)
 
     def load_models(self, iter_num):
         self.model_dict.clear()
-        
-        save_path = os.path.join(self.model_dir,
-                                 'model_registrar-%d.pt' % iter_num)
 
-        print('')
-        print('Loading from ' + save_path)
+        save_path = os.path.join(self.model_dir, "model_registrar-%d.pt" % iter_num)
+
+        print("")
+        print("Loading from " + save_path)
         self.model_dict = torch.load(save_path, map_location=self.device)
-        print('Loaded!')
-        print('')
-
-    def to(self, device):
-        for name, model in self.model_dict.items():
-            if get_model_device(model) != device:
-                model.to(device)
+        print("Loaded!")
+        print("")

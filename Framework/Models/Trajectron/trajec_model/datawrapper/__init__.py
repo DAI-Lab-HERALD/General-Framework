@@ -13,5 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .mgcvae import MultimodalGenerativeCVAE
-from .trajectron import Trajectron
+from .agent import AgentBatch, AgentType, StateTensor
+from .state import StateTensor
