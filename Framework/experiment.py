@@ -76,9 +76,38 @@ class Experiment():
         
         self.Data_sets          = Data_sets
         self.Data_params        = Data_params
-        self.Splitters          = Splitters
         self.Models             = Models
         self.Metrics            = Metrics
+        
+        # Check if multiple splitter repetitions have been provided
+        self.Splitters = []
+        for split_dict in Splitters:
+            assert isinstance(split_dict, dict), "Split is not provided as a dictionary."
+            assert 'Type' in split_dict.keys(), "Type name is missing from split."
+            
+            splitter_name = split_dict['Type']
+            
+            if 'test_part' in split_dict.keys():
+                splitter_tp = split_dict['test_part']
+                assert isinstance(splitter_tp, float), "Test split size has to be a float"
+                assert ((0 < splitter_tp) and (splitter_tp < 1)), "Test split size has to be in (0, 1)"
+            else:
+                splitter_tp = 0.2
+            
+            if 'repetition' in split_dict.keys():
+                reps = split_dict['repetition']
+                if isinstance(reps, list):
+                    for rep in reps:
+                        assert isinstance(rep, int), "Split repetition number must be an integer."
+                else:
+                    assert isinstance(reps, int), "Split repetition number must be an integer."
+                    reps = [reps]
+            else:
+                reps = [0]
+                
+            for rep in reps:
+                new_split_dict = {'Type': splitter_name, 'repetition': rep, 'test_part': splitter_tp}
+                self.Splitters.append(new_split_dict)
         
         self.provided_modules = True
         
@@ -239,15 +268,8 @@ class Experiment():
                 for k, splitter_param in enumerate(self.Splitters):
                     # Get splitting method class
                     splitter_name = splitter_param['Type']
-                    if 'repetition' in splitter_param.keys():
-                        splitter_rep = splitter_param['repetition']
-                    else:
-                        splitter_rep = 0
-                        
-                    if 'test_part' in splitter_param.keys():
-                        splitter_tp = splitter_param['test_part']
-                    else:
-                        splitter_tp = 0.2
+                    splitter_rep = splitter_param['repetition']
+                    splitter_tp = splitter_param['test_part']
                         
                     splitter_module = importlib.import_module(splitter_name)
                     splitter_class = getattr(splitter_module, splitter_name)
