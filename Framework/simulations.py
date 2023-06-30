@@ -12,13 +12,13 @@ new_experiment = Experiment(Experiment_name)
 Data_sets = [{'scenario': 'HighD_lane_change', 't0_type': 'start', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
-Data_params = [{'dt': 0.2, 'num_timesteps_in': (5, 5), 'num_timesteps_out': (10, 10)}] 
+Data_params = [{'dt': 0.2, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (10, 10)}] 
 
 # Select the spitting methods to be considered
 Splitters = [{'Type': 'Random_split', 'repetition': 0, 'test_part': 0.2}]
 
 # Select the models to be trained
-Models = ['trajectron_salzmann', 'logit_theofilatos', 'logit_theofilatos_general']
+Models = ['commotions_markkula_L1', 'trajectron_salzmann', 'logit_theofilatos', 'logit_theofilatos_general']
 
 # Select the metrics to be used
 Metrics = ['ROC_curve']

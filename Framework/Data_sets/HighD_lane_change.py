@@ -293,7 +293,7 @@ class HighD_lane_change(data_set_template):
             
         Dc = tar_x - ego_x - vehicle_length
         
-        lane_mark = laneMarkings[np.argmax(laneMarkings[np.newaxis] > tar_y[:,0], axis = 1)]
+        lane_mark = laneMarkings[np.argmax(laneMarkings[np.newaxis] > tar_y[:,[0]], axis = 1)]
         
         # 0.75m are the assumed minimal vehicle 
         DA = lane_mark[:,np.newaxis] - tar_y - 0.5
@@ -538,6 +538,7 @@ class HighD_lane_change(data_set_template):
                                            interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
 
         return path 
+    
     
     def provide_map_drawing(self, domain):
         # TODO: overwrite if actual lane markings are available

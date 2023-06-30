@@ -76,7 +76,7 @@ class data_interface(object):
         assert len(self.needed_agents) > 0, "There must be predictable agents."
     
         # Check if general input is possible
-        self.general_input_available = (self.scenario.can_provide_general_input() and
+        self.general_input_available = (self.scenario.can_provide_general_input() != False and
                                         self.classification_useful)
         
         # Get a needed name:
@@ -92,6 +92,8 @@ class data_interface(object):
         else:
             self.t0_type = 'mixed'
             self.t0_type_name = 'mixed'
+            
+        self.p_quantile = list(self.Datasets.values())[0].p_quantile
             
         self.data_loaded = False
         

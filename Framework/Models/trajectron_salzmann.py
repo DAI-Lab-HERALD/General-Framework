@@ -455,8 +455,8 @@ class trajectron_salzmann(model_template):
                                 
                                 S_batch    = torch.from_numpy(S[Index_use,i_agent,:,:DIM[node_type]])
                                 S_st_batch = torch.from_numpy(S_st[Index_use,i_agent,:,:DIM[node_type]])
-                                Y_batch    = torch.from_numpy(Y[Index_use,i_agent,:,:num_steps])
-                                Y_st_batch = torch.from_numpy(Y_st[Index_use,i_agent,:,:num_steps])
+                                Y_batch    = torch.from_numpy(Y[Index_use,i_agent,:num_steps])
+                                Y_st_batch = torch.from_numpy(Y_st[Index_use,i_agent,:num_steps])
                                 
                                 if self.use_map:
                                     img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
@@ -481,7 +481,6 @@ class trajectron_salzmann(model_template):
                                 model = self.trajectron.node_models_dict[node_type]
                                 
                                 # Run forward pass
-                                assert False
                                 train_loss = model.train_loss(inputs                = S_batch.to(self.trajectron.device),
                                                               inputs_st             = S_st_batch.to(self.trajectron.device),
                                                               first_history_indices = first_h.to(self.trajectron.device),

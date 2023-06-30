@@ -8,6 +8,7 @@ from ax.service.ax_client import AxClient
 from ax.modelbridge.generation_strategy import GenerationStrategy
 from ax.modelbridge.generation_node import GenerationStep
 from ax.modelbridge.registry import Models
+from scipy import interpolate as interp
 
 
 # Define an enumeration for the control type
@@ -52,7 +53,7 @@ class SimulationState:
 
 class SCAgent:
     def __init__(self, device, name, ctrl_type, coll_dist, free_speeds, simulation, goal_pos, 
-                 conflict_point, initial_pos, initial_long_speed, initial_yaw_angle, 
+                 conflict_point, initial_pos, initial_long_speed, initial_long_accs, initial_yaw_angle, 
                  fixed_params, variable_params, give_priority = False, num_paths = 1,
                  const_acc = None, zero_acc_after_exit = False, 
                  plot_color = 'k', debug = False):
@@ -119,6 +120,9 @@ class SCAgent:
         if initial_long_speed is None:
             initial_long_speed = torch.zeros((self.n_samples), dtype = torch.float32, device = self.device)
             
+        if initial_long_accs is None:
+            initial_long_accs = torch.zeros((self.n_samples), dtype = torch.float32, device = self.device)
+            
         if initial_yaw_angle is None:
             if (initial_pos is not None) and (goal_pos is not None):
                 agent_to_goal_vector = goal_pos[None] - initial_pos
@@ -129,6 +133,7 @@ class SCAgent:
         # initial trajectory states (first update will be from 0 to 1)
         self.traj_pos[:, :, :, :, 0]     = initial_pos[None, :, None, :]
         self.traj_long_speed[:, :, :, 0] = torch.maximum(self.min_speed, initial_long_speed[None, :, None])
+        self.traj_long_acc[:, :, :, 0]   = initial_long_accs[None, :, None]
         self.traj_yaw_angle[:, :, :, 0]  = initial_yaw_angle[None, :, None]
         
         # is this agent to just keep a constant acceleration?
@@ -138,27 +143,35 @@ class SCAgent:
         self.params = copy.copy(fixed_params)
         
         # Add variable parameters
-        self.params.beta_V              = variable_params[:,0]
-        self.params.DeltaV_th_rel       = variable_params[:,1]
-        self.params.T                   = variable_params[:,2]
-        self.params.T_delta             = variable_params[:,3]
-        self.params.tau_theta           = variable_params[:,4]
-        self.params.sigma_xdot          = variable_params[:,5]
-        self.params.DeltaT              = variable_params[:,6]
-        self.params.T_s                 = variable_params[:,7]
-        self.params.D_s                 = variable_params[:,8]
-        self.params.u_0_rel             = variable_params[:,9]
-        self.params.k_da                = variable_params[:,10]
-        self.params.kalman_multi_pos    = variable_params[:,11]
-        self.params.kalman_multi_speed  = variable_params[:,12]
-        self.params.free_speed_multi    = variable_params[:,13]
+        self.params.beta_V               = variable_params[:,0]
+        self.params.DeltaV_th_rel        = variable_params[:,1]
+        self.params.T                    = variable_params[:,2]
+        self.params.T_delta              = variable_params[:,3]
+        self.params.tau_theta            = variable_params[:,4]
+        self.params.sigma_xdot           = variable_params[:,5]
+        self.params.DeltaT               = variable_params[:,6]
+        self.params.T_s                  = variable_params[:,7]
+        self.params.D_s                  = variable_params[:,8]
+        self.params.u_0_rel              = variable_params[:,9]
+        self.params.k_da                 = variable_params[:,10]
+        self.params.kalman_multi_pos     = variable_params[:,11]
+        self.params.kalman_multi_speed   = variable_params[:,12]
+        self.params.free_speed_multi_ego = variable_params[:,13]
+        self.params.free_speed_multi_tar = variable_params[:,14]
         
         # Ensure positive, non zero values for tau theta
         self.params.tau_theta = torch.clip(self.params.tau_theta, min = 1e-6)
         
         # Use free_speeds to get kinematic parameters
         self.coll_dist_l = coll_dist
-        self.v_free_l = free_speeds[None, :] * self.params.free_speed_multi[:, None]
+        
+        if self.name[2:] == 'ego':
+            self.v_free_l = free_speeds[None, :] * self.params.free_speed_multi_ego[:, None]
+        elif self.name[2:] == 'tar':
+            self.v_free_l = free_speeds[None, :] * self.params.free_speed_multi_tar[:, None]
+        else:
+            raise TypeError('Only ego and tar vehicles are to be modeled')
+            
         self.params.k_g = 2 / self.v_free_l
         self.params.k_dv = 1 / self.v_free_l ** 2
         
@@ -208,6 +221,11 @@ class SCAgent:
         n_actions_length = self.simulation.settings.n_time_steps + self.n_action_time_steps.max()
         self.action_long_accs = torch.zeros((self.n_params, self.n_samples, self.n_pred_paths, n_actions_length), 
                                             dtype = torch.float32, device = self.device)
+        
+        # set initial long acceleration
+        for i, n_t in enumerate(self.n_action_time_steps):
+            Ta = torch.linspace(1, 0, n_t + 1, dtype = torch.float32, device = self.device)
+            self.action_long_accs[i,...,:n_t + 1] = initial_long_accs[:, None, None] * Ta[None,None,:]
         
         # A varibale that can be used to indicate which paths should still be updated further
         self.U_open_paths = torch.ones((self.n_params, self.n_samples, self.n_pred_paths), 
@@ -1889,7 +1907,7 @@ class SCSimulation():
     '''
     
     def __init__(self, device, n_agents, agent_names, ctrl_types,
-                 initial_positions, initial_speeds, coll_dist, free_speeds,
+                 initial_positions, initial_speeds, initial_accs, coll_dist, free_speeds,
                  goal_positions, conflict_point, give_priority, 
                  const_accs, stop_criteria, fixed_params, variable_params,
                  num_paths = 1, start_time = 0, end_times = [10,], time_step = 0.1,
@@ -1942,7 +1960,8 @@ class SCSimulation():
                     goal_pos            = goal_positions[i_agent, :], 
                     conflict_point      = conflict_point,
                     initial_pos         = initial_positions[i_agent,:], 
-                    initial_long_speed  = initial_speeds[i_agent], 
+                    initial_long_speed  = initial_speeds[i_agent],  
+                    initial_long_accs   = initial_accs[i_agent], 
                     initial_yaw_angle   = None, 
                     fixed_params        = fixed_params,
                     variable_params     = variable_params,
@@ -2067,9 +2086,35 @@ class Commotions_nn(torch.nn.Module):
         # the offered gap which should be used to represent this distribution
         self.p_quantile = torch.from_numpy(p_quantile).to(dtype = torch.float32, device = self.device)
         
+    
+    def _get_zero_point(self, D, T_pred):
+        complete = torch.min(torch.nan_to_num(D, D[...,0].max() * 2), -1)[0] < 0
+        
+        Ind = torch.argmax(((torch.isfinite(D) & (D < 0)) |
+                            torch.isnan(D)).to(torch.float32), dim=-1).to(torch.int64)
+        Ind[~complete & (Ind > 0)] -= 1
+        
+        assert torch.isfinite(D[Ind == 0][:,-1]).all() 
+        Ind[Ind == 0] = len(T_pred) - 1
+        assert Ind.min() > 0
+        
+        I1 = torch.tile(torch.arange(D.shape[0], device = self.device)[:,None,None], (1, D.shape[1], D.shape[2]))
+        I2 = torch.tile(torch.arange(D.shape[1], device = self.device)[None,:,None], (D.shape[0], 1, D.shape[2]))
+        I3 = torch.tile(torch.arange(D.shape[2], device = self.device)[None,None,:], (D.shape[0], D.shape[1], 1))
+        
+        D0 = D[I1, I2, I3, Ind - 1] + 1e-3
+        D1 = D[I1, I2, I3, Ind]
+        
+        assert (D1 < D0).all()
+        
+        T0 = T_pred[Ind - 1]
+        T1 = T_pred[Ind]
+        
+        T_gap = T0 - D0 * (T1 - T0) / (D1 - D0)
+        return T_gap
 
-
-    def forward(self, names, ctrl_types, params, initial_positions, speeds, coll_dist, free_speeds, T_out, dt, const_accs):
+    def forward(self, names, ctrl_types, params, initial_positions, speeds, accs, 
+                coll_dist, free_speeds, T_out, dt, const_accs):
         r'''
         Setting up the simulation of the humans behavior
 
@@ -2089,6 +2134,9 @@ class Commotions_nn(torch.nn.Module):
         speeds : torch.tensor
             This is a :math:`\{2 \times n_{samples}\}` dimensional tensor with
             the different initial speed of each agent in each scenario.
+        accs : torch.tensor
+            This is a :math:`\{2 \times n_{samples}\}` dimensional tensor with
+            the different initial accelerations of each agent in each scenario.
         coll_dist : torch.tensor
             This is a :math:`\{2 \times n_{samples}\}` dimensional tensor with
             the distance to the conflicted space of each agent in each scenario.
@@ -2128,7 +2176,7 @@ class Commotions_nn(torch.nn.Module):
         conflict_point = torch.tensor([0, 0], dtype=torch.float32, device=self.device)
         
         # Initialize simulation object
-        sc_simulation = SCSimulation(self.device, self.N_AGENTS, names, ctrl_types, initial_positions, speeds, coll_dist, 
+        sc_simulation = SCSimulation(self.device, self.N_AGENTS, names, ctrl_types, initial_positions, speeds, accs, coll_dist, 
                                      free_speeds, goals, conflict_point, has_to_give_priority, const_accs, Stop_criterias, 
                                      fixed_params = self.fixed_params, variable_params = params, num_paths=self.num_samples_path_pred,
                                      end_times=T_out, time_step=dt, zero_acc_after_exit=False)
@@ -2137,8 +2185,8 @@ class Commotions_nn(torch.nn.Module):
         sc_simulation.run()
         
         # Extract the distance to conflicted space of the target vehicle form simulation results
+        Dc_pred = (-sc_simulation.agents[0].traj_pos[:, :, :, 1] - coll_dist[0][None, :, None, None])
         Da_pred = (sc_simulation.agents[1].traj_pos[:, :, :, 0] - coll_dist[1][None, :, None, None])
-        
         # Clear and delete simulation object
         sc_simulation.empty()
         del sc_simulation
@@ -2146,60 +2194,19 @@ class Commotions_nn(torch.nn.Module):
         # Assume that the gap is rejected as a baseline fo reach scenario (a = 0)
         A = torch.zeros(Da_pred.shape[:-1], dtype=torch.bool, device=self.device)
         
-        # Allocate empty tensor to save the time of the target vehicle entering the contested space
-        T_A = torch.full(Da_pred.shape[:-1], torch.nan, dtype=torch.float32, device=self.device)
-        
         # Get the time value at every simulated time step
         T_pred = torch.arange(0, torch.max(T_out) + 0.5 * dt, dt, dtype=torch.float32, device=self.device)
         
-        # Assume a gap is accepted if the target vehicle entered contested space in allowed time (Da_pred < 0)
-        Ind_accepted = torch.argmax((torch.isfinite(Da_pred) & (Da_pred < 0)).to(torch.float32), dim=-1).to(torch.int64)
-        Accepted = Ind_accepted > 0
+        # Allocate empty tensor to save the time of the ego vehicle entering the contested space
+        T_C = self._get_zero_point(Dc_pred, T_pred)
+        T_A = self._get_zero_point(Da_pred, T_pred)
         
-        # Calculate indices of accepted and rejected cases (i.e., parameter set, sample and probabalistic path)
-        Accepted_param_index, Accepted_sample_index, Accepted_path_index = torch.where(Accepted)
-        Rejected_param_index, Rejected_sample_index, Rejected_path_index = torch.where(~Accepted)
+        A = T_A < T_C
         
-        # Calculate the time step at which accepted gaps where accepted
-        Accepted_step = Ind_accepted[Accepted_param_index, Accepted_sample_index, Accepted_path_index]
-        
-        
-        # Calculate T_A for accepted samples by interpolating between last timestep before accepting
-        # a gap and the first time step after accepting a gap, for each accepted gaps
-        Fac = (Da_pred[Accepted_param_index, Accepted_sample_index, Accepted_path_index, Accepted_step - 1] / 
-               (Da_pred[Accepted_param_index, Accepted_sample_index, Accepted_path_index, Accepted_step - 1] - 
-                Da_pred[Accepted_param_index, Accepted_sample_index, Accepted_path_index, Accepted_step]))
-        T_A[Accepted_param_index, Accepted_sample_index, Accepted_path_index] = (T_pred[Accepted_step - 1] * (1 - Fac) + 
-                                                                                 T_pred[Accepted_step] * Fac)
-        
-        # Mark accepted samples as such
-        A[Accepted_param_index, Accepted_sample_index, Accepted_path_index] = True
-        
-        # Calculate Da_extra, the remaing distance to the contested space at the closing of the gap
-        Da_extra = Da_pred[Rejected_param_index, Rejected_sample_index, Rejected_path_index]
-        
-        try:
-            Da_extra_max = Da_extra[:,0].max() * 2
-        except:
-            try:
-                Da_extra_max = torch.abs(initial_positions).max() * 2
-            except:
-                Da_extra_max = 1e6
-                
-        Da_extra[torch.isnan(Da_extra)] = Da_extra_max
-        
-        # Calculate Ta_extra, the time remaining to reach the contested space at the time of the gap being 
-        # closed, based on the assumption of traveling at the desired speed
-        Ta_extra = 2 * Da_extra.min(dim=-1)[0] / free_speeds[1, Rejected_sample_index]
-        
-        # Calculate T_A for rejected samples
-        T_A[Rejected_param_index, Rejected_sample_index, Rejected_path_index] = T_out[Rejected_sample_index] + Ta_extra
-        
-        assert (not T_A.isnan().any()), "The predicted time should not be nan"
-        return A, T_A
+        return A, T_A, T_C
 
 
-    def predict(self, A, T_A):
+    def predict(self, A, T_A, T_C):
         r'''
         This forms the prediction agreeable to the framework for benchmarking
         gap acceptance models.
@@ -2214,6 +2221,10 @@ class Commotions_nn(torch.nn.Module):
             This is a :math:`\{n_{params} \times n_{samples} \times n_{preds}\}` dimensional tensor with
             the predicted time of moving onto the contested space for each set of parameters, each initial scenario, and
             each probabalistic path.
+        T_C : torch.tensor
+            This is a :math:`\{n_{params} \times n_{samples} \times n_{preds}\}` dimensional tensor with
+            the predicted time of the ego vehicle moving onto the contested space for each set of parameters, each initial scenario, and
+            each probabalistic path.
 
         Returns
         -------
@@ -2223,6 +2234,10 @@ class Commotions_nn(torch.nn.Module):
         T_A_pred : torch.tensor
             This is a :math:`\{n_{params} \times n_{samples} \times 9\}` dimensional tensor with
             the probabilitic time of accepting the gap (using decile values) for each set of parameters and 
+            each initial scenario.
+        T_C_pred : torch.tensor
+            This is a :math:`\{n_{params} \times n_{samples} \times 9\}` dimensional tensor with
+            the probabilitic time of closing the gap (using decile values) for each set of parameters and 
             each initial scenario.
 
         '''
@@ -2235,10 +2250,14 @@ class Commotions_nn(torch.nn.Module):
         T_A_help = torch.full(T_A.shape, torch.nan, dtype = torch.float32, device = self.device)
         T_A_help[A] = T_A[A]
         T_A_pred = torch.nanquantile(T_A_help, self.p_quantile, dim = -1).permute(1,2,0)
-        return A_pred, T_A_pred
+        
+        T_C_help = torch.full(T_C.shape, torch.nan, dtype = torch.float32, device = self.device)
+        T_C_help[~A] = T_C[~A]
+        T_C_pred = torch.nanquantile(T_C_help, self.p_quantile, dim = -1).permute(1,2,0)
+        return A_pred, T_A_pred, T_C_pred
             
         
-    def loss(self, A_pred, T_A_pred, A_true, t_A_true, T_out, loss_type = 'Time_MSE'):
+    def loss(self, A_pred, T_A_pred, T_C_pred, A_true, t_E_true, loss_type = 'Time_MSE'):
         r'''
         This calculates the training loss of each set of parameters
 
@@ -2252,12 +2271,14 @@ class Commotions_nn(torch.nn.Module):
             This is a :math:`\{n_{params} \times n_{samples} \times n_{preds}\}` dimensional tensor with
             the predicted time of moving onto the contested space for each set of parameters, each initial scenario, and
             each probabalistic path.
+        T_C_pred : torch.tensor
+            This is a :math:`\{n_{params} \times n_{samples} \times n_{preds}\}` dimensional tensor with
+            the predicted time of the ego vehicle moving onto the contested space for each set of parameters, each initial scenario, and
+            each probabalistic path.
         A_true : torch.tensor
             The true acceptance behavior for each initial scenario.
-        t_A_true : torch.tensor
+        t_E_true : torch.tensor
             The true time of accepting a gap (if accepted) for each initial scenario.
-        T_out : torch.tensor
-            The time at which the gap was closed in each initial scenario.
         loss_type: string
             The type of loss to be calculated. The default is 'Time_MSE'.
 
@@ -2271,37 +2292,58 @@ class Commotions_nn(torch.nn.Module):
         # Check the loss type
         if loss_type == 'Time_MSE':
             # Allocate empty array for the time loss of each param-set, scenario and probablistic path
-            Loss_T = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            Loss_T_A = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            Loss_T_C = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            
+            Delta_T_A = t_E_true[None, :, None] - T_A_pred
+            Delta_T_C = t_E_true[None, :, None] - T_C_pred
             
             # For accepted gaps, loss is simply squared error to true time
-            Loss_T[:, A_true, :] = (t_A_true[None, A_true, None] - T_A_pred[:, A_true, :]) ** 2
+            Loss_T_A[:, A_true, :] = Delta_T_A[:, A_true] ** 2
             # For rejected gaps, loss is squared error (assuming that T_A_pred < T_out)
-            Loss_T[:, ~A_true, :] = ((torch.maximum(torch.tensor(0.0), T_out[None, ~A_true, None] - T_A_pred[:, ~A_true])) ** 2)
+            Loss_T_A[:, ~A_true, :] = (torch.maximum(torch.tensor(0.0), Delta_T_A[:, ~A_true])) ** 2
+            
+            # For accepted gaps, loss is squared error (assuming that T_A_pred < T_out)
+            Loss_T_C[:, A_true, :] = (torch.maximum(torch.tensor(0.0), Delta_T_C[:, A_true])) ** 2
+            # For rejected gaps, loss is simply squared error to true time
+            Loss_T_C[:, ~A_true, :] = Delta_T_C[:, ~A_true] ** 2
+            
             
             # The binary loss is the multiplied binary cross entropy (4 for false prediction, 0 for correct one)
             A_diff = A_pred.to(torch.float32) - A_true[None, :, None].to(torch.float32)
-            Loss_A = 4 * torch.abs(A_diff)
+            Loss_A = 6 * torch.abs(A_diff)
             
             # Get the combined Loss
-            Loss = Loss_A + Loss_T
+            Loss = Loss_A + Loss_T_A + Loss_T_C
             
             # Sum up the loss over all scenarios, so the final output is only dependent on parameters and probabalistic paths
             Loss = Loss.sum(1)
+            
         elif loss_type == 'ADE':
             # Allocate empty array for the time loss of each param-set, scenario and probablistic path
-            Loss_T = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            Loss_T_A = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            Loss_T_C = torch.zeros(A_pred.shape, dtype = torch.float32, device = self.device)
+            
+            Delta_T_A = t_E_true[None, :, None] - T_A_pred
+            Delta_T_C = t_E_true[None, :, None] - T_C_pred
             
             # For accepted gaps, loss is simply squared error to true time
-            Loss_T[:, A_true, :] = (t_A_true[None, A_true, None] - T_A_pred[:, A_true, :]) ** 2
+            Loss_T_A[:, A_true, :] = Delta_T_A[:, A_true] ** 2
             # For rejected gaps, loss is squared error (assuming that T_A_pred < T_out)
-            Loss_T[:, ~A_true, :] = ((torch.maximum(torch.tensor(0.0), T_out[None, ~A_true, None] - T_A_pred[:, ~A_true])) ** 2)
+            Loss_T_A[:, ~A_true, :] = (torch.maximum(torch.tensor(0.0), Delta_T_A[:, ~A_true])) ** 2
+            
+            # For accepted gaps, loss is squared error (assuming that T_A_pred < T_out)
+            Loss_T_C[:, A_true, :] = (torch.maximum(torch.tensor(0.0), Delta_T_C[:, A_true])) ** 2
+            # For rejected gaps, loss is simply squared error to true time
+            Loss_T_C[:, ~A_true, :] = Delta_T_C[:, ~A_true] ** 2
+            
             
             # The binary loss is the multiplied binary cross entropy (4 for false prediction, 0 for correct one)
             A_diff = A_pred.to(torch.float32) - A_true[None, :, None].to(torch.float32)
-            Loss_A = 4 * torch.abs(A_diff)
+            Loss_A = 6 * torch.abs(A_diff)
             
             # Punish identical predictions (identical for each prediction)
-            T_A_pred_std = T_A_pred.std(dim = -1, keepdims = True) / T_out[None, :, None]
+            T_A_pred_std = T_A_pred.std(dim = -1, keepdims = True) / t_E_true[None, :, None]
             
             std_0 = torch.tensor(0.1)
             
@@ -2314,7 +2356,7 @@ class Commotions_nn(torch.nn.Module):
             Loss_D = c_a * T_A_pred_std ** 2 + c_b * T_A_pred_std + c_c
             
             # Get the combined Loss
-            Loss = Loss_A + Loss_T + Loss_D
+            Loss = Loss_A + Loss_T_A + Loss_T_C + 1.5 * Loss_D
             
             # Sum up the loss over all scenarios, so the final output is only dependent on parameters and probabalistic paths
             Loss = Loss.sum(1)
@@ -2323,7 +2365,7 @@ class Commotions_nn(torch.nn.Module):
         
         return Loss
         
-
+#%%
 class commotions_template():
     '''
     This class is a template for different implementations of the commotions model and their interaction
@@ -2350,7 +2392,8 @@ class commotions_template():
         # Combine variable parameters used in the model in a list
         Params = [self.Beta_V, self.DDeltaV_th_rel, self.TT, self.TT_delta, self.Tau_theta,
                   self.Sigma_xdot, self.DDeltaT, self.TT_s, self.DD_s, self.VV_0_rel,
-                  self.K_da, self.Kalman_multi_pos, self.Kalman_multi_speed, self.Free_speed_multi]
+                  self.K_da, self.Kalman_multi_pos, self.Kalman_multi_speed, 
+                  self.Free_speed_multi_ego, self.Free_speed_multi_tar]
         
         # Store the number of variable parameters in the model
         self.num_variable_params = len(Params)
@@ -2411,7 +2454,8 @@ class commotions_template():
         # Get current parameter values
         Params = [self.Beta_V, self.DDeltaV_th_rel, self.TT, self.TT_delta, self.Tau_theta,
                   self.Sigma_xdot, self.DDeltaT, self.TT_s, self.DD_s, self.VV_0_rel,
-                  self.K_da, self.Kalman_multi_pos, self.Kalman_multi_speed, self.Free_speed_multi]
+                  self.K_da, self.Kalman_multi_pos, self.Kalman_multi_speed, 
+                  self.Free_speed_multi_ego, self.Free_speed_multi_tar]
         
         
         # Log-transform parameters as necessary
@@ -2491,7 +2535,7 @@ class commotions_template():
         return Params_dec
     
     
-    # Optimization methods for the commotions model to find the best values for the variable parameters
+    #%% Optimization methods for the commotions model to find the best values for the variable parameters
     def grid_search(self):
         '''
         Find the best value for the given parameters by using grid search.
@@ -2676,18 +2720,22 @@ class commotions_template():
         completed = False
         seed = 0
         while not completed:
-            try:
-                # Set initial seed for the generation of the inital BO samples
-                torch.manual_seed(seed)
-                # Choose expected improvement as acquisition function
-                results = self.BO(method_all, iterations, 1, Models.GPEI)
-                completed = True
-            except:
-                print('')
-                print(method_all + ': Failed due to numerical issues!')
-                print('')
-                completed = False
-                seed += 1
+            torch.manual_seed(seed)
+            # Choose expected improvement as acquisition function
+            results = self.BO(method_all, iterations, 1, Models.GPEI)
+            completed = True # TODO: Reset
+            # try:
+            #     # Set initial seed for the generation of the inital BO samples
+            #     torch.manual_seed(seed)
+            #     # Choose expected improvement as acquisition function
+            #     results = self.BO(method_all, iterations, 1, Models.GPEI)
+            #     completed = True
+            # except:
+            #     print('')
+            #     print(method_all + ': Failed due to numerical issues!')
+            #     print('')
+            #     completed = False
+            #     seed += 1
         return results
     
     
@@ -2783,8 +2831,7 @@ class commotions_template():
                                        model_kwargs = {'torch_device': self.device}))
         
         # Implement the overall generation strategy
-        ax_client = AxClient(generation_strategy = GenerationStrategy(steps = BO_steps), verbose_logging = False,
-                             torch_device = self.device)
+        ax_client = AxClient(generation_strategy = GenerationStrategy(steps = BO_steps), verbose_logging = False)
         
         # Set the continuous optimization parameters and their ranges
         Parameters = [{'name': 'x{}'.format(i + 1), 'type': 'range',
@@ -2877,10 +2924,10 @@ class commotions_template():
         return Params_dec.cpu().detach().numpy(), Loss.cpu().detach().numpy() 
     
 
-    # A way of runnging simulations.
+    #%% A way of runnging simulations.
     def evaluate_samples_params(self, Params, method, names, ctrl_types, 
-                                initial_positions, speeds, coll_dist, free_speeds, 
-                                T_out, dt, A_true, t_A_true, get_std = False):
+                                initial_positions, speeds, accs, coll_dist, free_speeds, 
+                                T_out, dt, A_true, t_E_true, get_std = False):
         '''
         This allows the evalution of the loss of the model given certain initial scenarios and 
         certain sets of variable parameters.
@@ -2900,6 +2947,8 @@ class commotions_template():
             The different initial position of each agent in each scenario.
         speeds : torch.tensor
             The different initial speed of each agent in each scenario.
+        accs : torch.tensor
+            The different initial acceleration of each agent in each scenario.
         coll_dist : torch.tensor
             The distance to the conflicted space of each agent in each scenario.
         free_speeds : torch.tensor
@@ -2910,7 +2959,7 @@ class commotions_template():
             The time steps for simulations, after which the current behavior of agents is reconsidered.
         A_true : torch.tensor
             The true acceptance behavior for each initial scenario.
-        t_A_true : torch.tensor
+        t_E_true : torch.tensor
             The true time of accepting a gap (if accepted) for each initial scenario.
         get_std : bool, optional
             If true, also returns Loss_std. The default is False.
@@ -2977,24 +3026,25 @@ class commotions_template():
                 
                 # Get the binary and time prediction for each set of parameters and each initial 
                 # scenario in this batch, with one value for each probebalistic path
-                A, T_A = self.commotions_model(names             = names,
-                                               ctrl_types        = ctrl_types,
-                                               params            = Params[param_batch_index, :],
-                                               initial_positions = initial_positions[:, sample_batch_index], 
-                                               speeds            = speeds[:, sample_batch_index], 
-                                               coll_dist         = coll_dist[:, sample_batch_index], 
-                                               free_speeds       = free_speeds[:, sample_batch_index],
-                                               T_out             = T_out[sample_batch_index],
-                                               dt                = dt,
-                                               const_accs        = self.const_accs)
+                A, T_A, T_C = self.commotions_model(names             = names,
+                                                    ctrl_types        = ctrl_types,
+                                                    params            = Params[param_batch_index, :],
+                                                    initial_positions = initial_positions[:, sample_batch_index], 
+                                                    speeds            = speeds[:, sample_batch_index], 
+                                                    accs              = accs[:, sample_batch_index], 
+                                                    coll_dist         = coll_dist[:, sample_batch_index], 
+                                                    free_speeds       = free_speeds[:, sample_batch_index],
+                                                    T_out             = T_out[sample_batch_index],
+                                                    dt                = dt,
+                                                    const_accs        = self.const_accs)
                 
                 # Go over the initial scenarios and calculate the loss for each set of parameters and
                 # each probebalistic path
                 loss = self.commotions_model.loss(A_pred    = A, 
                                                   T_A_pred  = T_A, 
+                                                  T_C_pred  = T_C,
                                                   A_true    = A_true[sample_batch_index], 
-                                                  t_A_true  = t_A_true[sample_batch_index], 
-                                                  T_out     = T_out[sample_batch_index],
+                                                  t_E_true  = t_E_true[sample_batch_index], 
                                                   loss_type = self.train_loss)
                 
                 # Add to overall loss (if not all intial sampels coud be covered in one batch)
@@ -3062,6 +3112,8 @@ class commotions_template():
             The different initial position of each agent in each scenario.
         speeds : torch.tensor
             The different initial speed of each agent in each scenario.
+        accs : torch.tensor
+            The different initial acceleration of each agent in each scenario.
         coll_dist : torch.tensor
             The distance to the conflicted space of each agent in each scenario.
         free_speeds : torch.tensor
@@ -3087,43 +3139,60 @@ class commotions_template():
             raise KeyError('The purpose "' + purpose + '" is not an available split of the data')
         
         # Allocate empty tensors for scenario specific initial information
-        T_in  = torch.zeros((num_samples, 2), dtype = torch.float32, device = self.device)
-        Dc    = torch.zeros((num_samples, 2), dtype = torch.float32, device = self.device)
-        Da    = torch.zeros((num_samples, 2), dtype = torch.float32, device = self.device)
+        T_in  = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
+        Dc    = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
+        Da    = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
         Le    = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
         Lt    = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
         T_out = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
-        
-        # Go through provided input data
-        for ind in range(num_samples):
-            # extract the transfromed path data
-            path = Input_prediction.iloc[ind]
-            
-            # transform from numpy to torch the initial position data
-            Dc[ind] = torch.from_numpy(path.rejected[-2:]).to(device = self.device)
-            Da[ind] = torch.from_numpy(path.accepted[-2:]).to(device = self.device)
-            
-            # Get the gap sizes
-            Le[ind] = path.L_e[-1]
-            Lt[ind] = path.L_t[-1]
-            
-            # Get the time points associated with the intial position data
-            T_in[ind] = torch.from_numpy(Input_T[ind][-2:]).to(device = self.device)
-            
-            # Get the scenario specific end time
-            T_out[ind] = Output_T_pred[ind][-1] 
         
         # Get the timestep size (similar for all scenarios)
         dt = torch.tensor(Output_T_pred[0][1] - Output_T_pred[0][0], 
                           dtype = torch.float32, device = self.device)
         
-        # Process input data to get agent names
-        names = np.array(self.data_set.Input_path.columns).reshape(-1, 2)[:self.commotions_model.N_AGENTS,0]
-        names = [n[:-2] for n in names]
+        # Go through provided input data
+        for ind in range(num_samples):
+            # extract the transfromed path data
+            path = Input_prediction.iloc[ind]
+            t = Input_T[ind]
+            
+            # Get the gap sizes
+            Le[ind] = path.L_e[-1]
+            Lt[ind] = path.L_t[-1]
+            
+            if len(t) >= 3:
+                # transform from numpy to torch the initial position data
+                Dc[ind] = torch.from_numpy(path.rejected[-3:]).to(device = self.device)
+                Da[ind] = torch.from_numpy(path.accepted[-3:]).to(device = self.device)
+                
+                # Get the time points associated with the intial position data
+                T_in[ind] = torch.from_numpy(t[-3:]).to(device = self.device)
+            else:
+                t_in = torch.arange(-2, 1, dtype = torch.float32, device = self.device) * dt
+                
+                # Extrapolate with zero acceleration
+                Dc_in = interp.interp1d(t, path.rejected, fill_value = 'extrapolate', assume_sorted = True)(t_in)
+                Da_in = interp.interp1d(t, path.accepted, fill_value = 'extrapolate', assume_sorted = True)(t_in) 
+                
+                Dc[ind] = torch.from_numpy(Dc_in).to(device = self.device)
+                Da[ind] = torch.from_numpy(Da_in).to(device = self.device)
+                
+                # Get the time points associated with the intial position data
+                T_in[ind] = t_in
+            
+            # Get the scenario specific end time
+            T_out[ind] = Output_T_pred[ind][-1] 
+        
         
         # Determine ctrl type of agent
         ctrl_types = [0] * self.commotions_model.N_AGENTS
+        names = []
         for i in range(self.commotions_model.N_AGENTS):
+            if i == 0:
+                names.append([name for name in self.data_set.Input_path.columns if name[2:] == 'ego'][0])
+            else:
+                names.append([name for name in self.data_set.Input_path.columns if name[2:] == 'tar'][0])
+                
             if names[i][0] == 'P':
                 # Pedestrian
                 ctrl_types[i] = CtrlType.SPEED
@@ -3144,6 +3213,8 @@ class commotions_template():
         initial_positions = torch.zeros((self.commotions_model.N_AGENTS, num_samples, 2), 
                                         dtype = torch.float32, device = self.device)
         speeds            = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
+                                        dtype = torch.float32, device = self.device)
+        accs              = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
                                         dtype = torch.float32, device = self.device)
         coll_dist         = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
                                         dtype = torch.float32, device = self.device)
@@ -3170,15 +3241,19 @@ class commotions_template():
         initial_positions[1,:,0] = coll_dist[1] + Da[:,-1]
         
         # Calculate the inital velocities of agents based on linear interpolation
-        speeds[0] = (Dc[:,-2] - Dc[:,-1]) / (T_in[:,-1] - T_in[:,-2])
-        speeds[1] = (Da[:,-2] - Da[:,-1]) / (T_in[:,-1] - T_in[:,-2])
+        speeds[0] = (Dc[:,-2] - Dc[:,-1]) / dt
+        speeds[1] = (Da[:,-2] - Da[:,-1]) / dt
+        
+        # Calculate the inital velocities of agents based on linear interpolation
+        accs[0] = (2 * Dc[:,-2] - (Dc[:,-1] + Dc[:,-3])) / dt ** 2
+        accs[1] = (2 * Da[:,-2] - (Da[:,-1] + Da[:,-3])) / dt ** 2
         
         # increase free speed if free speed is higher than assumed free speed
         # and this is so desired
         if self.adjust_free_speeds:
             free_speeds = torch.maximum(free_speeds, speeds)
         
-        return names, ctrl_types, initial_positions, speeds, coll_dist, free_speeds, T_out, dt
+        return names, ctrl_types, initial_positions, speeds, accs, coll_dist, free_speeds, T_out, dt
     
     
     def extract_train_data(self):
@@ -3196,6 +3271,8 @@ class commotions_template():
             The different initial position of each agent in each scenario.
         speeds : torch.tensor
             The different initial speed of each agent in each scenario.
+        accs : torch.tensor
+            The different initial acceleration of each agent in each scenario.
         coll_dist : torch.tensor
             The distance to the conflicted space of each agent in each scenario.
         free_speeds : torch.tensor
@@ -3206,26 +3283,25 @@ class commotions_template():
             The time steps for simulations, after which the current behavior of agents is reconsidered.
         A_true : torch.tensor
             The true acceptance behavior for each initial scenario.
-        t_A_true : torch.tensor
-            The true time of accepting a gap (if accepted) for each initial scenario.
+        t_E_true : torch.tensor
+            The true time of accepting a gap (if accepted) for each initial scenario or rejecting.
 
         '''
         # Extract scenario specifc data from input training data
-        names, ctrl_types, initial_positions, speeds, coll_dist, free_speeds, T_out, dt = self.extract_data('train')
+        names, ctrl_types, initial_positions, speeds, accs, coll_dist, free_speeds, T_out, dt = self.extract_data('train')
         
         # Allocate tensors for desired output data
         A_true   = torch.zeros(self.num_samples_train, dtype = torch.bool, device = self.device)
-        t_A_true = torch.full((self.num_samples_train,), torch.nan, dtype = torch.float32, device = self.device)
+        t_E_true = torch.full((self.num_samples_train,), torch.nan, dtype = torch.float32, device = self.device)
         
         # Extract the desired outputs of the training scenarios
         for ind in range(self.num_samples_train):
             A_true[ind] = torch.tensor(self.Output_A_train.iloc[ind].accepted, device = self.device)
             # Note: t_A is only give for accepted gaps
-            if A_true[ind]:
-                t_A_true[ind] = self.Output_T_E_train[ind]
+            t_E_true[ind] = self.Output_T_E_train[ind]
         
-        return [names, ctrl_types, initial_positions, speeds, 
-                coll_dist, free_speeds, T_out, dt, A_true, t_A_true]
+        return [names, ctrl_types, initial_positions, speeds, accs, 
+                coll_dist, free_speeds, T_out, dt, A_true, t_E_true]
         
         
     def extract_predictions(self):
@@ -3242,7 +3318,7 @@ class commotions_template():
 
         '''
         # Extract scenario specifc data from input test data
-        names, ctrl_types, initial_positions, speeds, coll_dist, free_speeds, T_out, dt = self.extract_data('test')
+        names, ctrl_types, initial_positions, speeds, coll_dist, accs, free_speeds, T_out, dt = self.extract_data('test')
         
         # Get the variable parameters of the trained model
         variable_params = torch.from_numpy(self.param_best[np.newaxis, :]).to(dtype = torch.float32, device = self.device)
@@ -3259,32 +3335,35 @@ class commotions_template():
         A_pred   = torch.zeros((1, self.num_samples_test), dtype = torch.float32, device = self.device)
         T_A_pred = torch.zeros((1, self.num_samples_test, len(self.data_set.p_quantile)), 
                                dtype = torch.float32, device = self.device)
+        T_C_pred = torch.zeros((1, self.num_samples_test, len(self.data_set.p_quantile)), 
+                               dtype = torch.float32, device = self.device)
         
         # Assume no training of the model needed, backwards graphs not calculated
         with torch.no_grad():
             Ti = time.time()
             # Go through all the initial scenarios
             for batch in range(n_batches):
-                batch_index = np.arange(batch_size * batch, batch_size * (batch + 1))
-                batch_index = batch_index[batch_index < self.num_samples_test]
+                b_ind = np.arange(batch_size * batch, batch_size * (batch + 1))
+                b_ind = b_ind[b_ind < self.num_samples_test]
                 
                 ti = time.time()
                 # Get the binary and time prediction for the set of parameters and each initial 
                 # scenario in this batch, with one value for each probebalistic path
-                A, T_A = self.commotions_model(names             = names,
-                                               ctrl_types        = ctrl_types,
-                                               params            = variable_params,
-                                               initial_positions = initial_positions[:, batch_index], 
-                                               speeds            = speeds[:, batch_index], 
-                                               coll_dist         = coll_dist[:, batch_index], 
-                                               free_speeds       = free_speeds[:, batch_index],
-                                               T_out             = T_out[batch_index],
-                                               dt                = dt,
-                                               const_accs        = self.const_accs)
+                A, T_A, T_C = self.commotions_model(names             = names,
+                                                    ctrl_types        = ctrl_types,
+                                                    params            = variable_params,
+                                                    initial_positions = initial_positions[:, b_ind], 
+                                                    speeds            = speeds[:, b_ind], 
+                                                    accs              = accs[:, b_ind],
+                                                    coll_dist         = coll_dist[:, b_ind], 
+                                                    free_speeds       = free_speeds[:, b_ind],
+                                                    T_out             = T_out[b_ind],
+                                                    dt                = dt,
+                                                    const_accs        = self.const_accs)
                 
                 # Get the predictioned likelihood of accepteding the gap and the probability 
                 # distribution of the time of acceptance depicted by its decile values
-                A_pred[:, batch_index], T_A_pred[:, batch_index] = self.commotions_model.predict(A, T_A)
+                A_pred[:,b_ind], T_A_pred[:,b_ind], T_C_pred[:,b_ind] = self.commotions_model.predict(A, T_A, T_C)
                 to = time.time()
                 if n_batches > 1:
                     print('Prediction - Batch {}/{}: {:0.3f} s'.format(batch + 1, n_batches, to - ti),flush=True)
@@ -3292,14 +3371,18 @@ class commotions_template():
             print('Prediction - all batches: {:0.3f} s'.format(to - Ti),flush=True)
             print('',flush=True)
         
+        A_pred   = A_pred.squeeze(0)
+        T_A_pred = T_A_pred.squeeze(0)
+        T_C_pred = T_C_pred.squeeze(0)
+        
         # Transofrm the prediction to numpy arrays
-        Output_A_pred = A_pred[0].cpu().detach().numpy().astype('float64')
+        Output_A_pred = A_pred.cpu().detach().numpy().astype('float64')
         Output_A_pred = pd.DataFrame(np.stack((Output_A_pred, 1 - Output_A_pred), axis = 1), 
                                      columns = self.data_set.Behaviors)
         
         Output_T_E_pred = pd.DataFrame(np.empty(Output_A_pred.shape, object), columns = self.data_set.Behaviors)
         for i in range(self.num_samples_test):
-            Output_T_E_pred.iloc[i,0] = T_A_pred[0, i].cpu().detach().numpy().astype('float64')
-            Output_T_E_pred.iloc[i,1] = np.ones(len(self.data_set.p_quantile)) * T_out[i].detach().cpu().numpy()
+            Output_T_E_pred.iloc[i].accepted = T_A_pred[i].cpu().detach().numpy().astype('float32')
+            Output_T_E_pred.iloc[i].rejected = T_C_pred[i].cpu().detach().numpy().astype('float32')
         
         return [Output_A_pred, Output_T_E_pred]

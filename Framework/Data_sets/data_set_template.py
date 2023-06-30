@@ -855,7 +855,7 @@ class data_set_template():
                     helper_path = self.fill_empty_input_path(helper_path, helper_T, domain)
                     
                     # Split completed paths back into input and output
-                    for agent in path.index:
+                    for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
                             input_path[agent]  = helper_path[agent][:len(input_T), :]
                             output_path[agent] = helper_path[agent][len(input_T):, :]
@@ -863,7 +863,6 @@ class data_set_template():
                             input_path[agent]  = np.nan
                             output_path[agent] = np.nan
                             
-                    
                     # save results
                     Input_prediction.append(input_prediction)
                     Input_path.append(input_path)
@@ -876,7 +875,6 @@ class data_set_template():
                     Output_T_E.append(output_T_E)
 
                     Domain.append(domain)
-            
             
             self.Input_prediction = pd.DataFrame(Input_prediction)
             self.Input_path = pd.DataFrame(Input_path)
@@ -1448,7 +1446,8 @@ class data_set_template():
                             p_quantile_expanded = np.concatenate(([0.0], self.p_quantile, [1.0]), axis=0)
 
                             if np.all(output_T_E_pred[beh] <= t[-1]):
-                                T_pred_beh_expanded = np.concatenate(([0.0], output_T_E_pred[beh], t[[-1]]), axis=0)
+                                T_pred_beh_expanded = np.concatenate(([0.0], output_T_E_pred[beh], 
+                                                                      [max(t[-1], output_T_E_pred[beh].max()) + 1e-4]), axis=0)
                                 T_sampled = np.interp(np.random.rand(num_beh_paths), p_quantile_expanded, T_pred_beh_expanded)
 
                                 # Get closest value

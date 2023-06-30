@@ -32,20 +32,21 @@ class commotions_markkula_L1(model_template, commotions_template):
     def train_method(self):
         n = 5
         # Trainable parameters
-        self.Beta_V              = np.logspace(0, np.log10(200), n)
-        self.DDeltaV_th_rel      = np.logspace(-3, -1, n)
-        self.TT                  = np.linspace(0.1, 0.5, n)
-        self.TT_delta            = np.logspace(1, 2, n)
-        self.Tau_theta           = np.logspace(np.log10(0.005), np.log10(np.pi * 0.5), n)
-        self.Sigma_xdot          = np.logspace(-2, 0, n) #TOP5
-        self.DDeltaT             = np.linspace(0.21, 1, n) #TOP5 
-        self.TT_s                = np.linspace(0.01, 2, n)
-        self.DD_s                = np.linspace(0.01, 5, n) #TOP5
-        self.VV_0_rel            = np.logspace(0, 2, n)
-        self.K_da                = np.logspace(-1, 1, n)
-        self.Kalman_multi_pos    = np.logspace(-1, 1, n)
-        self.Kalman_multi_speed  = np.logspace(-1, 1, n)
-        self.Free_speed_multi    = np.logspace(np.log10(0.5), np.log10(2), n) #TOP5
+        self.Beta_V               = np.logspace(0, np.log10(200), n)
+        self.DDeltaV_th_rel       = np.logspace(-3, -1, n)
+        self.TT                   = np.linspace(0.1, 0.5, n)
+        self.TT_delta             = np.logspace(1, 2, n)
+        self.Tau_theta            = np.logspace(np.log10(0.005), np.log10(np.pi * 0.5), n)
+        self.Sigma_xdot           = np.logspace(-2, 0, n) #TOP5
+        self.DDeltaT              = np.linspace(0.21, 1, n) #TOP5 
+        self.TT_s                 = np.linspace(0.01, 2, n)
+        self.DD_s                 = np.linspace(0.01, 5, n) #TOP5
+        self.VV_0_rel             = np.logspace(0, 2, n)
+        self.K_da                 = np.logspace(-1, 1, n)
+        self.Kalman_multi_pos     = np.logspace(-1, 1, n)
+        self.Kalman_multi_speed   = np.logspace(-1, 1, n)
+        self.Free_speed_multi_ego = np.logspace(np.log10(0.5), np.log10(2), n)
+        self.Free_speed_multi_tar = np.logspace(np.log10(0.5), np.log10(2), n) #TOP5
         
         Params, Loss = self.BO_EI(iterations = 5) # TODO: Reset to 150
         
@@ -63,14 +64,6 @@ class commotions_markkula_L1(model_template, commotions_template):
     
         
     def check_trainability_method(self):
-        # check for number of input timesteps 
-        if self.data_set.num_timesteps_in_real > 2:
-            return "this model can only process 2 input timesteps."
-        
-        # check for number of agents
-        if len(self.data_set.Input_path.columns) > 4:
-            return "this model can only process 2 agents at the same time."
-        
         if self.data_set.scenario.get_name() != 'Gap acceptance problem':
             return "this model is only valid for gap acceptance scenarios."
         # If data is okay
