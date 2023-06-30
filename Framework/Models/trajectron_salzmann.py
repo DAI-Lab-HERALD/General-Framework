@@ -9,6 +9,7 @@ from Trajectron.trajec_model.model_registrar import ModelRegistrar
 from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
 import json
 import os
+from Trajectron.trajec_model.datawrapper.state import StateTensor 
 
 class trajectron_salzmann(model_template):
     
@@ -59,6 +60,11 @@ class trajectron_salzmann(model_template):
         hyperparams["edge_influence_combine_method"] = "attention"
         hyperparams["edge_state_combine_method"]     = "sum"
         hyperparams["adaptive"]                      = False
+        hyperparams["dynamic_edges"]                 = "yes"
+        hyperparams["edge_addition_filter"]          = [0.25, 0.5, 0.75, 1.0]
+        
+        hyperparams["single_mode_multi_sample"]      = False
+        hyperparams["single_mode_multi_sample_num"]  = 50
         
         self.std_pos_ped = 1
         self.std_vel_ped = 2
@@ -78,7 +84,7 @@ class trajectron_salzmann(model_template):
         self.trajectron.set_environment()
         self.trajectron.set_annealing_params()
         
-    def extract_data(self, DIM, train = True):
+    def extract_data(self, train = True):
         attention_radius = dict()
         
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
@@ -160,35 +166,29 @@ class trajectron_salzmann(model_template):
         
         Neighbor_bool = D < D_max[np.newaxis]
         
-        Neighbors = dict()
-        Neighbor_edge_values = dict()
-        
         # Get Neighbor for each pred value
-        
+        Neigh      = np.nan * np.ones((X.shape[0], Pred_agents.sum(), *S.shape[1:]), dtype = np.float32)
+        Neigh_num  = np.zeros((X.shape[0], Pred_agents.sum()), dtype = np.int64)
+        Neigh_type = np.zeros((X.shape[0], Pred_agents.sum(), X.shape[1]), dtype = int)
+        Neigh_len  = np.zeros((X.shape[0], Pred_agents.sum(), X.shape[1]), dtype = int)
+
+        i_pred_agent = 0
         for i_agent, agent in enumerate(Agents):
             avoid_self = (np.arange(len(Agents)) != i_agent)
             if Pred_agents[i_agent]:
-                node_pred = Types[i_agent]
+                feasible_goals = avoid_self & Neighbor_bool[:, i_agent]
+                Neigh_num[:, i_pred_agent] = feasible_goals.sum(-1) 
+                for i_sample in range(X.shape[0]):
+                    Neigh[i_sample, i_pred_agent, 
+                          :Neigh_num[i_sample, i_pred_agent]] = S_st[i_sample, feasible_goals[i_sample]]
+                    Neigh_type[i_sample, i_pred_agent, 
+                               :Neigh_num[i_sample, i_pred_agent]] = Types[feasible_goals[i_sample]].astype(int)
+                    Neigh_len[i_sample, i_pred_agent, 
+                              :Neigh_num[i_sample, i_pred_agent]] = self.num_timesteps_in
+                i_pred_agent += 1
                 
-                Neighbors[agent] = dict()
-                Neighbor_edge_values[agent] = dict()
-                for node_goal in DIM.keys():
-                    feasible_goals = (Types == node_goal) & avoid_self
-                    
-                    key = (node_pred, node_goal)
-                    Neighbors[agent][key] = []
-                    Neighbor_edge_values[agent][key] = []
-                    Dim = DIM[node_goal]
-                    
-                    for i_sample in range(S_st.shape[0]):
-                        Neighbors[agent][key].append([])
                         
-                        I_agent_goal = np.where(Neighbor_bool[i_sample, i_agent] & feasible_goals)[0]
                         
-                        Neighbor_edge_values[agent][key].append(torch.from_numpy(np.ones(len(I_agent_goal), np.float32)))
-                        for i_agent_goal in I_agent_goal:
-                            Neighbors[agent][key][i_sample].append(torch.from_numpy(S_st[i_sample, i_agent_goal, :, :Dim]))
-        
         if self.use_map:
             centre = X[:,Pred_agents,-1,:].reshape(-1, 2)
             x_rel = centre - X[:,Pred_agents,-2,:].reshape(-1, 2)
@@ -214,9 +214,9 @@ class trajectron_salzmann(model_template):
             Y_st = Y.copy()
             Y_st[:,Ped_agents]  /= self.std_pos_ped
             Y_st[:,~Ped_agents] /= self.std_pos_veh
-            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, img_m_per_px, Y, Y_st
+            return Pred_agents, Agents, Types, S, S_st, Neigh, Neigh_num, Neigh_type, Neigh_len, img, img_m_per_px, Y, Y_st
         else:
-            return Pred_agents, Agents, Types, S, S_st, Neighbors, Neighbor_edge_values, img, img_m_per_px
+            return Pred_agents, Agents, Types, S, S_st, Neigh, Neigh_num, Neigh_type, Neigh_len, img, img_m_per_px
     
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
@@ -240,14 +240,10 @@ class trajectron_salzmann(model_template):
         return optimizer, lr_scheduler
 
     def train_method(self, epochs = 100): 
-        # prepare input data
-        
-        DIM = {AgentType.VEHICLE: 8, AgentType.PEDESTRIAN: 8}
-        
         # Classify agents
         (Pred_agents, Agents, Types, S, S_st, 
-         Neighbors, Neighbor_edge_values, 
-         img, img_m_per_px, Y, Y_st) = self.extract_data(DIM, train = True)
+         Neigh, Neigh_num, Neigh_type, Neigh_len, 
+         img, img_m_per_px, Y, Y_st) = self.extract_data(train = True)
         Pred_types = np.unique(Types[Pred_agents])
         
         # Get gradient clipping values              
@@ -289,8 +285,8 @@ class trajectron_salzmann(model_template):
                     Index_use = Index_num[batch][Index_num_start[batch]:Index_num_start[batch] + batch_size]
                     
                     if len(Index_use) > 1:
-                        state_len = torch.from_numpy(np.ones(len(Index_use) * S_st.shape[2], np.int32))
-                        fut_len   = torch.from_numpy(np.ones(len(Index_use) * num_steps, np.int32))
+                        state_len = torch.from_numpy(np.ones(len(Index_use)) * S_st.shape[2])
+                        fut_len   = torch.from_numpy(np.ones(len(Index_use)) * num_steps)
                         Index_num_start[batch] += 50
                         
                         print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch '.format(epochs) + 
@@ -306,8 +302,8 @@ class trajectron_salzmann(model_template):
                                 node_type = Types[i_agent]
                                 optimizer[node_type].zero_grad()
                                 
-                                S_batch    = torch.from_numpy(S[Index_use,i_agent,:,:DIM[node_type]])
-                                S_st_batch = torch.from_numpy(S_st[Index_use,i_agent,:,:DIM[node_type]])
+                                S_batch    = torch.from_numpy(S[Index_use,i_agent])
+                                S_st_batch = torch.from_numpy(S_st[Index_use,i_agent])
                                 Y_batch    = torch.from_numpy(Y[Index_use,i_agent,:num_steps])
                                 Y_st_batch = torch.from_numpy(Y_st[Index_use,i_agent,:num_steps])
                                 
@@ -320,44 +316,34 @@ class trajectron_salzmann(model_template):
                                     res_batch = None
                                     
                                 # Get batch data
-                                Neighbor_batch = {}
-                                Neighbor_edge_value_batch = {}
-                                num_neigh = []
-                                for i_dim, node_goal in enumerate(DIM.keys()):
-                                    num_neigh.append([])
-                                    key = (node_type, node_goal)
-                                    Neighbor_batch[key] = []
-                                    Neighbor_edge_value_batch[key] = []
-                                    
-                                    for i_sample in Index_use:
-                                        num_neigh[i_dim].append(len(Neighbors[agent][key][i_sample]))
-                                        Neighbor_batch[key].append(Neighbors[agent][key][i_sample])
-                                        Neighbor_edge_value_batch[key].append(Neighbor_edge_values[agent][key][i_sample]) 
-                                num_neigh = torch.tensor(num_neigh, dtype = torch.int32)
-                                num_neigh = num_neigh.sum(0)
-                                # Get Weights and model
+                                Neigh_batch       = torch.from_numpy(Neigh[Index_use, i_pred_agent])
+                                Neigh_types_batch = torch.from_numpy(Neigh_type[Index_use, i_pred_agent])
+                                Neigh_num_batch   = torch.from_numpy(Neigh_num[Index_use, i_pred_agent])
+                                Neigh_len_batch   = torch.from_numpy(Neigh_len[Index_use, i_pred_agent])
+                                
                                 Weights = list(self.trajectron.model_registrar.parameters())
-                                model = self.trajectron.node_models_dict[node_type]
+                                model = self.trajectron.node_models_dict[node_type.name]
                                 
                                 # Built Agent_batch
-                                assert False
-                                # TODO: rethin neighbers
-                                batch = AgentBatch(dt = self.dt, 
+                                batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
                                                    agent_name = agent, 
                                                    agent_type = node_type, 
                                                    agent_hist = S_st_batch, 
-                                                   agent_hist_len = state_len, 
+                                                   agent_hist_len = state_len.to(dtype = torch.int64), 
                                                    agent_fut = Y_batch,
-                                                   agent_fut_len = fut_len, 
-                                                   num_neigh = num_neigh, 
-                                                   neigh_types = 'something', 
-                                                   neigh_hist = 'something', 
-                                                   neigh_hist_len = 'something', 
+                                                   agent_fut_len = fut_len.to(dtype = torch.int64), 
+                                                   robot_fut = None,
+                                                   robot_fut_len = None,
+                                                   num_neigh = Neigh_num_batch, 
+                                                   neigh_types = Neigh_types_batch, 
+                                                   neigh_hist = Neigh_batch, 
+                                                   neigh_hist_len = Neigh_len_batch.to(dtype = torch.int64), 
                                                    maps = img_batch, 
                                                    maps_resolution = 1 / res_batch)
                                 
                                 # Run forward pass
-                                train_loss = model.train_loss(batch = batch.to(device = self.trajectron.device))
+                                batch.to(device = self.trajectron.device) 
+                                train_loss = model.train_loss(batch = batch)
                 
                                 assert train_loss.isfinite().all(), "The overall loss of the model is nan"
                 
@@ -409,13 +395,10 @@ class trajectron_salzmann(model_template):
         for i_sample in range(len(self.Output_T_pred_test)):
             self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
             
-        
-        DIM = {AgentType.VEHICLE: 8, AgentType.PEDESTRIAN: 8}
-        
         # Classify agents
         (Pred_agents, Agents, Types, S, S_st, 
-         Neighbors, Neighbor_edge_values, 
-         img, img_m_per_px) = self.extract_data(DIM, train = False)
+         Neigh, Neigh_num, Neigh_type, Neigh_len, 
+         img, img_m_per_px) = self.extract_data(train = False)
         
         
         Path_names = np.array([name for name in self.Output_path_train.columns])
@@ -434,7 +417,7 @@ class trajectron_salzmann(model_template):
             Index_num = np.where(self.num_timesteps_out_test == num)[0]
             needed_max = 200
             
-            batch_size_real = int(np.floor((batch_size * needed_max) / (num * self.num_samples_path_pred)))
+            batch_size_real = int(np.floor((batch_size * needed_max) / num))
             
             if batch_size_real > len(Index_num):
                 Index_uses = [Index_num]
@@ -443,14 +426,14 @@ class trajectron_salzmann(model_template):
                               for i in range(int(np.ceil(len(Index_num)/ batch_size_real)))] 
             
             for Index_use in Index_uses:
-                state_len = torch.from_numpy(np.ones(len(Index_use) * S_st.shape[2], np.int32))
+                state_len = torch.from_numpy(np.ones(len(Index_use)) * S_st.shape[2])
                 i_pred_agent = 0
                 for i_agent, agent in enumerate(Agents):
                     if Pred_agents[i_agent]:
-                        node_type = str(Types[i_agent])
+                        node_type = Types[i_agent]
                         
-                        S_batch = torch.from_numpy(S[Index_use,i_agent,:,:DIM[node_type]])
-                        S_st_batch = torch.from_numpy(S_st[Index_use,i_agent,:,:DIM[node_type]])
+                        S_batch = torch.from_numpy(S[Index_use,i_agent])
+                        S_st_batch = torch.from_numpy(S_st[Index_use,i_agent])
                             
                         if self.use_map:
                             img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
@@ -461,49 +444,42 @@ class trajectron_salzmann(model_template):
                             res_batch = None
                             
                         # Get batch data
-                        Neighbor_batch = {}
-                        Neighbor_edge_value_batch = {}
-                        num_neigh = []
-                        for i_dim, node_goal in enumerate(DIM.keys()):
-                            num_neigh.append([])
-                            key = (node_type, node_goal)
-                            Neighbor_batch[key] = []
-                            Neighbor_edge_value_batch[key] = []
-                            
-                            for i_sample in Index_use:
-                                num_neigh[i_dim].append(len(Neighbors[agent][key][i_sample]))
-                                Neighbor_batch[key].append(Neighbors[agent][key][i_sample])
-                                Neighbor_edge_value_batch[key].append(Neighbor_edge_values[agent][key][i_sample]) 
-                        num_neigh = torch.tensor(num_neigh, dtype = torch.int32)
-                        num_neigh = num_neigh.sum(0)
+                        Neigh_batch       = torch.from_numpy(Neigh[Index_use, i_pred_agent])
+                        Neigh_types_batch = torch.from_numpy(Neigh_type[Index_use, i_pred_agent])
+                        Neigh_num_batch   = torch.from_numpy(Neigh_num[Index_use, i_pred_agent])
+                        Neigh_len_batch   = torch.from_numpy(Neigh_len[Index_use, i_pred_agent])
                         
-                        batch = AgentBatch(dt = self.dt, 
+                        batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
                                            agent_name = agent, 
                                            agent_type = node_type, 
                                            agent_hist = S_st_batch, 
-                                           agent_hist_len = state_len, 
-                                           num_neigh = num_neigh, 
-                                           neigh_types = 'something', 
-                                           neigh_hist = 'something', 
-                                           neigh_hist_len = 'something', 
+                                           agent_hist_len = state_len.to(dtype = torch.int64),
+                                           agent_fut = None,
+                                           agent_fut_len = None,  
+                                           robot_fut = None,
+                                           robot_fut_len = None,
+                                           num_neigh = Neigh_num_batch, 
+                                           neigh_types = Neigh_types_batch, 
+                                           neigh_hist = Neigh_batch, 
+                                           neigh_hist_len = Neigh_len_batch.to(dtype = torch.int64), 
                                            maps = img_batch, 
                                            maps_resolution = 1 / res_batch)
                         
-                        
+                        batch.to(self.trajectron.device)
                         # Run prediction pass
-                        model = self.trajectron.node_models_dict[node_type]
-                        
+                        model = self.trajectron.node_models_dict[node_type.name]
                         self.trajectron.model_registrar.to(self.trajectron.device)
+                        
+                        
                         with torch.no_grad(): # Do not build graph for backprop
-                            predictions = model.predict(batch              = batch.to(self.trajectron.device),
+                            predictions = model.predict(batch              = batch,
                                                         prediction_horizon = num,
                                                         num_samples        = self.num_samples_path_pred)
                         
                         Pred = predictions.detach().cpu().numpy()
                         torch.cuda.empty_cache()
-                          
                         for i, i_sample in enumerate(Index_use):
-                            index = Types[i_agent][0] + '_' + Agents[i_agent]
+                            index = Types[i_agent].name[0] + '_' + Agents[i_agent]
                             Output_Path.iloc[i_sample][index] = Pred[:, i, :, :].astype('float32')
                         
                         i_pred_agent += 1
@@ -546,4 +522,4 @@ class trajectron_salzmann(model_template):
         return False
     
     def requires_torch_gpu(self = None):
-        return True
+        return True 

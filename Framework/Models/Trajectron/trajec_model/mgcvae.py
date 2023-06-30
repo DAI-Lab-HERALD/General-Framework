@@ -821,29 +821,18 @@ class MultimodalGenerativeCVAE(nn.Module):
     ) -> torch.Tensor:
 
         if neigh_hist.shape[2] < node_history_st.shape[1]:
-            neigh_hist = F.pad(
-                neigh_hist,
-                pad=(0, 0, 0, node_history_st.shape[1] - neigh_hist.shape[2]),
-                value=np.nan,
-            )
+            neigh_hist = F.pad(neigh_hist, value=np.nan,
+                               pad=(0, 0, 0, node_history_st.shape[1] - neigh_hist.shape[2]))
         elif neigh_hist.shape[2] > node_history_st.shape[1]:
-            node_history_st = F.pad(
-                node_history_st,
-                pad=(0, 0, 0, neigh_hist.shape[2] - node_history_st.shape[1]),
-                value=np.nan,
-            )
+            node_history_st = F.pad(node_history_st, value=np.nan,
+                                    pad=(0, 0, 0, neigh_hist.shape[2] - node_history_st.shape[1]))
 
-        node_hist_lens_for_cat = node_history_st_len.unsqueeze(1).expand(
-            (-1, neigh_hist.shape[1])
-        )
-        joint_history_len = torch.minimum(
-            neigh_hist_len, node_hist_lens_for_cat
-        ).flatten()
-        has_data: torch.Tensor = joint_history_len > 0
+        node_hist_lens_for_cat = node_history_st_len.unsqueeze(1).expand((-1, neigh_hist.shape[1]))
+        joint_history_len = torch.minimum(neigh_hist_len, node_hist_lens_for_cat).flatten() # bs * na
+        has_data: torch.Tensor = joint_history_len > 0 
 
-        node_hist_for_cat = node_history_st.repeat_interleave(
-            neigh_hist.shape[1], dim=0, output_size=has_data.shape[0]
-        )[has_data]
+        node_hist_for_cat = node_history_st.repeat_interleave(neigh_hist.shape[1], dim=0, 
+                                                              output_size=has_data.shape[0])[has_data]
         neigh_hist_for_cat = neigh_hist.reshape(-1, *neigh_hist.shape[2:])[has_data]
 
         joint_history_len = joint_history_len[has_data]
@@ -852,20 +841,17 @@ class MultimodalGenerativeCVAE(nn.Module):
         node_shifts = joint_history_len - node_hist_lens_for_cat.flatten()[has_data]
         neigh_shifts = joint_history_len - neigh_hist_len.flatten()[has_data]
 
-        node_hist_for_cat = roll_by_gather(
-            node_hist_for_cat, dim=1, shifts=node_shifts.to(node_hist_for_cat.device)
-        )
-        neigh_hist_for_cat = roll_by_gather(
-            neigh_hist_for_cat, dim=1, shifts=neigh_shifts.to(neigh_hist_for_cat.device)
-        )
+        node_hist_for_cat = roll_by_gather(node_hist_for_cat, dim=1, 
+                                           shifts=node_shifts.to(node_hist_for_cat.device))
+        
+        neigh_hist_for_cat = roll_by_gather(neigh_hist_for_cat, dim=1, 
+                                            shifts=neigh_shifts.to(neigh_hist_for_cat.device))
 
         joint_history = torch.cat([neigh_hist_for_cat, node_hist_for_cat], dim=-1)
 
         total_neighbors: int = num_neigh.sum().item()
 
-        sorting_indices = torch.empty(
-            total_neighbors, dtype=torch.long, device=self.device
-        )
+        sorting_indices = torch.empty(total_neighbors, dtype=torch.long, device=self.device)
 
         returns: List[torch.Tensor] = list()
         num_already_done = 0
@@ -885,14 +871,10 @@ class MultimodalGenerativeCVAE(nn.Module):
             )
             joint_history_type = joint_history[matches_type]
             joint_history_type_len = joint_history_len[matches_type]
-
+            
             outputs, _ = run_lstm_on_variable_length_seqs(
-                self.node_modules[
-                    DirectedEdge.get_str_from_types(
-                        AgentType(neigh_type.item()), self.node_type_obj
-                    )
-                    + "/edge_encoder"
-                ],
+                self.node_modules[DirectedEdge.get_str_from_types(
+                        AgentType(neigh_type.item()), self.node_type_obj) + "/edge_encoder"],
                 seqs=joint_history_type,
                 seq_lens=joint_history_type_len,
             )
@@ -923,7 +905,7 @@ class MultimodalGenerativeCVAE(nn.Module):
                     mode="constant",
                     value=1.0,
                 )
-
+            
             edge_weights: torch.Tensor = extended_addition_filter[joint_history_len - 1]
             batch_indexed_outputs *= edge_weights.unsqueeze(1)
 
@@ -1977,7 +1959,7 @@ class MultimodalGenerativeCVAE(nn.Module):
         :return: Scalar tensor -> nll loss
         """
         mode = ModeKeys.TRAIN
-
+        
         enc, x_nr_t, y_e, y_r, y = self.obtain_encoded_tensors(mode, batch)
 
         z, kl = self.encoder(mode, enc, y_e)
@@ -2072,43 +2054,64 @@ class MultimodalGenerativeCVAE(nn.Module):
         enc, x_nr_t, _, y_r, _ = self.obtain_encoded_tensors(mode, batch)
 
         self.latent.p_dist = self.p_z_x(mode, enc)
-
-        z, num_samples, num_components = self.latent.sample_p(
-            num_samples,
-            mode,
-            most_likely_z=z_mode,
-            full_dist=full_dist,
-            all_z_sep=all_z_sep,
-        )
-
-        if self.hyperparams["adaptive"]:
-            pos_hist: torch.Tensor = batch.agent_hist[..., :2]
-        else:
-            # This is the old n_s_t0 (just the state at the current timestep, t=0).
-            pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
-                                                      batch.agent_hist_len - 1]
-
-        y_dist, our_sampled_future = self.p_y_xz(
-            mode,
-            enc,
-            x_nr_t,
-            y_r,
-            pos_hist,
-            batch.agent_hist_len,
-            z,
-            batch.dt,
-            prediction_horizon,
-            num_samples,
-            num_components,
-            z_mode,
-            gmm_mode,
-            update_mode,
-        )
-
+        
+        
         if output_dists:
+            z, num_samples, num_components = self.latent.sample_p(
+                num_samples,
+                mode,
+                most_likely_z=z_mode,
+                full_dist=full_dist,
+                all_z_sep=all_z_sep,
+            )
+    
+            if self.hyperparams["adaptive"]:
+                pos_hist: torch.Tensor = batch.agent_hist[..., :2]
+            else:
+                # This is the old n_s_t0 (just the state at the current timestep, t=0).
+                pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
+                                                          batch.agent_hist_len - 1]
+    
+            y_dist, our_sampled_future = self.p_y_xz(
+                mode, enc, x_nr_t, y_r, pos_hist,
+                batch.agent_hist_len, z, batch.dt,
+                prediction_horizon, num_samples,
+                num_components, z_mode,
+                gmm_mode, update_mode,
+            )
+    
             return y_dist, our_sampled_future
-        else:
-            return our_sampled_future
+        
+        
+        output = []
+        for i_path in range(num_samples):
+        
+            z, num_sample, num_components = self.latent.sample_p(
+                1,
+                mode,
+                most_likely_z=z_mode,
+                full_dist=full_dist,
+                all_z_sep=all_z_sep,
+            )
+    
+            if self.hyperparams["adaptive"]:
+                pos_hist: torch.Tensor = batch.agent_hist[..., :2]
+            else:
+                # This is the old n_s_t0 (just the state at the current timestep, t=0).
+                pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
+                                                          batch.agent_hist_len - 1]
+    
+            _, our_sampled_future = self.p_y_xz(
+                mode, enc, x_nr_t, y_r, pos_hist,
+                batch.agent_hist_len, z, batch.dt,
+                prediction_horizon, num_sample,
+                num_components, z_mode,
+                gmm_mode, update_mode,
+            )
+            output.append(our_sampled_future)
+        
+        output = torch.concat(output, dim = 0)
+        return output
 
     def adaptive_predict(
         self,

@@ -99,9 +99,10 @@ class agent_yuan(model_template):
             x_rel = centre - X[...,-2,:].reshape(-1, 2).cpu().numpy()
             rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
             domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(X.shape[1])]
-            img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                    target_height = self.target_height, 
-                                                    target_width = self.target_width, grayscale = False)
+            img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
+                                                                  target_height = self.target_height, 
+                                                                  target_width = self.target_width, 
+                                                                  grayscale = False, return_resolution = True)
             img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 3, 
                                                           self.target_height, self.target_width - 80)
             img_scale = self.data_set.Images.Target_MeterPerPx.loc[domain_repeat.location]

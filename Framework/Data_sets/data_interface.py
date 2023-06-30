@@ -221,12 +221,16 @@ class data_interface(object):
         return self.Datasets[domain['Scenario']].Images.Target_MeterPerPx.loc[domain.image_id]
     
     
-    def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale = False):
+    def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
+                            grayscale = False, return_resolution = False):
         if grayscale:
             Imgs = np.zeros((len(domain), target_height, target_width, 1), dtype = 'uint8')
         else:
             Imgs = np.zeros((len(domain), target_height, target_width, 3), dtype = 'uint8')
-            
+        
+        if return_resolution:
+            Imgs_m_per_px = np.zeros(len(domain), dtype = 'float64')
+        
         for data_set in self.Datasets.values():
             if data_set.includes_images():
                 print('')
@@ -236,7 +240,12 @@ class data_interface(object):
 
                 Imgs[Use] = data_set.return_batch_images(domain.iloc[Use], center[Use], rot_angle[Use], 
                                                          target_width, target_height, grayscale)
-        return Imgs
+                if return_resolution:
+                    Imgs_m_per_px[Use] = data_set.Images.Target_MeterPerPx.loc[domain.image_id.iloc[Use]]
+        if return_resolution:
+            return Imgs, Imgs_m_per_px
+        else:
+            return Imgs
     
     
     def transform_outputs(self, output, model_pred_type, metric_pred_type, pred_save_file):

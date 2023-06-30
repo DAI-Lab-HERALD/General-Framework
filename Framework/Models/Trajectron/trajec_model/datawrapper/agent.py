@@ -21,67 +21,38 @@ class PadDirection(IntEnum):
     
 @dataclass
 class AgentBatch:
-    data_idx: Tensor
-    scene_ts: Tensor
     dt: Tensor
     agent_name: List[str]
     agent_type: Tensor
-    curr_agent_state: StateTensor
     agent_hist: StateTensor
-    agent_hist_extent: Tensor
     agent_hist_len: Tensor
     agent_fut: StateTensor
-    agent_fut_extent: Tensor
     agent_fut_len: Tensor
     num_neigh: Tensor
     neigh_types: Tensor
     neigh_hist: StateTensor
-    neigh_hist_extents: Tensor
     neigh_hist_len: Tensor
-    neigh_fut: StateTensor
-    neigh_fut_extents: Tensor
-    neigh_fut_len: Tensor
     robot_fut: Optional[StateTensor]
     robot_fut_len: Optional[Tensor]
-    map_names: Optional[List[str]]
     maps: Optional[Tensor]
     maps_resolution: Optional[Tensor]
-    rasters_from_world_tf: Optional[Tensor]
-    agents_from_world_tf: Tensor
-    scene_ids: Optional[List]
-    history_pad_dir: PadDirection
-    extras: Dict[str, Tensor]
 
     def to(self, device) -> None:
         excl_vals = {
-            "data_idx",
             "agent_name",
             "agent_type",
             "agent_hist_len",
             "agent_fut_len",
             "neigh_hist_len",
-            "neigh_fut_len",
             "neigh_types",
             "num_neigh",
             "robot_fut_len",
-            "map_names",
-            "vector_maps",
-            "scene_ids",
-            "history_pad_dir",
-            "extras",
         }
         for val in vars(self).keys():
             tensor_val = getattr(self, val)
             if val not in excl_vals and tensor_val is not None:
                 tensor_val: Union[Tensor, StateTensor]
                 setattr(self, val, tensor_val.to(device, non_blocking=True))
-
-        for key, val in self.extras.items():
-            # Allow for custom .to() method for objects that define a __to__ function.
-            if hasattr(val, "__to__"):
-                self.extras[key] = val.__to__(device, non_blocking=True)
-            else:
-                self.extras[key] = val.to(device, non_blocking=True)
 
     def agent_types(self) -> List[AgentType]:
         unique_types: Tensor = torch.unique(self.agent_type)
@@ -116,47 +87,23 @@ class AgentBatch:
         )
 
         return AgentBatch(
-            data_idx=_filter(self.data_idx),
-            scene_ts=_filter(self.scene_ts),
             dt=_filter(self.dt),
             agent_name=_filter_tensor_or_list(self.agent_name),
             agent_type=_filter(self.agent_type),
-            curr_agent_state=_filter(self.curr_agent_state),
             agent_hist=_filter(self.agent_hist),
-            agent_hist_extent=_filter(self.agent_hist_extent),
             agent_hist_len=_filter(self.agent_hist_len),
             agent_fut=_filter(self.agent_fut),
-            agent_fut_extent=_filter(self.agent_fut_extent),
             agent_fut_len=_filter(self.agent_fut_len),
             num_neigh=_filter(self.num_neigh),
             neigh_types=_filter(self.neigh_types),
             neigh_hist=_filter(self.neigh_hist),
-            neigh_hist_extents=_filter(self.neigh_hist_extents),
             neigh_hist_len=_filter(self.neigh_hist_len),
-            neigh_fut=_filter(self.neigh_fut),
-            neigh_fut_extents=_filter(self.neigh_fut_extents),
-            neigh_fut_len=_filter(self.neigh_fut_len),
             robot_fut=_filter(self.robot_fut) if self.robot_fut is not None else None,
             robot_fut_len=_filter(self.robot_fut_len)
             if self.robot_fut_len is not None
-            else None,
-            map_names=_filter_tensor_or_list(self.map_names)
-            if self.map_names is not None
             else None,
             maps=_filter(self.maps) if self.maps is not None else None,
             maps_resolution=_filter(self.maps_resolution)
             if self.maps_resolution is not None
             else None,
-            vector_maps=_filter(self.vector_maps)
-            if self.vector_maps is not None
-            else None,
-            rasters_from_world_tf=_filter(self.rasters_from_world_tf)
-            if self.rasters_from_world_tf is not None
-            else None,
-            agents_from_world_tf=_filter(self.agents_from_world_tf),
-            scene_ids=_filter_tensor_or_list(self.scene_ids),
-            history_pad_dir=self.history_pad_dir,
-            extras={
-                key: _filter_tensor_or_list(val) for key, val in self.extras.items()
-            },
         )
