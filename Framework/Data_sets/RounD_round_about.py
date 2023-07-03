@@ -123,7 +123,7 @@ class RounD_round_about(data_set_template):
 
         t = np.array(tar_track_l.index / 25)
         
-        domain = pd.Series(np.zeros(5, object), index = ['location', 'image_id', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain = pd.Series(np.zeros(6, object), index = ['location', 'image_id', 'rot_angle', 'x_center', 'y_center', 'class'])
         domain.location  = data_i.locationId
         domain.image_id  = data_i.locationId
         domain.rot_angle = original_angle
