@@ -84,7 +84,7 @@ class Unicycle(Dynamic):
 
         return torch.where(~mask.unsqueeze(-1), states_regular, states_small_dphi)
 
-    def integrate_samples(self, control_samples, x, dt):
+    def integrate_samples(self, control_samples, x0, dt):
         r"""
         TODO: Boris: Add docstring
         :param x: (x, y, phi, v)
@@ -96,22 +96,27 @@ class Unicycle(Dynamic):
         v_0 = self.initial_conditions["vel"].unsqueeze(1)
 
         # In case the input is batched because of the robot in online use we repeat this to match the batch size of x.
-        if p_0.size()[0] != x.size()[0]:
-            p_0 = p_0.repeat(x.size()[0], 1, 1)
-            v_0 = v_0.repeat(x.size()[0], 1, 1)
+        if p_0.size()[0] != x0.size()[0]:
+            p_0 = p_0.repeat(x0.size()[0], 1, 1)
+            v_0 = v_0.repeat(x0.size()[0], 1, 1)
 
         phi_0 = torch.atan2(v_0[..., 1], v_0[..., 0])
 
-        phi_0 = phi_0 + torch.tanh(self.p0_model(torch.cat((x, phi_0), dim=-1)))
+        phi_0 = phi_0 + torch.tanh(self.p0_model(torch.cat((x0, phi_0), dim=-1)))
 
         u = control_samples.permute((3, 0, 1, 2)).unsqueeze(-1)
-        x = torch.stack(
-            [p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0
-        ).squeeze(dim=-1)
-
-        integrated = self.dynamic(
-            x, u.reshape(u.shape[0], -1, *u.shape[3:]), dt.unsqueeze(-1)
-        )[..., 0, :2]
+        x = torch.stack([p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0).squeeze(dim=-1)
+        
+        if num_samples > 1:
+            x = torch.tile(x.unsqueeze(1), (1, num_samples, 1)).reshape(x.shape[0],-1)
+            dt_long = torch.tile(dt.unsqueeze(0), (num_samples, 1)).reshape(-1,1)
+        else:
+            dt_long = dt.unsqueeze(-1)
+            
+        u = u.reshape(u.shape[0], -1, *u.shape[3:])
+        
+        integrated = self.dynamic(x, u, dt_long)[..., 0, :2]
+        
         return integrated.reshape(num_samples, batch_num, timesteps, control_dim)
 
     def compute_control_jacobians(
@@ -287,13 +292,9 @@ class Unicycle(Dynamic):
         Returns:
             _type_: _description_
         """
-        (
-            num_samples,
-            batch_dim,
-            ph,
-            num_components,
-            control_dim,
-        ) = control_dist_dphi_a.mus.shape
+        (num_samples, batch_dim, ph,
+         num_components, control_dim) = control_dist_dphi_a.mus.shape
+        
         p_0 = self.initial_conditions["pos"].unsqueeze(1)
         v_0 = self.initial_conditions["vel"].unsqueeze(1)
 
@@ -304,25 +305,25 @@ class Unicycle(Dynamic):
 
         phi_0 = torch.atan2(v_0[..., 1], v_0[..., 0])
 
-        phi_0 = phi_0 + torch.tanh(
-            self.p0_model(torch.cat((encoded_context, phi_0), dim=-1))
-        )
+        phi_0 = phi_0 + torch.tanh(self.p0_model(torch.cat((encoded_context, phi_0), dim=-1)))
 
         # Adding a new dimension so dt's resulting
         # (batch_shape, 1) shape broadcasts easily.
         dt = dt[:, None]
         us = control_dist_dphi_a.mus.permute((4, 0, 1, 2, 3))
-        x_0 = torch.stack(
-            [p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0
-        )
+        x_0 = torch.stack([p_0[..., 0], p_0[..., 1], phi_0, torch.norm(v_0, dim=-1)], dim=0)
 
         # Combining the sample and batch dimensions here,
         # since they're essentially just a batch here.
-        xs: torch.Tensor = self.dynamic(
-            x_0.reshape(x_0.shape[0], -1),
-            us.reshape(us.shape[0], -1, *us.shape[3:]),
-            dt,
-        )  # [S*B, T, K, 4]
+        if num_samples > 1:
+            x_0 = torch.tile(x_0.permute(0,2,1), (1, num_samples, 1))
+            dt_long  = torch.tile(dt.unsqueeze(0), (num_samples, 1, 1)).reshape(-1,1)
+        else:
+            dt_long = dt
+        x_0 = x_0.reshape(x_0.shape[0], -1)
+        us_long = us.reshape(us.shape[0], -1, *us.shape[3:])
+        
+        xs: torch.Tensor = self.dynamic(x_0, us_long, dt_long)  # [S*B, T, K, 4]
 
         # [S, B, T, K, 4]
         xs = xs.reshape(num_samples, batch_dim, *xs.shape[1:])

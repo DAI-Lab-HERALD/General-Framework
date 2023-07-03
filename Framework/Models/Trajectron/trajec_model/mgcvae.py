@@ -2054,64 +2054,35 @@ class MultimodalGenerativeCVAE(nn.Module):
         enc, x_nr_t, _, y_r, _ = self.obtain_encoded_tensors(mode, batch)
 
         self.latent.p_dist = self.p_z_x(mode, enc)
+
+        z, num_samples, num_components = self.latent.sample_p(
+            num_samples,
+            mode,
+            most_likely_z=z_mode,
+            full_dist=full_dist,
+            all_z_sep=all_z_sep,
+        )
+
+        if self.hyperparams["adaptive"]:
+            pos_hist: torch.Tensor = batch.agent_hist[..., :2]
+        else:
+            # This is the old n_s_t0 (just the state at the current timestep, t=0).
+            pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
+                                                      batch.agent_hist_len - 1]
         
-        
+        y_dist, our_sampled_future = self.p_y_xz(
+            mode, enc, x_nr_t, y_r, pos_hist,
+            batch.agent_hist_len, z, batch.dt,
+            prediction_horizon, num_samples,
+            num_components, z_mode,
+            gmm_mode, update_mode,
+        )
+    
         if output_dists:
-            z, num_samples, num_components = self.latent.sample_p(
-                num_samples,
-                mode,
-                most_likely_z=z_mode,
-                full_dist=full_dist,
-                all_z_sep=all_z_sep,
-            )
-    
-            if self.hyperparams["adaptive"]:
-                pos_hist: torch.Tensor = batch.agent_hist[..., :2]
-            else:
-                # This is the old n_s_t0 (just the state at the current timestep, t=0).
-                pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
-                                                          batch.agent_hist_len - 1]
-    
-            y_dist, our_sampled_future = self.p_y_xz(
-                mode, enc, x_nr_t, y_r, pos_hist,
-                batch.agent_hist_len, z, batch.dt,
-                prediction_horizon, num_samples,
-                num_components, z_mode,
-                gmm_mode, update_mode,
-            )
-    
             return y_dist, our_sampled_future
+        else:
+            return our_sampled_future
         
-        
-        output = []
-        for i_path in range(num_samples):
-        
-            z, num_sample, num_components = self.latent.sample_p(
-                1,
-                mode,
-                most_likely_z=z_mode,
-                full_dist=full_dist,
-                all_z_sep=all_z_sep,
-            )
-    
-            if self.hyperparams["adaptive"]:
-                pos_hist: torch.Tensor = batch.agent_hist[..., :2]
-            else:
-                # This is the old n_s_t0 (just the state at the current timestep, t=0).
-                pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
-                                                          batch.agent_hist_len - 1]
-    
-            _, our_sampled_future = self.p_y_xz(
-                mode, enc, x_nr_t, y_r, pos_hist,
-                batch.agent_hist_len, z, batch.dt,
-                prediction_horizon, num_sample,
-                num_components, z_mode,
-                gmm_mode, update_mode,
-            )
-            output.append(our_sampled_future)
-        
-        output = torch.concat(output, dim = 0)
-        return output
 
     def adaptive_predict(
         self,

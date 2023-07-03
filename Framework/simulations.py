@@ -9,19 +9,21 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'RounD_round_about', 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',    't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'HighD_lane_change', 't0_type': 'start', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'RounD_round_about', 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
-Data_params = [{'dt': 0.2, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (10, 10)}] 
+Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (25, 25)}] 
 
 # Select the spitting methods to be considered
-Splitters = [{'Type': 'Random_split', 'repetition': 0, 'test_part': 0.2}]
+Splitters = [{'Type': 'Cross_split', 'repetition': [0, 1], 'test_part': 0.2}]
 
 # Select the models to be trained
 Models = ['trajectron_salzmann']
 
 # Select the metrics to be used
-Metrics = ['ROC_curve']
+Metrics = ['minADE20', 'minFDE20', 'ADE_ML', 'FDE_ML', 
+           'Oracle', 'KDE_NLL', 'ECE_traj',
+           'ECE', 'ROC_curve']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 

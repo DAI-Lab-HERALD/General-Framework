@@ -9,7 +9,6 @@ from Trajectron.trajec_model.model_registrar import ModelRegistrar
 from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
 import json
 import os
-from Trajectron.trajec_model.datawrapper.state import StateTensor 
 
 class trajectron_salzmann(model_template):
     
@@ -72,8 +71,6 @@ class trajectron_salzmann(model_template):
         self.std_pos_veh = 80
         self.std_vel_veh = 15
         self.std_acc_veh = 4
-        self.std_hea_veh = np.pi
-        self.std_d_h_veh = 1
         
         # Set time step
         self.dt = self.Input_T_train[0][-1] - self.Input_T_train[0][-2]
@@ -157,8 +154,6 @@ class trajectron_salzmann(model_template):
         S_st[:,~Ped_agents,:,2:4] /= self.std_vel_veh
         S_st[:,Ped_agents,:,4:6]  /= self.std_acc_ped
         S_st[:,~Ped_agents,:,4:6] /= self.std_acc_veh
-        S_st[:,~Ped_agents,:,6]   /= self.std_hea_veh
-        S_st[:,~Ped_agents,:,7]   /= self.std_d_h_veh
         
         D = np.min(np.sqrt(np.sum((X[:,:,np.newaxis] - X[:,np.newaxis]) ** 2, axis = -1)), axis = - 1)
         D_max = np.array([[attention_radius[(Types[j_v], Types[i_v])] 
@@ -417,7 +412,7 @@ class trajectron_salzmann(model_template):
             Index_num = np.where(self.num_timesteps_out_test == num)[0]
             needed_max = 200
             
-            batch_size_real = int(np.floor((batch_size * needed_max) / num))
+            batch_size_real = int(np.floor((batch_size * needed_max) / (num * self.num_samples_path_pred)))
             
             if batch_size_real > len(Index_num):
                 Index_uses = [Index_num]
@@ -481,7 +476,6 @@ class trajectron_salzmann(model_template):
                         for i, i_sample in enumerate(Index_use):
                             index = Types[i_agent].name[0] + '_' + Agents[i_agent]
                             Output_Path.iloc[i_sample][index] = Pred[:, i, :, :].astype('float32')
-                        
                         i_pred_agent += 1
                         
                 samples_done += len(Index_use)
