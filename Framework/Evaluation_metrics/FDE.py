@@ -38,7 +38,7 @@ class FDE(evaluation_template):
     def get_name(self = None):
         names = {'print': 'FDE',
                  'file': 'FDE',
-                 'latex': r'\emph{FDE}'}
+                 'latex': r'\emph{FDE [m]}'}
         return names
     
     

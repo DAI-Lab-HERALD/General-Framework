@@ -77,7 +77,7 @@ class Oracle(evaluation_template):
     def get_name(self = None):
         names = {'print': 'Oracle',
                  'file': 'Oracle',
-                 'latex': r'\emph{Oracle}'}
+                 'latex': r'\emph{Oracle [m]}'}
         return names
     
     

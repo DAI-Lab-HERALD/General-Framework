@@ -213,6 +213,8 @@ class data_interface(object):
         self.Domain           = self.Domain.reset_index(drop = True)
         
         self.data_loaded = True
+        
+        self.dt = dt
         return complete_failure
         
         

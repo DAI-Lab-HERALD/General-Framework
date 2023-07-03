@@ -40,7 +40,7 @@ class ADE20(ADE):
     def get_name(self = None):
         names = {'print': 'ADE20',
                  'file': 'ADE20',
-                 'latex': r'\emph{ADE20}'}
+                 'latex': r'\emph{ADE$_{20}$ [m]}'}
         return names
     
     

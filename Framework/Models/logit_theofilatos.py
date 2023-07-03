@@ -69,12 +69,6 @@ class logit_theofilatos(model_template):
         
         Probs = Probs[self.data_set.Behaviors]
         return [Probs]
-
-    def check_input_names_method(self, names, train = True):
-        if all(names == self.input_names_train):
-            return True
-        else:
-            return False
     
     def check_trainability_method(self):
         return None

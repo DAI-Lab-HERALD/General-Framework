@@ -26,13 +26,6 @@ class logit_theofilatos_general(logit_theofilatos):
         X[np.isnan(X)] = 0
         return X
 
-    def check_input_names_method(self, names, train = True):
-        return True
-
-
-    def check_trainability_method(self):
-        return None
-        
     
     def get_input_type(self = None):
         input_info = {'past': 'general',
@@ -45,16 +38,3 @@ class logit_theofilatos_general(logit_theofilatos):
                  'file': 'log_reg_1D',
                  'latex': r'$\text{\emph{LR}}_{1D}$'}
         return names   
-    
-    def requires_torch_gpu(self = None):
-        return False
-
-        
-        
-        
-        
-        
-    
-        
-        
-        

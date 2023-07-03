@@ -31,6 +31,9 @@ python_packages/
 Latex_files/
 rename_files.py
 remove_files.py
+Results/
+simulations*.py
+
 
 # Jupyter Notebook
 .ipynb_checkpoints

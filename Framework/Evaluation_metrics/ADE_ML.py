@@ -51,7 +51,7 @@ class ADE_ML(evaluation_template):
     def get_name(self = None):
         names = {'print': 'ADE_ML',
                  'file': 'ADE_ML',
-                 'latex': r'\emph{ADE$_{ML}$}'}
+                 'latex': r'\emph{ADE$_{ML}$ [m]}'}
         return names
     
     def is_log_scale(self = None):

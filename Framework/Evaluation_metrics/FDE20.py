@@ -35,7 +35,7 @@ class FDE20(FDE):
     def get_name(self = None):
         names = {'print': 'FDE20',
                  'file': 'FDE20',
-                 'latex': r'\emph{FDE20}'}
+                 'latex': r'\emph{FDE$_{20}$ [m]}'}
         return names
     
     

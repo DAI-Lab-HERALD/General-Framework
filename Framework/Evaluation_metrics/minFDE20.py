@@ -49,7 +49,7 @@ class minFDE20(evaluation_template):
     def get_name(self = None):
         names = {'print': 'minFDE20',
                  'file': 'minFDE20',
-                 'latex': r'\emph{minFDE20}'}
+                 'latex': r'\emph{min FDE$_{20}$ [m]}'}
         return names
     
     

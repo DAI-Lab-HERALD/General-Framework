@@ -44,7 +44,7 @@ class ADE(evaluation_template):
     def get_name(self = None):
         names = {'print': 'ADE',
                  'file': 'ADE',
-                 'latex': r'\emph{ADE}'}
+                 'latex': r'\emph{ADE [m]}'}
         return names
     
     

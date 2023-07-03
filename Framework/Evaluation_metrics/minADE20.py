@@ -51,7 +51,7 @@ class minADE20(evaluation_template):
     def get_name(self = None):
         names = {'print': 'minADE20',
                  'file': 'minADE20',
-                 'latex': r'\emph{minADE20}'}
+                 'latex': r'\emph{min ADE$_{20}$ [m]}'}
         return names
     
     
