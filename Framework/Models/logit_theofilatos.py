@@ -94,6 +94,9 @@ class logit_theofilatos(model_template):
     def requires_torch_gpu(self = None):
         return False
         
+    def provides_epoch_loss(self = None):
+        return False
+        
         
         
         

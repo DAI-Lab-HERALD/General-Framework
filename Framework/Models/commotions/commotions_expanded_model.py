@@ -2846,6 +2846,8 @@ class commotions_template():
         Params_dec = torch.zeros((0, self.num_variable_params), dtype = torch.float32, device = self.device)
         Loss       = torch.zeros((0,), dtype = torch.float32, device = self.device)
         
+        Step_loss = []
+        
         # Go through all the iterations of BO
         for iteration in range(iterations + 1):
             # Check if initial samples need to be created
@@ -2915,6 +2917,10 @@ class commotions_template():
             
             print(method + ' - min(Loss): {:7.2f}'.format(Loss.min()), flush=True)        
             print('', flush=True)
+            
+            Step_loss.append(Loss.min())
+        
+        self.train_loss = np.array(Step_loss)[np.newaxis]
         
         # Print final loss value and running time    
         TT = time.time() - TT
@@ -3045,7 +3051,7 @@ class commotions_template():
                                                   T_C_pred  = T_C,
                                                   A_true    = A_true[sample_batch_index], 
                                                   t_E_true  = t_E_true[sample_batch_index], 
-                                                  loss_type = self.train_loss)
+                                                  loss_type = self.train_loss_type)
                 
                 # Add to overall loss (if not all intial sampels coud be covered in one batch)
                 Loss[param_batch_index, :] += loss

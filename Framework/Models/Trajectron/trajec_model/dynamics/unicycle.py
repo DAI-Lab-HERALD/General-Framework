@@ -94,6 +94,7 @@ class Unicycle(Dynamic):
         num_samples, batch_num, timesteps, control_dim = control_samples.shape
         p_0 = self.initial_conditions["pos"].unsqueeze(1)
         v_0 = self.initial_conditions["vel"].unsqueeze(1)
+        #TODO: Fix the problem with different std factors for pos (80) and vel (15)
 
         # In case the input is batched because of the robot in online use we repeat this to match the batch size of x.
         if p_0.size()[0] != x0.size()[0]:
@@ -297,6 +298,7 @@ class Unicycle(Dynamic):
         
         p_0 = self.initial_conditions["pos"].unsqueeze(1)
         v_0 = self.initial_conditions["vel"].unsqueeze(1)
+        #TODO: Fix the problem with different std factors for pos (80) and vel (15)
 
         # In case the input is batched because of the robot in online use we repeat this to match the batch size of x.
         if p_0.shape[0] != encoded_context.shape[0]:

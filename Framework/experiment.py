@@ -72,12 +72,15 @@ class Experiment():
         assert type(Metrics) == type([0]), "Metrics must be a list."
         assert len(Metrics) > 0, "Metrics must ot be empty."
         
-        self.num_data_sets = len(Data_sets)
+        self.num_data_sets   = len(Data_sets)
+        self.num_data_params = len(Data_params)
+        self.num_models      = len(Models)
+        self.num_metrics     = len(Metrics)
         
-        self.Data_sets          = Data_sets
-        self.Data_params        = Data_params
-        self.Models             = Models
-        self.Metrics            = Metrics
+        self.Data_sets   = Data_sets
+        self.Data_params = Data_params
+        self.Models      = Models
+        self.Metrics     = Metrics
         
         # Check if multiple splitter repetitions have been provided
         self.Splitters = []
@@ -108,6 +111,8 @@ class Experiment():
             for rep in reps:
                 new_split_dict = {'Type': splitter_name, 'repetition': rep, 'test_part': splitter_tp}
                 self.Splitters.append(new_split_dict)
+        
+        self.num_splitters = len(self.Splitters)
         
         self.provided_modules = True
         
@@ -154,7 +159,7 @@ class Experiment():
         
         print('with dt = ' + '{:0.2f}'.format(max(0, min(9.99, data_param['dt']))).zfill(4) + 
               ' and n_I = {}->{}'.format(*data_param['num_timesteps_in']) + 
-              ' ({}/{})'.format(j + 1, len(self.Data_params)), flush = True)
+              ' ({}/{})'.format(j + 1, self.num_data_params), flush = True)
         
         if data_set.classification_useful:
             sample_string = ''
@@ -187,16 +192,16 @@ class Experiment():
     def print_split_status(self, k, splitter, split_failure):      
         if split_failure is not None:
             print('However, ' + splitter.get_name()['print'] + 
-                  ' ({}/{})'.format(k + 1, len(self.Splitters)) + 
+                  ' ({}/{})'.format(k + 1, self.num_splitters) + 
                   ' is not applicable, because ' + split_failure, flush = True)
             print('')
         else:
             print('Under ' + splitter.get_name()['print'] + 
-                  ' ({}/{})'.format(k + 1, len(self.Splitters)), flush = True)
+                  ' ({}/{})'.format(k + 1, self.num_splitters), flush = True)
             
     def print_model_status(self, l, model, model_failure):                
         print('train the model ' + model.get_name()['print'] + 
-              ' ({}/{}).'.format(l + 1, len(self.Models)), flush = True)
+              ' ({}/{}).'.format(l + 1, self.num_models), flush = True)
         print('')
         
         if model_failure is not None:
@@ -350,7 +355,7 @@ class Experiment():
                             metric.evaluate_prediction(output_trans)
     
     #%% Loading results
-    def load_results(self, plot_if_possible = True, return_train_results = False):
+    def load_results(self, plot_if_possible = True, return_train_results = False, return_train_loss = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
         
@@ -378,19 +383,26 @@ class Experiment():
         self.Metrics_log_scale = np.array(Metrics_log_scale)
 
         self.Results = np.ones((self.num_data_sets,
-                                len(self.Data_params),
-                                len(self.Splitters),
-                                len(self.Models),
-                                len(self.Metrics)),
+                                self.num_data_params,
+                                self.num_splitters,
+                                self.num_models,
+                                self.num_metrics),
                                float) * np.nan
         
         if return_train_results:
             self.Train_results = np.ones((self.num_data_sets,
-                                          len(self.Data_params),
-                                          len(self.Splitters),
-                                          len(self.Models),
-                                          len(self.Metrics)),
+                                          self.num_data_params,
+                                          self.num_splitters,
+                                          self.num_models,
+                                          self.num_metrics),
                                          float) * np.nan
+            
+        if return_train_loss:
+            self.Train_loss = np.ones((self.num_data_sets,
+                                       self.num_data_params,
+                                       self.num_splitters,
+                                       self.num_models),
+                                      np.ndarray) * np.nan
 
         for m, metric_name in enumerate(self.Metrics):
             metric_module = importlib.import_module(metric_name)
@@ -442,6 +454,9 @@ class Experiment():
                             results_file_name = results_file_name.replace(os.sep + 'Data' + os.sep,
                                                                           os.sep + 'Metrics' + os.sep)
                             
+                            
+                            
+                            
                             if os.path.isfile(results_file_name):
                                 metric_result = np.load(results_file_name, allow_pickle = True)[:-1]
                                 
@@ -456,15 +471,40 @@ class Experiment():
                                     figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
                                     
                                     os.makedirs(os.path.dirname(figure_file), exist_ok = True)
-                                    saving_figure = l == (len(self.Models) - 1)
+                                    saving_figure = l == (self.num_models - 1)
                                     metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model_class)
                             else:
                                 print('Desired result not findable')
-        
+                                
+                            if m == 0 and return_train_loss:
+                                if model_class.provides_epoch_loss():
+                                    train_loss_file_name = (data_set.data_file[:-4] +
+                                                            # Add splitting method
+                                                            '--' + splitter.get_name()['file'] + '--' + 
+                                                            # Add model name
+                                                            model_class.get_name()['file']  + '--train_loss.npy')
+                                    
+                                    train_loss_file_name = results_file_name.replace(os.sep + 'Data' + os.sep,
+                                                                                     os.sep + 'Models' + os.sep)
+                                    
+                                    if os.path.isfile(train_loss_file_name):
+                                        train_loss = np.load(train_loss_file_name)
+                                        
+                                        self.Train_loss[i,j,k,l] = train_loss
+                                        
+                                    else:
+                                        print('Desired train loss is not available not findable')
+                                else:
+                                    print('The model ' + model_class.get_name()['print'] + ' does not provide training losses.')
+                                  
         self.results_loaded = True
         
-        if return_train_results:
+        if return_train_results and return_train_loss:
+            return self.Results, self.Train_results, self.Train_loss
+        elif return_train_results and not return_train_loss:
             return self.Results, self.Train_results
+        elif not return_train_results and return_train_loss:
+            return self.Results, self.Train_loss
         else:
             return self.Results
         
@@ -589,7 +629,7 @@ class Experiment():
             addon = '.tex'
             
         # Get maximum figure width in cm
-        num_para_values = len(self.Models) * self.num_data_sets * len(self.Data_params)
+        num_para_values = self.num_models * self.num_data_sets * self.num_data_params
         
         # Define empty spaces
         outer_space = 1.5
@@ -611,8 +651,8 @@ class Experiment():
                 allowed_width = 3 
             plot_width  = (allowed_width - outer_space - inter_plot_space * (self.num_data_sets - 1)) / self.num_data_sets
         
-        overall_height = (outer_space + len(self.Metrics) * plot_height +
-                          inter_plot_space * ((len(self.Metrics) - 1)))
+        overall_height = (outer_space + self.num_metrics * plot_height +
+                          inter_plot_space * ((self.num_metrics - 1)))
         
         
         Figure_string  = r'\documentclass[journal]{standalone}' + ' \n' + ' \n'
@@ -635,11 +675,11 @@ class Experiment():
         Colors_string = ''
         Colors_string += r'    \definecolor{lowcolor}{RGB}{' + '{},{},{}'.format(*rgb_low) + r'}' + ' \n'
         
-        for i in range(len(self.Data_params) - 2):
+        for i in range(self.num_data_params - 2):
             new_name = 'midcolor_{}'.format(i + 1)
             Colors.append(new_name)
             
-            fac = (i + 1) / (len(self.Data_params) - 1)
+            fac = (i + 1) / (self.num_data_params - 1)
             rgb = (fac * rgb_high + (1 - fac) * rgb_low).astype(int)
             
             Colors_string += r'    \definecolor{' + new_name + r'}{RGB}{' + '{},{},{}'.format(*rgb) + r'}' + ' \n'
@@ -699,7 +739,7 @@ class Experiment():
             
             y_value  = overall_height - plot_height * (j + 1) - inter_plot_space * (j)
             
-            y_max = len(self.Models) * plot_height / plot_width
+            y_max = self.num_models * plot_height / plot_width
             n_y_tick = 4 # Redo
             
             for k, data_set_dict in enumerate(self.Data_sets):
@@ -727,19 +767,19 @@ class Experiment():
                 Plot_string += r'        scale only axis = true,' + ' \n'
                 Plot_string += r'        axis lines = left,' + ' \n'
                 Plot_string += r'        xmin = 0,' + ' \n'
-                Plot_string += r'        xmax = ' + str(len(self.Models)) + r',' + ' \n'
-                Plot_string += r'        xtick = {' + str([*range(1, len(self.Models) + 1)])[1:-1] + r'},' + ' \n'
+                Plot_string += r'        xmax = ' + str(self.num_models) + r',' + ' \n'
+                Plot_string += r'        xtick = {' + str([*range(1, self.num_models + 1)])[1:-1] + r'},' + ' \n'
                 Plot_string += r'        xticklabels = {' 
-                if (1 + j) == len(self.Metrics): 
+                if (1 + j) == self.num_metrics: 
                     for m, model_name in enumerate(self.Models):
                         model_module = importlib.import_module(model_name)
                         model_class = getattr(model_module, model_name) 
                         Plot_string += model_class.get_name()['latex']
-                        if m < len(self.Models) - 1:
+                        if m < self.num_models - 1:
                             Plot_string += ', '
                 Plot_string += r'},' + ' \n' 
                 Plot_string += (r'        x tick label style = {rotate=90, yshift = ' +
-                                '{:0.3f}'.format(0.5 * plot_width / len(self.Models)) + 
+                                '{:0.3f}'.format(0.5 * plot_width / self.num_models) + 
                                 r'cm, xshift = 0.1cm, align = right, font=\tiny},' + ' \n')
                 Plot_string += r'        xmajorgrids = true,' + ' \n'
                 Plot_string += r'        ymin = ' + '{:0.3f}'.format(min_value) + r',' + ' \n'
@@ -754,14 +794,14 @@ class Experiment():
                 Plot_string += r'    ]' + ' \n'
                 
                 # Add values
-                dx = min(y_max / 2.5, 1 / (1.75 * len(self.Data_params))) * 0.5
+                dx = min(y_max / 2.5, 1 / (1.75 * self.num_data_params)) * 0.5
                 if metric_is_log:
                     dy = 10 ** (dx * np.log10(max_value / min_value) / y_max)
                 else:
                     dy = dx * (max_value - min_value) / y_max
                 for m, model_name in enumerate(self.Models):
                     for n, data_params in enumerate(self.Data_params):
-                        x_pos = m + (n + 1) / (len(self.Data_params) + 1)
+                        x_pos = m + (n + 1) / (self.num_data_params + 1)
                         results = Results_jk[n,:,m]
                             
                         for s, split_type in enumerate(self.Split_types):
@@ -838,26 +878,26 @@ class Experiment():
                     Plot_string = Plot_string.replace('at = {(' + '{:0.3f}cm, {:0.3f}cm'.format(x_value, y_value) + r')}',
                                                       'at = {(0.0, 0.0)}')
                     
-                    if plot_x_labels and (1 + j) != len(self.Metrics):
+                    if plot_x_labels and (1 + j) != self.num_metrics:
                         Label_string = r'xticklabels = {'  
                         for m, model_name in enumerate(self.Models):
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name) 
                             Label_string += model_class.get_name()['latex']
-                            if m < len(self.Models) - 1:
+                            if m < self.num_models - 1:
                                 Label_string += ', '
                         Label_string += r'}' 
                         
                         
                         Plot_string = Plot_string.replace(r'xticklabels = {}', Label_string)
                         
-                    if not plot_x_labels and  (1 + j) == len(self.Metrics):
+                    if not plot_x_labels and  (1 + j) == self.num_metrics:
                         Label_string = r'xticklabels = {' 
                         for m, model_name in enumerate(self.Models):
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name) 
                             Label_string += model_class.get_name()['latex']
-                            if m < len(self.Models) - 1:
+                            if m < self.num_models - 1:
                                 Label_string += ', '
                         Label_string += r'}' 
                         
@@ -893,14 +933,14 @@ class Experiment():
         else:
             legend_width = allowed_width - legend_x_offset
         
-        if len(self.Data_params) > 1 and len(self.Split_types) > 1:
+        if self.num_data_params > 1 and len(self.Split_types) > 1:
             legend_height = -1.1
             y0_nI = - 0.3 
             y0_st = - 0.8
-        elif len(self.Data_params) > 1 and len(self.Split_types) == 1:
+        elif self.num_data_params > 1 and len(self.Split_types) == 1:
             legend_height = -0.6
             y0_nI = - 0.3 
-        elif len(self.Data_params) == 1 and len(self.Split_types) > 1:
+        elif self.num_data_params == 1 and len(self.Split_types) > 1:
             legend_height = -0.6
             y0_st = - 0.3
         else:
@@ -919,10 +959,10 @@ class Experiment():
                 Figure_string += '({:0.3f}, {:0.3f}) rectangle ({:0.3f}, {:0.3f});'.format(legend_x_offset, legend_y_offset, 
                                                                                            allowed_width, legend_height + legend_y_offset) + ' \n'
             
-        if len(self.Data_params) > 1:   
+        if self.num_data_params > 1:   
             for i, data_params in enumerate(self.Data_params):
                 dx = 0.1
-                legend_entry_width = legend_width / (len(self.Data_params))
+                legend_entry_width = legend_width / (self.num_data_params)
                 x0_nI = legend_x_offset + i * legend_entry_width
                 if 60 < num_para_values:
                     Figure_string += self.write_single_data_point(allowed_width + inter_plot_space - y0_nI - legend_y_offset, 
@@ -996,11 +1036,11 @@ class Experiment():
                 table_filename = table_item.get_name()['file']
                  
             
-            nP = len(self.Data_params)
-            num_data_columns = len(self.Data_params) * len(self.Models)
+            nP = self.num_data_params
+            num_data_columns = self.num_data_params * self.num_models
             if 9 < num_data_columns:
                 width = r'\textheight'
-                num_tables = int(np.ceil(len(self.Models) / np.floor(12 / len(self.Data_params))))
+                num_tables = int(np.ceil(self.num_models / np.floor(12 / self.num_data_params)))
             elif 4 < num_data_columns <= 9:
                 width = r'\textwidth'
                 num_tables = 1
@@ -1008,11 +1048,11 @@ class Experiment():
                 width = r'\linewidth'
                 num_tables = 1
                 
-            models_per_table = int(np.ceil(len(self.Models) / num_tables))
+            models_per_table = int(np.ceil(self.num_models / num_tables))
             # Allow for split table
             Output_strings = [r'\begin{tabularx}{' + width + r'}'] * num_tables
             for n in range(num_tables):
-                models_n = np.arange(n * models_per_table, min(len(self.Models), (n + 1) * models_per_table))
+                models_n = np.arange(n * models_per_table, min(self.num_models, (n + 1) * models_per_table))
                 Output_strings[n] += r'{X' + models_per_table * (r' | ' + r'Z' * nP) + r'} '
                 Output_strings[n] += '\n'
                 if n > 0:
@@ -1225,19 +1265,19 @@ class Experiment():
         
         data_set = data_interface(data_set_dict, self.parameters)
         
-        if len(self.Data_params) > 1:
+        if self.num_data_params > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following data extraction parameters are available:'
             for i, d_para in enumerate(self.Data_params):
                 sample_string += '\n{}: '.format(i + 1) + str(d_para).replace(', ', '\n    ') + '\n'
             print(sample_string, flush = True)  
-            print('Select the desired dataset by typing a number between 1 and {} for the specific parameters): '.format(len(self.Data_params)), flush = True)
+            print('Select the desired dataset by typing a number between 1 and {} for the specific parameters): '.format(self.num_data_params), flush = True)
             print('', flush = True)
             try:
                 i_d = int(input('Enter a number: ')) - 1
             except:
                 i_d = -1
-            while i_d not in range(len(self.Data_params)):
+            while i_d not in range(self.num_data_params):
                 print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
                 try:
@@ -1249,7 +1289,7 @@ class Experiment():
         else:
             data_param = self.Data_params[0]
         
-        if len(self.Splitters) > 1:
+        if self.num_splitters > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
             for i, s_param in enumerate(self.Splitters):
@@ -1267,13 +1307,13 @@ class Experiment():
                 s_inst  = s_class(None, s_tp, s_rep)
                 sample_string += '\n{}: '.format(i + 1) + s_inst.get_name()['print']  
             print(sample_string, flush = True)  
-            print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(len(self.Splitters)), flush = True)
+            print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(self.num_splitters), flush = True)
             print('', flush = True)
             try:
                 i_d = int(input('Enter a number: ')) - 1
             except:
                 i_d = -1
-            while i_d not in range(len(self.Splitters)):
+            while i_d not in range(self.num_splitters):
                 print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
                 try:
@@ -1288,20 +1328,20 @@ class Experiment():
         split_name = split_param['Type']
         split_class = getattr(importlib.import_module(split_name), split_name)
         
-        if len(self.Models) > 1:
+        if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
             for i, m_name in enumerate(self.Models):
                 m_class = getattr(importlib.import_module(m_name), m_name)
                 sample_string += '\n{}: '.format(i + 1) + m_class.get_name()['print']  
             print(sample_string, flush = True)  
-            print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(len(self.Models)), flush = True)
+            print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(self.num_models), flush = True)
             print('', flush = True)
             try:
                 i_d = int(input('Enter a number: ')) - 1
             except:
                 i_d = -1
-            while i_d not in range(len(self.Models)):
+            while i_d not in range(self.num_models):
                 print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
                 try:

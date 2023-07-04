@@ -46,7 +46,7 @@ class trajectron_salzmann(model_template):
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
         else:
-            config_file = config_path + 'nuScenes.json' 
+            config_file = config_path + 'nuScenes_state_delta.json' 
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
             
@@ -256,6 +256,9 @@ class trajectron_salzmann(model_template):
         Index_num_start = np.zeros(len(Index_num), int)
         
         # Get the current iteration of the model
+        
+        self.train_loss = np.ones((1, epochs)) * np.nan
+        
         curr_iter = 0
         # go over epochs
         for epoch in range(1, epochs + 1):
@@ -271,6 +274,8 @@ class trajectron_salzmann(model_template):
             np.random.shuffle(batch_index_num)
             for i in range(len(Index_num)):
                 np.random.shuffle(Index_num[i])
+            
+            epoch_loss = 0.0
             
             for i_batch, batch in enumerate(batch_index_num):
                 rjust_batch = str(i_batch + 1).rjust(len(str(len(batch_index_num))))
@@ -325,7 +330,7 @@ class trajectron_salzmann(model_template):
                                                    agent_type = node_type, 
                                                    agent_hist = S_st_batch, 
                                                    agent_hist_len = state_len.to(dtype = torch.int64), 
-                                                   agent_fut = Y_batch,
+                                                   agent_fut = Y_st_batch,
                                                    agent_fut_len = fut_len.to(dtype = torch.int64), 
                                                    robot_fut = None,
                                                    robot_fut_len = None,
@@ -339,7 +344,6 @@ class trajectron_salzmann(model_template):
                                 # Run forward pass
                                 batch.to(device = self.trajectron.device) 
                                 train_loss = model.train_loss(batch = batch)
-                
                                 assert train_loss.isfinite().all(), "The overall loss of the model is nan"
                 
                                 train_loss.backward()
@@ -357,13 +361,14 @@ class trajectron_salzmann(model_template):
                                 else:
                                     print('Too many output timesteps lead to exploding gradients => weights not updated')
                                 
+                                epoch_loss += train_loss.detach().cpu().numpy()
                                 
                                 i_pred_agent += 1
                     
                 else:
                     print("Not enough output timesteps => no loss can be calculated")
                 
-                   
+            self.train_loss[0, epoch - 1] = epoch_loss       
                     
                 
         
@@ -427,9 +432,9 @@ class trajectron_salzmann(model_template):
                     if Pred_agents[i_agent]:
                         node_type = Types[i_agent]
                         
-                        S_batch = torch.from_numpy(S[Index_use,i_agent])
+                        S_batch    = torch.from_numpy(S[Index_use,i_agent])
                         S_st_batch = torch.from_numpy(S_st[Index_use,i_agent])
-                            
+                        
                         if self.use_map:
                             img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
                             img_batch = img_batch.to(device = self.trajectron.device) / 255
@@ -444,13 +449,14 @@ class trajectron_salzmann(model_template):
                         Neigh_num_batch   = torch.from_numpy(Neigh_num[Index_use, i_pred_agent])
                         Neigh_len_batch   = torch.from_numpy(Neigh_len[Index_use, i_pred_agent])
                         
+                        # Built Agent_batch
                         batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
                                            agent_name = agent, 
                                            agent_type = node_type, 
                                            agent_hist = S_st_batch, 
-                                           agent_hist_len = state_len.to(dtype = torch.int64),
+                                           agent_hist_len = state_len.to(dtype = torch.int64), 
                                            agent_fut = None,
-                                           agent_fut_len = None,  
+                                           agent_fut_len = None, 
                                            robot_fut = None,
                                            robot_fut_len = None,
                                            num_neigh = Neigh_num_batch, 
@@ -472,6 +478,13 @@ class trajectron_salzmann(model_template):
                                                         num_samples        = self.num_samples_path_pred)
                         
                         Pred = predictions.detach().cpu().numpy()
+                        if node_type == AgentType.PEDESTRIAN:
+                            Pred *= self.std_pos_ped
+                        elif node_type == AgentType.VEHICLE:
+                            Pred *= self.std_pos_veh
+                        else:
+                            raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
+                        
                         torch.cuda.empty_cache()
                         for i, i_sample in enumerate(Index_use):
                             index = Types[i_agent].name[0] + '_' + Agents[i_agent]
@@ -517,3 +530,6 @@ class trajectron_salzmann(model_template):
     
     def requires_torch_gpu(self = None):
         return True 
+        
+    def provides_epoch_loss(self = None):
+        return True

@@ -525,3 +525,6 @@ class flomo_schoeller(model_template):
     
     def requires_torch_gpu(self = None):
         return True
+        
+    def provides_epoch_loss(self = None):
+        return True

@@ -8,9 +8,9 @@ class commotions_markkula_L2(model_template, commotions_template):
     def setup_method(self):
         # set model settings
         self.adjust_free_speeds = False
-        self.vehicle_acc_ctrl = False
-        self.const_accs = [0, None]
-        self.train_loss = 'ADE'
+        self.vehicle_acc_ctrl   = False
+        self.const_accs         = [0, None]
+        self.train_loss_type    = 'ADE'
         
         # prepare torch
         self.prepare_gpu()
@@ -91,4 +91,7 @@ class commotions_markkula_L2(model_template, commotions_template):
         return True
     
     def requires_torch_gpu(self = None):
+        return True
+    
+    def provides_epoch_loss(self = None):
         return True

@@ -212,7 +212,9 @@ class agent_yuan(model_template):
         ######################################################################
         ##                Train VAE                                         ##
         ######################################################################
-
+        
+        Epoch_loss_vae = []
+        
         # load hyperparams and set up model
         cfg = Config('hyperparams_pre', False, create_dirs = False)        
         cfg.yml_dict["past_frames"] = self.num_timesteps_in
@@ -284,6 +286,7 @@ class agent_yuan(model_template):
                     torch.cuda.empty_cache()
                 scheduler.step()
                     
+                Epoch_loss_vae.append(epoch_loss)
                 print('Train VAE: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
                       '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
                 print('', flush = True)
@@ -298,6 +301,8 @@ class agent_yuan(model_template):
             self.model_vae = model_dict[model_id](cfg)
             model_cp = torch.load(cp_path, map_location='cpu')
             self.model_vae.load_state_dict(model_cp['model_dict'])
+        
+        Epoch_loss_vae = np.array(Epoch_loss_vae)
         
         # save weights
         Weights_vae = list(self.model_vae.parameters())
@@ -347,8 +352,9 @@ class agent_yuan(model_template):
         self.model_dlow.set_device(self.device)
         self.model_dlow.train()
             
-        # train vae model
+        # train dlow model
         epochs = cfg_d.yml_dict["num_epochs"]
+        Epoch_loss_dlow = []
         # epochs = 2 # TODO: Remove this
         for epoch in range(1, epochs + 1):
             print('Train DLow: Epoch ' + 
@@ -373,10 +379,14 @@ class agent_yuan(model_template):
                 epoch_loss += total_loss.detach().cpu().numpy()
                 torch.cuda.empty_cache()
             scheduler.step()
+            
+            Epoch_loss_dlow.append(epoch_loss)
             print('Train DLow: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
                   '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
             print('')  
          
+        Epoch_loss_dlow = np.array(Epoch_loss_dlow)
+        
         # save weights
         Weights_dlow = list(self.model_dlow.parameters())
         self.weights_dlow = []
@@ -386,6 +396,13 @@ class agent_yuan(model_template):
         if os.path.isfile(cp_path): 
             os.remove(cp_path)
         self.weights_saved = [self.weights_vae, self.weights_dlow]
+        
+        # save loss
+        loss_len = max(len(Epoch_loss_dlow), len(Epoch_loss_vae))
+        self.train_loss = np.ones((2, loss_len)) * np.nan
+        
+        self.train_loss[0,:len(Epoch_loss_vae)]  = Epoch_loss_vae
+        self.train_loss[1,:len(Epoch_loss_dlow)] = Epoch_loss_dlow
         
         
     def load_method(self, l2_regulization = 0):
@@ -548,6 +565,9 @@ class agent_yuan(model_template):
         return False
     
     def requires_torch_gpu(self = None):
+        return True
+    
+    def provides_epoch_loss(self = None):
         return True
 
         

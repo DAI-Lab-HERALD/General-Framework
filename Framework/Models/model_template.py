@@ -141,6 +141,13 @@ class model_template():
                                        header    = param_name + ':',
                                        footer    = '\n \n',
                                        comments  = '')
+            
+            if self.provides_epoch_loss():
+                self.loss_file = self.model_file[:-4] + '--train_loss.npy'
+                assert hasattr(self, 'train_loss'), "No train loss is provided."
+                assert isinstance(self.train_loss, np.ndarray), "The train loss should be a numpy array."
+                assert len(self.train_loss.shape) == 2, "The train loss should be a 2D numpy array."
+                np.save(self.loss_file, self.train_loss.astype(np.float32))
            
         self.trained = True
         
@@ -293,4 +300,10 @@ class model_template():
     def requires_torch_gpu(self = None):
         # Returns true or false, depending if the model does calculations on the gpu
         raise AttributeError('Has to be overridden in actual model.')
+        
+    
+    def provides_epoch_loss(self = None):
+        # Returns true or false, depending on if the model provides losses or not
+        raise AttributeError('Has to be overridden in actual model.')
+        
         
