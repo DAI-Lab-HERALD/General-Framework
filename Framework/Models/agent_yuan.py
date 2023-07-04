@@ -35,7 +35,7 @@ class agent_yuan(model_template):
                 self.num_timesteps_out[i_sample] = len_use - np.mod(len_use - self.data_set.num_timesteps_out_real, 5)
                 
         self.remain_samples = self.num_timesteps_out >= 5
-        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], 100)
+        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], self.data_set.num_timesteps_out_real)
         
         self.use_map = self.data_set.includes_images()
         self.target_width = 180
@@ -43,10 +43,11 @@ class agent_yuan(model_template):
         
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
-        self.batch_size = int(np.floor(2 * total_memory / (len(self.Input_path_train.columns) ** 2 * 
+        self.batch_size = int(np.floor(2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * 
                                                            (self.num_timesteps_out.max() + 
                                                             self.num_timesteps_in))))
         self.sample_number = 10
+        self.grayscale = True
         
         
     def extract_data(self, train = True):
@@ -103,8 +104,12 @@ class agent_yuan(model_template):
                                                                   target_height = self.target_height, 
                                                                   target_width = self.target_width, 
                                                                   grayscale = False, return_resolution = True)
-            img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 3, 
-                                                          self.target_height, self.target_width - 80)
+            if self.grayscale:
+                img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 1, 
+                                                              self.target_height, self.target_width - 80)
+            else:
+                img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 3, 
+                                                              self.target_height, self.target_width - 80)
             img_scale = self.data_set.Images.Target_MeterPerPx.loc[domain_repeat.location]
             img_scale = img_scale.reshape(X.shape[0], X.shape[1]).mean(1)
         else:
@@ -223,6 +228,10 @@ class agent_yuan(model_template):
         if self.use_map:
             cfg.yml_dict["use_map"] = True
             cfg.yml_dict["input_type"] = cfg.yml_dict["input_type"] + ['map']
+            if self.grayscale:
+                cfg.yml_dict.map_encoder["map_channels"] = 1
+            else:
+                cfg.yml_dict.map_encoder["map_channels"] = 3
         else:
             cfg.yml_dict["use_map"] = False
         
@@ -314,6 +323,10 @@ class agent_yuan(model_template):
         if self.use_map:
             cfg_d.yml_dict["use_map"] = True
             cfg_d.yml_dict["input_type"] = cfg.yml_dict["input_type"]
+            if self.grayscale:
+                cfg_d.yml_dict.map_encoder["map_channels"] = 1
+            else:
+                cfg_d.yml_dict.map_encoder["map_channels"] = 3
         else:
             cfg_d.yml_dict["use_map"] = False
         
@@ -393,8 +406,12 @@ class agent_yuan(model_template):
         cfg.yml_dict["loss_cfg"]["sample"]["k"] = self.sample_number
         
         if self.use_map:
-            cfg.yml_dict["use_map"]    = True
-            cfg.yml_dict["input_type"] = cfg.yml_dict["input_type"] + ["map"]
+            cfg.yml_dict["use_map"] = True
+            cfg.yml_dict["input_type"] = cfg.yml_dict["input_type"] + ['map']
+            if self.grayscale:
+                cfg.yml_dict.map_encoder["map_channels"] = 1
+            else:
+                cfg.yml_dict.map_encoder["map_channels"] = 3
         else:
             cfg.yml_dict["use_map"] = False
         
@@ -430,6 +447,10 @@ class agent_yuan(model_template):
         if self.use_map:
             cfg_d.yml_dict["use_map"] = True
             cfg_d.yml_dict["input_type"] = cfg.yml_dict["input_type"]
+            if self.grayscale:
+                cfg_d.yml_dict.map_encoder["map_channels"] = 1
+            else:
+                cfg_d.yml_dict.map_encoder["map_channels"] = 3
         else:
             cfg_d.yml_dict["use_map"] = False
         

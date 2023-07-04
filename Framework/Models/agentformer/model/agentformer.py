@@ -564,7 +564,8 @@ class AgentFormer(nn.Module):
 
     def forward(self):
         if self.use_map:
-            Maps = self.data['agent_maps'].reshape(-1, 3, 100,100)
+            channel_num = self.data['agent_maps'].shape[-3]
+            Maps = self.data['agent_maps'].reshape(-1, channel_num, 100,100)
             D_maps = self.map_encoder(Maps)
             self.data['map_enc'] = D_maps.reshape(self.data['batch_size'],-1,D_maps.shape[1])
         self.context_encoder(self.data)
@@ -576,7 +577,8 @@ class AgentFormer(nn.Module):
 
     def inference(self, mode='infer', sample_num=20, need_weights=False):
         if self.use_map and self.data['map_enc'] is None:
-            Maps = self.data['agent_maps'].reshape(-1, 3, 100,100)
+            channel_num = self.data['agent_maps'].shape[-3]
+            Maps = self.data['agent_maps'].reshape(-1, channel_num, 100,100)
             D_maps = self.map_encoder(Maps)
             self.data['map_enc'] = D_maps.reshape(self.data['batch_size'],-1,D_maps.shape[1])
         if self.data['context_enc'] is None:
