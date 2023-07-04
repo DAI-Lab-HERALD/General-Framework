@@ -225,10 +225,16 @@ class data_interface(object):
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
                             grayscale = False, return_resolution = False):
+        if target_height is None:
+            target_height = 500
+        if target_width is None:
+            target_width = 500
+            
         if grayscale:
             Imgs = np.zeros((len(domain), target_height, target_width, 1), dtype = 'uint8')
         else:
             Imgs = np.zeros((len(domain), target_height, target_width, 3), dtype = 'uint8')
+            
         
         if return_resolution:
             Imgs_m_per_px = np.zeros(len(domain), dtype = 'float64')
@@ -239,8 +245,18 @@ class data_interface(object):
                 print('Rotate images from dataset ' + data_set.get_name()['print'])
                 
                 Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
-
-                Imgs[Use] = data_set.return_batch_images(domain.iloc[Use], center[Use], rot_angle[Use], 
+                
+                if center is None:
+                    center_use = None
+                else:
+                    center_use = center[Use]
+                    
+                if rot_angle is None:
+                    rot_angle_use = None
+                else:
+                    rot_angle_use = rot_angle[Use]
+                    
+                Imgs[Use] = data_set.return_batch_images(domain.iloc[Use], center_use, rot_angle_use, 
                                                          target_width, target_height, grayscale)
                 if return_resolution:
                     Imgs_m_per_px[Use] = data_set.Images.Target_MeterPerPx.loc[domain.image_id.iloc[Use]]

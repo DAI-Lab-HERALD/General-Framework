@@ -1418,6 +1418,10 @@ class Experiment():
             if data_set.includes_images():
                 img = Imgs[sample_ind] / 255
             
+            useful_columns = np.array([isinstance(path, np.ndarray) for path in input_path])
+            
+            input_path = input_path.iloc[useful_columns]
+            output_path = output_path.iloc[useful_columns]
             
             
             ## Load map
@@ -1450,7 +1454,7 @@ class Experiment():
                                         np.max(op, axis = (0,1)),
                                         np.max(ip, axis = (0,1))], axis = 0), axis = 0)
             
-            min_v = np.nanmax(np.stack([np.min(opp, axis = (0,1,1)), 
+            min_v = np.nanmax(np.stack([np.min(opp, axis = (0,1,2)), 
                                         np.min(op, axis = (0,1)),
                                         np.min(ip, axis = (0,1))], axis = 0), axis = 0)
             
@@ -1487,12 +1491,12 @@ class Experiment():
                     i_agent = np.where(agent in ind_pp)[0][0]
                     for j in range(num_samples_path_pred):
                         ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
-                                np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,0])), 
+                                np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
                                 color = color_pred, marker = 'o', ms = 2, linestyle = 'dashed', linewidth = 0.5)
                         
                 # plot true future
                 ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
-                        np.concatenate((ip[i,-1:,1], op[i,:,0])),
+                        np.concatenate((ip[i,-1:,1], op[i,:,1])),
                         color = color, marker = 'o', ms = 3, linewidth = 1)
                 
             ax.set_aspect('equal', adjustable='box') 
@@ -1500,7 +1504,7 @@ class Experiment():
             ax.set_ylim([min_v[1],max_v[1]])
             title = (r'\textbf{Predicted paths}' + 
                      r'\\Data set: ' + data_set.get_name()['print'] +  
-                     r'with $\delta t = ' + data_param['dt'] + 
+                     r'with $\delta t = ' + str(data_param['dt']) + 
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.index)
             if len(behs) > 1:
