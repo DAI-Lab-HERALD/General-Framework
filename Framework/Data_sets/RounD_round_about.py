@@ -123,9 +123,10 @@ class RounD_round_about(data_set_template):
 
         t = np.array(tar_track_l.index / 25)
         
-        domain = pd.Series(np.zeros(6, object), index = ['location', 'image_id', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain = pd.Series(np.zeros(7, object), index = ['location', 'image_id', 'track_id', 'rot_angle', 'x_center', 'y_center', 'class'])
         domain.location  = data_i.locationId
         domain.image_id  = data_i.locationId
+        domain.track_id  = data_i.trackId
         domain.rot_angle = original_angle
         domain.x_center  = Rot_center[0,0]
         domain.y_center  = Rot_center[0,1]
@@ -828,9 +829,94 @@ class RounD_round_about(data_set_template):
             
             v_4_rewrite = np.isnan(v_4_x)
             if v_4_rewrite.any():
+                v_4_x = np.interp(t,t[np.invert(v_4_rewrite)],v_4_x[np.invert(v_4_rewrite)])
                 v_4_y = np.interp(t,t[np.invert(v_4_rewrite)],v_4_y[np.invert(v_4_rewrite)])
-                v_4_x = np.interp(t,t[np.invert(v_4_rewrite)],v_4_y[np.invert(v_4_rewrite)])
                 path.P_v_4 = np.stack([v_4_x, v_4_y], axis = -1)
+                
+        
+        # look for other participants
+        n_I = self.num_timesteps_in_real
+
+        tar_pos = path.V_tar[np.newaxis]
+        
+        help_pos = []
+        for agent in path.index:
+            if isinstance(path[agent], float):
+                assert str(path[agent]) == 'nan'
+                continue
+            if agent[2:] == 'tar':
+                continue
+            help_pos.append(path[agent])
+            
+        help_pos = np.stack(help_pos, axis = 0)
+        
+        tar_frames = 25 * (t + domain.t_0)
+        
+        
+        if not hasattr(self, 'Data'):
+            self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
+                                       'RounD_round_about' + os.sep + 'RounD_processed.pkl')
+            self.Data = self.Data.reset_index(drop = True) 
+        
+        
+        Neighbor = self.Data.iloc[domain.track_id].otherVehicles
+        Neighbor_type = np.array(self.Data.iloc[Neighbor]['class'])
+        frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames])
+        # search for vehicles
+        Pos = np.ones((len(Neighbor), len(frames_help), 2)) * np.nan
+        for i, n in enumerate(Neighbor):
+            track_n = self.Data.iloc[n].track.rename(columns={"xCenter": "x", "yCenter": "y"}).copy(deep = True)
+            track_n = rotate_track(track_n, domain.rot_angle, 
+                                   np.array([[domain.x_center, domain.y_center]]))
+            Pos[i,:,0] = np.interp(frames_help, np.array(track_n.frame), track_n.x, left = np.nan, right = np.nan)
+            Pos[i,:,1] = np.interp(frames_help, np.array(track_n.frame), track_n.y, left = np.nan, right = np.nan)
+        
+        
+        actually_there = np.isfinite(Pos[:,1:n_I + 1]).any((1,2))
+        Neighbor_type = Neighbor_type[actually_there]
+        Pos           = Pos[actually_there]
+
+        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2)).sum(-1), -1).min(0)
+        actually_interesting = (D_help > 0.1) & (D_help < 100)
+        Neighbor_type = Neighbor_type[actually_interesting]
+        Pos           = Pos[actually_interesting]
+        
+        # filter out nonmoving vehicles
+        actually_moving = (np.nanmax(Pos, 1) - np.nanmin(Pos, 1)).max(1) > 0.1
+        Neighbor_type = Neighbor_type[actually_moving]
+        Pos           = Pos[actually_moving]
+        
+        # Find cars that could influence tar vehicle
+        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
+        Neighbor_type = Neighbor_type[D < 75]
+        Pos           = Pos[D < 75]
+        D             = D[D < 75]
+        
+        # sort by closest vehicle
+        Pos           = Pos[np.argsort(D)]
+        Neighbor_type = Neighbor_type[np.argsort(D)]
+        
+        ind_veh = 0 
+        ind_ped = 0
+        for i, pos in enumerate(Pos):
+            agent_type = Neighbor_type[i]
+            if agent_type == 'pedestrian':
+                ind_ped += 1
+                name = 'P_v_{}'.format(ind_ped + 999)
+            else:
+                ind_veh += 1
+                name = 'V_v_{}'.format(ind_veh + 4)
+                
+            u = np.isfinite(pos[:,0])
+            if u.sum() > 1:
+                if u.all():
+                    path[name] = pos
+                else:
+                    frames = frames_help[u]
+                    p = pos[u].T
+                    path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
+                                           interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
+                
         return path
             
     

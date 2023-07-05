@@ -516,7 +516,7 @@ class HighD_lane_change(data_set_template):
             Pos[i,:,1] = np.interp(frames_help, np.array(track_n.frame), track_n.y, left = np.nan, right = np.nan)
         
         Pos = Pos[np.isfinite(Pos[:,1:n_I + 1]).any((1,2))]
-        D_help = np.nanmin(np.sqrt((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1), -1).min(0)
+        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
         
         
         

@@ -191,7 +191,7 @@ class HighD_interactive(data_set_template):
         
         Pos = Pos[np.isfinite(Pos[:,1:n_I + 1]).any((1,2))]
         # Get ditance to extra vehicles
-        D = np.nanmin(np.sqrt((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
+        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
         
         # D < 0.5 => Vehicle is tar vehicle => Exclude
         Pos = Pos[(D > 0.5) & (D < 100)]

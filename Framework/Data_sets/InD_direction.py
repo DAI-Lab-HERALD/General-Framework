@@ -519,6 +519,11 @@ class InD_direction(data_set_template):
             Pos_veh[i,:,1] = np.interp(t_help, np.array(t), track_n.yCenter, left = np.nan, right = np.nan)
         
         Pos_veh = Pos_veh[np.isfinite(Pos_veh[:,1:n_I + 1]).any((1,2))]
+        
+        # filter our parking vehicles
+        actually_moving = (np.nanmax(Pos_veh, 1) - np.nanmin(Pos_veh, 1)).max(1) > 0.1
+        Pos_veh = Pos_veh[actually_moving]
+        
         D_veh = np.nanmin(((Pos_veh[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
         Pos_veh = Pos_veh[np.argsort(D_veh)]
         
@@ -548,7 +553,7 @@ class InD_direction(data_set_template):
         Pos_ped = Pos_ped[np.argsort(D_ped)]
         
         for i_ped, pos in enumerate(Pos_ped):
-            name = 'P_v_{}'.format(i_ped+len(Pos_veh)+1)
+            name = 'P_v_{}'.format(i_ped + 1000)
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
                 if u.all():
