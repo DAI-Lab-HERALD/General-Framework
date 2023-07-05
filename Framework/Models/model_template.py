@@ -14,8 +14,8 @@ class model_template():
             else:
                 warnings.warn('''No GPU could be found. Program is proccessed on the CPU.
                               
-                              This might lead either to a model failure or significantly decreased
-                              training and prediction speed.''')
+                This might lead either to a model failure or significantly decreased
+                training and prediction speed.''')
                 self.device = torch.device('cpu')
         
         

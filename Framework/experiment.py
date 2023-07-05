@@ -1263,7 +1263,11 @@ class Experiment():
         else:
             data_set_dict = self.Data_sets[0]
         
-        data_set = data_interface(data_set_dict, self.parameters)
+        # Prevent model retraining
+        parameters = [param for param in self.parameters]
+        parameters[-1] = False
+        
+        data_set = data_interface(data_set_dict, parameters)
         
         if self.num_data_params > 1:
             print('------------------------------------------------------------------', flush = True)
@@ -1528,7 +1532,7 @@ class Experiment():
                 if agent in ind_pp:
                     color_pred = np.ones(4, float)
                     color_pred[:3] = 1 - 0.5 * (1 - color[:3])
-                    i_agent = np.where(agent in ind_pp)[0][0]
+                    i_agent = np.where(agent == ind_pp)[0][0]
                     for j in range(num_samples_path_pred):
                         ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
                                 np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
