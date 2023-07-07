@@ -163,7 +163,7 @@ class CoR_left_turns(data_set_template):
         return Dist
         
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         return path
     
     def provide_map_drawing(self, domain):

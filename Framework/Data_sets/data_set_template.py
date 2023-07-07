@@ -595,7 +595,7 @@ class data_set_template():
             
         return num_timesteps_real, num_timesteps_need
     
-    def set_prediction_time(self, t0_type, T0_type_compare):
+    def set_extraction_parameters(self, t0_type, T0_type_compare, max_num_agents):
         assert isinstance(t0_type, str), "Prediction time method has to be a string."
         assert isinstance(T0_type_compare, list), "Prediction time constraints have to be in a list."
         for t in T0_type_compare:
@@ -603,6 +603,7 @@ class data_set_template():
         
         self.t0_type = t0_type
         self.T0_type_compare = T0_type_compare
+        self.max_num_agents = max_num_agents
         self.prediction_time_set = True
     
     
@@ -679,7 +680,14 @@ class data_set_template():
             if ((self.t0_type[:9] == 'col_equal') or 
                 ('col_equal' in [t0_type_extra[:9] for t0_type_extra in self.T0_type_compare])):
                 self.determine_dtc_boundary()
-
+            
+            # set number of maximum agents
+            if self.max_num_agents is not None:
+                min_num_agents = len(self.Path.columns)
+                self.max_num_addable_agents = max(0, self.max_num_agents - min_num_agents)
+            else:
+                self.max_num_addable_agents = None
+            
             # prepare empty information
             # Input
             Input_prediction = []
@@ -851,8 +859,9 @@ class data_set_template():
                         else:
                             helper_path[agent] = np.nan
                     
+                    
                     # complete partially available paths
-                    helper_path = self.fill_empty_input_path(helper_path, helper_T, domain)
+                    helper_path = self.fill_empty_path(helper_path, helper_T, domain)
                     
                     # Split completed paths back into input and output
                     for agent in helper_path.index:

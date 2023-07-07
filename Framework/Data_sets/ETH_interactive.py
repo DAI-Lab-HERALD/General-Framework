@@ -142,7 +142,7 @@ class ETH_interactive(data_set_template):
         return None
     
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         I_t = t + domain.t_0
         
         n_I = self.num_timesteps_in_real
@@ -163,6 +163,8 @@ class ETH_interactive(data_set_template):
         D = np.sqrt(((Pos[:,:n_I] - Own_pos[:,:n_I]) ** 2).sum(-1)).min(-1)
         
         Pos = Pos[np.argsort(D)]
+        if self.max_num_addable_agents is not None:
+            Pos = Pos[:self.max_num_addable_agents]
         for i, pos in enumerate(Pos):
             path['P_v_{}'.format(i+1)] = pos
         

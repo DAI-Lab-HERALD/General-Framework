@@ -24,6 +24,13 @@ class data_interface(object):
             t0_type       = data_dict['t0_type']
             Comp_t0_types = data_dict['conforming_t0_types']
             
+            if 'max_num_agents' in data_dict.keys():
+                max_num_agents = data_dict['max_num_agents']
+                if max_num_agents is not None:
+                    assert isinstance(max_num_agents, int), "the maximum number of agents must be either None or an integer."
+            else:
+                max_num_agents = None
+            
             if t0_type in Comp_t0_types:
                 T0_type_compare = list(Comp_t0_types).remove(t0_type)
             else:
@@ -33,7 +40,7 @@ class data_interface(object):
             data_set_class = getattr(data_set_module, data_set_name)
             
             data_set = data_set_class(*parameters)
-            data_set.set_prediction_time(t0_type, T0_type_compare)
+            data_set.set_extraction_parameters(t0_type, T0_type_compare, max_num_agents)
             
             latex_name = data_set.get_name()['latex']
             if latex_name[:6] == r'\emph{' and latex_name[-1] == r'}':

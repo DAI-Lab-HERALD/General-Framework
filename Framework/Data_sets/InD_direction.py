@@ -494,7 +494,7 @@ class InD_direction(data_set_template):
         return Dist
     
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         # Get old data, so that removed pedestrians can be accessed
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
@@ -524,21 +524,6 @@ class InD_direction(data_set_template):
         actually_moving = (np.nanmax(Pos_veh, 1) - np.nanmin(Pos_veh, 1)).max(1) > 0.1
         Pos_veh = Pos_veh[actually_moving]
         
-        D_veh = np.nanmin(((Pos_veh[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
-        Pos_veh = Pos_veh[np.argsort(D_veh)]
-        
-        for i_veh, pos in enumerate(Pos_veh):
-            name = 'V_v_{}'.format(i_veh+1)
-            u = np.isfinite(pos[:,0])
-            if u.sum() > 1:
-                if u.all():
-                    path[name] = pos
-                else:
-                    t = t_help[u]
-                    p = pos[u].T
-                    path[name] = np.stack([interp.interp1d(t, p[0], fill_value = 'extrapolate', assume_sorted = True)(I_t),
-                                           interp.interp1d(t, p[1], fill_value = 'extrapolate', assume_sorted = True)(I_t)], axis = -1)
-        
         # search for pedestrians
         Neighbor_ped = domain.neighbor_ped.copy()
         Pos_ped = np.ones((len(Neighbor_ped), len(I_t) + 1,2)) * np.nan
@@ -549,11 +534,29 @@ class InD_direction(data_set_template):
             Pos_ped[i,:,1] = np.interp(t_help, np.array(t), track_n.yCenter, left = np.nan, right = np.nan)
         
         Pos_ped = Pos_ped[np.isfinite(Pos_ped[:,1:n_I + 1]).any((1,2))]
-        D_ped = np.nanmin(((Pos_ped[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
-        Pos_ped = Pos_ped[np.argsort(D_ped)]
         
-        for i_ped, pos in enumerate(Pos_ped):
-            name = 'P_v_{}'.format(i_ped + 1000)
+        Pos = np.concatenate((Pos_veh, Pos_ped), axis = 0)
+        Type = np.zeros(len(Pos))
+        Type[:len(Pos_veh)] = 1
+        
+        D = np.nanmin((np.sqrt((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
+        Pos  = Pos[np.argsort(D)]
+        Type = Type[np.argsort(D)]
+        
+        if self.max_num_addable_agents is not None:
+            Pos  = Pos[:self.max_num_addable_agents]
+            Type = Type[:self.max_num_addable_agents]
+            
+        ind_veh = 0 
+        ind_ped = 0
+        for i, pos in enumerate(Pos):
+            if Type[i] == 1:
+                ind_veh += 1
+                name = 'V_v_{}'.format(ind_veh)
+            else:
+                ind_ped += 1
+                name = 'P_v_{}'.format(ind_ped + 999)
+                
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
                 if u.all():
@@ -563,8 +566,6 @@ class InD_direction(data_set_template):
                     p = pos[u].T
                     path[name] = np.stack([interp.interp1d(t, p[0], fill_value = 'extrapolate', assume_sorted = True)(I_t),
                                            interp.interp1d(t, p[1], fill_value = 'extrapolate', assume_sorted = True)(I_t)], axis = -1)
-            
-
         return path
     
     def provide_map_drawing(self, domain):

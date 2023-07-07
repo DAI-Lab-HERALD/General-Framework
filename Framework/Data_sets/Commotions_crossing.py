@@ -317,7 +317,7 @@ class Commotions_crossing(data_set_template):
         return Dist
     
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         # check vehicle v_1 (in front of ego)
         if isinstance(path.V_v_1, float):
             assert str(path.V_v_1) == 'nan'

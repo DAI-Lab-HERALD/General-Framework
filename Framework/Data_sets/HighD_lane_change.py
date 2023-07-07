@@ -466,7 +466,7 @@ class HighD_lane_change(data_set_template):
         return np.stack([v_x, v_y], axis = -1)
     
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         if isinstance(path.V_v_1, float):
             assert str(path.V_v_1) == 'nan'
         else:
@@ -525,6 +525,9 @@ class HighD_lane_change(data_set_template):
         D = np.nanmin(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
         Pos = Pos[np.argsort(D)]
         
+        if self.max_num_addable_agents is not None:
+            Pos = Pos[:self.max_num_addable_agents]
+            
         for i, pos in enumerate(Pos):
             name = 'V_v_{}'.format(i + 4)
             u = np.isfinite(pos[:,0])

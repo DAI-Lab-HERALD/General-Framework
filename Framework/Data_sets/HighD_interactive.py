@@ -5,7 +5,6 @@ from scenario_none import scenario_none
 import os
 from PIL import Image
 from scipy import interpolate as interp
-from scipy.signal import savgol_filter
 
 class HighD_interactive(data_set_template):
     def set_scenario(self):
@@ -165,7 +164,7 @@ class HighD_interactive(data_set_template):
         return None
     
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         n_I = self.num_timesteps_in_real
 
         tar_pos = path.V_tar[np.newaxis]
@@ -196,6 +195,10 @@ class HighD_interactive(data_set_template):
         # D < 0.5 => Vehicle is tar vehicle => Exclude
         Pos = Pos[(D > 0.5) & (D < 100)]
         Pos = Pos[np.argsort(D)]
+        
+        if self.max_num_addable_agents is not None:
+            Pos = Pos[:self.max_num_addable_agents]
+            
         for i, pos in enumerate(Pos):
             name = 'V_v_{}'.format(i + 1)
             u = np.isfinite(pos[:,0])

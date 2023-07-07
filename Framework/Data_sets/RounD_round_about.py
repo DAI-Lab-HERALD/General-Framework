@@ -801,7 +801,7 @@ class RounD_round_about(data_set_template):
             assert not np.isnan(v_x).any()
         return np.stack([v_x, v_y], axis = -1)
     
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain):
         R = self.Loc_data.R[domain.location]
         # check vehicle v_1 (in front of ego)
         if isinstance(path.V_v_1, float):
@@ -876,7 +876,7 @@ class RounD_round_about(data_set_template):
         Neighbor_type = Neighbor_type[actually_there]
         Pos           = Pos[actually_there]
 
-        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2)).sum(-1), -1).min(0)
+        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
         actually_interesting = (D_help > 0.1) & (D_help < 100)
         Neighbor_type = Neighbor_type[actually_interesting]
         Pos           = Pos[actually_interesting]
@@ -895,6 +895,10 @@ class RounD_round_about(data_set_template):
         # sort by closest vehicle
         Pos           = Pos[np.argsort(D)]
         Neighbor_type = Neighbor_type[np.argsort(D)]
+        
+        if self.max_num_addable_agents is not None:
+            Pos           = Pos[:self.max_num_addable_agents]
+            Neighbor_type = Neighbor_type[:self.max_num_addable_agents]
         
         ind_veh = 0 
         ind_ped = 0
