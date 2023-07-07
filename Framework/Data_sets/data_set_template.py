@@ -858,7 +858,7 @@ class data_set_template():
                     for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
                             input_path[agent]  = helper_path[agent][:len(input_T), :]
-                            output_path[agent] = helper_path[agent][len(input_T):, :]
+                            output_path[agent] = helper_path[agent][len(input_T):len(input_T) + len(output_T), :]
                         else:
                             input_path[agent]  = np.nan
                             output_path[agent] = np.nan

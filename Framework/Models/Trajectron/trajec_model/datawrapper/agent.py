@@ -23,6 +23,7 @@ class PadDirection(IntEnum):
 class AgentBatch:
     dt: Tensor
     agent_name: List[str]
+    pos_to_vel_fac: float
     agent_type: Tensor
     agent_hist: StateTensor
     agent_hist_len: Tensor
@@ -40,6 +41,7 @@ class AgentBatch:
     def to(self, device) -> None:
         excl_vals = {
             "agent_name",
+            "pos_to_vel_fac",
             "agent_type",
             "agent_hist_len",
             "agent_fut_len",
@@ -89,6 +91,7 @@ class AgentBatch:
         return AgentBatch(
             dt=_filter(self.dt),
             agent_name=_filter_tensor_or_list(self.agent_name),
+            pos_to_vel_fac=self.pos_to_vel_fac,
             agent_type=_filter(self.agent_type),
             agent_hist=_filter(self.agent_hist),
             agent_hist_len=_filter(self.agent_hist_len),

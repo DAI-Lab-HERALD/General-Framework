@@ -46,7 +46,7 @@ class trajectron_salzmann(model_template):
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
         else:
-            config_file = config_path + 'nuScenes_state_delta.json' 
+            config_file = config_path + 'nuScenes.json' 
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
             
@@ -324,10 +324,18 @@ class trajectron_salzmann(model_template):
                                 Weights = list(self.trajectron.model_registrar.parameters())
                                 model = self.trajectron.node_models_dict[node_type.name]
                                 
+                                if node_type == AgentType.PEDESTRIAN:
+                                    pos_to_vel_fac = self.std_vel_ped / self.std_pos_ped
+                                elif node_type == AgentType.VEHICLE:
+                                    pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
+                                else:
+                                    raise TypeError("Not considered.")
+                                
                                 # Built Agent_batch
                                 batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
                                                    agent_name = agent, 
-                                                   agent_type = node_type, 
+                                                   agent_type = node_type,
+                                                   pos_to_vel_fac = pos_to_vel_fac,
                                                    agent_hist = S_st_batch, 
                                                    agent_hist_len = state_len.to(dtype = torch.int64), 
                                                    agent_fut = Y_st_batch,
@@ -449,10 +457,18 @@ class trajectron_salzmann(model_template):
                         Neigh_num_batch   = torch.from_numpy(Neigh_num[Index_use, i_pred_agent])
                         Neigh_len_batch   = torch.from_numpy(Neigh_len[Index_use, i_pred_agent])
                         
+                        if node_type == AgentType.PEDESTRIAN:
+                            pos_to_vel_fac = self.std_vel_ped / self.std_pos_ped
+                        elif node_type == AgentType.VEHICLE:
+                            pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
+                        else:
+                            raise TypeError("Not considered.")
+                        
                         # Built Agent_batch
                         batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
                                            agent_name = agent, 
-                                           agent_type = node_type, 
+                                           agent_type = node_type,
+                                           pos_to_vel_fac = pos_to_vel_fac,
                                            agent_hist = S_st_batch, 
                                            agent_hist_len = state_len.to(dtype = torch.int64), 
                                            agent_fut = None,

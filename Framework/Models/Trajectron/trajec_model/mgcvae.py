@@ -658,7 +658,7 @@ class MultimodalGenerativeCVAE(nn.Module):
 
         initial_dynamics = dict()
         initial_dynamics["pos"] = node_present_state_st[:, 0:2]
-        initial_dynamics["vel"] = node_present_state_st[:, 2:4]
+        initial_dynamics["vel"] = node_present_state_st[:, 2:4] * batch.pos_to_vel_fac
 
         self.dynamic.set_initial_condition(initial_dynamics)
 
@@ -1353,7 +1353,7 @@ class MultimodalGenerativeCVAE(nn.Module):
             torch.reshape(log_sigmas, [num_samples, -1, ph, num_components * pred_dim]),
             torch.reshape(corrs, [num_samples, -1, ph, num_components]),
         )
-
+        
         if self.hyperparams["dynamic"][self.node_type]["distribution"]:
             y_dist = self.dynamic.integrate_distribution(a_dist, x, dt)
         else:
@@ -1879,7 +1879,7 @@ class MultimodalGenerativeCVAE(nn.Module):
             num_components=num_components,
             update_mode=update_mode,
         )
-
+        
         if self.hyperparams["single_mode_multi_sample"]:
             log_p_ynt_xz = y_dist.log_prob(torch.nan_to_num(y))
             log_p_yt_xz = torch.logsumexp(log_p_ynt_xz, dim=0, keepdim=True) - np.log(
@@ -1969,20 +1969,11 @@ class MultimodalGenerativeCVAE(nn.Module):
         else:
             pos_hist: torch.Tensor = batch.agent_hist[torch.arange(batch.agent_hist.shape[0]), 
                                                       batch.agent_hist_len - 1]
-
-        log_p_y_xz = self.decoder(
-            mode,
-            enc,
-            x_nr_t,
-            y,
-            y_r,
-            pos_hist,
-            batch.agent_hist_len,
-            z,
-            batch.dt,
-            self.hyperparams["k"],
-            update_mode,
-        )
+        
+        log_p_y_xz = self.decoder(mode, enc, x_nr_t, y,
+                                  y_r, pos_hist, batch.agent_hist_len,
+                                  z, batch.dt, self.hyperparams["k"],
+                                  update_mode)
 
         log_p_y_xz_mean = torch.mean(log_p_y_xz, dim=0)  # [nbs]
         log_likelihood = torch.mean(log_p_y_xz_mean)
@@ -1992,37 +1983,6 @@ class MultimodalGenerativeCVAE(nn.Module):
 
         ELBO = log_likelihood - self.kl_weight * kl + 1.0 * mutual_inf_p
         loss = -ELBO
-
-        if (
-            self.hyperparams["log_histograms"]
-            and self.log_writer
-            and (self.curr_iter + 1) % 500 == 0
-        ):
-            self.log_writer.log(
-                {
-                    f"{str(self.node_type)}/log_p_y_xz": wandb.Histogram(
-                        log_p_y_xz_mean.detach().cpu().numpy()
-                    )
-                },
-                step=self.curr_iter,
-                commit=False,
-            )
-
-        if self.log_writer:
-            self.log_writer.log(
-                {
-                    f"{str(self.node_type)}/mutual_information_q": mutual_inf_q.item(),
-                    f"{str(self.node_type)}/mutual_information_p": mutual_inf_p.item(),
-                    f"{str(self.node_type)}/log_likelihood": log_likelihood.item(),
-                    f"{str(self.node_type)}/loss": loss.item(),
-                },
-                step=self.curr_iter,
-                commit=False,
-            )
-            if self.hyperparams["log_histograms"] and (self.curr_iter + 1) % 500 == 0:
-                self.latent.summarize_for_tensorboard(
-                    self.log_writer, str(self.node_type), self.curr_iter
-                )
         return loss
 
     def predict(
