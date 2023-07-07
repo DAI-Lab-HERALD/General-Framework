@@ -110,8 +110,8 @@ class agent_yuan(model_template):
             else:
                 img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 3, 
                                                               self.target_height, self.target_width - 80)
-            img_scale = self.data_set.Images.Target_MeterPerPx.loc[domain_repeat.location]
-            img_scale = img_scale.reshape(X.shape[0], X.shape[1]).mean(1)
+
+            img_scale = 1 / img_m_per_px.reshape(X.shape[0], X.shape[1]).mean(1)
         else:
             img = np.ones(len(self.domain_old)) * np.nan
             img_scale = np.zeros(len(self.domain_old))
@@ -237,10 +237,11 @@ class agent_yuan(model_template):
         else:
             cfg.yml_dict["use_map"] = False
         
-        cp_path = self.model_file[:-4] + '_vae.p'
         model_id = cfg.get('model_id', 'agentformer')
+        self.model_vae = model_dict[model_id](cfg)
+        
+        cp_path = self.model_file[:-4] + '_vae.p'
         if not os.path.isfile(cp_path):
-            self.model_vae = model_dict[model_id](cfg)
             
             optimizer = optim.Adam(self.model_vae.parameters(), lr=cfg.lr)
             scheduler_type = cfg.get('lr_scheduler', 'linear')
@@ -251,6 +252,27 @@ class agent_yuan(model_template):
             else:
                 raise ValueError('unknown scheduler type!')
                 
+            start_epoch = 1
+            
+            # check if partially trained model exists
+            cp_path_test = cp_path[:-2]
+            files = os.listdir(os.path.dirname(cp_path_test))
+            filename = os.path.filename(cp_path_test)
+            
+            for file_name_candidate in files:
+                if filename in file_name_candidate:
+                    saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
+                    start_epoch = saved_epoch + 1
+                    cp_path_epoch = cp_path[:-2] + '_{}.p'.format(saved_epoch)
+                    model_cp = torch.load(cp_path_epoch, map_location='cpu')
+                    self.model_vae.load_state_dict(model_cp['model_dict'])
+                    
+                    loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(saved_epoch)
+                    Epoch_loss_vae = list(np.load(loss_epoch_path))
+                    
+                    break
+                
+                
             self.model_vae.set_device(self.device)
             self.model_vae.train()
             
@@ -258,8 +280,12 @@ class agent_yuan(model_template):
             epochs = cfg.yml_dict["num_epochs"]
             print('')
             
+            # Set up scheduler
+            for epoch in range(1, start_epoch):
+                scheduler.step()
+                
             # epochs = 2 # TODO: Remove this line
-            for epoch in range(1, epochs + 1):
+            for epoch in range(start_epoch, epochs + 1):
                 print('Train VAE: Epoch ' + 
                       str(epoch).rjust(len(str(epochs))) + 
                       '/{}'.format(epochs), flush = True)
@@ -290,7 +316,27 @@ class agent_yuan(model_template):
                 print('Train VAE: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
                       '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
                 print('', flush = True)
-            
+                
+                # Save intermediate
+                cp_path_epoch = cp_path[:-2] + '_{}.p'.format(epoch)
+                model_cp_epoch = {'model_dict': self.model_vae.state_dict()}
+
+                os.makedirs(os.path.dirname(cp_path_epoch), exist_ok=True)
+                torch.save(model_cp_epoch, cp_path_epoch)  
+                
+                if epoch < epochs:
+                    loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(epoch)
+                    np.save(loss_epoch_path, np.array(Epoch_loss_vae))
+                
+                if epoch > 2:
+                    cp_path_epoch_last   = cp_path[:-2] + '_{}.p'.format(epoch - 1)
+                    loss_epoch_path_last = cp_path[:-2] + '_{}_loss.npy'.format(epoch - 1)
+                    
+                    os.remove(cp_path_epoch_last)
+                    os.remove(loss_epoch_path_last)
+                    
+                    
+            os.rename(cp_path_epoch, cp_path)  
             # Save intermediate
             model_cp = {'model_dict': self.model_vae.state_dict()}
             
@@ -298,7 +344,6 @@ class agent_yuan(model_template):
             torch.save(model_cp, cp_path)   
          
         else:
-            self.model_vae = model_dict[model_id](cfg)
             model_cp = torch.load(cp_path, map_location='cpu')
             self.model_vae.load_state_dict(model_cp['model_dict'])
         
@@ -339,51 +384,100 @@ class agent_yuan(model_template):
         model_id = cfg_d.get('model_id', 'dlow')
         self.model_dlow = model_dict[model_id](cfg_d)
         
-        optimizer = optim.Adam(self.model_dlow.parameters(), lr=cfg_d.lr)
-        scheduler_type = cfg_d.get('lr_scheduler', 'linear')
-        if scheduler_type == 'linear':
-            scheduler = get_scheduler(optimizer, policy='lambda', nepoch_fix=cfg_d.lr_fix_epochs, nepoch=cfg_d.num_epochs)
-        elif scheduler_type == 'step':
-            scheduler = get_scheduler(optimizer, policy='step', decay_step=cfg_d.decay_step, decay_gamma=cfg_d.decay_gamma)
-        else:
-            raise ValueError('unknown scheduler type!')
-        
-        
-        self.model_dlow.set_device(self.device)
-        self.model_dlow.train()
-            
-        # train dlow model
-        epochs = cfg_d.yml_dict["num_epochs"]
         Epoch_loss_dlow = []
-        # epochs = 2 # TODO: Remove this
-        for epoch in range(1, epochs + 1):
-            print('Train DLow: Epoch ' + 
-                  str(epoch).rjust(len(str(epochs))) + 
-                  '/{}'.format(epochs))
-            np.random.shuffle(Batches_dlow)
-            epoch_loss = 0.0
-            for i, ind in enumerate(Batches_dlow):
+        
+        cp_path_dlow = self.model_file[:-4] + '_dlow.p'
+        if not os.path.isfile(cp_path_dlow):
+            optimizer = optim.Adam(self.model_dlow.parameters(), lr=cfg_d.lr)
+            scheduler_type = cfg_d.get('lr_scheduler', 'linear')
+            if scheduler_type == 'linear':
+                scheduler = get_scheduler(optimizer, policy='lambda', nepoch_fix=cfg_d.lr_fix_epochs, nepoch=cfg_d.num_epochs)
+            elif scheduler_type == 'step':
+                scheduler = get_scheduler(optimizer, policy='step', decay_step=cfg_d.decay_step, decay_gamma=cfg_d.decay_gamma)
+            else:
+                raise ValueError('unknown scheduler type!')
+            
+            start_epoch = 1
+            
+            # check if partially trained model exists
+            cp_path_test = cp_path_dlow[:-2]
+            files = os.listdir(os.path.dirname(cp_path_test))
+            filename = os.path.filename(cp_path_test)
+            
+            for file_name_candidate in files:
+                if filename in file_name_candidate:
+                    saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
+                    start_epoch = saved_epoch + 1
+                    cp_path_epoch = cp_path_dlow[:-2] + '_{}.p'.format(saved_epoch)
+                    model_cp = torch.load(cp_path_epoch, map_location='cpu')
+                    self.model_dlow.load_state_dict(model_cp['model_dict'])
+                    
+                    loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(saved_epoch)
+                    Epoch_loss_dlow = list(np.load(loss_epoch_path))
+                    
+                    break
+                
+            self.model_dlow.set_device(self.device)
+            self.model_dlow.train()
+            
+            # train dlow model
+            epochs = cfg_d.yml_dict["num_epochs"]
+            print('')
+            
+            # Set up scheduler
+            for epoch in range(1, start_epoch):
+                scheduler.step()
+                
+            # epochs = 2 # TODO: Remove this line
+            for epoch in range(start_epoch, epochs + 1):
                 print('Train DLow: Epoch ' + 
                       str(epoch).rjust(len(str(epochs))) + 
-                      '/{}, Batch '.format(epochs) + 
-                      str(i + 1).rjust(len(str(len(Batches_dlow)))) + 
-                      '/{}'.format(len(Batches_dlow)), flush = True)
-                data = Data[Index_batches_dlow[ind]]
-                self.model_dlow.pred_model[0].future_decoder.future_frames = self.num_timesteps_out[Index_batches_dlow[ind]].max()
-                self.model_dlow.set_data(data)
-                self.model_dlow()
-                total_loss, loss_dict, loss_unweighted_dict = self.model_dlow.compute_loss()
-                optimizer.zero_grad()
-                total_loss.backward()
-                optimizer.step()
-                epoch_loss += total_loss.detach().cpu().numpy()
-                torch.cuda.empty_cache()
-            scheduler.step()
-            
-            Epoch_loss_dlow.append(epoch_loss)
-            print('Train DLow: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
-                  '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
-            print('')  
+                      '/{}'.format(epochs))
+                np.random.shuffle(Batches_dlow)
+                epoch_loss = 0.0
+                for i, ind in enumerate(Batches_dlow):
+                    print('Train DLow: Epoch ' + 
+                          str(epoch).rjust(len(str(epochs))) + 
+                          '/{}, Batch '.format(epochs) + 
+                          str(i + 1).rjust(len(str(len(Batches_dlow)))) + 
+                          '/{}'.format(len(Batches_dlow)), flush = True)
+                    data = Data[Index_batches_dlow[ind]]
+                    self.model_dlow.pred_model[0].future_decoder.future_frames = self.num_timesteps_out[Index_batches_dlow[ind]].max()
+                    self.model_dlow.set_data(data)
+                    self.model_dlow()
+                    total_loss, loss_dict, loss_unweighted_dict = self.model_dlow.compute_loss()
+                    optimizer.zero_grad()
+                    total_loss.backward()
+                    optimizer.step()
+                    epoch_loss += total_loss.detach().cpu().numpy()
+                    torch.cuda.empty_cache()
+                scheduler.step()
+                
+                Epoch_loss_dlow.append(epoch_loss)
+                print('Train DLow: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
+                      '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
+                print('')  
+                
+                # Save intermediate
+                if epoch < epochs:
+                    cp_path_epoch = cp_path_dlow[:-2] + '_{}.p'.format(epoch)
+                    model_cp_epoch = {'model_dict': self.model_dlow.state_dict()}
+                
+                    os.makedirs(os.path.dirname(cp_path_epoch), exist_ok=True)
+                    torch.save(model_cp_epoch, cp_path_epoch)  
+                    
+                    loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch)
+                    np.save(loss_epoch_path, np.array(Epoch_loss_vae))
+                
+                if epoch > 2:
+                    cp_path_epoch_last   = cp_path_dlow[:-2] + '_{}.p'.format(epoch - 1)
+                    loss_epoch_path_last = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch - 1)
+                    
+                    os.remove(cp_path_epoch_last)
+                    os.remove(loss_epoch_path_last)
+        else:
+            model_cp = torch.load(cp_path_dlow, map_location='cpu')
+            self.model_dlow.load_state_dict(model_cp['model_dict']) 
          
         Epoch_loss_dlow = np.array(Epoch_loss_dlow)
         
