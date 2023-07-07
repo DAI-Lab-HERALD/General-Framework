@@ -257,7 +257,7 @@ class agent_yuan(model_template):
             # check if partially trained model exists
             cp_path_test = cp_path[:-2]
             files = os.listdir(os.path.dirname(cp_path_test))
-            filename = os.path.filename(cp_path_test)
+            filename = os.path.basename(cp_path_test)
             
             for file_name_candidate in files:
                 if filename in file_name_candidate:
@@ -328,7 +328,7 @@ class agent_yuan(model_template):
                     loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(epoch)
                     np.save(loss_epoch_path, np.array(Epoch_loss_vae))
                 
-                if epoch > 2:
+                if epoch >= 2:
                     cp_path_epoch_last   = cp_path[:-2] + '_{}.p'.format(epoch - 1)
                     loss_epoch_path_last = cp_path[:-2] + '_{}_loss.npy'.format(epoch - 1)
                     
@@ -402,7 +402,7 @@ class agent_yuan(model_template):
             # check if partially trained model exists
             cp_path_test = cp_path_dlow[:-2]
             files = os.listdir(os.path.dirname(cp_path_test))
-            filename = os.path.filename(cp_path_test)
+            filename = os.path.basename(cp_path_test)
             
             for file_name_candidate in files:
                 if filename in file_name_candidate:
@@ -469,7 +469,7 @@ class agent_yuan(model_template):
                     loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch)
                     np.save(loss_epoch_path, np.array(Epoch_loss_vae))
                 
-                if epoch > 2:
+                if epoch >= 2:
                     cp_path_epoch_last   = cp_path_dlow[:-2] + '_{}.p'.format(epoch - 1)
                     loss_epoch_path_last = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch - 1)
                     
