@@ -213,7 +213,6 @@ class agent_yuan(model_template):
         ##                Train VAE                                         ##
         ######################################################################
         
-        Epoch_loss_vae = []
         
         # load hyperparams and set up model
         cfg = Config('hyperparams_pre', False, create_dirs = False)        
@@ -252,6 +251,7 @@ class agent_yuan(model_template):
             else:
                 raise ValueError('unknown scheduler type!')
                 
+            Epoch_loss_vae = []
             start_epoch = 1
             
             # check if partially trained model exists
@@ -324,9 +324,8 @@ class agent_yuan(model_template):
                 os.makedirs(os.path.dirname(cp_path_epoch), exist_ok=True)
                 torch.save(model_cp_epoch, cp_path_epoch)  
                 
-                if epoch < epochs:
-                    loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(epoch)
-                    np.save(loss_epoch_path, np.array(Epoch_loss_vae))
+                loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(epoch)
+                np.save(loss_epoch_path, np.array(Epoch_loss_vae))
                 
                 if epoch >= 2:
                     cp_path_epoch_last   = cp_path[:-2] + '_{}.p'.format(epoch - 1)
@@ -335,7 +334,8 @@ class agent_yuan(model_template):
                     os.remove(cp_path_epoch_last)
                     os.remove(loss_epoch_path_last)
                     
-                    
+                 
+            Epoch_loss_vae = np.array(Epoch_loss_vae)   
             os.rename(cp_path_epoch, cp_path)  
             # Save intermediate
             model_cp = {'model_dict': self.model_vae.state_dict()}
@@ -344,10 +344,12 @@ class agent_yuan(model_template):
             torch.save(model_cp, cp_path)   
          
         else:
+            loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(epochs)
+            Epoch_loss_vae = np.load(loss_epoch_path)
+            
             model_cp = torch.load(cp_path, map_location='cpu')
             self.model_vae.load_state_dict(model_cp['model_dict'])
         
-        Epoch_loss_vae = np.array(Epoch_loss_vae)
         
         # save weights
         Weights_vae = list(self.model_vae.parameters())
@@ -384,7 +386,6 @@ class agent_yuan(model_template):
         model_id = cfg_d.get('model_id', 'dlow')
         self.model_dlow = model_dict[model_id](cfg_d)
         
-        Epoch_loss_dlow = []
         
         cp_path_dlow = self.model_file[:-4] + '_dlow.p'
         if not os.path.isfile(cp_path_dlow):
@@ -397,6 +398,7 @@ class agent_yuan(model_template):
             else:
                 raise ValueError('unknown scheduler type!')
             
+            Epoch_loss_dlow = []
             start_epoch = 1
             
             # check if partially trained model exists
@@ -466,8 +468,8 @@ class agent_yuan(model_template):
                     os.makedirs(os.path.dirname(cp_path_epoch), exist_ok=True)
                     torch.save(model_cp_epoch, cp_path_epoch)  
                     
-                    loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch)
-                    np.save(loss_epoch_path, np.array(Epoch_loss_vae))
+                loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epoch)
+                np.save(loss_epoch_path, np.array(Epoch_loss_dlow))
                 
                 if epoch >= 2:
                     cp_path_epoch_last   = cp_path_dlow[:-2] + '_{}.p'.format(epoch - 1)
@@ -475,11 +477,16 @@ class agent_yuan(model_template):
                     
                     os.remove(cp_path_epoch_last)
                     os.remove(loss_epoch_path_last)
+            
+            Epoch_loss_dlow = np.array(Epoch_loss_dlow)
+            
         else:
+            loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(epochs)
+            Epoch_loss_dlow = np.load(loss_epoch_path)
+            
             model_cp = torch.load(cp_path_dlow, map_location='cpu')
             self.model_dlow.load_state_dict(model_cp['model_dict']) 
          
-        Epoch_loss_dlow = np.array(Epoch_loss_dlow)
         
         # save weights
         Weights_dlow = list(self.model_dlow.parameters())
