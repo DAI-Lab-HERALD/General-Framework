@@ -1,14 +1,14 @@
 # Adding a new dataset to the framework
-One can easily add a new Dataset to the Framework, by implementing this dataset as a new class. 
+One can easily add a new dataset to the Framework, by implementing this dataset as a new class. 
 
 ## Setting up the class
 
-This class, and by it the dataset, interact with the other parts of the framework using the [data_set_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Therefore, the new dataset_name.py file with the class dataset_name (it is important that those two are the same strings so that the framework can recognize the dataset) begins in the following way:
+This class, and by it the dataset, interact with the other parts of the Framework using the [data_set_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Therefore, the new dataset_name.py file with the class dataset_name (it is important that those two are the same strings so that the Framework can recognize the dataset) begins in the following way:
 ```
 from data_set_template import data_set_template
 
 class dataset_name(data_set_template):
-  def get_name(self = None):
+  def get_name(self = None) -> dict:
     names = {'print': 'Dataset name',
              'file': 'dataset_nm',
              'latex': r'\emph{Dataset} name'}
@@ -22,8 +22,21 @@ Meanwhile, the 'file' has to be a string with exactly 10 characters, that does n
 
 For this class, a number of other prenamed methods then need to be defined as well, via which the dataset interacts with the rest of the framework.
 
-## Define the data output types
-...
+## Define the data types
+Firstly, one has to define what type of data types this class will be able to create:
+
+```
+def future_input(self = None) -> bool:
+  return False
+```
+This function defines whether this dataset contains the planned future trajectory of a designated ego agent (return True) or not (return False).
+
+```    
+def includes_images(self = None) -> bool:
+  return True
+```
+The second datatype function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
+
 
 ## Setting the scenario type
 ...
