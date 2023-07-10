@@ -11,7 +11,7 @@ The data should have the following five folders for each of the sub-datasets:
 Each of the five folders contains:
 
 - data
-- dataset_info.json
+- dataset\_info.json
 
 where data contains <i>.json files.
 
