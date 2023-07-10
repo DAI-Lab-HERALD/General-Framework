@@ -13,7 +13,7 @@ Each of the five folders contains:
 - data
 - dataset\_info.json
 
-where data contains <i>.json files.
+where data contains \<i\>.json files.
 
 For each of the sub-datasets, the number of .json files is:
 
