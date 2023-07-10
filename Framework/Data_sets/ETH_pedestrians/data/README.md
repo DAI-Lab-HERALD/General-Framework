@@ -22,3 +22,5 @@ For each of the sub-datasets, the number of .json files is:
 - ucy_univ: i is in the range of 1 to 984
 - ucy_zara01: i is in the range of 1 to 872
 - ucy_zara02: i is in the range of 1 to 1052
+
+After placing the data in the /data/ folder, one has to execute the [ETH_processing.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/ETH_pedestrians/ETH_processing.py) script in the folder above for preprocessing.
