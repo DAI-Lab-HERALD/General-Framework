@@ -37,7 +37,22 @@ we also need to define a default behavior for such cases:
   def give_default_classification(self = None) -> str:
     return 'behavior_default'
 ```
-It is important to note here that the returned string needs to be one of the keys of the dictonary returned by self.give_classifications().
+It is important to note here that the returned string needs to be one of the keys of the dictionary produced by self.give_classifications().
 
 ## Define important actors
+In a certain scenario, it is often the case that specific agents fulfill special roles needed for classifying certain behaviors. In the aforementioned example of gap acceptance, this would be 
+the ego vehicle offering the gap and the target vehicle which has to either accept or reject the gap.
+The names of those roles then have to be communicated to the Framework:
+```
+  def classifying_agents(self = None) -> list[str,]:
+    return ['tar']
+
+  def pov_agent(self = None) -> str:
+    return 'ego'
+```
+Here, the function self.classifying_agents() returns the list of those agents. However, it needs to be noted that there might be an agent from whose point of view and for whose benefit a prediction is made,
+and for which extra information such as planned paths might be feasibly available.
+In this case, such an agent is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, self.pov_agent() will instead return None.
+
+
 
