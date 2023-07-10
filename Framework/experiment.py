@@ -28,25 +28,30 @@ class Experiment():
     def __init__(self, Experiment_name = ''):
         self.path = os.path.dirname(os.path.realpath(__file__))
 
-        # Add path to datasets
+        # Add path towards scenarios
+        self.scenario_path = self.path + os.sep + 'Scenarios' + os.sep
+        if not self.scenario_path in sys.path:
+            sys.path.insert(0, self.scenario_path)
+            
+        # Add path towards datasets
         self.data_set_path = self.path + os.sep + 'Data_sets' + os.sep
         if not self.data_set_path in sys.path:
             sys.path.insert(0, self.data_set_path)
-
-        # Add path to metrics
-        self.metrics_path = self.path + os.sep + 'Evaluation_metrics' + os.sep
-        if not self.metrics_path in sys.path:
-            sys.path.insert(0, self.metrics_path)
                
-        # Add path to splitting methods
+        # Add path towards splitting methods
         self.split_path = self.path + os.sep + 'Splitting_methods' + os.sep
         if not self.split_path in sys.path:
             sys.path.insert(0, self.split_path)
 
-        # Add paths towards models
+        # Add path towards models
         self.model_path = self.path + os.sep + 'Models' + os.sep
         if not self.model_path in sys.path:
             sys.path.insert(0, self.model_path)
+
+        # Add path towards metrics
+        self.metrics_path = self.path + os.sep + 'Evaluation_metrics' + os.sep
+        if not self.metrics_path in sys.path:
+            sys.path.insert(0, self.metrics_path)
             
         self.provided_modules = False
         self.provided_setting = False
