@@ -1703,25 +1703,32 @@ class data_set_template():
         '''
         raise AttributeError("Has to be overridden in actual data-set class")
 
-    def get_name(self=None):
+    def get_name(self=None) -> dict:
         r'''
         Provides a dictionary with the different names of the dataset:
-        Name = {'print': 'printable_name', 'file': 'name_used_in_files', 'latex': r'latex_name'}
-        If the latex name includes mathmode, the $$ has to be included
-        Here, it has to be noted that name_used_in_files will be restricted in its length.
-        For datasets, this length is 10 characters, without a '-' inside
+        names = {'print': 'printable_name', 'file': 'files_name', 'latex': r'latex_name'}.
+        
+        The first key 'print'  will be primarily used to refer to the dataset in console outputs. 
+        
+        The 'file' key has to be a string with exactly 10 characters, that does not include any folder separators (for any operating system), 
+        as it is mostly used to indicate that certain result files belong to this dataset. 
+        
+        The 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - such as using '$$' for math notation.
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
-    def future_input(self=None):
+    def future_input(self=None) -> bool:
         r'''
-        If True, then the future data of the pov agent can be used as input.
-        If False, this is prevented, as the behavior of the vehicle might
-        include to many clues for a prediction model to use
+        return True: The future data of the pov agent can be used as input.
+        This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
+        making the recorded future data similar to the ego agents planned path at each point in time.
+        
+        return False: This usage of future ego agents trajectories as model input is prevented. This is especially advisable
+        if the behavior of the vehicle might include to many clues for a prediction model to use.
         '''
         raise AttributeError("Has to be overridden in actual data-set class")
         
-    def includes_images(self = None):
+    def includes_images(self = None) -> bool:
         r'''
         If True, then image data can be returned (if true, location has to be a column of domain)
         '''
