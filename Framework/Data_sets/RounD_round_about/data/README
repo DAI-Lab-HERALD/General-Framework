@@ -1,1 +1,2 @@
-After obtaining the raw data in the /data/ folder, one has to execute the roundD_processing.py script here for preprocessing.
+In order to obtain the raw data, refer to the instructions at https://www.round-dataset.com/ .
+After obtaining the raw data in the /data/ folder, one has to execute the roundD_processing.py script in the folder above for preprocessing.
