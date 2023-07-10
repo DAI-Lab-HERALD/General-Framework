@@ -1511,7 +1511,7 @@ class data_set_template():
         can be defined here. For example, certain distance measurements such as the radius 
         of a roundabout might be needed here.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def create_path_samples(self):
         r'''
@@ -1571,7 +1571,7 @@ class data_set_template():
                 The second column of the dataframe, named 'Target_MeterPerPx', contains a scalar float value
                 that gives us the scaling of the images in the unit :math:`m /` Px. 
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def calculate_distance(self, path, t, domain):
         r'''
@@ -1605,7 +1605,7 @@ class data_set_template():
             The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
             How those distances are defined dependes on the scenario and behavior.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def evaluate_scenario(self, path, Dist, domain):
         r'''
@@ -1635,38 +1635,41 @@ class data_set_template():
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the scenario is valid.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def calculate_additional_distances(self, path, t, domain):
         r'''
-        Some models cannot deal with trajectory data, and instead are contrained to quasi-one dimesnional
+        Some models cannot deal with trajectory data, and instead are constrained to quasi-one dimensional
         data. While here the main data are the distances to the classification created in self.calculate_distance(),
         this might be incomplete to fully describe the current situation. Consequently, it might be necessary
         to extract further characteristic distances.
 
-        This function extracts these distances for one specific test case.
+        This function extracts these distances for one specific sample.
 
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
+            A pandas series with :math:`(N_{agents})` entries,
+            where each entry is itself a numpy array of lenght :math:`\{N_{preds} \times |t| \times 2 \}`.
+            The columns should correspond to the columns in self.Path created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
-            A numpy array of lenght :math:`|T|`, recording the corresponding timesteps, at which the positions
-            in path were recorded.
-        domain : pandas series
-            A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in self.Domain_old.
+            A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+            at which the positions in **path** were recorded.
+        domain : pandas.Series
+            A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+            sample. Its entries contain at least all the columns of self.Domain_old. 
 
         Returns
         -------
         Dist : pandas.Series
             This is a :math:`N_{other dist}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker..
+            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker..
 
-            If self.can_provide_general_input() == False, this will be None.
+            These columns should contain the minimum required distances set in self.scenario.can_provide_general_input().
+            If self.can_provide_general_input() == False, one should return None instead.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def fill_empty_input_path(self, path, t, domain):
         r'''
