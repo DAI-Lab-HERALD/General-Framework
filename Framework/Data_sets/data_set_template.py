@@ -1575,11 +1575,11 @@ class data_set_template():
 
     def calculate_distance(self, path, t, domain):
         r'''
-        If the choosen scenario contains a number of possible behaviors, as which recored or
-        predicted trajectories might be defined, this function calculates the abridged distance of the 
+        If the chosen scenario contains a number of possible behaviors, as which recorded or
+        predicted trajectories might be classified, this function calculates the abridged distance of the 
         relevant agents in a scenario towards fulfilling each of the possible classification criteria. 
-        If the classification is not yet reached, those distances are positive, while them being negative 
-        means that a certain scenario has been reached.
+        If the classification criterium is not yet fulfilled, those distances are positive, while them being negative 
+        means that a certain behaviour has occurred.
         
         This function extracts these distances for one specific sample.
 
