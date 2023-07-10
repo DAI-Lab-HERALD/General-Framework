@@ -1,2 +1,2 @@
 In order to obtain the raw data, refer to the instructions at https://www.highd-dataset.com/.
-After obtaining the raw data in the /data/ folder, one has to execute the highD_processing.py script here for preprocessing.
+After obtaining the raw data in the /data/ folder, one has to execute the highD_processing.py script in the folder above for preprocessing.
