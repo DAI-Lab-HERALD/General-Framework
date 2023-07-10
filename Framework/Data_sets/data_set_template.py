@@ -1504,7 +1504,7 @@ class data_set_template():
         Sets the type of scenario to which this dataset belongs, using an imported class.
         
         It should contain the command:
-            self.scenario = Scenario_class()
+            self.scenario = scenario_class()
             
         Furthermore, if general information about the dataset is needed for later steps - 
         and not only the extraction of the data from its original recorded form - those 
@@ -1517,59 +1517,59 @@ class data_set_template():
         r'''
         Loads the original path data in its recorded form from wherever it is saved.
         Then, this function has to extract for each potential test case in the data set 
-        some required information, which has to be collected in the following output data,
+        some required information. This information has to be collected in the following attributes, 
         which do not have to be returned, but only defined in this function.
             self.Path            
-                A pandas array of dimensionality :math:`\{N_{cases} {\times} (2 N_{agents})\}`. 
-                Here, each row represents one test case, while each columns represents either 
-                the :math:`x` or :math:`y` component of the trajectory of an agent. It has to be
-                noted that :math:`N_{agents}` is the maximum number of agents considered in one
-                case over all cases. The name of each column has to be named meticiously, with 
-                seven laters. For example the column name "V_ego_x" would indicate that this is
-                the :math:`x` component of an agent named "ego", and the "V" indicates that this
-                is a vehicle ("P" might stand for pedestrian). The name of such agents are relevant,
-                as the scenario defined assigns some agents with a specific names roles of importance.
+                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
+                Here, each row :math:`i` represents one recorded sample, while each column includes the 
+                trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
+                It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
+                sample over all recorded samples. The name of each column has to be named meticiously. 
+                For example the column name "T_ego" would indicate that this is the trajectory of an agent
+                named "ego", and the "T" is a placeholder indicating the agent type (e.g. "V" for vehicle,
+                "P" for pedestrian). The name of such agents are relevant, as the selected scenario requires 
+                some agents with a specific name to be present. The names of those relevant agents can be found in 
+                self.scenario.pov_agent and self.scenario.classifying_agents.
                 
                 Each entry of the DataFrame then has to be a tensor of length :math:`\vert T_i \vert`,
-                where the length has to be consistent for all tensors along in a case :math:`i`.
-
-                For each case in time, these positions tensors need to be aligned in time.                
+                where the length has to be consistent for all tensors along in a sample :math:`i`.  
             
             self.T
-                A numpy array (dtype = object) of length :math:`N_{cases}`. Each entry contains the timepoints of the 
-                data collected in self.Path in a tensor of length :math:`\vert T_i \vert`.
+                A numpy array (dtype = object) of length :math:`N_{samples}`. Each entry contains the timepoints 
+                of the data collected in self.Path in a tensor of length :math:`\vert T_i \vert`.
                 
             self.Domain_old 
-                A pandas array of dimensionality :math:`\{N_{cases} {\times} (N_{info})\}`.
+                A pandas array of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
                 In this dataframe, one can collect any ancilliary metadata that might be needed
-                in the future. An examply might be the location at which this case was recorded
+                in the future. An example might be the location at which a sample was recorded
                 or the subject id involved, which might be needed later to construct training
                 and testing set.
                 
             self.num_Samples
-                A scalar integer value, which number of cases :math:`N_{cases}`.
+                A scalar integer value, which gives the number of samples :math:`N_{samples}`. 
+                It should be noted that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
         It might be possible that the selected dataset can provide images. In this case, it is
-        paramount that self.Domain_old entails a column named 'location', so that an images can
-        be assigned to each case without having to save large amounts of data. 
+        paramount that self.Domain_old entails a column named 'image_id', so that images can
+        be assigned to each sample without having to save large amounts of data. 
         Two further attributes have to be created as well:
             self.Images
-                A pandas dataframe of dimensionality :math:`\{N_{cases} {\times} 1\}`.
-                In it, the images for each location are safed. It is paramount that the 
-                index used for this dataset consists out of location values that correspond
-                to the name found in self.Domain_old.location. The entry for each cell of 
-                the dataframe meanwhile should be a numpy array of dtype np.uint8 and pixel size
-                :math:`\{H {\times} W \times 3\}`. It is assumed that a position (0,0) recorderd
-                in self.Path corresponds to the upper left corner of image. 
+                A pandas dataframe of dimensionality :math:`\{N_{samples} {\times} 2\}`.
+                In the first column, named 'Image', the images for each location are saved. It is paramount that the 
+                indices of this dataframe are equivalent to the unique values found in self.Domain_old.image_id. 
+                The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
+                :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
+                padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
+                position (0,0) recorderd in the trajectories in self.Path corresponds to the upper left corner of image. 
                 
-                If this is not the case, due to the performance of some translation and subsequent rotation 
+                If this is not the case, due to some translation and subsequent rotation 
                 of the recoded positions, the corresponding information has to be recorded in columns of 
-                self.Domain_old, where the columns 'x_center' and 'y_center' records the position in the 
+                self.Domain_old, where the columns 'x_center' and 'y_center' record the position in the 
                 original cordinate system at which the current origin (0,0) now lies, and 'rot_angle' is 
                 the angle by which the coordinate system was rotated afterwards in clockwise direction.
-            
-            self.Target_MeterPerPx
-                A scalar float value that gives us the scaling of the images in the unit :math:`m /` Px. 
+
+                The second column of the dataframe, named 'Target_MeterPerPx', contains a scalar float value
+                that gives us the scaling of the images in the unit :math:`m /` Px. 
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
@@ -1581,25 +1581,29 @@ class data_set_template():
         If the classification is not yet reached, those distances are positive, while them being negative 
         means that a certain scenario has been reached.
         
-        This function extracts these distances for one specific test case.
+        This function extracts these distances for one specific sample.
 
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
-            The columns should correspond to the columns in self.Path created in self.create_path_samples().
-        domain : pandas series
-            A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in self.Domain_old.
+            A pandas series with :math:`(N_{agents})` entries,
+            where each entry is itself a numpy array of lenght :math:`\{N_{preds} \times |t| \times 2 \}`.
+            The columns should correspond to the columns in self.Path created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
+        t : numpy.ndarray
+            A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+            at which the positions in **path** were recorded.
+        domain : pandas.Series
+            A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+            sample. Its entries contain at least all the columns of self.Domain_old. 
 
         Returns
         -------
         Dist : pandas.Series
-            This is a :math:`N_{classes}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker.
-            The column names shoud correspond to the attribute self.Behaviors. How those distances are defined
-            dependes on the scenario and behavior.
+            This is a series with :math:`N_{classes}` entries.
+            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
+            The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+            How those distances are defined dependes on the scenario and behavior.
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
