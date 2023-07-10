@@ -1,2 +1,0 @@
-In order to obtain the raw data, refer to the instructions at https://www.ind-dataset.com/.
-After obtaining the raw data in the /data/ folder, one has to execute the InD_processing.py script in the folder above for preprocessing.
