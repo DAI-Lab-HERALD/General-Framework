@@ -26,20 +26,35 @@ For this class, a number of other prenamed methods then need to be defined as we
 Firstly, one has to define what type of data types this class will be able to create:
 
 ```
-def future_input(self = None) -> bool:
-  return False
+  def future_input(self = None) -> bool:
+    return False
 ```
 This function defines whether this dataset contains the planned future trajectory of a designated ego agent (return True) or not (return False).
 
 ```    
-def includes_images(self = None) -> bool:
-  return True
+  def includes_images(self = None) -> bool:
+    return True
 ```
 The second datatype function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
 
 
 ## Setting the scenario type
+Next, the scenario that the dataset covers has to be set:
+```
 ...
+from scenario_class import scenario_class
+
+class dataset_name(data_set_template):
+
+  ...
+
+  def set_scenario(self):
+    self.scenario = scenario_class()
+```
+
+Here, the scenario_class has to be selected from those available in the [Scenario folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios), where its required properties are discussed in more detail. 
+
+It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires for example any additional attributes, those should be set here.
 
 ## Creating initial paths
 ...
