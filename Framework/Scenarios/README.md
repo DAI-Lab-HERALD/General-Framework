@@ -45,7 +45,7 @@ the ego vehicle offering the gap and the target vehicle which has to either acce
 The names of those roles then have to be communicated to the Framework:
 ```
   def classifying_agents(self = None) -> list[str,]:
-    return ['tar']
+    return ['v_1', 'v_2']
 
   def pov_agent(self = None) -> str:
     return 'ego'
