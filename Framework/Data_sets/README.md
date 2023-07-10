@@ -29,7 +29,7 @@ Firstly, one has to define what type of data types this class will be able to cr
   def future_input(self = None) -> bool:
     return False
 ```
-This function defines whether this dataset contains the planned future trajectory of a designated ego agent (return True) or not (return False).
+This function defines whether this dataset provides as an input the planned future trajectory of a designated ego agent (return True) or not (return False).
 
 ```    
   def includes_images(self = None) -> bool:
