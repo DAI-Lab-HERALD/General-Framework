@@ -4,7 +4,6 @@ ax_platform
 dill
 easydict
 glob2
-json
 loguru
 matplotlib
 ncls
