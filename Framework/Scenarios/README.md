@@ -10,8 +10,12 @@ class scenario_name(data_set_template):
   def __init__():
     pass
 
+  def get_name(self = None) -> str:
+    return 'Scenario name'
+
   ...
 ```
+Here, the string returned by self.get_name() is mainly used for console outputs.
 
 This class then needs to possess a number of prenamed methods via which it interacts with the rest of the framework.
 
@@ -33,5 +37,7 @@ we also need to define a default behavior for such cases:
   def give_default_classification(self = None) -> str:
     return 'behavior_default'
 ```
-It is important to note here that the returned string needs to be one of the keys of the dict returned by self.give_classifications().
+It is important to note here that the returned string needs to be one of the keys of the dictonary returned by self.give_classifications().
+
+## Define important actors
 
