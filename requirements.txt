@@ -12,6 +12,7 @@ opencv_contrib_python
 opencv_python
 orjson
 pandas
+pathos
 PyYAML
 scikit_learn
 scipy
