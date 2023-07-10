@@ -6,6 +6,7 @@ python_packages/
 *.pkl
 *.csv
 *.txt
+!requirements.txt
 *.log
 *.npy
 *.zip
