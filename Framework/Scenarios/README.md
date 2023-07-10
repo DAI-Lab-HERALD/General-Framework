@@ -54,5 +54,11 @@ Here, the function self.classifying_agents() returns the list of those agents. H
 and for which extra information such as planned paths might be feasibly available.
 In this case, such an agent is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, self.pov_agent() will instead return None.
 
-
-
+## Generalized inputs
+Some scenarios require the provision of certain one-dimensional information, which might be used as additional model inputs, such as the size of the contested space in gap acceptance scenarios.
+To this end, the following function is used:
+```
+  def can_provide_general_input(self = None) -> list[str,]:
+    return ['I_1', 'I_2']
+```
+Here, I_i are the string names of those information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
