@@ -71,6 +71,7 @@ Going with the example of gap acceptance, for an prediction to be useful, it wou
 Such usefulness can also refer to scenarios. For example, when we try to predict the turning behavior of vehicles at intersections, it would likely be useful to restrict this to cases where the target vehicle, whose behavior is to be predicted, has not yet entered the intersection, For which this could be used as well.
 
 In the context of the framework, we then define the point in time, where the switch from useful to useless prediction happens as $t_{crit}$:
+
 $$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) $$
 
 Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](https://github.com/julianschumann/General-Framework/edit/main/Framework/Scenarios/README.md?plain=1#L37)) is fulfilled. Meanwhile, we can define $\Delta t_{useful}(t)$ however we want using the following function:
