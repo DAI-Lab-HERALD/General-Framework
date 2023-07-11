@@ -1,7 +1,9 @@
-from scenario_template import scenario_template
 import numpy as np
 
-class scenario_direction(scenario_template):
+class scenario_direction():
+    def __init__(self):
+        pass
+    
     def give_default_classification(self = None):
         return 'staying'
     

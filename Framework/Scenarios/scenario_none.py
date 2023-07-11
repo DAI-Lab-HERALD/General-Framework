@@ -1,6 +1,8 @@
-from scenario_template import scenario_template
 
-class scenario_none(scenario_template):
+class scenario_none():
+    def __init__(self):
+        pass
+    
     def give_default_classification(self = None):
         return 'normal'
     
