@@ -61,20 +61,20 @@ To this end, the following function is used:
   def can_provide_general_input(self = None) -> list[str,]:
     return ['I_1', 'I_2']
 ```
-Here, I_i are the string names of those information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
+Here, I_i are the string names of the information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
 
 ## Define safe actions
-Another important aspect of the framework is its ability to classify predictions as still useful, i.e., as predictions an agent could still react upon and change their behavior in a safe manner. 
+Another important aspect of the framework is its ability to classify predictions as still useful, e.g., if an agent could still react upon those predictions and change their behavior in a safe manner. 
 
-Going with the example of gap acceptance, for an prediction to be useful, it would have to made at a point where the ego vehicle can still react in time to a predicted future where the target agent decides to accept the gap and move onto the contested space before the ego agent. Such a reaction of the ego agent could be to brake and come to a stop before the contested space, however, as this takes space and time, the prediction must be made at a suitably early point in time. 
+Going with the example of gap acceptance, for a prediction to be useful, it would have to be made at a point where the ego vehicle can still react in time to a predicted future where the target agent decides to accept the gap and move onto the contested space before the ego agent. Such a reaction of the ego agent could be to brake and come to a stop before the contested space, however, as this takes space and time, the prediction must be made at a suitably early point in time. 
 
-Such usefulness can also refer to scenarios. For example, when we try to predict the turning behavior of vehicles at intersections, it would likely be useful to restrict this to cases where the target vehicle, whose behavior is to be predicted, has not yet entered the intersection, For which this could be used as well.
+Such usefulness of prediction can however be used in other contexts as well. For example, when we try to predict the turning behavior of vehicles at intersections, it would likely be useful to only consider prediction as useful and worthwhile in cases where the target vehicle, whose behavior is to be predicted, has not yet entered the intersection.
 
 In the context of the framework, we then define the point in time, where the switch from useful to useless prediction happens as $t_{crit}$:
 
 $$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) = 0 $$
 
-Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled. Meanwhile, we can define $\Delta t_{useful}(t)$ however we want using the following function:
+Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled, which is calculated by the [dataset.calculate_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Meanwhile, $\Delta t_{useful}(t)$ is defined in the following scenario bound function:
 
 ```
   def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain) -> np.ndarray:
