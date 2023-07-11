@@ -62,3 +62,47 @@ To this end, the following function is used:
     return ['I_1', 'I_2']
 ```
 Here, I_i are the string names of those information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
+
+## Define safe actions
+Another important aspect of the framework is its ability to classify predictions as still useful, i.e., as predictions an agent could still react upon and change their behavior in a safe manner. 
+
+Going with the example of gap acceptance, for an prediction to be useful, it would have to made at a point where the ego vehicle can still react in time to a predicted future where the target agent decides to accept the gap and move onto the contested space before the ego agent. Such a reaction of the ego agent could be to brake and come to a stop before the contested space, however, as this takes space and time, the prediction must be made at a suitably early point in time. 
+
+Such usefulness can also refer to scenarios. For example, when we try to predict the turning behavior of vehicles at intersections, it would likely be useful to restrict this to cases where the target vehicle, whose behavior is to be predicted, has not yet entered the intersection, For which this could be used as well.
+
+In the context of the framework, we then define the point in time, where the switch from useful to useless prediction happens as $t_{crit}$:
+$$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) $$
+
+Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](https://github.com/julianschumann/General-Framework/edit/main/Framework/Scenarios/README.md?plain=1#L37)) is fulfilled. Meanwhile, we can define $\Delta t_{useful}(t)$ however we want using the following function:
+
+```
+  def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain) -> np.ndarray:
+    r'''
+    Parameters
+    ----------
+    D_class : pandas.Series
+      A pandas series of :math:`N_{classes}` dimensions,
+      where each entry is itself a numpy array of lenght :math:`|t|`, 
+      and provides the distance to classification.
+    t_D_class : pandas.Series
+      A pandas series of :math:`N_{classes}` dimensions,
+      where each entry is itself a numpy array of lenght :math:`|t|`, 
+      and provides the time to classification.
+
+    Returns
+    -------
+    t_safe_action : numpy.ndarray
+      This is a :math:`|t|` dimensioanl boolean array.
+  '''
+
+  ...
+  return t_safe_action
+```
+
+The output of this function is then the value of $\Delta t_{useful}(t)$ at each point $t$ included in the array t.
+
+
+
+
+
+
