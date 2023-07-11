@@ -53,21 +53,25 @@ class agent_yuan(model_template):
     def extract_data(self, train = True):
         if train:
             N_O = self.num_timesteps_out
+            
             X_help = self.Input_path_train.to_numpy()
             Y_help = self.Output_path_train.to_numpy() 
+            Types  = self.Type_train.to_numpy()
             
             X_help = X_help[self.remain_samples]
             Y_help = Y_help[self.remain_samples]
+            Types  = Types[self.remain_samples]
             self.domain_old = self.Domain_train.iloc[self.remain_samples]
         else:
-            X_help = self.Input_path_test.to_numpy()
             N_O = self.num_timesteps_out_test
+            
+            X_help = self.Input_path_test.to_numpy()
+            Types  = self.Type_test.to_numpy()
             self.domain_old = self.Domain_test
         
         
         
-        Agents = np.array([name[2:] for name in np.array(self.input_names_train)])
-        Types  = np.array([name[0]  for name in np.array(self.input_names_train)])
+        Agents = np.array(self.input_names_train)
         
         # Extract predicted agents
         Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
@@ -201,7 +205,7 @@ class agent_yuan(model_template):
         if train:
             return Data, Batches_dlow, Index_batches_dlow, Batches_vae, Index_batches_vae
         else:
-            return Data, Batches_dlow, Index_batches_dlow, Pred_agents, Types, Agents
+            return Data, Batches_dlow, Index_batches_dlow, Pred_agents, Agents
             
         
 
@@ -590,7 +594,7 @@ class agent_yuan(model_template):
             self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
             
         # get desired output length
-        Data, Batches_dlow, Index_batches_dlow, Pred_agents, Types, Agents = self.extract_data(train = False)
+        Data, Batches_dlow, Index_batches_dlow, Pred_agents, Agents = self.extract_data(train = False)
         
         Path_names = np.array([name for name in self.Output_path_train.columns]).reshape(-1, 2)
         
@@ -638,8 +642,7 @@ class agent_yuan(model_template):
             for i, ind in enumerate(index_batch):
                 for i_agent, agent in enumerate(Agents):
                     if Pred_agents[i_agent]:
-                        index = Types[i_agent] + '_' + agent
-                        Output_Path.iloc[ind][index] = Pred[i, i_agent, :self.num_samples_path_pred, 
+                        Output_Path.iloc[ind][agent] = Pred[i, i_agent, :self.num_samples_path_pred, 
                                                             :self.num_timesteps_out_test[ind]].astype('float32')
                     
         return [Output_Path]

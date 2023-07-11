@@ -13,7 +13,7 @@ class KDE_NLL(evaluation_template):
         nto = self.data_set.num_timesteps_out_real
         
         for i_sample in range(len(self.Output_path_pred)):
-            std = np.array([1 if name[0] == 'P' else 80 for name in self.Output_path_pred.columns])
+            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
             std = std[np.newaxis, np.newaxis, np.newaxis]
             
             samples = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = -1)[:,:nto]

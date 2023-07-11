@@ -19,8 +19,7 @@ class logit_theofilatos(model_template):
             Input_array = self.Input_path_test.to_numpy()
             
         # Extract predicted agents
-        Agents = np.array([name[2:] for name in np.array(self.input_names_train)])
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
+        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in np.array(self.input_names_train)])
         
         X = np.ones([Input_array.shape[0], Input_array.shape[1], self.timesteps, 2]) * np.nan
         for i_sample in range(len(X)):

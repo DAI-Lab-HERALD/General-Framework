@@ -13,9 +13,32 @@ from matplotlib.colors import LinearSegmentedColormap
 import time
 
 # import data_interface
-interface_path = os.path.dirname(os.path.realpath(__file__)) + os.sep + 'Data_sets' + os.sep
-if not interface_path in sys.path:
-    sys.path.insert(0, interface_path)
+path = os.path.dirname(os.path.realpath(__file__))
+
+# Add path towards scenarios
+scenario_path = path + os.sep + 'Scenarios' + os.sep
+if not scenario_path in sys.path:
+    sys.path.insert(0, scenario_path)
+    
+# Add path towards datasets
+data_set_path = path + os.sep + 'Data_sets' + os.sep
+if not data_set_path in sys.path:
+    sys.path.insert(0, data_set_path)
+       
+# Add path towards splitting methods
+split_path = path + os.sep + 'Splitting_methods' + os.sep
+if not split_path in sys.path:
+    sys.path.insert(0, split_path)
+
+# Add path towards models
+model_path = path + os.sep + 'Models' + os.sep
+if not model_path in sys.path:
+    sys.path.insert(0, model_path)
+
+# Add path towards metrics
+metrics_path = path + os.sep + 'Evaluation_metrics' + os.sep
+if not metrics_path in sys.path:
+    sys.path.insert(0, metrics_path)
 
 from data_interface import data_interface
 
@@ -27,31 +50,6 @@ plt.rcParams['text.usetex'] = True
 class Experiment():
     def __init__(self, Experiment_name = ''):
         self.path = os.path.dirname(os.path.realpath(__file__))
-
-        # Add path towards scenarios
-        self.scenario_path = self.path + os.sep + 'Scenarios' + os.sep
-        if not self.scenario_path in sys.path:
-            sys.path.insert(0, self.scenario_path)
-            
-        # Add path towards datasets
-        self.data_set_path = self.path + os.sep + 'Data_sets' + os.sep
-        if not self.data_set_path in sys.path:
-            sys.path.insert(0, self.data_set_path)
-               
-        # Add path towards splitting methods
-        self.split_path = self.path + os.sep + 'Splitting_methods' + os.sep
-        if not self.split_path in sys.path:
-            sys.path.insert(0, self.split_path)
-
-        # Add path towards models
-        self.model_path = self.path + os.sep + 'Models' + os.sep
-        if not self.model_path in sys.path:
-            sys.path.insert(0, self.model_path)
-
-        # Add path towards metrics
-        self.metrics_path = self.path + os.sep + 'Evaluation_metrics' + os.sep
-        if not self.metrics_path in sys.path:
-            sys.path.insert(0, self.metrics_path)
             
         self.provided_modules = False
         self.provided_setting = False
@@ -489,11 +487,11 @@ class Experiment():
                                                             # Add model name
                                                             model_class.get_name()['file']  + '--train_loss.npy')
                                     
-                                    train_loss_file_name = results_file_name.replace(os.sep + 'Data' + os.sep,
-                                                                                     os.sep + 'Models' + os.sep)
+                                    train_loss_file_name = train_loss_file_name.replace(os.sep + 'Data' + os.sep,
+                                                                                        os.sep + 'Models' + os.sep)
                                     
                                     if os.path.isfile(train_loss_file_name):
-                                        train_loss = np.load(train_loss_file_name)
+                                        train_loss = np.load(train_loss_file_name, allow_pickle = True)
                                         
                                         self.Train_loss[i,j,k,l] = train_loss
                                         

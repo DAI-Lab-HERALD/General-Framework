@@ -58,9 +58,14 @@ class RounD_round_about(data_set_template):
         ego_track_l = ego_track.loc[frame_min:frame_max].copy(deep = True)
         
         path = pd.Series(np.empty(0, np.ndarray), index = [])
-        path['V_ego'] = np.stack([ego_track_l.x, ego_track_l.y], axis = -1)
-        path['V_tar'] = np.stack([tar_track_l.x, tar_track_l.y], axis = -1)
+        agent_types = pd.Series(np.zeros(0, str), index = [])
+        
+        path['ego'] = np.stack([ego_track_l.x, ego_track_l.y], axis = -1)
+        path['tar'] = np.stack([tar_track_l.x, tar_track_l.y], axis = -1)
     
+        agent_types['ego'] = 'V'
+        agent_types['tar'] = 'V'
+        
         if v_1_id >= 0:
             v_1_track = other_agents.loc[v_1_id].track.loc[frame_min:frame_max]
             
@@ -74,7 +79,8 @@ class RounD_round_about(data_set_template):
                 v1y = np.ones(frame_max + 1 - frame_min) * np.nan
                 v1y[frame_min_v1 - frame_min : frame_max_v1 + 1 - frame_min] = v_1_track.y
                 
-                path['V_v_1'] = np.stack([v1x, v1y], axis = -1)
+                path['v_1'] = np.stack([v1x, v1y], axis = -1)
+                agent_types['v_1'] = 'V'
             
         if v_2_id >= 0:
             v_2_track = other_agents.loc[v_2_id].track.loc[frame_min:frame_max]
@@ -89,7 +95,8 @@ class RounD_round_about(data_set_template):
                 v2y = np.ones(frame_max + 1 - frame_min) * np.nan
                 v2y[frame_min_v2 - frame_min : frame_max_v2 + 1 - frame_min] = v_2_track.y
                 
-                path['V_v_2'] = np.stack([v2x, v2y], axis = -1)
+                path['v_2'] = np.stack([v2x, v2y], axis = -1)
+                agent_types['v_2'] = 'V'
             
         if v_3_id >= 0:
             v_3_track = other_agents.loc[v_3_id].track.loc[frame_min:frame_max]
@@ -104,7 +111,8 @@ class RounD_round_about(data_set_template):
                 v3y = np.ones(frame_max + 1 - frame_min) * np.nan
                 v3y[frame_min_v3 - frame_min : frame_max_v3 + 1 - frame_min] = v_3_track.y
                 
-                path['V_v_3'] = np.stack([v3x, v3y], axis = -1)
+                path['v_3'] = np.stack([v3x, v3y], axis = -1)
+                agent_types['v_3'] = 'V'
     
         if v_4_id >= 0:
             v_4_track = other_agents.loc[v_4_id].track.loc[frame_min:frame_max]
@@ -119,7 +127,8 @@ class RounD_round_about(data_set_template):
                 v4y = np.ones(frame_max + 1 - frame_min) * np.nan
                 v4y[frame_min_v4 - frame_min : frame_max_v4 + 1 - frame_min] = v_4_track.y
                 
-                path['P_v_4'] = np.stack([v4x, v4y], axis = -1)
+                path['v_4'] = np.stack([v4x, v4y], axis = -1)
+                agent_types['v_4'] = 'P'
 
         t = np.array(tar_track_l.index / 25)
         
@@ -133,6 +142,7 @@ class RounD_round_about(data_set_template):
         domain['class']  = data_i['class']
         
         self.Path.append(path)
+        self.Type_old.append(agent_types)
         self.T.append(t)
         self.Domain_old.append(domain)
         self.num_samples = self.num_samples + 1
@@ -146,6 +156,7 @@ class RounD_round_about(data_set_template):
         self.Data = self.Data.reset_index(drop = True)
         num_samples_max = len(self.Data)
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
         
@@ -453,6 +464,7 @@ class RounD_round_about(data_set_template):
                                          original_angle, Rot_center, data_i)
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
@@ -481,10 +493,10 @@ class RounD_round_about(data_set_template):
         lane_width = 3.5
         vehicle_length = 5 
         
-        ego_x = path.V_ego[...,0]
-        ego_y = path.V_ego[...,1]
-        tar_x = path.V_tar[...,0]
-        tar_y = path.V_tar[...,1]
+        ego_x = path.ego[...,0]
+        ego_y = path.ego[...,1]
+        tar_x = path.tar[...,0]
+        tar_y = path.tar[...,1]
         
         ego_r = np.sqrt(ego_x ** 2 + ego_y ** 2)
         ego_a = np.angle(ego_x + ego_y * 1j)
@@ -542,8 +554,8 @@ class RounD_round_about(data_set_template):
         lane_width = 3.5
         vehicle_length = 5 
         
-        ego_x = path.V_ego[...,0]
-        ego_y = path.V_ego[...,1]
+        ego_x = path.ego[...,0]
+        ego_y = path.ego[...,1]
         
         ego_r = np.sqrt(ego_x ** 2 + ego_y ** 2)
         ego_a = np.angle(ego_x + ego_y * 1j)
@@ -564,11 +576,11 @@ class RounD_round_about(data_set_template):
         # Example. What could be v_3 is already inside the roundabout and then classified as 
         # either v_1 or v_2, which is an mistake     
         some_error = False
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
         else:
-            v_1_x = path.V_v_1[...,0]
-            v_1_y = path.V_v_1[...,1]
+            v_1_x = path.v_1[...,0]
+            v_1_y = path.v_1[...,1]
             v_1_r = np.sqrt(v_1_x ** 2 + v_1_y ** 2)
             v_1_a = np.angle(v_1_x + v_1_y * 1j)
             
@@ -584,11 +596,11 @@ class RounD_round_about(data_set_template):
                 some_error = True
             
             
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
         else:
-            v_2_x = path.V_v_2[...,0]
-            v_2_y = path.V_v_2[...,1]
+            v_2_x = path.v_2[...,0]
+            v_2_y = path.v_2[...,1]
             v_2_r = np.sqrt(v_2_x ** 2 + v_2_y ** 2)
             v_2_a = np.angle(v_2_x + v_2_y * 1j)
             
@@ -601,7 +613,7 @@ class RounD_round_about(data_set_template):
             in_position = np.zeros(len(ego_x), bool) 
         else:
             Rl = R - 0.5 * lane_width
-            if isinstance(path.V_v_1, float):
+            if isinstance(path.v_1, float):
                 in_position = np.invert((ego_r > R) | (ego_r < R - 2 * lane_width))
             else:
                 D_ego = np.log(1 / (1 + np.exp(ego_r - Rl))) * np.tanh(5 * ego_a) - Rl * ego_a
@@ -644,14 +656,14 @@ class RounD_round_about(data_set_template):
         vehicle_length = 5 
         
         
-        ego_x = path.V_ego[...,0]
-        ego_y = path.V_ego[...,1]
+        ego_x = path.ego[...,0]
+        ego_y = path.ego[...,1]
         
         ego_r = np.sqrt(ego_x ** 2 + ego_y ** 2)
         ego_a = np.angle(ego_x + ego_y * 1j)
         
-        tar_x = path.V_tar[...,0]
-        tar_y = path.V_tar[...,1]
+        tar_x = path.tar[...,0]
+        tar_y = path.tar[...,1]
         
         tar_r = np.sqrt(tar_x ** 2 + tar_y ** 2)
         tar_a = np.angle(tar_x + tar_y * 1j)
@@ -685,12 +697,12 @@ class RounD_round_about(data_set_template):
         # This is an error flag designed to catch vehicles, whose roll is wrongly classified
         # Example. What could be v_3 is already inside the roundabout and then classified as 
         # either v_1 or v_2, which is an mistake
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
             D1 = 1000 * np.ones_like(Dc)
         else:
-            v_1_x = path.V_v_1[...,0]
-            v_1_y = path.V_v_1[...,1]
+            v_1_x = path.v_1[...,0]
+            v_1_y = path.v_1[...,1]
             
             v_1_r = np.sqrt(v_1_x ** 2 + v_1_y ** 2)
             v_1_a = np.angle(v_1_x + v_1_y * 1j)
@@ -707,12 +719,12 @@ class RounD_round_about(data_set_template):
             D_v_1 = np.log(1 / (1 + np.exp(v_1_r - Rl))) * np.tanh(5 * v_1_a) - Rl * v_1_a
             D1 = D_ego - D_v_1 - vehicle_length
         
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
             D2 = 1000 * np.ones_like(Dc)
         else:
-            v_2_x = path.V_v_2[...,0]
-            v_2_y = path.V_v_2[...,1]
+            v_2_x = path.v_2[...,0]
+            v_2_y = path.v_2[...,1]
             
             v_2_r = np.sqrt(v_2_x ** 2 + v_2_y ** 2)
             v_2_a = np.angle(v_2_x + v_2_y * 1j)
@@ -730,12 +742,12 @@ class RounD_round_about(data_set_template):
             D2 = D_v_2 - D_ego - vehicle_length
         
         
-        if isinstance(path.V_v_3, float):
-            assert str(path.V_v_3) == 'nan'
+        if isinstance(path.v_3, float):
+            assert str(path.v_3) == 'nan'
             D3 = 1000 * np.ones_like(Dc)
         else:
-            v_3_x = path.V_v_3[...,0]
-            v_3_y = path.V_v_3[...,1]
+            v_3_x = path.v_3[...,0]
+            v_3_y = path.v_3[...,1]
         
             v_3_r = np.sqrt(v_3_x ** 2 + v_3_y ** 2)
             v_3_a = np.angle(v_3_x + v_3_y * 1j)
@@ -801,43 +813,43 @@ class RounD_round_about(data_set_template):
             assert not np.isnan(v_x).any()
         return np.stack([v_x, v_y], axis = -1)
     
-    def fill_empty_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         R = self.Loc_data.R[domain.location]
         # check vehicle v_1 (in front of ego)
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
         else:
-            path.V_v_1 = self._fill_round_about_path(path.V_v_1, t, domain, R)
+            path.v_1 = self._fill_round_about_path(path.v_1, t, domain, R)
             
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
         else:
-            path.V_v_2 = self._fill_round_about_path(path.V_v_2, t, domain, R)
+            path.v_2 = self._fill_round_about_path(path.v_2, t, domain, R)
             
-        if isinstance(path.V_v_3, float):
-            assert str(path.V_v_3) == 'nan'
+        if isinstance(path.v_3, float):
+            assert str(path.v_3) == 'nan'
         else:
-            path.V_v_3 = self._fill_round_about_path(path.V_v_3, t, domain, R)
+            path.v_3 = self._fill_round_about_path(path.v_3, t, domain, R)
             
         
         # check vehicle v_4 (pedestrian)
-        if isinstance(path.P_v_4, float):
-            assert str(path.P_v_4) == 'nan'
+        if isinstance(path.v_4, float):
+            assert str(path.v_4) == 'nan'
         else:
-            v_4_x = path.P_v_4[:,0]
-            v_4_y = path.P_v_4[:,1]
+            v_4_x = path.v_4[:,0]
+            v_4_y = path.v_4[:,1]
             
             v_4_rewrite = np.isnan(v_4_x)
             if v_4_rewrite.any():
                 v_4_x = np.interp(t,t[np.invert(v_4_rewrite)],v_4_x[np.invert(v_4_rewrite)])
                 v_4_y = np.interp(t,t[np.invert(v_4_rewrite)],v_4_y[np.invert(v_4_rewrite)])
-                path.P_v_4 = np.stack([v_4_x, v_4_y], axis = -1)
+                path.v_4 = np.stack([v_4_x, v_4_y], axis = -1)
                 
         
         # look for other participants
         n_I = self.num_timesteps_in_real
 
-        tar_pos = path.V_tar[np.newaxis]
+        tar_pos = path.tar[np.newaxis]
         
         help_pos = []
         for agent in path.index:
@@ -900,16 +912,8 @@ class RounD_round_about(data_set_template):
             Pos           = Pos[:self.max_num_addable_agents]
             Neighbor_type = Neighbor_type[:self.max_num_addable_agents]
         
-        ind_veh = 0 
-        ind_ped = 0
         for i, pos in enumerate(Pos):
-            agent_type = Neighbor_type[i]
-            if agent_type == 'pedestrian':
-                ind_ped += 1
-                name = 'P_v_{}'.format(ind_ped + 999)
-            else:
-                ind_veh += 1
-                name = 'V_v_{}'.format(ind_veh + 4)
+            name = 'v_{}'.format(i + 4)
                 
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
@@ -921,7 +925,13 @@ class RounD_round_about(data_set_template):
                     path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
                                            interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
                 
-        return path
+                if Neighbor_type[i] == 'pedestrian':
+                    agent_types[name] = 'P'
+                else:
+                    agent_types[name] = 'V'
+            
+            
+        return path, agent_types
             
     
     def provide_map_drawing(self, domain):
@@ -938,7 +948,6 @@ class RounD_round_about(data_set_template):
         lines_solid.append(unicircle * r)
         
         lines_dashed = []
-        lines_dashed.append(np.array([[R, 0],[300, 0]]))
         lines_dashed.append(unicircle * R)
         
         return lines_solid, lines_dashed

@@ -37,8 +37,13 @@ class HighD_lane_change(data_set_template):
         
         # Save those paths
         path = pd.Series(np.zeros(0, np.ndarray), index = [])
-        path['V_tar'] = np.stack([tar_track.x.to_numpy(), tar_track.y.to_numpy()], axis = -1)
-        path['V_ego'] = np.stack([ego_track.x.to_numpy(), ego_track.y.to_numpy()], axis = -1)
+        agent_types = pd.Series(np.zeros(0, str), index = [])
+        
+        path['tar'] = np.stack([tar_track.x.to_numpy(), tar_track.y.to_numpy()], axis = -1)
+        path['ego'] = np.stack([ego_track.x.to_numpy(), ego_track.y.to_numpy()], axis = -1)
+        
+        agent_types['tar'] = 'V'
+        agent_types['ego'] = 'V'
         
         # Get corresponding time points
         t = np.array(ego_track.index / 25)
@@ -49,21 +54,24 @@ class HighD_lane_change(data_set_template):
             v_1_ind = np.where(self.Data.id == v_1_id)[0][0]
             v_1_track = self.Data.iloc[v_1_ind].track[['frame', 'x', 'y', 'laneId', 'followingId']].copy(deep = True).set_index('frame')
             v_1_track = v_1_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['V_v_1'] = np.stack([v_1_track.x.to_numpy(), v_1_track.y.to_numpy()], axis = -1)
+            path['v_1'] = np.stack([v_1_track.x.to_numpy(), v_1_track.y.to_numpy()], axis = -1)
+            agent_types['v_1'] = 'V'
         
         v_2_id = ego_track.followingId.loc[pre_event_frame]    
         if v_2_id != 0:
             v_2_ind = np.where(self.Data.id == v_2_id)[0][0]
             v_2_track = self.Data.iloc[v_2_ind].track[['frame', 'x', 'y']].copy(deep = True).set_index('frame')
             v_2_track = v_2_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['V_v_2'] = np.stack([v_2_track.x.to_numpy(), v_2_track.y.to_numpy()], axis = -1)
+            path['v_2'] = np.stack([v_2_track.x.to_numpy(), v_2_track.y.to_numpy()], axis = -1)
+            agent_types['v_2'] = 'V'
         
         v_3_id = tar_track.precedingId.loc[pre_event_frame]
         if v_3_id != 0:
             v_3_ind = np.where(self.Data.id == v_3_id)[0][0]
             v_3_track = self.Data.iloc[v_3_ind].track[['frame', 'x', 'y']].copy(deep = True).set_index('frame')
             v_3_track = v_3_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['V_v_3'] = np.stack([v_3_track.x.to_numpy(), v_3_track.y.to_numpy()], axis = -1)
+            path['v_3'] = np.stack([v_3_track.x.to_numpy(), v_3_track.y.to_numpy()], axis = -1)
+            agent_types['v_3'] = 'V'
         
         domain = pd.Series(np.zeros(4, object), index = ['location', 'image_id', 'drivingDirection', 'laneMarkings'])
         domain.location         = data_i.locationId
@@ -72,6 +80,7 @@ class HighD_lane_change(data_set_template):
         domain.laneMarkings     = data_i.laneMarkings
         
         self.Path.append(path)
+        self.Type_old.append(agent_types)
         self.T.append(t)
         self.Domain_old.append(domain)
         self.num_samples = self.num_samples + 1   
@@ -85,6 +94,7 @@ class HighD_lane_change(data_set_template):
         # analize raw dara 
         num_samples_max = len(self.Data)
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
         
@@ -250,6 +260,7 @@ class HighD_lane_change(data_set_template):
                 self._create_path_sample(data_i, tar_track, ego_track, pre_event_frame)
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], tuple)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
         
@@ -277,9 +288,9 @@ class HighD_lane_change(data_set_template):
         '''
         vehicle_length = 5 
         
-        ego_x = path.V_ego[...,0]
-        tar_x = path.V_tar[...,0]
-        tar_y = path.V_tar[...,1]
+        ego_x = path.ego[...,0]
+        tar_x = path.tar[...,0]
+        tar_y = path.tar[...,1]
         
         drivingDirection = domain.drivingDirection
         laneMarkings     = domain.laneMarkings
@@ -336,18 +347,18 @@ class HighD_lane_change(data_set_template):
             in a position where the classification is possible.
         '''
         
-        tar_x = path.V_tar[...,0]
+        tar_x = path.tar[...,0]
         
         drivingDirection = domain.drivingDirection
         
         if drivingDirection == 1: 
             tar_x = - tar_x
             
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
             in_position = np.ones(tar_x.shape, bool)
         else:
-            v_1_x = path.V_v_1[...,0] 
+            v_1_x = path.v_1[...,0] 
             if drivingDirection == 1:
                 v_1_x = - v_1_x
                 
@@ -380,8 +391,8 @@ class HighD_lane_change(data_set_template):
         '''
         vehicle_length = 5 
         
-        ego_x = path.V_ego[...,0]
-        tar_x = path.V_tar[...,0]
+        ego_x = path.ego[...,0]
+        tar_x = path.tar[...,0]
         
         drivingDirection = domain.drivingDirection
         
@@ -389,11 +400,11 @@ class HighD_lane_change(data_set_template):
             ego_x = - ego_x
             tar_x = - tar_x
         
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
             D1 = np.ones(tar_x.shape, float) * 1000
         else:
-            v_1_x = path.V_v_1[...,0]  
+            v_1_x = path.v_1[...,0]  
             if drivingDirection == 1:
                 v_1_x = - v_1_x
                 
@@ -403,11 +414,11 @@ class HighD_lane_change(data_set_template):
             if not all(D1_good):
                 D1 = np.interp(t, t[D1_good], D1[D1_good], left = D1[D1_good][0], right = D1[D1_good][-1])    
         
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
             D2 = np.ones(tar_x.shape, float) * 1000
         else:
-            v_2_x = path.V_v_2[...,0]  
+            v_2_x = path.v_2[...,0]  
             if drivingDirection == 2:
                 v_2_x = - v_2_x
                 
@@ -417,11 +428,11 @@ class HighD_lane_change(data_set_template):
             if not all(D2_good):
                 D2 = np.interp(t, t[D2_good], D2[D2_good], left = D2[D2_good][0], right = D2[D2_good][-1])    
         
-        if isinstance(path.V_v_3, float):
-            assert str(path.V_v_3) == 'nan'
+        if isinstance(path.v_3, float):
+            assert str(path.v_3) == 'nan'
             D3 = np.ones(tar_x.shape, float) * 1000
         else:
-            v_3_x = path.V_v_3[...,0]  
+            v_3_x = path.v_3[...,0]  
             if drivingDirection == 3:
                 v_3_x = - v_3_x
                 
@@ -466,26 +477,26 @@ class HighD_lane_change(data_set_template):
         return np.stack([v_x, v_y], axis = -1)
     
     
-    def fill_empty_path(self, path, t, domain):
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+    def fill_empty_path(self, path, t, domain, agent_types):
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
         else:
-            path.V_v_1 = self._fill_round_about_path(path.V_v_1, t, domain)
+            path.v_1 = self._fill_round_about_path(path.v_1, t, domain)
             
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
         else:
-            path.V_v_2 = self._fill_round_about_path(path.V_v_2, t, domain)
+            path.v_2 = self._fill_round_about_path(path.v_2, t, domain)
             
-        if isinstance(path.V_v_3, float):
-            assert str(path.V_v_3) == 'nan'
+        if isinstance(path.v_3, float):
+            assert str(path.v_3) == 'nan'
         else:
-            path.V_v_3 = self._fill_round_about_path(path.V_v_3, t, domain)
+            path.v_3 = self._fill_round_about_path(path.v_3, t, domain)
         
         
         n_I = self.num_timesteps_in_real
 
-        tar_pos = path.V_tar[np.newaxis]
+        tar_pos = path.tar[np.newaxis]
         
         help_pos = []
         for agent in path.index:
@@ -529,7 +540,7 @@ class HighD_lane_change(data_set_template):
             Pos = Pos[:self.max_num_addable_agents]
             
         for i, pos in enumerate(Pos):
-            name = 'V_v_{}'.format(i + 4)
+            name = 'v_{}'.format(i + 4)
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
                 if u.all():
@@ -539,8 +550,10 @@ class HighD_lane_change(data_set_template):
                     p = pos[u].T
                     path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
                                            interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
-
-        return path 
+                    
+                agent_types[name] = 'V'    
+                    
+        return path, agent_types 
     
     
     def provide_map_drawing(self, domain):
@@ -570,4 +583,3 @@ class HighD_lane_change(data_set_template):
     
     def includes_images(self = None):
         return True
-    

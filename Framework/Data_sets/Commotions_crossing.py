@@ -24,6 +24,7 @@ class Commotions_crossing(data_set_template):
         num_tars = len(self.Data)
         self.num_samples = 0 
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
         # extract raw samples
@@ -81,7 +82,7 @@ class Commotions_crossing(data_set_template):
                     tar_track = tar_track_all.loc[ego_track.index].copy(deep = True)
                     t = np.array(tar_track.t)
                     path = pd.Series(np.empty(0, np.ndarray), index = [])
-                    
+                    agent_types = pd.Series(np.empty(0, str), index = [])
                     
                     if not ego_track.leaderID.iloc[0] == -1:
                         v_1_name = drones[ego_track.leaderID.iloc[0]] 
@@ -106,10 +107,10 @@ class Commotions_crossing(data_set_template):
                                                                                                     min(frame_ego_max, frame_v_1_max)]
                         
                         if Driving_left:                                                                            
-                            path['V_v_1'] = np.stack([v_1_x, v_1_y], axis = -1)
+                            path['v_1'] = np.stack([v_1_x, v_1_y], axis = -1)
                         else:                                  
-                            path['V_v_1'] = np.stack([v_1_x, -v_1_y], axis = -1)
-                        
+                            path['v_1'] = np.stack([v_1_x, -v_1_y], axis = -1)
+                        agent_types['v_1'] = 'V'
                         
                     if not ego_track.followerID.iloc[0] == -1:
                         v_2_name = drones[ego_track.followerID.iloc[0]] 
@@ -134,26 +135,32 @@ class Commotions_crossing(data_set_template):
                                                                                                     min(frame_ego_max, frame_v_2_max)]
                         
                         if Driving_left:                                                                            
-                            path['V_v_2'] = np.stack([v_2_x, v_2_y], axis = -1)
+                            path['v_2'] = np.stack([v_2_x, v_2_y], axis = -1)
                         else:                                  
-                            path['V_v_2'] = np.stack([v_2_x, -v_2_y], axis = -1)
+                            path['v_2'] = np.stack([v_2_x, -v_2_y], axis = -1)
+                            
+                        agent_types['v_2'] = 'V'
                     
                     if Driving_left:                                                                            
-                        path['V_ego'] = np.stack([ego_track.x, ego_track.y], axis = -1)                                   
-                        path['V_tar'] = np.stack([tar_track.x, tar_track.y], axis = -1)
+                        path['ego'] = np.stack([ego_track.x, ego_track.y], axis = -1)                                   
+                        path['tar'] = np.stack([tar_track.x, tar_track.y], axis = -1)
                         domain = pd.Series(np.array([data_i.participant, 'left']), index = ['Subj_ID', 'Driving'])
                     else:                                                                             
-                        path['V_ego'] = np.stack([ego_track.x, -ego_track.y], axis = -1)                                   
-                        path['V_tar'] = np.stack([tar_track.x, -tar_track.y], axis = -1)
+                        path['ego'] = np.stack([ego_track.x, -ego_track.y], axis = -1)                                   
+                        path['tar'] = np.stack([tar_track.x, -tar_track.y], axis = -1)
                         domain = pd.Series(np.array([data_i.participant, 'right']), index = ['Subj_ID', 'Driving'])
                     
+                    agent_types['ego'] = 'V'
+                    agent_types['tar'] = 'V'
                     
                     self.Path.append(path)
+                    self.Type_old.append(agent_types)
                     self.T.append(t)
                     self.Domain_old.append(domain)
                     self.num_samples = self.num_samples + 1
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
@@ -179,12 +186,12 @@ class Commotions_crossing(data_set_template):
             This is a :math:`N_{classes}` dimensional Series.
             For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker.
         '''
-        tar_x = path.V_tar[...,0]
+        tar_x = path.tar[...,0]
         
         if domain.Driving == 'left':
-            ego_y = path.V_ego[...,1]
+            ego_y = path.ego[...,1]
         else:
-            ego_y = - path.V_ego[...,1]
+            ego_y = - path.ego[...,1]
         
         lane_width = 3.65
         vehicle_length = 5
@@ -214,24 +221,24 @@ class Commotions_crossing(data_set_template):
             in a position where the classification is possible.
         '''
         if domain.Driving == 'left':
-            ego_y = path.V_ego[...,1]
-            tar_y = path.V_tar[...,1]
+            ego_y = path.ego[...,1]
+            tar_y = path.tar[...,1]
         else:
-            ego_y = - path.V_ego[...,1]
-            tar_y = - path.V_tar[...,1]
+            ego_y = - path.ego[...,1]
+            tar_y = - path.tar[...,1]
         
         lane_width = 3.65
         vehicle_length = 5
         
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
             D1 = np.ones(len(ego_y)) * 1000
         
         else:
             if domain.Driving == 'left':
-                v_1_y = path.V_v_1[...,1]
+                v_1_y = path.v_1[...,1]
             else:
-                v_1_y = - path.V_v_1[...,1]
+                v_1_y = - path.v_1[...,1]
             
             D1 = v_1_y - ego_y - vehicle_length
             D1_good = np.isfinite(D1)
@@ -268,23 +275,23 @@ class Commotions_crossing(data_set_template):
             If self.can_provide_general_input() == False, this will be None.
         '''
         if domain.Driving == 'left':
-            ego_y = path.V_ego[...,1]
+            ego_y = path.ego[...,1]
         else:
-            ego_y = - path.V_ego[...,1]
+            ego_y = - path.ego[...,1]
         
         lane_width = 3.65
         vehicle_length = 5
         
         
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
             D1 = np.ones(len(ego_y)) * 1000
         
         else:
             if domain.Driving == 'left':
-                v_1_y = path.V_v_1[...,1]
+                v_1_y = path.v_1[...,1]
             else:
-                v_1_y = - path.V_v_1[...,1]
+                v_1_y = - path.v_1[...,1]
         
             D1 = v_1_y - ego_y - vehicle_length
             D1_good = np.isfinite(D1)
@@ -292,15 +299,15 @@ class Commotions_crossing(data_set_template):
                 index = np.arange(len(D1))
                 D1 = np.interp(index, index[D1_good], D1[D1_good], left = D1[D1_good][0], right = D1[D1_good][-1])
         
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
             D2 = np.ones(len(ego_y)) * 1000
         
         else:
             if domain.Driving == 'left':
-                v_2_y = path.V_v_2[...,1]
+                v_2_y = path.v_2[...,1]
             else:
-                v_2_y = - path.V_v_2[...,1]
+                v_2_y = - path.v_2[...,1]
         
             D2 = ego_y - v_2_y - vehicle_length
             D2_good = np.isfinite(D2)
@@ -317,36 +324,36 @@ class Commotions_crossing(data_set_template):
         return Dist
     
     
-    def fill_empty_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         # check vehicle v_1 (in front of ego)
-        if isinstance(path.V_v_1, float):
-            assert str(path.V_v_1) == 'nan'
+        if isinstance(path.v_1, float):
+            assert str(path.v_1) == 'nan'
         else:
-            v_1_x = path.V_v_1[...,0]
+            v_1_x = path.v_1[...,0]
             v_1_good = np.isfinite(v_1_x)
             if not all(v_1_good):
-                D = path.V_v_1[...,1] - path.V_ego[...,1]
+                D = path.v_1[...,1] - path.ego[...,1]
                 index = np.arange(len(D))
                 D = np.interp(index, index[v_1_good], D[v_1_good], left = D[v_1_good][0], right = D[v_1_good][-1])
-                v_1_y = path.V_ego[...,1] + D
+                v_1_y = path.ego[...,1] + D
                 v_1_x = np.interp(index, index[v_1_good], v_1_x[v_1_good], left = v_1_x[v_1_good][0], right = v_1_x[v_1_good][-1])
                 
-                path.V_v_1 = np.stack([v_1_x, v_1_y], axis = -1)
+                path.v_1 = np.stack([v_1_x, v_1_y], axis = -1)
                 
-        if isinstance(path.V_v_2, float):
-            assert str(path.V_v_2) == 'nan'
+        if isinstance(path.v_2, float):
+            assert str(path.v_2) == 'nan'
         else:
-            v_2_x = path.V_v_2[...,0]
+            v_2_x = path.v_2[...,0]
             v_2_good = np.isfinite(v_2_x)
             if not all(v_2_good):
-                D = path.V_v_2[...,1] - path.V_ego[...,1]
+                D = path.v_2[...,1] - path.ego[...,1]
                 index = np.arange(len(D))
                 D = np.interp(index, index[v_2_good], D[v_2_good], left = D[v_2_good][0], right = D[v_2_good][-1])
-                v_2_y = path.V_ego[...,1] + D
+                v_2_y = path.ego[...,1] + D
                 v_2_x = np.interp(index, index[v_2_good], v_2_x[v_2_good], left = v_2_x[v_2_good][0], right = v_2_x[v_2_good][-1])
                 
-                path.V_v_2 = np.stack([v_2_x, v_2_y], axis = -1)     
-        return path
+                path.v_2 = np.stack([v_2_x, v_2_y], axis = -1)     
+        return path, agent_types
     
     def provide_map_drawing(self, domain):
         lines_solid = []

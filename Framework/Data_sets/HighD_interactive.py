@@ -19,6 +19,7 @@ class HighD_interactive(data_set_template):
         # analize raw dara 
         num_samples_max = len(self.Data)
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
         
@@ -73,7 +74,10 @@ class HighD_interactive(data_set_template):
             track_i = data_i.track[['frame','x', 'y']].copy(deep = True)
             
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
-            path['V_tar'] = np.stack([track_i.x.to_numpy(), track_i.y.to_numpy()], axis = -1)
+            agent_types = pd.Series(np.zeros(0, str), index = [])
+            
+            path['tar'] = np.stack([track_i.x.to_numpy(), track_i.y.to_numpy()], axis = -1)
+            agent_types['tar'] = 'V'
             
             t = np.array(track_i.frame / 25)
         
@@ -84,12 +88,14 @@ class HighD_interactive(data_set_template):
             domain.laneMarkings     = data_i.laneMarkings
             
             self.Path.append(path)
+            self.Type_old.append(agent_types)
             self.T.append(t)
             self.Domain_old.append(domain)
             self.num_samples = self.num_samples + 1  
             
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], tuple)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
         
@@ -164,10 +170,10 @@ class HighD_interactive(data_set_template):
         return None
     
     
-    def fill_empty_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         n_I = self.num_timesteps_in_real
 
-        tar_pos = path.V_tar[np.newaxis]
+        tar_pos = path.tar[np.newaxis]
         
         tar_frames = 25 * (t + domain.t_0)
         
@@ -200,7 +206,7 @@ class HighD_interactive(data_set_template):
             Pos = Pos[:self.max_num_addable_agents]
             
         for i, pos in enumerate(Pos):
-            name = 'V_v_{}'.format(i + 1)
+            name = 'v_{}'.format(i + 1)
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
                 if u.all():
@@ -210,8 +216,10 @@ class HighD_interactive(data_set_template):
                     p = pos[u].T
                     path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
                                            interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
+                
+                agent_types[name] = 'V'
 
-        return path 
+        return path, agent_types 
     
     def provide_map_drawing(self, domain):
         # TODO: overwrite if actual lane markings are available

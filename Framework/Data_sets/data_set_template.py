@@ -83,6 +83,7 @@ class data_set_template():
 
             if os.path.isfile(test_file):
                 [self.Path,
+                 self.Type_old,
                  self.T,
                  self.Images,
                  self.Domain_old,
@@ -99,10 +100,13 @@ class data_set_template():
                 if not isinstance(self.Path, pd.core.frame.DataFrame):
                     raise TypeError("Paths should be saved in a pandas data frame")
                 if len(self.Path) != self.num_samples:
-                    raise TypeError("Path des not have right number of sampels")
+                    raise TypeError("Path does not have right number of sampels")
 
-                
-                
+                # check some of the aspect to see if pre_process worked
+                if not isinstance(self.Type_old, pd.core.frame.DataFrame):
+                    raise TypeError("Agent Types should be saved in a pandas data frame")
+                if len(self.Type_old) != self.num_samples:
+                    raise TypeError("Type dataframe does not have right number of sampels")
                 
                 if self.includes_images():
                     if not 'image_id' in self.Domain_old.columns:
@@ -124,14 +128,16 @@ class data_set_template():
                     raise TypeError("Time points des not have right number of sampels")
 
                 if not isinstance(self.Domain_old,  pd.core.frame.DataFrame):
-                    raise TypeError("Time points should be saved in a numpy array")
+                    raise TypeError("Domain information should be saved in a Pandas Dataframe.")
                 if len(self.Domain_old) != self.num_samples:
-                    raise TypeError("Time points des not have right number of sampels")
+                    raise TypeError("Domain information should have correct number of sampels")
                 path_names = self.Path.columns
                 
-                included_agents = [name[2:] for name in path_names]
+                if (path_names != self.Type_old.columns).any():
+                    raise TypeError("Agent Paths and Types need to have the same columns.")
+                
                 for needed_agent in self.needed_agents:
-                    if not needed_agent in included_agents:
+                    if not needed_agent in path_names:
                         raise AttributeError("Agent " + needed_agent + " must be included in the paths")
                 
                 for i in range(self.num_samples):
@@ -140,17 +146,22 @@ class data_set_template():
                         raise TypeError("A time point samples is expected to be a np.ndarray.")
 
                     test_length = len(self.T[i])
-                    for j, agent in enumerate(included_agents):
+                    for j, agent in enumerate(path_names):
                         # check if time input consists out of tuples
                         agent_path = self.Path.iloc[i, j]
-                        
+                        agent_type = self.Type_old.iloc[i, j]
                         # For needed agents, nan is not admissible
                         if agent in self.needed_agents:
                             if not isinstance(agent_path, np.ndarray):
                                 raise TypeError("Path is expected to be consisting of np.ndarrays.")
                         else:
-                            if not (isinstance(agent_path, np.ndarray) or (isinstance(agent_path, float) and str(agent_path) == 'nan')):
-                                raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                            if not isinstance(agent_path, np.ndarray):
+                                if str(agent_path) != 'nan':
+                                    raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                                
+                                if str(agent_type) != 'nan':
+                                    raise TypeError("If no path is given, there should be no agent type.")
+                                    
                         
                         # if the agent exists in this sample, adjust this
                         if isinstance(agent_path, np.ndarray):
@@ -162,9 +173,13 @@ class data_set_template():
                             # test if input tuples have right length
                             if test_length != len(agent_path):
                                 raise TypeError("Path sample does not have a matching number of timesteps.")
+                                
+                            if str(agent_type) == 'nan':
+                                raise ValueError("For a given path, the agent type must not be nan.")
 
                 # save the results
                 save_data = np.array([self.Path,
+                                      self.Type_old,
                                       self.T,
                                       self.Images,
                                       self.Domain_old,
@@ -243,8 +258,6 @@ class data_set_template():
             T = np.zeros(len(self.Behaviors), float)
             T_D = np.empty(len(self.Behaviors), object)
             for i, beh in enumerate(self.Behaviors):
-
-                # TODO: Check using np.gradient instead
                 Dist_dt = (Dist[beh][n_dt:] - Dist[beh]
                            [:-n_dt]) / (t[n_dt:] - t[:-n_dt])
                 Dist_dt = np.concatenate(
@@ -488,10 +501,8 @@ class data_set_template():
 
                 # Determine if a sample is included
                 num_bounderies = 20001
-                dtc_boundaries = np.linspace(0, 20, num_bounderies)[
-                    :, np.newaxis]
-                included = (dtc_boundaries <= initial_size) & (
-                    dtc_boundaries > final_size)
+                dtc_boundaries = np.linspace(0, 20, num_bounderies)[:, np.newaxis]
+                included = (dtc_boundaries <= initial_size) & (dtc_boundaries > final_size)
 
                 str_helper = np.array(['ZZZ_', ''])
                 included_behavior = np.core.defchararray.add(str_helper[included.astype(int)],
@@ -502,13 +513,11 @@ class data_set_template():
                 for i, beh in enumerate(Beh):
                     num_beh[:, i] = np.sum(included_behavior == beh, axis=1)
 
-                self.dtc_boundary = dtc_boundaries[np.argmax(
-                    num_beh.min(axis=1)), [0]]
+                self.dtc_boundary = dtc_boundaries[np.argmax(num_beh.min(axis=1)), [0]]
             else:
                 self.dtc_boundary = np.array([0.0])
 
-            os.makedirs(os.path.dirname(
-                self.data_dtc_bound_file), exist_ok=True)
+            os.makedirs(os.path.dirname(self.data_dtc_bound_file), exist_ok=True)
             np.save(self.data_dtc_bound_file, self.dtc_boundary)
 
         self.dtc_boundary = self.dtc_boundary[0]
@@ -570,6 +579,9 @@ class data_set_template():
         # All path predictions must be comparable to true trajectories
         if self.enforce_num_timesteps_out:
             t0_max = min(t0_max, t.max() - self.num_timesteps_out_need * self.dt)
+        else:
+            t0_max = min(t0_max, t.max() - 1 * self.dt)
+            
         
         # Update sample if necessary and permittable
         if (not self.enforce_prediction_times and t0 >= t_start) or not self.classification_useful:
@@ -663,6 +675,7 @@ class data_set_template():
              self.Output_A,
              self.Output_T_E,
 
+             self.Type,
              self.Domain,
              self.num_behaviors, _] = np.load(self.data_file, allow_pickle=True)
 
@@ -691,17 +704,18 @@ class data_set_template():
             # prepare empty information
             # Input
             Input_prediction = []
-            Input_path = []
-            Input_T = []
+            Input_path       = []
+            Input_T          = []
 
             # Output
-            Output_path = []
-            Output_T = []
+            Output_path   = []
+            Output_T      = []
             Output_T_pred = []
-            Output_A = []
-            Output_T_E = []
+            Output_A      = []
+            Output_T_E    = []
 
             # Domain
+            Type   = []
             Domain = []
 
             # Go through samples
@@ -749,6 +763,8 @@ class data_set_template():
                     domain['Scenario'] = self.get_name()['print']
                     domain['Scenario_type'] = self.scenario.get_name()
                     domain['t_0'] = t0
+                    
+                    agent_types = self.Type_old.iloc[i_path].copy()
                     
                     # CHeck if this t0 is applicable
                     t0 = self.check_t0_constraint(t0, t, self.t0_type, t_start, t_crit, t_decision)
@@ -825,13 +841,15 @@ class data_set_template():
                             if np.isnan(input_path[agent]).all():
                                 input_path[agent]  = np.nan
                                 output_path[agent] = np.nan
+                                agent_types[agent] = float('nan')
                                 
                         else:
                             input_path[agent]  = np.nan
                             output_path[agent] = np.nan
+                            agent_types[agent] = float('nan')
                             
                         # check if needed agents have reuqired input and output
-                        if agent[2:] in self.needed_agents:
+                        if agent in self.needed_agents:
                             if np.isnan(input_path[agent]).any() or np.isnan(output_path[agent]).any():
                                 continue
                     
@@ -858,10 +876,11 @@ class data_set_template():
                             helper_path[agent] = np.concatenate([input_path[agent], output_path[agent]], axis = 0)
                         else:
                             helper_path[agent] = np.nan
+                            agent_types[agent] = float('nan')
                     
                     
                     # complete partially available paths
-                    helper_path = self.fill_empty_path(helper_path, helper_T, domain)
+                    helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
                     
                     # Split completed paths back into input and output
                     for agent in helper_path.index:
@@ -871,6 +890,7 @@ class data_set_template():
                         else:
                             input_path[agent]  = np.nan
                             output_path[agent] = np.nan
+                            agent_types[agent] = float('nan')
                             
                     # save results
                     Input_prediction.append(input_prediction)
@@ -883,18 +903,20 @@ class data_set_template():
                     Output_A.append(output_A)
                     Output_T_E.append(output_T_E)
 
+                    Type.append(agent_types)
                     Domain.append(domain)
             
             self.Input_prediction = pd.DataFrame(Input_prediction)
-            self.Input_path = pd.DataFrame(Input_path)
-            self.Input_T = np.array(Input_T + [np.random.rand(0)], np.ndarray)[:-1]
+            self.Input_path       = pd.DataFrame(Input_path)
+            self.Input_T          = np.array(Input_T + [np.random.rand(0)], np.ndarray)[:-1]
 
-            self.Output_path = pd.DataFrame(Output_path)
-            self.Output_T = np.array(Output_T + [np.random.rand(0)], np.ndarray)[:-1]
+            self.Output_path   = pd.DataFrame(Output_path)
+            self.Output_T      = np.array(Output_T + [np.random.rand(0)], np.ndarray)[:-1]
             self.Output_T_pred = np.array(Output_T_pred + [np.random.rand(0)], np.ndarray)[:-1]
-            self.Output_A = pd.DataFrame(Output_A)
-            self.Output_T_E = np.array(Output_T_E, float)
+            self.Output_A      = pd.DataFrame(Output_A)
+            self.Output_T_E    = np.array(Output_T_E, float)
 
+            self.Type   = pd.DataFrame(Type).reset_index(drop=True)
             self.Domain = pd.DataFrame(Domain).reset_index(drop=True)
 
             save_data = np.array([self.Input_prediction,
@@ -907,6 +929,7 @@ class data_set_template():
                                   self.Output_A,
                                   self.Output_T_E,
 
+                                  self.Type,
                                   self.Domain,
                                   self.num_behaviors, 0], object)  # 0 is there to avoid some numpy load and save errros
 
@@ -1289,8 +1312,8 @@ class data_set_template():
                 Output_path_pred_add = Output_path_pred
             else:
                 Index_old = Output_path_pred.columns
-                Index_new = [name for name in self.Output_path.columns if name[2:] == self.pov_agent]
-                Index_add = Index_new + Index_old
+                Index_new = [self.pov_agent]
+                Index_add = Index_new + list(Index_old)
 
                 Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
                                                     columns=Index_add)
@@ -1328,8 +1351,7 @@ class data_set_template():
             [Output_path_pred_remove, _] = np.load(
                 test_file, allow_pickle=True)
         else:
-            Index_retain = [name[2:] in self.scenario.classifying_agents()
-                            for name in Output_path_pred.columns]
+            Index_retain = np.array([name in self.scenario.classifying_agents() for name in Output_path_pred.columns])
             Output_path_pred_remove = Output_path_pred.iloc[:, Index_retain]
 
             save_data = np.array([Output_path_pred_remove, 0], object)
@@ -1413,7 +1435,7 @@ class data_set_template():
         else:
             self.train_path_models()
             Index = self.Output_path.columns
-            Index_needed = np.array([name[2:] in self.needed_agents for name in Index])
+            Index_needed = np.array([name in self.needed_agents for name in Index])
 
             Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), Index_needed.sum()), object),
                                             columns=Index[Index_needed])
@@ -1519,52 +1541,56 @@ class data_set_template():
         Then, this function has to extract for each potential test case in the data set 
         some required information. This information has to be collected in the following attributes, 
         which do not have to be returned, but only defined in this function.
-            self.Path            
+            **self.Path**          
                 A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
                 Here, each row :math:`i` represents one recorded sample, while each column includes the 
                 trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
                 It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
-                sample over all recorded samples. The name of each column has to be named meticiously. 
-                For example the column name "T_ego" would indicate that this is the trajectory of an agent
-                named "ego", and the "T" is a placeholder indicating the agent type (e.g. "V" for vehicle,
-                "P" for pedestrian). The name of such agents are relevant, as the selected scenario requires 
+                sample over all recorded samples. The name of each column corresponds to the name of the corresponding
+                agent whose trajectory is covered. The name of such agents are relevant, as the selected scenario requires 
                 some agents with a specific name to be present. The names of those relevant agents can be found in 
-                self.scenario.pov_agent and self.scenario.classifying_agents.
+                self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
                 Each entry of the DataFrame then has to be a tensor of length :math:`\vert T_i \vert`,
-                where the length has to be consistent for all tensors along in a sample :math:`i`.  
-            
-            self.T
-                A numpy array (dtype = object) of length :math:`N_{samples}`. Each entry contains the timepoints 
-                of the data collected in self.Path in a tensor of length :math:`\vert T_i \vert`.
+                where the length has to be consistent for all tensors along in a sample :math:`i`.
                 
-            self.Domain_old 
+            **self.Type_old**
+                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Each entry corresponds
+                to those in **self.Path**, and caontains the type of the agent. For example, a "V" stands for a vehicle,
+                while a "P" stands for a pedestrian.
+            
+            **self.T**
+                A numpy array (dtype = object) of length :math:`N_{samples}`. Each entry contains the timepoints 
+                of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
+                
+            **self.Domain_old**
                 A pandas array of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
                 In this dataframe, one can collect any ancilliary metadata that might be needed
                 in the future. An example might be the location at which a sample was recorded
                 or the subject id involved, which might be needed later to construct training
-                and testing set.
+                and testing set. Another useful idea might be to record the place in the raw data the sample
+                originated from, as might be used later to extract surrounding agents from this raw data.
                 
-            self.num_Samples
+            **self.num_Samples**
                 A scalar integer value, which gives the number of samples :math:`N_{samples}`. 
                 It should be noted that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
         It might be possible that the selected dataset can provide images. In this case, it is
-        paramount that self.Domain_old entails a column named 'image_id', so that images can
+        paramount that **self.Domain_old** entails a column named 'image_id', so that images can
         be assigned to each sample without having to save large amounts of data. 
         Two further attributes have to be created as well:
-            self.Images
+            **self.Images**
                 A pandas dataframe of dimensionality :math:`\{N_{samples} {\times} 2\}`.
                 In the first column, named 'Image', the images for each location are saved. It is paramount that the 
-                indices of this dataframe are equivalent to the unique values found in self.Domain_old.image_id. 
+                indices of this dataframe are equivalent to the unique values found in **self.Domain_old**.image_id. 
                 The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
                 :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
                 padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-                position (0,0) recorderd in the trajectories in self.Path corresponds to the upper left corner of image. 
+                position (0,0) recorderd in the trajectories in **self.Path** corresponds to the upper left corner of image. 
                 
                 If this is not the case, due to some translation and subsequent rotation 
                 of the recoded positions, the corresponding information has to be recorded in columns of 
-                self.Domain_old, where the columns 'x_center' and 'y_center' record the position in the 
+                **self.Domain_old**, where the columns 'x_center' and 'y_center' record the position in the 
                 original cordinate system at which the current origin (0,0) now lies, and 'rot_angle' is 
                 the angle by which the coordinate system was rotated afterwards in clockwise direction.
 
@@ -1595,7 +1621,7 @@ class data_set_template():
             at which the positions in **path** were recorded.
         domain : pandas.Series
             A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
-            sample. Its entries contain at least all the columns of self.Domain_old. 
+            sample. Its entries contain at least all the columns of **self.Domain_old**. 
 
         Returns
         -------
@@ -1627,7 +1653,7 @@ class data_set_template():
             dependes on the scenario and behavior.
         domain : pandas series
             A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in self.Domain_old.
+            case. It should correspond to the specifc row in **self.Domain_old**.
 
         Returns
         -------
@@ -1658,7 +1684,7 @@ class data_set_template():
             at which the positions in **path** were recorded.
         domain : pandas.Series
             A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
-            sample. Its entries contain at least all the columns of self.Domain_old. 
+            sample. Its entries contain at least all the columns of **self.Domain_old**. 
 
         Returns
         -------
@@ -1691,7 +1717,7 @@ class data_set_template():
             in path were recorded.
         domain : pandas series
             A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in self.Domain_old.
+            case. It should correspond to the specifc row in **self.Domain_old**.
 
         Returns
         -------

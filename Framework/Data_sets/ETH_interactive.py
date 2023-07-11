@@ -27,6 +27,7 @@ class ETH_interactive(data_set_template):
         num_tars = len(self.Data)
         self.num_samples = 0 
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
         
@@ -55,7 +56,10 @@ class ETH_interactive(data_set_template):
             # find crossing point
             track_all = data_i.path.copy(deep = True)
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
-            path['P_tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+            agent_types = pd.Series(np.zeros(0, str), index = [])
+            
+            path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+            agent_types['tar'] = 'P'
             
             t = track_all.t.to_numpy()
             
@@ -66,11 +70,13 @@ class ETH_interactive(data_set_template):
             domain.neighbors = track_all.CN
             
             self.Path.append(path)
+            self.Type_old.append(agent_types)
             self.T.append(t)
             self.Domain_old.append(domain)
             self.num_samples = self.num_samples + 1
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
@@ -142,7 +148,7 @@ class ETH_interactive(data_set_template):
         return None
     
     
-    def fill_empty_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         I_t = t + domain.t_0
         
         n_I = self.num_timesteps_in_real
@@ -150,7 +156,7 @@ class ETH_interactive(data_set_template):
         Neighbor = domain.neighbors.copy()
         N_U = (Neighbor.index >= I_t[0]) & (Neighbor.index <= I_t[n_I])
         N_ID = np.unique(np.concatenate(Neighbor.iloc[N_U].to_numpy())).astype(int)
-        Own_pos = path.P_tar
+        Own_pos = path.tar[np.newaxis]
         
         Pos = np.zeros((len(N_ID), len(I_t),2))
         for j, nid in enumerate(N_ID):
@@ -166,9 +172,11 @@ class ETH_interactive(data_set_template):
         if self.max_num_addable_agents is not None:
             Pos = Pos[:self.max_num_addable_agents]
         for i, pos in enumerate(Pos):
-            path['P_v_{}'.format(i+1)] = pos
+            name = 'v_{}'.format(i+1)
+            path[name] = pos
+            agent_types[name] = 'P'
         
-        return path
+        return path, agent_types
             
     
     def provide_map_drawing(self, domain):
