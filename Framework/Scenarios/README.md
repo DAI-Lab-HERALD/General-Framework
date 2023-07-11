@@ -72,9 +72,9 @@ Such usefulness can also refer to scenarios. For example, when we try to predict
 
 In the context of the framework, we then define the point in time, where the switch from useful to useless prediction happens as $t_{crit}$:
 
-$$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) $$
+$$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) = 0 $$
 
-Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](https://github.com/julianschumann/General-Framework/edit/main/Framework/Scenarios/README.md?plain=1#L37)) is fulfilled. Meanwhile, we can define $\Delta t_{useful}(t)$ however we want using the following function:
+Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](## Define classifiable behaviors)) is fulfilled. Meanwhile, we can define $\Delta t_{useful}(t)$ however we want using the following function:
 
 ```
   def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain) -> np.ndarray:
