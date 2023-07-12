@@ -701,6 +701,7 @@ class data_set_template():
             if self.max_num_agents is not None:
                 min_num_agents = len(self.Path.columns)
                 self.max_num_addable_agents = max(0, self.max_num_agents - min_num_agents)
+                max_num_agent_local = self.max_num_addable_agents + min_num_agents
             else:
                 self.max_num_addable_agents = None
             
@@ -825,36 +826,35 @@ class data_set_template():
                     else:
                         input_prediction = pd.Series(np.nan * np.ones(1), index=['empty'])
                     # prepare empty pandas series for path
-                    input_path = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
-                    output_path = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
+                    helper_path   = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
+                    helper_T_appr = np.concatenate((input_T + 1e-5, output_T - 1e-5))
                     
                     assert t.dtype == input_T.dtype
+                    
+                    correct_path = True
                     for agent in path.index:
                         if not isinstance(path[agent], float):
-                            input_path[agent]  = np.stack([np.interp(input_T + 1e-5, t, path[agent][:,0].astype(np.float32),
-                                                                     left=np.nan, right=np.nan),
-                                                           np.interp(input_T + 1e-5, t, path[agent][:,1].astype(np.float32),
-                                                                     left=np.nan, right=np.nan)], axis = -1).astype(np.float32)
+                            pos_x = path[agent][:,0]
+                            pos_y = path[agent][:,1]
+                            helper_path[agent] = np.stack([np.interp(helper_T_appr, t, pos_x, left=np.nan, right=np.nan),
+                                                           np.interp(helper_T_appr, t, pos_y, left=np.nan, right=np.nan)], 
+                                                          axis = -1).astype(np.float32)
                             
-                            output_path[agent] = np.stack([np.interp(output_T - 1e-5, t, path[agent][:,0].astype(np.float32),
-                                                                     left=np.nan, right=np.nan),
-                                                           np.interp(output_T - 1e-5, t, path[agent][:,1].astype(np.float32),
-                                                                     left=np.nan, right=np.nan)], axis = -1).astype(np.float32)
-                            
-                            if np.isnan(input_path[agent]).all():
-                                input_path[agent]  = np.nan
-                                output_path[agent] = np.nan
+                            if np.isnan(helper_path[agent][:self.num_timesteps_in_real]).all():
+                                helper_path[agent]  = np.nan
                                 agent_types[agent] = float('nan')
                                 
                         else:
-                            input_path[agent]  = np.nan
-                            output_path[agent] = np.nan
+                            helper_path[agent]  = np.nan
                             agent_types[agent] = float('nan')
                             
                         # check if needed agents have reuqired input and output
                         if agent in self.needed_agents:
-                            if np.isnan(input_path[agent]).any() or np.isnan(output_path[agent]).any():
-                                continue
+                            if np.isnan(helper_path[agent]).any():
+                                correct_path = False
+                                
+                    if not correct_path:
+                        continue
                     
                     t_end = t0 + self.dt * num_timesteps_out_pred
                     if t_end >= t_decision:
@@ -874,22 +874,22 @@ class data_set_template():
                     # Combine input and output data
                     helper_path = pd.Series(np.empty(len(path.index), object), index=path.index)
                     helper_T = np.concatenate([input_T, output_T])
-                    for agent in path.index:
-                        if not isinstance(input_path[agent], float):
-                            helper_path[agent] = np.concatenate([input_path[agent], output_path[agent]], axis = 0)
-                        else:
-                            helper_path[agent] = np.nan
-                            agent_types[agent] = float('nan')
-                    
                     
                     # complete partially available paths
                     helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
                     
+                    if self.max_num_agents is not None:
+                        helper_path = helper_path.iloc[:max_num_agent_local]
+                        agent_types = agent_types.iloc[:max_num_agent_local]
+                        
+                    
                     # Split completed paths back into input and output
+                    input_path  = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                    output_path = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
                     for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
-                            input_path[agent]  = helper_path[agent][:len(input_T), :]
-                            output_path[agent] = helper_path[agent][len(input_T):len(input_T) + len(output_T), :]
+                            input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :]
+                            output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :]
                         else:
                             input_path[agent]  = np.nan
                             output_path[agent] = np.nan
