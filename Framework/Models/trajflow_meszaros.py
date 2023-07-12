@@ -141,9 +141,11 @@ class trajflow_meszaros(model_template):
                 T.append(Types[:, reorder_index])
             X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
             T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
+            T = T.astype(str)
             PPed_agents = T == 'P'
             # transform to ascii int:
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
+            T[T == 'nan'] = '0'
+            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
 
             if self.use_map:
                 
@@ -199,12 +201,13 @@ class trajflow_meszaros(model_template):
                                          list(np.arange(i_agent + 1, Xi.shape[1])))
                 X.append(Xi[:,reorder_index])
                 T.append(Types[:, reorder_index])
-            
             X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
             T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
+            T = T.astype(str)
             PPed_agents = T == 'P'
             # transform to ascii int:
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
+            T[T == 'nan'] = '0'
+            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
             
             if self.use_map:
                 centre = X[:,0,-1,:] #x_t.squeeze(-2)
@@ -361,7 +364,7 @@ class trajflow_meszaros(model_template):
                     print('Model is converged.')
                     break
 
-
+            self.train_loss[0, :len(val_losses)] = np.array(val_losses)
             os.makedirs(os.path.dirname(fut_model_file), exist_ok=True)
             pickle.dump(fut_model, open(fut_model_file, 'wb'))
 
@@ -518,6 +521,7 @@ class trajflow_meszaros(model_template):
                     print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
                     print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
 
+            self.train_loss[1, :len(val_losses)] = np.array(val_losses)
             os.makedirs(os.path.dirname(flow_dist_file), exist_ok=True)
             pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
 
@@ -525,7 +529,8 @@ class trajflow_meszaros(model_template):
 
 
     def train_method(self):    
-
+        self.train_loss = np.ones((2, max(self.fut_ae_epochs, self.flow_epochs))) * np.nan
+        
         train_loader, val_loader, T_all = self.extract_data(train = True)
         self.fut_model = self.train_futureAE(train_loader, val_loader)
 

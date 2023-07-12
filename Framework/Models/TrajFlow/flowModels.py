@@ -606,8 +606,8 @@ class TrajFlow_I(TrajFlow):
         self.obs_encoder = nn.ModuleDict({})
         self.tar_obs_encoder = nn.ModuleDict({})
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
         for t in self.t_unique:
-            
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
             self.obs_encoder[t_key] = TrajRNN(nin=2, nout=self.obs_encoding_size, es=self.es_rnn, 
                                           hs=self.hs_rnn, nl=self.n_layers_rnn, device=device)
@@ -649,11 +649,10 @@ class TrajFlow_I(TrajFlow):
         x_in = x
         if self.rel_coords:
             x_in = x[...,1:,:] - x[...,:-1,:]
-            
+        
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         for t in self.t_unique:
-            assert t in T
             t_in = T == t
             
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
@@ -669,35 +668,34 @@ class TrajFlow_I(TrajFlow):
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Deal with autoencoder here
-        num_nodes = x_enc.size(dim=1)
-        row = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-        col = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-
-        row = row.view(-1, 1).repeat(1, num_nodes).view(-1)
-        col = col.repeat(num_nodes)
-        graph_edge_node = torch.stack([row, col], dim=0).unsqueeze(0).repeat((len(x_enc),1,1))
-        # Combine batch into one matrix
-        sample_enc = torch.arange(len(x_enc), device = self.device).unsqueeze(1).repeat((1,num_nodes ** 2))
-        graph_edge_index = graph_edge_node + sample_enc.unsqueeze(1) * num_nodes
-        # Combine
-        graph_edge_index = graph_edge_index.permute(1,0,2).reshape(2,-1)
+        existing_agent = T != 48
+        Edge_bool = existing_agent[:,None] & existing_agent[:,:,None]
         
-        T_one_hot = (T.unsqueeze(-1) == self.t_unique.unsqueeze(0).unsqueeze(0)).float().reshape(-1, len(self.t_unique))
+        num_nodes_samples = existing_agent.sum(1)
+        num_nodes_samples_before = torch.arange(len(x_enc), device=self.device) * x_enc.size(dim=1)
+        node_adder = torch.repeat_interleave(num_nodes_samples_before, num_nodes_samples ** 2) 
+        
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+        exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
+        
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder
+        
+        # Eliminate the holes
+        graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
+        
+        T_one_hot = (T[exist_sample2, exist_row2].unsqueeze(-1) == self.t_unique.unsqueeze(0)).float()
         
         class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
         
         D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1))
-        dist_in_out = D[sample_enc, graph_edge_node[:,0], graph_edge_node[:,1]]
-        dist_in_out = dist_in_out.reshape(-1,1)
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3]
          
-        graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
+        graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
         
-        graph_batch = torch.arange((len(x_enc)), dtype=torch.long, device=self.device).repeat_interleave(num_nodes)
-        
-        socialData = Data(x=x_enc.reshape(-1, self.obs_encoding_size), 
-                          edge_index=graph_edge_index, 
-                          edge_attr=graph_edge_attr, 
-                          batch=graph_batch)
+        socialData = Data(x          = x_enc[exist_sample2, exist_row2], 
+                          edge_index = graph_edge_index, 
+                          edge_attr  = graph_edge_attr, 
+                          batch      = exist_sample2)
         
         social_enc = self.GNNencoder(socialData)
         
