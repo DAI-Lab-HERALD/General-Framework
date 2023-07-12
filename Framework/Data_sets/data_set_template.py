@@ -1549,21 +1549,23 @@ class data_set_template():
                 Here, each row :math:`i` represents one recorded sample, while each column includes the 
                 trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
                 It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
-                sample over all recorded samples. The name of each column corresponds to the name of the corresponding
+                sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
+                the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
+                aforementioned numpy array.
+                
+                The name of each column corresponds to the name of the corresponding
                 agent whose trajectory is covered. The name of such agents are relevant, as the selected scenario requires 
                 some agents with a specific name to be present. The names of those relevant agents can be found in 
                 self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
-                Each entry of the DataFrame then has to be a tensor of length :math:`\vert T_i \vert`,
-                where the length has to be consistent for all tensors along in a sample :math:`i`.
-                
             **self.Type_old**
-                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Each entry corresponds
-                to those in **self.Path**, and caontains the type of the agent. For example, a "V" stands for a vehicle,
+                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical
+                to the column names of **self.Path**. Each corresponding entry contains the type of the agent whose 
+                path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
                 while a "P" stands for a pedestrian.
             
             **self.T**
-                A numpy array (dtype = object) of length :math:`N_{samples}`. Each entry contains the timepoints 
+                A numpy array (dtype = object) of length :math:`N_{samples}`. Each row :math:`i` contains the timepoints 
                 of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
                 
             **self.Domain_old**
@@ -1574,7 +1576,7 @@ class data_set_template():
                 and testing set. Another useful idea might be to record the place in the raw data the sample
                 originated from, as might be used later to extract surrounding agents from this raw data.
                 
-            **self.num_Samples**
+            **self.num_samples**
                 A scalar integer value, which gives the number of samples :math:`N_{samples}`. 
                 It should be noted that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
@@ -1616,8 +1618,8 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of lenght :math:`\{N_{preds} \times |t| \times 2 \}`.
-            The columns should correspond to the columns in self.Path created in self.create_path_samples()
+            where each entry is itself a numpy array of shape :math:`\{N_{preds} \times |t| \times 2 \}`.
+            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
             A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -1630,38 +1632,39 @@ class data_set_template():
         -------
         Dist : pandas.Series
             This is a series with :math:`N_{classes}` entries.
-            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
+            For each column, it returns an array of shape :math:`\{N_{preds} \times |t|\}` with the distance to the classification marker.
             The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
             How those distances are defined dependes on the scenario and behavior.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
-    def evaluate_scenario(self, path, Dist, domain):
+    def evaluate_scenario(self, path, D_class, domain):
         r'''
         It might be that the given scenario requires all agents to be in certain positions, so that
-        it can be considered that the scenario is indeed there. This function maes that evaluation.
+        it can be considered that the scenario is indeed there. This function makes that evaluation.
 
-        This function test this for one specific test case.
+        This function tests this for one specific sample.
 
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
-            The columns should correspond to the columns in self.Path created in self.create_path_samples().
-        Dist : pandas.Series
-            This is a :math:`N_{classes}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker.
-            The column names shoud correspond to the attribute self.Behaviors. How those distances are defined
-            dependes on the scenario and behavior.
-        domain : pandas series
-            A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in **self.Domain_old**.
+            A pandas series with :math:`(N_{agents})` entries,
+            where each entry is itself a numpy array of lenght :math:`\{|t| \times 2 \}`.
+            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
+        D_class : pandas.Series
+            This is a series with :math:`N_{classes}` entries.
+            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
+            The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+            How those distances are defined dependes on the scenario and behavior.
+        domain : pandas.Series
+            A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+            sample. Its entries contain at least all the columns of **self.Domain_old**. 
 
         Returns
         -------
         in_position : numpy.ndarray
-            This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
+            This is a :math:`|t|` dimensioanl boolean array, which is true if all agents are
             in a position where the scenario is valid.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
@@ -1679,8 +1682,8 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of lenght :math:`\{N_{preds} \times |t| \times 2 \}`.
-            The columns should correspond to the columns in self.Path created in self.create_path_samples()
+            where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
             A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -1693,41 +1696,56 @@ class data_set_template():
         -------
         Dist : pandas.Series
             This is a :math:`N_{other dist}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker..
+            For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
 
             These columns should contain the minimum required distances set in self.scenario.can_provide_general_input().
             If self.can_provide_general_input() == False, one should return None instead.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
-    def fill_empty_input_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         r'''
-        After extracting the input paths for a test case, it might be possible that some reuqired position
-        data is not available. This is problematic, as the nan values given for not accessible data
-        might lead to issues in model training. Consequently, it is necessary to replace those nan values,
-        for example by placing the missing agents well out of range of the problem or by extrapolating
-        missing time steps.
-        
-        This function fills in missing locations for one case each.
+        After extracting the trajectories of a sample at the given input and output timesteps, it might be possible
+        that an agent's trajectory is only partially recorded over this timespan, resulting in the position values to be np.nan
+        at those missing timepoints. The main cause here is likely that the agent is outside the area over which its position 
+        could be recorded. 
+
+        However, some models might be unable to deal with such missing data. Consequntly, it is required to fill those missing 
+        positions with extrapolated data. 
+
+        Additionally, it might be possible that **path** does not contain all the agents which were present during 
+        the *input* timesteps. As those might still be influencing the future behavior of the agents already included in 
+        **path**, they can be added here. Consequntly, math:`N_{agents, full} \geq N_{agents}` will be the case.
         
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
+            A pandas series with :math:`(N_{agents})` entries,
+            where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
-            A numpy array of lenght :math:`|T|`, recording the corresponding timesteps, at which the positions
-            in path were recorded.
-        domain : pandas series
-            A pandas series of lenght :math:`N_{info}`, that records the number of metadata for the considered
-            case. It should correspond to the specifc row in **self.Domain_old**.
+            A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+            at which the positions in **path** were recorded.
+        domain : pandas.Series
+            A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+            sample. Its entries contain at least all the columns of **self.Domain_old**. 
+        agent_types : pandas.Series 
+            A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
+            sample. The columns should correspond to the columns in **self.Type_old** created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths. Consequently the 
+            column names are identical to those of **path**.
 
         Returns
         -------
         path_full : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
-            THose numpy arrays should no longer contain any nan values.
+            A pandas series with :math:`(N_{agents, full})` entries,
+            where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+            All columns of **path** should be included here. For those agents where trajectories are recorded, those trajectories 
+            can also no longer contain np.nan as a position value.
+        agent_types_full : pandas.Series 
+            A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
+            sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
@@ -1736,6 +1754,19 @@ class data_set_template():
         Provides the line information needed for the drawing of the predicted paths
         and the corresponding analysis
         return lines_solid, lines_dashed
+        (???)
+        Parameters
+        ----------
+        domain : pandas.Series
+            A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+            sample. Its entries contain at least all the columns of **self.Domain_old**. 
+
+        Returns
+        -------
+        lines_solid : list
+            
+        lines_dashed : list
+            
         '''
         raise AttributeError("Has to be overridden in actual data-set class")
 
@@ -1749,7 +1780,8 @@ class data_set_template():
         The 'file' key has to be a string with exactly 10 characters, that does not include any folder separators (for any operating system), 
         as it is mostly used to indicate that certain result files belong to this dataset. 
         
-        The 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - such as using '$$' for math notation.
+        The 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - 
+        such as using '$$' for math notation.
         '''
         raise AttributeError('Has to be overridden in actual data-set class')
 
@@ -1760,13 +1792,13 @@ class data_set_template():
         making the recorded future data similar to the ego agents planned path at each point in time.
         
         return False: This usage of future ego agents trajectories as model input is prevented. This is especially advisable
-        if the behavior of the vehicle might include to many clues for a prediction model to use.
+        if the behavior of the vehicle might include too many clues for a prediction model to use.
         '''
         raise AttributeError("Has to be overridden in actual data-set class")
         
     def includes_images(self = None) -> bool:
         r'''
-        If True, then image data can be returned (if true, location has to be a column of domain)
+        If True, then image data can be returned (if true, location has to be a column of domain) (??? and **self.Domain_old**)
         '''
         raise AttributeError("Has to be overridden in actual data-set class")
         
