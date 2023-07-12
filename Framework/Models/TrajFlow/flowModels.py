@@ -607,6 +607,7 @@ class TrajFlow_I(TrajFlow):
         self.tar_obs_encoder = nn.ModuleDict({})
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
         for t in self.t_unique:
+            
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
             self.obs_encoder[t_key] = TrajRNN(nin=2, nout=self.obs_encoding_size, es=self.es_rnn, 
                                           hs=self.hs_rnn, nl=self.n_layers_rnn, device=device)

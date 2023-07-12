@@ -88,17 +88,19 @@ class trajflow_meszaros(model_template):
         if train:
             X_help = self.Input_path_train.to_numpy()
             Y_help = self.Output_path_train.to_numpy() 
+            Types  = self.Type_train.to_numpy()
             
             X_help = X_help[self.remain_samples]
             Y_help = Y_help[self.remain_samples]
+            Types  = Types[self.remain_samples]
 
             self.domain_old = self.Domain_train.iloc[self.remain_samples]
         else:
             X_help = self.Input_path_test.to_numpy()
+            Types  = self.Type_test.to_numpy()
             self.domain_old = self.Domain_test
         
-        Agents = np.array([name[2:] for name in np.array(self.input_names_train)])
-        Types  = np.array([name[0]  for name in np.array(self.input_names_train)])
+        Agents = np.array(self.input_names_train)
         
         # Extract predicted agents
         Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
@@ -136,9 +138,9 @@ class trajflow_meszaros(model_template):
                 reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
                                          list(np.arange(i_agent + 1, Xi.shape[1])))
                 X.append(Xi[:,reorder_index])
-                T.append(np.tile(Types[np.newaxis,reorder_index], (len(Xi), 1)))
+                T.append(Types[:, reorder_index])
             X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            T = np.stack(T, axis = 1).reshape(-1, len(Types))
+            T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
             PPed_agents = T == 'P'
             # transform to ascii int:
             T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
@@ -157,8 +159,8 @@ class trajflow_meszaros(model_template):
                 
                 X[PPed_agents]   /= self.std_pos_ped
                 X[~PPed_agents]  /= self.std_pos_veh
-                Y[:,Ped_agents]  /= self.std_pos_ped
-                Y[:,~Ped_agents] /= self.std_pos_veh
+                Y[Ped_agents]  /= self.std_pos_ped
+                Y[~Ped_agents] /= self.std_pos_veh
                 Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
                 
                 my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
@@ -169,8 +171,8 @@ class trajflow_meszaros(model_template):
             else:
                 X[PPed_agents]   /= self.std_pos_ped
                 X[~PPed_agents]  /= self.std_pos_veh
-                Y[:,Ped_agents]  /= self.std_pos_ped
-                Y[:,~Ped_agents] /= self.std_pos_veh
+                Y[Ped_agents]  /= self.std_pos_ped
+                Y[~Ped_agents] /= self.std_pos_veh
                 Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
                 
                 my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
@@ -185,7 +187,8 @@ class trajflow_meszaros(model_template):
 
             train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
             val_loader = DataLoader(val_data, batch_size=self.batch_size, shuffle=True)
-            return train_loader, val_loader
+
+            return train_loader, val_loader, T
         else:
             Xi = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2
             # set agent to be predicted into first location
@@ -195,10 +198,10 @@ class trajflow_meszaros(model_template):
                 reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
                                          list(np.arange(i_agent + 1, Xi.shape[1])))
                 X.append(Xi[:,reorder_index])
-                T.append(np.tile(Types[np.newaxis,reorder_index], (len(Xi), 1)))
+                T.append(Types[:, reorder_index])
             
             X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            T = np.stack(T, axis = 1).reshape(-1, len(Types))
+            T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
             PPed_agents = T == 'P'
             # transform to ascii int:
             T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
@@ -365,7 +368,7 @@ class trajflow_meszaros(model_template):
         return fut_model
 
 
-    def train_flow(self, fut_model, train_loader, val_loader):
+    def train_flow(self, fut_model, train_loader, val_loader, T_all):
         steps = self.flow_epochs
 
         beta_noise = 0 
@@ -375,9 +378,6 @@ class trajflow_meszaros(model_template):
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
         else:
             scene_encoder = None
-            
-        T_all = np.array([name[0] for name in np.array(self.input_names_train).reshape(-1,2)[:,0]])
-        T_all = np.fromstring(T_all, dtype = np.uint32).astype(np.uint8)
         
         # TODO: Set the gnn parameters
         flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=beta_noise, gamma=gamma_noise, 
@@ -526,10 +526,10 @@ class trajflow_meszaros(model_template):
 
     def train_method(self):    
 
-        train_loader, val_loader = self.extract_data(train = True)
+        train_loader, val_loader, T_all = self.extract_data(train = True)
         self.fut_model = self.train_futureAE(train_loader, val_loader)
 
-        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader)
+        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader, T_all)
         
         # save weigths 
         # after checking here, please return num_epochs to 100 and batch size to 
