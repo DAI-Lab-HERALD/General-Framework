@@ -185,7 +185,7 @@ class Forking_Paths_interactive(data_set_template):
         
         Pos = np.zeros((len(N_ID), len(I_t), 2))
         for j, nid in enumerate(N_ID):
-            data_id = self.Data[self.Data.Id == nid and self.Data.scenario == domain.scene_full].index[0]
+            data_id = self.Data[self.Data.Id == nid and self.Data.scenario == domain.scene_full].iloc[0]
 
             t = data_id.path.t.to_numpy()
             pos = np.stack(data_id.path.x.to_numpy(), data_id.path.y.to_numpy(), axis = -1)
