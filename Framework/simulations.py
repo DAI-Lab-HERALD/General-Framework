@@ -6,22 +6,22 @@ new_experiment = Experiment(Experiment_name)
 
 #%% Select modules
 # # Select the datasets
-# Data_sets = [[{'scenario': 'RounD_round_about', 't0_type': 'start', 'conforming_t0_types': []},
-#               {'scenario': 'CoR_left_turns',    't0_type': 'crit', 'conforming_t0_types': []}]]
+# Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
+#               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'RounD_round_about', 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'RounD_round_about', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (25, 25)}] 
 
 # Select the spitting methods to be considered
-Splitters = [{'Type': 'Cross_split', 'repetition': [0, 1], 'test_part': 0.2}]
+Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
 
 # Select the models to be trained
-Models = ['trajectron_salzmann']
+Models = ['trajflow_meszaros']
 
 # Select the metrics to be used
-Metrics = ['minADE20', 'minFDE20', 'ADE_ML', 'FDE_ML', 
+Metrics = ['minADE20', 'minFDE20', 'ADE_ML', 'FDE_ML',
            'Oracle', 'KDE_NLL', 'ECE_traj',
            'ECE', 'ROC_curve']
 
@@ -56,7 +56,9 @@ new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred,
 new_experiment.run()                  
 
 # Load results
-Results = new_experiment.load_results(plot_if_possible = True, return_train_results = False)
+Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = True,
+                                                           return_train_results = True,
+                                                           return_train_loss = True)
 
 # new_experiment.draw_figure(include_only_mean = False)
 # new_experiment.write_tables()
