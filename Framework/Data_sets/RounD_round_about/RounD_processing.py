@@ -6,18 +6,17 @@ pd.options.mode.chained_assignment=None
 n = 0
 
 ### Prepare to get situation data, adjust values and position reference
+Scenario = []
 
 print('Preprocessing Data')
 while path.exists('data/{}_recordingMeta.csv'.format(str(n).zfill(2))):
     Meta_data=pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
     local_data=Meta_data[['locationId','speedLimit','orthoPxToMeter']].copy(deep=True)   
     
-    if n==0:
-        Scenario=local_data
-    else:
-        Scenario=Scenario.append(local_data,ignore_index=True)
+    Scenario.append(local_data)
     n=n+1
 
+Scenario=pd.DataFrame(Scenario)
 
 
     

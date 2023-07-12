@@ -6,18 +6,15 @@ import json
 
 
 #%%
-dataset_paths = ["eth_univ",
-                 "eth_hotel",
-                 "ucy_zara01",
-                 "ucy_zara02",
-                 "ucy_univ"]
+path = os.path.dirname(os.path.realpath(__file__))
+dataset_paths = os.listdir(path + os.sep + 'data' + os.sep)
 
-Framerates = [2.5, 2.5, 2.5, 2.5, 2.5]
+framerate = 2.5
 
 Final_data = pd.DataFrame(np.zeros((1,5), object), columns = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
 overall_id = 0
 # Load each dataset separately; these will be concatenated later into one dataset
-for framerate, dataset_path in zip(Framerates, dataset_paths):
+for dataset_path in dataset_paths:
     print("Loading dataset {}".format(dataset_path))
     data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path + os.sep + '*.json'
     detection_paths = glob.glob(data_path_expanded)
@@ -71,5 +68,5 @@ for framerate, dataset_path in zip(Framerates, dataset_paths):
         Final_data.loc[index] = data
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
         
-Final_data.to_pickle("ETH_processed.pkl")   
+Final_data.to_pickle("FP_processed.pkl")   
     
