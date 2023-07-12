@@ -373,9 +373,6 @@ class trajflow_meszaros(model_template):
 
     def train_flow(self, fut_model, train_loader, val_loader, T_all):
         steps = self.flow_epochs
-
-        beta_noise = 0 
-        gamma_noise = 0 
         
         if self.use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
@@ -383,7 +380,7 @@ class trajflow_meszaros(model_template):
             scene_encoder = None
         
         # TODO: Set the gnn parameters
-        flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=beta_noise, gamma=gamma_noise, 
+        flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
                                scene_encoder=scene_encoder, norm_rotation=self.norm_rotation, device=self.device,
                                obs_encoding_size=self.obs_encoding_size, scene_encoding_size=self.scene_encoding_size, n_layers_rnn=self.n_layers_rnn, 
                                es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=self.use_map, 
