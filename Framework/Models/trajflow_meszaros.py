@@ -143,6 +143,7 @@ class trajflow_meszaros(model_template):
             T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
             PPed_agents = T == 'P'
             # transform to ascii int:
+            
             T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
 
             if self.use_map:
