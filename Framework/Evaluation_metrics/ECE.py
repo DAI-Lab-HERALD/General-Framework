@@ -18,9 +18,15 @@ class ECE(evaluation_template):
         
         p_pred = p_pred[Idx]
         p_t = p_t[Idx]
-
-        B_num = np.arange(1, 101, 3)
         
+        # Average the true p_t values over p_pred of same value
+        p_t_a = np.zeros_like(p_t)
+        for p in np.unique(p_pred):
+            use = p == p_pred
+            p_t_a[use] = p_t[use].mean()
+        
+        
+        B_num = np.arange(2, 202)
         P_t_adjusted = np.zeros((len(p_pred), len(B_num)), float)
         model_b_log_likelihood = np.zeros(len(B_num))
         
@@ -32,7 +38,10 @@ class ECE(evaluation_template):
                 idx = np.where((p_pred_min <= p_pred) & (p_pred < p_pred_max))[0]
                 if len(idx) == 0:
                     continue
-                P_t_adjusted[idx,b_ind] = p_t[idx].mean()
+                
+                bin_p = p_t_a[idx].mean()
+                
+                P_t_adjusted[idx,b_ind] = bin_p
                 
                 # calculate model likelihood
                 N_hat = 2
@@ -40,8 +49,8 @@ class ECE(evaluation_template):
                 beta_b  = N_hat * (1 - p_pred[idx].mean()) / b_num
                 
                 N_b = len(idx)
-                a_b = len(idx) * p_t[idx].mean()
-                b_b = len(idx) * (1 - p_t[idx].mean())
+                a_b = len(idx) * bin_p
+                b_b = len(idx) * (1 - bin_p)
                 
                 L_b = (loggamma(N_hat / b_num + 1e-6) - loggamma(N_b + N_hat / b_num + 1e-6) +
                        loggamma(a_b + alpha_b + 1e-6) - loggamma(alpha_b + 1e-6) +
@@ -50,8 +59,7 @@ class ECE(evaluation_template):
                 
                 model_b_log_likelihood[b_ind] += L_b
         
-        model_b_likelihood = np.exp(model_b_log_likelihood - model_b_log_likelihood.max())
-        model_b_likelihood += 0.0033 * model_b_likelihood.max()
+        model_b_likelihood = np.exp(0.33 * (model_b_log_likelihood - model_b_log_likelihood.max()))
         model_b_likelihood /= model_b_likelihood.sum()
         
         p_t_adjusted = (P_t_adjusted * model_b_likelihood[np.newaxis]).sum(axis = 1)
