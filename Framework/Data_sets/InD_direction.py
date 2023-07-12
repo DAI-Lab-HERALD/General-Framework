@@ -224,6 +224,7 @@ class InD_direction(data_set_template):
         self.Data = self.Data.reset_index(drop = True)
         num_samples_max = len(self.Data)
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
     
@@ -302,7 +303,10 @@ class InD_direction(data_set_template):
                 continue
             
             path = pd.Series(np.zeros(0, object), index = [])
-            path['V_tar'] = np.stack([track_i.x.to_numpy(), track_i.y.to_numpy()], axis = -1)
+            agent_types = pd.Series(np.zeros(0, str), index = [])
+            
+            path['tar'] = np.stack([track_i.x.to_numpy(), track_i.y.to_numpy()], axis = -1)
+            agent_types['tar'] = 'V'
             
             t = np.array(track_i.frame / 25)
             
@@ -327,12 +331,14 @@ class InD_direction(data_set_template):
             
             
             self.Path.append(path)
+            self.Type_old.append(agent_types)
             self.T.append(t)
             self.Domain_old.append(domain)
             self.num_samples = self.num_samples + 1
         
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
          
@@ -358,7 +364,7 @@ class InD_direction(data_set_template):
             This is a :math:`N_{classes}` dimensional Series.
             For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker.
         '''
-        pos = path.V_tar
+        pos = path.tar
         
         # Get streets
         streets_old = self.Loc_data.loc[domain.location].streets.iloc[:,1:].to_numpy().reshape(4,3,2).astype(float)
@@ -411,7 +417,7 @@ class InD_direction(data_set_template):
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the classification is possible.
         '''
-        pos = path.V_tar
+        pos = path.tar
         
         # Get streets
         streets_old = self.Loc_data.loc[domain.location].streets.iloc[:,1:].to_numpy().reshape(4,3,2).astype(float)
@@ -464,7 +470,7 @@ class InD_direction(data_set_template):
             
             If self.can_provide_general_input() == False, this will be None.
         '''
-        pos = path.V_tar
+        pos = path.tar
         
         # Get streets
         streets_old = self.Loc_data.loc[domain.location].streets.iloc[:,1:].to_numpy().reshape(4,3,2).astype(float)
@@ -494,7 +500,7 @@ class InD_direction(data_set_template):
         return Dist
     
     
-    def fill_empty_path(self, path, t, domain):
+    def fill_empty_path(self, path, t, domain, agent_types):
         # Get old data, so that removed pedestrians can be accessed
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
@@ -503,7 +509,7 @@ class InD_direction(data_set_template):
         
         n_I = self.num_timesteps_in_real
 
-        tar_pos = path.V_tar[np.newaxis]
+        tar_pos = path.tar[np.newaxis]
         I_t = t + domain.t_0
         t_help = np.concatenate([[I_t[0] - self.dt], I_t])
         # search for vehicles
@@ -547,15 +553,9 @@ class InD_direction(data_set_template):
             Pos  = Pos[:self.max_num_addable_agents]
             Type = Type[:self.max_num_addable_agents]
             
-        ind_veh = 0 
-        ind_ped = 0
+
         for i, pos in enumerate(Pos):
-            if Type[i] == 1:
-                ind_veh += 1
-                name = 'V_v_{}'.format(ind_veh)
-            else:
-                ind_ped += 1
-                name = 'P_v_{}'.format(ind_ped + 999)
+            name = 'v_{}'.format(i + 1)
                 
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
@@ -566,7 +566,13 @@ class InD_direction(data_set_template):
                     p = pos[u].T
                     path[name] = np.stack([interp.interp1d(t, p[0], fill_value = 'extrapolate', assume_sorted = True)(I_t),
                                            interp.interp1d(t, p[1], fill_value = 'extrapolate', assume_sorted = True)(I_t)], axis = -1)
-        return path
+                
+                if Type[i] == 1:
+                    agent_types[name] = 'V'
+                else:
+                    agent_types[name] = 'P'
+                    
+        return path, agent_types
     
     def provide_map_drawing(self, domain):
         lines_solid = []

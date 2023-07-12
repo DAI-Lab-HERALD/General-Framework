@@ -126,7 +126,7 @@ class data_interface(object):
         (self.num_timesteps_out_real, 
          self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
         
-        self.exclude_post_crit      = list(self.Datasets.values())[0].exclude_post_crit
+        self.exclude_post_crit = list(self.Datasets.values())[0].exclude_post_crit
         
         if self.enforce_prediction_times:
             t0_type_name_addon = '_s'
@@ -165,6 +165,7 @@ class data_interface(object):
         self.Output_A         = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Output_T_E       = np.zeros(0, float)
 
+        self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Domain           = pd.DataFrame(np.zeros((0,0), np.ndarray))
         
         self.num_behaviors = np.zeros(len(self.Behaviors), int)
@@ -176,6 +177,7 @@ class data_interface(object):
             self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
             self.Output_T_E       = np.concatenate((self.Output_T_E, data_set.Output_T_E), axis = 0)
             
+            self.Type             = pd.concat((self.Type, data_set.Type))
             self.Domain           = pd.concat((self.Domain, data_set.Domain))
             
             if self.scenario.get_name() != data_set.scenario.get_name():
@@ -331,8 +333,10 @@ class data_interface(object):
             return list(self.Datasets.values())[0].get_name()
         else:
             file_name = ('Comb_' + '_'.join([s[0] for s in self.Latex_names]) + '_' * 5)[:10]
-            
-            names = {'print': 'Combined dataset (' + r' & '.join(self.Latex_names) + ')',
+            print_name = 'Combined dataset (' + r' & '.join(self.Latex_names) + ')'
+            print_name = print_name.replace('/', ' & ')
+            print_name = print_name.replace(os.sep, ' & ')
+            names = {'print': print_name,
                      'file': file_name,
                      'latex': r'/'.join(self.Latex_names)}
             return names

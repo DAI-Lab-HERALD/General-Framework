@@ -82,7 +82,7 @@ class model_template():
             
         
         if self.get_input_type()['future']:
-            Pov_ind = np.array([name[2:] == self.data_set.pov_agent for name in self.input_names_train])
+            Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
             self.Input_future_train = data_set.Output_path.iloc[Index, Pov_ind]
         else:
             self.Input_future_train = data_set.Output_path.iloc[Index, np.zeros(len(self.input_names_train), bool)]
@@ -97,6 +97,7 @@ class model_template():
         self.Output_A_train          = data_set.Output_A.iloc[Index]
         self.Output_T_E_train        = data_set.Output_T_E[Index]
         
+        self.Type_train              = data_set.Type.iloc[Index]
         self.Domain_train            = data_set.Domain.iloc[Index]
         
         self.num_samples_path_pred = self.data_set.num_samples_path_pred
@@ -108,7 +109,7 @@ class model_template():
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False
         
-    
+        
     def train(self):
         if os.path.isfile(self.model_file) and not self.data_set.overwrite_results:
             self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
@@ -175,13 +176,14 @@ class model_template():
                 self.Input_path_test       = self.data_set.Input_path
                 
             if self.get_input_type()['future']:
-                Pov_ind = np.array([name[2:] == self.data_set.pov_agent for name in self.input_names_train])
+                Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
                 self.Input_future_test = self.data_set.Output_path.iloc[:, Pov_ind]
             
             # Make predictions on all samples, test and training samples
             self.Input_T_test             = self.data_set.Input_T
             self.Output_T_pred_test       = self.data_set.Output_T_pred
 
+            self.Type_test                = self.data_set.Type
             self.Domain_test              = self.data_set.Domain            
             # save number of training samples
             self.num_samples_test = len(self.Input_T_test)

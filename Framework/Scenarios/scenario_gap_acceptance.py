@@ -1,7 +1,9 @@
-from scenario_template import scenario_template
 import numpy as np
 
-class scenario_gap_acceptance(scenario_template):
+class scenario_gap_acceptance():
+    def __init__(self):
+        pass
+    
     def give_default_classification(self = None):
         return 'rejected'
     
@@ -14,12 +16,22 @@ class scenario_gap_acceptance(scenario_template):
         return 'Gap acceptance problem'
         
     def can_provide_general_input(self = None):
+        '''
+        D_1: Distance between ego vehicle and vehicle that it is following.
+        D_2: Distance between ego vehicle and vehicle that it is folowed by.
+        D_3: The desitance between tar vehicle and the vehicle it is following.
+        L_e: The size of the constested space along the path of the ego vehicle.
+        L_t: The size of the constested space along the path of the tar vehicle.
+
+        '''
         return ['D_1', 'D_2', 'D_3', 'L_e', 'L_t']
         
     def pov_agent(self = None):
+        # The ego vehicle is the vehicle offering the gap
         return 'ego'
         
     def classifying_agents(self = None):
+        # Tar is the vehicle that has to accept or reject the gap
         return ['tar']
     
     

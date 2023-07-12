@@ -15,28 +15,32 @@ class CoR_left_turns(data_set_template):
         # analize raw dara 
         self.num_samples = len(self.Data)
         self.Path = []
+        self.Type_old = []
         self.T = []
         self.Domain_old = []
-        agents = ['V_ego', 'V_tar']
+        agents = ['ego', 'tar']
         # extract raw samples
         for i in range(self.num_samples):
             path = pd.Series(np.empty(len(agents), np.ndarray), index = agents)
+            agent_type = pd.Series(np.full(len(agents), 'V', dtype = str), index = agents)
             
             t_index = self.Data.bot_track.iloc[i].index
             t = np.array(self.Data.bot_track.iloc[i].t[t_index])
-            V_ego = np.stack([self.Data.bot_track.iloc[i].x[t_index], self.Data.bot_track.iloc[i].y[t_index]], -1)
-            V_tar = np.stack([self.Data.ego_track.iloc[i].x[t_index], self.Data.ego_track.iloc[i].y[t_index]], -1)
+            ego = np.stack([self.Data.bot_track.iloc[i].x[t_index], self.Data.bot_track.iloc[i].y[t_index]], -1)
+            tar = np.stack([self.Data.ego_track.iloc[i].x[t_index], self.Data.ego_track.iloc[i].y[t_index]], -1)
             
-            path.V_ego = V_ego
-            path.V_tar = V_tar
+            path.ego = ego
+            path.tar = tar
             
             domain = pd.Series(np.ones(1, int) * self.Data.subj_id.iloc[i], index = ['Subj_ID'])
             
             self.Path.append(path)
+            self.Type_old.append(agent_type)
             self.T.append(t)
             self.Domain_old.append(domain)
         
         self.Path = pd.DataFrame(self.Path)
+        self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
@@ -63,9 +67,9 @@ class CoR_left_turns(data_set_template):
             For each column, it returns an array of lenght :math:`|T|` with the distance to the classification marker.
         '''
         
-        ego_x = path.V_ego[...,0]
-        tar_x = path.V_tar[...,0]
-        tar_y = path.V_tar[...,1]
+        ego_x = path.ego[...,0]
+        tar_x = path.tar[...,0]
+        tar_y = path.tar[...,1]
         
         lane_width = 3.5
         vehicle_length = 5
@@ -118,7 +122,7 @@ class CoR_left_turns(data_set_template):
             in a position where the classification is possible.
         '''
         
-        tar_x = path.V_tar[...,0]
+        tar_x = path.tar[...,0]
         
         in_position = tar_x > - 3
         return in_position
@@ -145,7 +149,7 @@ class CoR_left_turns(data_set_template):
             
             If self.can_provide_general_input() == False, this will be None.
         '''
-        ego_x = path.V_ego[...,0]
+        ego_x = path.ego[...,0]
         
         lane_width = 3.5
         
@@ -163,8 +167,8 @@ class CoR_left_turns(data_set_template):
         return Dist
         
     
-    def fill_empty_path(self, path, t, domain):
-        return path
+    def fill_empty_path(self, path, t, domain, agent_types):
+        return path, agent_types
     
     def provide_map_drawing(self, domain):
         lines_solid = []

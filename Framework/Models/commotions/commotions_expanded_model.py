@@ -84,7 +84,9 @@ class SCAgent:
         self.simulation.agents.append(self)
         
         # set control type
-        self.ctrl_type = ctrl_type
+        self.ctrl_type = np.unique(ctrl_type)
+        assert len(self.ctrl_type) == 1, "only one type of agent should be evaluated at the same time."
+        self.ctrl_type = self.ctrl_type[0]
         
         # Get number of variable settings
         self.n_params = len(variable_params)
@@ -165,9 +167,9 @@ class SCAgent:
         # Use free_speeds to get kinematic parameters
         self.coll_dist_l = coll_dist
         
-        if self.name[2:] == 'ego':
+        if self.name == 'ego':
             self.v_free_l = free_speeds[None, :] * self.params.free_speed_multi_ego[:, None]
-        elif self.name[2:] == 'tar':
+        elif self.name == 'tar':
             self.v_free_l = free_speeds[None, :] * self.params.free_speed_multi_tar[:, None]
         else:
             raise TypeError('Only ego and tar vehicles are to be modeled')
@@ -2991,83 +2993,79 @@ class commotions_template():
         # Determine how many samples can be performed in parallel
         runs_per_batch = int(np.floor(self.calc_max / self.commotions_model.num_samples_path_pred))
         
-        # Based on this, determine the number of batches per set of parameters and number of batches of sets of parameters
-        # Also determine, how many sets of parameters and how many initial scenarios are evaluated simultainiously.
-        if runs_per_batch > self.num_samples_train:
-            n_samples_per_batch = self.num_samples_train
-            n_sample_batches = 1
-            n_params_per_batch = int(np.floor(runs_per_batch/self.num_samples_train))
-            n_param_batches  = int(np.ceil(num_params / n_params_per_batch))
-        else:
-            n_samples_per_batch = runs_per_batch
-            n_sample_batches = int(np.ceil(self.num_samples_train / runs_per_batch))
-            n_params_per_batch = 1
-            n_param_batches  = num_params
         
-        # Check if only one batch is required
-        one_batch = (n_param_batches * n_sample_batches) == 1
         
-        if not one_batch:
-            print(method, flush = True)
+        Agent_type_combinations = np.unique(ctrl_types, axis = 1).T
         
         T = time.time() 
-        
-        # Determine overall number of required batches
-        batches = n_param_batches * n_sample_batches
-        batches_digits = len(str(batches))
-        
-        # Go through the sets of parameters
-        for param_batch in range(n_param_batches):
-            param_batch_index = np.arange(n_params_per_batch * param_batch, 
-                                          n_params_per_batch * (param_batch + 1))
-            param_batch_index = param_batch_index[param_batch_index < num_params]
+        print(method, flush = True)
+        batch = 0
+        for agent_type_combination in Agent_type_combinations:
+            combination_samples = np.where((ctrl_types == agent_type_combination[:,np.newaxis]).all(0))[0]
             
-            # Go through the initial scearios for each set of parameters
-            for sample_batch in range(n_sample_batches):
-                sample_batch_index = np.arange(n_samples_per_batch * sample_batch, 
-                                               n_samples_per_batch * (sample_batch + 1))
-                sample_batch_index = sample_batch_index[sample_batch_index < self.num_samples_train]
+            combination_num_samples = len(combination_samples)
+            
+            # Based on this, determine the number of batches per set of parameters and number of batches of sets of parameters
+            # Also determine, how many sets of parameters and how many initial scenarios are evaluated simultainiously.
+            if runs_per_batch > combination_num_samples:
+                n_samples_per_batch = combination_num_samples
+                n_sample_batches = 1
+                n_params_per_batch = int(np.floor(runs_per_batch / combination_num_samples))
+                n_param_batches  = int(np.ceil(num_params / n_params_per_batch))
+            else:
+                n_samples_per_batch = runs_per_batch
+                n_sample_batches = int(np.ceil(combination_num_samples / runs_per_batch))
+                n_params_per_batch = 1
+                n_param_batches  = num_params
+            
+            # Go through the sets of parameters
+            for param_batch in range(n_param_batches):
+                param_batch_index = np.arange(n_params_per_batch * param_batch, 
+                                              n_params_per_batch * (param_batch + 1))
+                param_batch_index = param_batch_index[param_batch_index < num_params]
                 
-                t = time.time()
-                
-                # Get the binary and time prediction for each set of parameters and each initial 
-                # scenario in this batch, with one value for each probebalistic path
-                A, T_A, T_C = self.commotions_model(names             = names,
-                                                    ctrl_types        = ctrl_types,
-                                                    params            = Params[param_batch_index, :],
-                                                    initial_positions = initial_positions[:, sample_batch_index], 
-                                                    speeds            = speeds[:, sample_batch_index], 
-                                                    accs              = accs[:, sample_batch_index], 
-                                                    coll_dist         = coll_dist[:, sample_batch_index], 
-                                                    free_speeds       = free_speeds[:, sample_batch_index],
-                                                    T_out             = T_out[sample_batch_index],
-                                                    dt                = dt,
-                                                    const_accs        = self.const_accs)
-                
-                # Go over the initial scenarios and calculate the loss for each set of parameters and
-                # each probebalistic path
-                loss = self.commotions_model.loss(A_pred    = A, 
-                                                  T_A_pred  = T_A, 
-                                                  T_C_pred  = T_C,
-                                                  A_true    = A_true[sample_batch_index], 
-                                                  t_E_true  = t_E_true[sample_batch_index], 
-                                                  loss_type = self.train_loss_type)
-                
-                # Add to overall loss (if not all intial sampels coud be covered in one batch)
-                Loss[param_batch_index, :] += loss
-                
-                t = time.time() - t
-                
-                if not one_batch:
-                    batch = param_batch * n_sample_batches + sample_batch + 1
-                    print(method + ' - Batch ' + str(batch).rjust(batches_digits) + 
-                          '/{}: {:0.3f} s'.format(batches, t), flush=True)
+                # Go through the initial scearios for each set of parameters
+                for sample_batch in range(n_sample_batches):
+                    sample_batch_index_inter = np.arange(n_samples_per_batch * sample_batch, 
+                                                         n_samples_per_batch * (sample_batch + 1))
+                    sample_batch_index_inter = sample_batch_index_inter[sample_batch_index_inter < combination_num_samples]
+                    sample_batch_index = combination_samples[sample_batch_index_inter]
+                    
+                    t = time.time()
+                    
+                    # Get the binary and time prediction for each set of parameters and each initial 
+                    # scenario in this batch, with one value for each probebalistic path
+                    A, T_A, T_C = self.commotions_model(names             = names,
+                                                        ctrl_types        = ctrl_types[:, sample_batch_index],
+                                                        params            = Params[param_batch_index, :],
+                                                        initial_positions = initial_positions[:, sample_batch_index], 
+                                                        speeds            = speeds[:, sample_batch_index], 
+                                                        accs              = accs[:, sample_batch_index], 
+                                                        coll_dist         = coll_dist[:, sample_batch_index], 
+                                                        free_speeds       = free_speeds[:, sample_batch_index],
+                                                        T_out             = T_out[sample_batch_index],
+                                                        dt                = dt,
+                                                        const_accs        = self.const_accs)
+                    
+                    # Go over the initial scenarios and calculate the loss for each set of parameters and
+                    # each probebalistic path
+                    loss = self.commotions_model.loss(A_pred    = A, 
+                                                      T_A_pred  = T_A, 
+                                                      T_C_pred  = T_C,
+                                                      A_true    = A_true[sample_batch_index], 
+                                                      t_E_true  = t_E_true[sample_batch_index], 
+                                                      loss_type = self.train_loss_type)
+                    
+                    # Add to overall loss (if not all intial sampels coud be covered in one batch)
+                    Loss[param_batch_index, :] += loss
+                    
+                    t = time.time() - t
+                    
+                    batch += 1
+                    print(method + ' - Batch {}: {:0.3f} s'.format(batch, t), flush=True)
                 
         T = time.time() - T
-        if not one_batch:
-            print(method + ': {} min {:0.3f} s'.format(int(np.floor(T / 60)), np.mod(T, 60)), flush=True)
-        else:
-            print(method + ': {:0.3f} s'.format(T), flush=True)
+        print(method + ': {} min {:0.3f} s'.format(int(np.floor(T / 60)), np.mod(T, 60)), flush=True)
         
         # calculate the mean loss over all probebalistic paths
         Loss_mean = Loss.mean(-1)
@@ -3136,11 +3134,13 @@ class commotions_template():
             Input_prediction    = self.Input_prediction_train
             Input_T             = self.Input_T_train
             Output_T_pred       = self.Output_T_pred_train
+            Types               = self.Type_train
         elif purpose == 'test':
             num_samples         = self.num_samples_test
             Input_prediction    = self.Input_prediction_test
             Input_T             = self.Input_T_test
             Output_T_pred       = self.Output_T_pred_test
+            Types               = self.Type_test
         else:
             raise KeyError('The purpose "' + purpose + '" is not an available split of the data')
         
@@ -3190,24 +3190,21 @@ class commotions_template():
             T_out[ind] = Output_T_pred[ind][-1] 
         
         
-        # Determine ctrl type of agent
-        ctrl_types = [0] * self.commotions_model.N_AGENTS
+        
         names = []
         for i in range(self.commotions_model.N_AGENTS):
             if i == 0:
-                names.append([name for name in self.data_set.Input_path.columns if name[2:] == 'ego'][0])
+                names.append('ego')
             else:
-                names.append([name for name in self.data_set.Input_path.columns if name[2:] == 'tar'][0])
-                
-            if names[i][0] == 'P':
-                # Pedestrian
-                ctrl_types[i] = CtrlType.SPEED
-            else:
-                # Vehicle
-                if self.vehicle_acc_ctrl:
-                    ctrl_types[i] = CtrlType.ACCELERATION
-                else:
-                    ctrl_types[i] = CtrlType.SPEED
+                names.append('tar')
+               
+        # Determine ctrl type of agent 
+        Types = Types[['ego', 'tar']].to_numpy().T
+        
+        ctrl_types = np.empty((self.commotions_model.N_AGENTS, num_samples), dtype = CtrlType)
+        ctrl_types[:,:] = CtrlType.SPEED
+        if self.vehicle_acc_ctrl:
+            ctrl_types[Types == 'V'] = CtrlType.ACCELERATION
         
         # Allocate empty tensors for further information
         lengths           = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
@@ -3225,14 +3222,14 @@ class commotions_template():
         coll_dist         = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
                                         dtype = torch.float32, device = self.device)
         
-        # Get lower bound for free speeds and get the agent length based on ctrl type
-        for i in range(self.commotions_model.N_AGENTS):
-            if names[i][0] == 'P':
-                free_speeds[i] = self.fixed_params.FREE_SPEED_PED
-                lengths[i] = 1.0
-            else:
-                free_speeds[i] = self.fixed_params.FREE_SPEED_VEH
-                lengths[i] = 5.0
+        
+        
+        Ped_agents = torch.from_numpy(Types == 'P').to(dtype = torch.bool, device = self.device)
+        free_speeds[Ped_agents]  = self.fixed_params.FREE_SPEED_PED
+        free_speeds[~Ped_agents] = self.fixed_params.FREE_SPEED_VEH
+        
+        lengths[Ped_agents]  = 1.0 
+        lengths[~Ped_agents] = 5.0
         
         # Get the width of th agents, based on set gap sizes
         widths[0] = Lt
@@ -3335,7 +3332,6 @@ class commotions_template():
         # Determine how many samples can be performed in parallel (i.e., batch size)
         batch_size = int(np.floor(self.calc_max / self.commotions_model.num_samples_path_pred))
         # Determine the number of batches needed for all testing scenarios
-        n_batches = int(np.ceil(self.num_samples_test / batch_size))
         
         # Allocate memory for the prediction
         A_pred   = torch.zeros((1, self.num_samples_test), dtype = torch.float32, device = self.device)
@@ -3344,38 +3340,52 @@ class commotions_template():
         T_C_pred = torch.zeros((1, self.num_samples_test, len(self.data_set.p_quantile)), 
                                dtype = torch.float32, device = self.device)
         
-        # Assume no training of the model needed, backwards graphs not calculated
-        with torch.no_grad():
-            Ti = time.time()
-            # Go through all the initial scenarios
-            for batch in range(n_batches):
-                b_ind = np.arange(batch_size * batch, batch_size * (batch + 1))
-                b_ind = b_ind[b_ind < self.num_samples_test]
-                
-                ti = time.time()
-                # Get the binary and time prediction for the set of parameters and each initial 
-                # scenario in this batch, with one value for each probebalistic path
-                A, T_A, T_C = self.commotions_model(names             = names,
-                                                    ctrl_types        = ctrl_types,
-                                                    params            = variable_params,
-                                                    initial_positions = initial_positions[:, b_ind], 
-                                                    speeds            = speeds[:, b_ind], 
-                                                    accs              = accs[:, b_ind],
-                                                    coll_dist         = coll_dist[:, b_ind], 
-                                                    free_speeds       = free_speeds[:, b_ind],
-                                                    T_out             = T_out[b_ind],
-                                                    dt                = dt,
-                                                    const_accs        = self.const_accs)
-                
-                # Get the predictioned likelihood of accepteding the gap and the probability 
-                # distribution of the time of acceptance depicted by its decile values
-                A_pred[:,b_ind], T_A_pred[:,b_ind], T_C_pred[:,b_ind] = self.commotions_model.predict(A, T_A, T_C)
-                to = time.time()
-                if n_batches > 1:
-                    print('Prediction - Batch {}/{}: {:0.3f} s'.format(batch + 1, n_batches, to - ti),flush=True)
-                
-            print('Prediction - all batches: {:0.3f} s'.format(to - Ti),flush=True)
-            print('',flush=True)
+        Agent_type_combinations = np.unique(ctrl_types, axis = 1).T
+         
+        batch_all = 0
+        for agent_type_combination in Agent_type_combinations:
+            combination_samples = np.where((ctrl_types == agent_type_combination[:,np.newaxis]).all(0))[0]
+            
+            combination_num_samples = len(combination_samples)
+        
+            n_batches = int(np.ceil(combination_num_samples / batch_size))
+            # Assume no training of the model needed, backwards graphs not calculated
+            with torch.no_grad():
+                Ti = time.time()
+                # Go through all the initial scenarios
+                for batch in range(n_batches):
+                    b_ind = np.arange(batch_size * batch, batch_size * (batch + 1))
+                    b_ind = b_ind[b_ind < combination_num_samples]
+                    
+                    sample_ind = combination_samples[b_ind]
+                    
+                    ti = time.time()
+                    # Get the binary and time prediction for the set of parameters and each initial 
+                    # scenario in this batch, with one value for each probebalistic path
+                    A, T_A, T_C = self.commotions_model(names             = names,
+                                                        ctrl_types        = ctrl_types[:, sample_ind],
+                                                        params            = variable_params,
+                                                        initial_positions = initial_positions[:, sample_ind], 
+                                                        speeds            = speeds[:, sample_ind], 
+                                                        accs              = accs[:, sample_ind],
+                                                        coll_dist         = coll_dist[:, sample_ind], 
+                                                        free_speeds       = free_speeds[:, sample_ind],
+                                                        T_out             = T_out[sample_ind],
+                                                        dt                = dt,
+                                                        const_accs        = self.const_accs)
+                    
+                    # Get the predictioned likelihood of accepteding the gap and the probability 
+                    # distribution of the time of acceptance depicted by its decile values
+                    [A_pred[:,sample_ind], 
+                     T_A_pred[:,sample_ind], 
+                     T_C_pred[:,sample_ind]] = self.commotions_model.predict(A, T_A, T_C)
+                    to = time.time()
+                    batch_all += 1
+                    if n_batches > 1:
+                        print('Prediction - Batch {}: {:0.3f} s'.format(batch_all + 1, to - ti),flush=True)
+                    
+                print('Prediction - all batches: {:0.3f} s'.format(to - Ti),flush=True)
+                print('',flush=True)
         
         A_pred   = A_pred.squeeze(0)
         T_A_pred = T_A_pred.squeeze(0)

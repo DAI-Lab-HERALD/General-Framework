@@ -17,7 +17,7 @@ class ECE_traj(evaluation_template):
             if np.mod(i_sample, 100) == 0:
                 print('Sample {}/{}'.format(i_sample + 1, len(self.Output_path_pred)))
 
-            std = np.array([1 if name[0] == 'P' else 80 for name in self.Output_path_pred.columns])
+            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
             std = std[:,np.newaxis, np.newaxis, np.newaxis]
             
             

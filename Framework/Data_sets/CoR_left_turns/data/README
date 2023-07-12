@@ -1,5 +1,0 @@
-This is the place to put in the data by extracting the zip file "CoR_data_raw.zip".
-
-This folder then should include the following files:
-- measures.csv 
-- processed_data.csv

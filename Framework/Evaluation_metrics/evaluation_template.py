@@ -27,13 +27,19 @@ class evaluation_template():
                     agents = data_set.scenario.classifying_agents()
                 else:
                     raise TypeError("This type of path prediction is not implemented.")
-                Agent_index = np.array([name[2:] in agents for name in self.Input_path_full.columns])
+                Agent_index = np.array([name in agents for name in self.Input_path_full.columns])
                 self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
                 self.Output_path_other_full = data_set.Output_path.iloc[:, ~Agent_index]
+                
+                self.Type_full = data_set.Type.iloc[:, Agent_index]
+                self.Type_other_full = data_set.Type.iloc[:, ~Agent_index]
             else:
                 Agent_index = np.zeros(len(self.Input_path_full.columns), bool)
                 self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
                 self.Output_path_other_full = data_set.Output_path.iloc[:, ~Agent_index]
+                
+                self.Type_full = data_set.Type.iloc[:, Agent_index]
+                self.Type_other_full = data_set.Type.iloc[:, ~Agent_index]
                 
                 
             self.data_set = data_set
@@ -55,9 +61,6 @@ class evaluation_template():
                     np.save(test_file, save_data)
         else:
             self.depict_results = True
-        
-                
-        
         
         
     def evaluate_prediction(self, Output_pred, create_plot_if_possible = False):
@@ -115,6 +118,8 @@ class evaluation_template():
                     self.Output_A          = self.Output_A_full.iloc[Index]
                     self.Output_T_E        = self.Output_T_E_full[Index]
                     
+                    self.Type              = self.Type_full.iloc[Index]
+                    self.Type_other        = self.Type_other_full.iloc[Index]
                     self.Domain            = self.Domain_full.iloc[Index]
                     
                     self.num_samples = len(self.Output_path)
@@ -141,6 +146,8 @@ class evaluation_template():
                 self.Output_A          = self.Output_A_full.iloc[Index]
                 self.Output_T_E        = self.Output_T_E_full[Index]
                 
+                self.Type              = self.Type_full.iloc[Index]
+                self.Type_other        = self.Type_other_full.iloc[Index]
                 self.Domain            = self.Domain_full.iloc[Index]
                 
                 self.num_samples = len(self.Output_path)
