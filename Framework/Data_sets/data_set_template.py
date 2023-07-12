@@ -293,7 +293,11 @@ class data_set_template():
                         pd.Series(T_D, index=self.Behaviors),
                         pd.Series(T, index=self.Behaviors)]
         else:
-            return None, np.ones(len(t), bool), self.behavior_default, None, None
+            in_position = self.evaluate_scenario(path, None, domain)
+            if in_position is None:
+                in_position = np.ones(len(t), bool)
+            
+            return None, in_position, self.behavior_default, None, None
 
     def increase_path_dim(self, path):
         path_out = path.copy(deep=True)
@@ -408,8 +412,7 @@ class data_set_template():
                     try:
                         ind_possible = np.where(ts_allowed)[0]
                         try:
-                            ind_start = np.where(
-                                np.invert(ts_allowed[:ind_possible[-1]]))[0][-1] + 1
+                            ind_start = np.where(np.invert(ts_allowed[:ind_possible[-1]]))[0][-1] + 1
                         except:
                             ind_start = ind_possible[0]
 
