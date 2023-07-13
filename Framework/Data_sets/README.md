@@ -123,7 +123,7 @@ The most important part of the dataset module is to provide access to training a
     some required information. This information has to be collected in the following attributes, 
     which do not have to be returned, but only defined in this function:
 
-    **self.Path**          
+    **self.Path** : pandas.DataFrame          
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
       Here, each row :math:`i` represents one recorded sample, while each column includes the 
       trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
@@ -139,17 +139,17 @@ The most important part of the dataset module is to provide access to training a
       some agents with a specific name to be present. The names of those relevant agents can be found in 
       self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
-    **self.Type_old**
+    **self.Type_old** : pandas.DataFrame  
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are
       identical to the column names of **self.Path**. Each corresponding entry contains the type of the agent
       whose path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
       while a "P" stands for a pedestrian.
             
-    **self.T**
+    **self.T** : np.ndarray
       A numpy array (dtype = object) of length :math:`N_{samples}`. Each row :math:`i` contains the timepoints 
       of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
                 
-    **self.Domain_old**
+    **self.Domain_old** : pandas.DataFrame  
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
       In this DataFrame, one can collect any ancillary metadata that might be needed
       in the future. An example might be the location at which a sample was recorded
@@ -157,7 +157,7 @@ The most important part of the dataset module is to provide access to training a
       and testing set. Another useful idea might be to record the place in the raw data the sample
       originated from, as might be used later to extract surrounding agents from this raw data.
                 
-    **self.num_samples**
+    **self.num_samples** : int
       A scalar integer value, which gives the number of samples :math:`N_{samples}`. It should be noted 
       that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
@@ -166,7 +166,7 @@ The most important part of the dataset module is to provide access to training a
     be assigned to each sample with only having ot save on image for each location instead for
     each sample:
 
-    **self.Images**
+    **self.Images** : pandas.DataFrame  
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 2\}`.
       In the first column, named 'Image', the images for each location are saved. It is paramount that the 
       indices of this DataFrame are equivalent to the unique values found in **self.Domain_old**['image_id']. 
@@ -190,11 +190,94 @@ The most important part of the dataset module is to provide access to training a
     ...
 ```
 
-While the format of the original raw dataset might vary widely, the unified format required by the framework is clearly defined.
+While the format of the original raw dataset might vary widely, the unified format required by the framework is clearly defined. Consequently, there are likely a wide array of possible solution to achieve this transformation function, which might involve some pre-processing tasks and saving of intermediate location as well.
 It has to be noted that the framework will check if the provided attributes actually fulfill the format defined above, and will try to give feedback if this is not the case.
 
 ## Extracting classifiable behavior
-... (This will be three functions)
+While not necessary in all datasets, in some, being able to classify the interactions of certain vehicles might be an important aspect. To this end, the following three functions are needed, which are able to provide certain aspects of allowing a model to predict those classifications for a single sample. The first function is used to provide the approximated distance one or more agents need to travel to reach the criteria after which their trajectories are classified as a certain behavior. Once these distances turn negative, this is used by the framework to determine that a classification is now possible.
+```
+  def calculate_distance(self, path, t, domain):
+    r'''
+    If the chosen scenario contains a number of possible behaviors, as which recorded or
+    predicted trajectories might be classified, this function calculates the abridged distance of the 
+    relevant agents in a scenario toward fulfilling each of the possible classification criteria. 
+    If the classification criterium is not yet fulfilled, those distances are positive, while them being negative 
+    means that a certain behavior has occurred.
+        
+    This function extracts these distances for one specific sample.
+
+    Parameters
+    ----------
+    path : pandas.Series
+      A pandas series with :math:`(N_{agents})` entries,
+      where each entry is itself a numpy array of shape :math:`\{N_{preds} \times |t| \times 2 \}`.
+      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths.
+    t : numpy.ndarray
+      A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+      at which the positions in **path** were recorded.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample. Its entries contain at least all the columns of **self.Domain_old**. 
+
+    Returns
+    -------
+    Dist : pandas.Series
+      This is a series with :math:`N_{classes}` entries.
+      For each column, it returns an array of shape :math:`\{N_{preds} \times |t|\}` with the distance to the classification marker.
+      The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+      How those distances are defined depends on the scenario and behavior.
+    '''
+
+    ...
+
+    return Dist
+```
+It has to be pointed out that in this case, the input **path** provides trajectories in a three-dimensional array, to account for the possibility that in a certain scenario,
+multiple predictions ($N_{preds}$) are made at once. This will not be the case for the following two functions, as they are only applied to ground truth trajectories and not predictions.
+
+The second function then is needed for cases, where some classifications are only possible under distinct conditions. For example, on a highway in a country with right-hand traffic, a target agent would only be in a position to cut in front of an ego agent trying to overtake them if they are one lane further to the right of them. The following function can then indicate for each time point in a given set of trajectories if those conditions are actually fulfilled.
+```
+  def evaluate_scenario(self, path, D_class, domain):
+    r'''
+    It might be that the given scenario requires all agents to be in certain positions so that
+    it can be considered that the scenario is indeed there. This function makes that evaluation.
+
+    This function tests this for one specific sample.
+
+    Parameters
+    ----------
+    path : pandas.Series
+      A pandas series with :math:`(N_{agents})` entries,
+      where each entry is itself a numpy array of lenght :math:`\{|t| \times 2 \}`.
+      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths.
+    D_class : pandas.Series
+      This is a series with :math:`N_{classes}` entries.
+      For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
+      The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+      How those distances are defined depends on the scenario and behavior.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample. Its entries contain at least all the columns of **self.Domain_old**. 
+
+    Returns
+    -------
+    in_position : numpy.ndarray
+      This is a :math:`|t|` dimensional boolean array, which is true if all agents are
+      in a position where the scenario is valid.
+    '''
+
+    ...
+
+    return in_position
+```
+
+
+
+
+If the specific dataset does not provide for classifications, then those functions can be set to *return None*. The only exception here is evaluate_scenario(), which can still be used to return a boolean array if one wants to exclude certain possible situations from the dataset.
+
 
 ## Filling empty paths
 ...
@@ -232,5 +315,7 @@ However, providing at least some orientation in forms such as lane markers might
   '''
 
   ...
+
+  return lines_solid, lines_dashed
 
 ```
