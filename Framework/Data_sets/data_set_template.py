@@ -1526,10 +1526,10 @@ class data_set_template():
 
     def set_scenario(self):
         r'''
-        Sets the type of scenario to which this dataset belongs, using an imported class.
+        Sets the scenario <scenario_class> to which this dataset belongs, using an imported class.
         
         It should contain the command:
-            self.scenario = scenario_class()
+            self.scenario = <scenario_class>()
             
         Furthermore, if general information about the dataset is needed for later steps - 
         and not only the extraction of the data from its original recorded form - those 
