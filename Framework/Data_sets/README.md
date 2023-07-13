@@ -121,4 +121,37 @@ It has to be noted that this function is the only one that is called always at t
 ...
 
 ## Providing visulaization
-...
+One important aspect of the framework is its ability to visualize ground truth and predicted trajectories. While it would be possible to just display these, putting them on a background might help with better understanding and easier analysis. While for datasets with images, those images can be taken as a background, it must be noted that those might not always be available. 
+
+However, providing at least some orientation in forms such as lane markers might still be beneficial. Consequently, the following function allows one to add solid and dashed lines to such depection, on top of which the trajectories are then plotted.
+```
+ def provide_map_drawing(self, domain):
+   r'''
+   For the visualization feature of the framework, a background picture is desirable. However, such an
+   image might not be available, or it might be beneficial to highlight certain features. In that case,
+   one can provide additional lines (either dashed or solid) to be drawn (if needed on top of images),
+   that allow greater context for the depicted scenario.
+        
+   Parameters
+   ----------
+   domain : pandas.Series
+     A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+     sample. Its entries contain at least all the columns of **self.Domain_old**. 
+
+   Returns
+   -------
+   lines_solid : list
+     This is a list of numpy arrays, where each numpy array represents on line to be drawn. 
+     Each array is of the shape :math:`\{N_{points} \times 2 \}`, where the positions of the 
+     points are given in the same coordinate frame as the positions in **self.Path**. The lines
+     connecting those points will be solid.
+            
+   lines_dashed : list
+     This is identical in its form to **lines_solid**, however, the depicted points will be 
+     connected by dashed lines.
+            
+ '''
+
+ ...
+
+```
