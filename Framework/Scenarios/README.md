@@ -4,14 +4,14 @@ types of classifiable behavior, such as accepting or rejecting a gap in a gap ac
 
 ## Setting up the class
 
-This scenario_name class (defined in the scenaro_name.py file) begins in the following way:
+This <scenario_class> class (defined in the <scenario_class>.py file) begins in the following way:
 ```
-class scenario_name(data_set_template):
+class <scenario_class>():
   def __init__():
     pass
 
   def get_name(self = None) -> str:
-    return 'Scenario name'
+    return '<Scenario name>'
 
   ...
 ```
@@ -23,19 +23,18 @@ This class then needs to possess a number of prenamed methods via which it inter
 Firstly, the class needs to define the potential behaviors that might be observed in this scenario:
 ```
   def give_classifications(self = None) -> dict:
-    Class = {'Behavior_0': 0,
-             'Behavior_1': 1,
+    Class = {'<Behavior_0>': 0,
+             '<Behavior_1>': 1,
              ...
             }
     return Class
 ```
-Here, 'Behavior_i' are the string keys, which describe certain classifiable behaviors.
+Here, '<Behavior_i>' are the string keys, which describe certain classifiable behaviors.
 
-In some cases, it might be the case that none of the criteria (defined in a specific [dataset](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets)) are fulfilled to classify a number of trajectories into a certain behavior,
-we also need to define a default behavior for such cases:
+In some cases, it might be the case that none of the criteria to classify a number of trajectories into a certain behavior (defined in a specific [dataset](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets)) are fulfilled, for which we also need to define a default behavior <Behavior_default> for such cases:
 ```
   def give_default_classification(self = None) -> str:
-    return 'behavior_default'
+    return '<Behavior_default>'
 ```
 It is important to note here that the returned string needs to be one of the keys of the dictionary produced by self.give_classifications().
 
@@ -45,23 +44,22 @@ the ego vehicle offering the gap and the target vehicle which has to either acce
 The names of those roles then have to be communicated to the Framework:
 ```
   def classifying_agents(self = None) -> list[str,]:
-    return ['v_1', 'v_2']
+    return ['<v_1>', '<v_2>']
 
   def pov_agent(self = None) -> str:
-    return 'ego'
+    return '<v_pov>'
 ```
-Here, the function self.classifying_agents() returns the list of those agents. However, it needs to be noted that there might be an agent from whose point of view and for whose benefit a prediction is made,
-and for which extra information such as planned paths might be feasibly available.
-In this case, such an agent is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, self.pov_agent() will instead return None.
+Here, the function self.classifying_agents() returns the list of those agents <v_i>. However, it needs to be noted that there might be an agent <v_pov> from whose point of view and for whose benefit a prediction is made, and for which extra information such as planned paths might be feasibly available.
+In this case, such an agent <v_pov> is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, self.pov_agent() will instead return None.
 
 ## Generalized inputs
 Some scenarios require the provision of certain one-dimensional information, which might be used as additional model inputs, such as the size of the contested space in gap acceptance scenarios.
 To this end, the following function is used:
 ```
   def can_provide_general_input(self = None) -> list[str,]:
-    return ['I_1', 'I_2']
+    return ['<I_1>', '<I_2>']
 ```
-Here, I_i are the string names of the information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
+Here, <I_i> are the string names of the information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
 
 ## Define safe actions
 Another important aspect of the framework is its ability to classify predictions as still useful, e.g., if an agent could still react upon those predictions and change their behavior in a safe manner. 
@@ -87,11 +85,11 @@ Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the d
       The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
       How those distances are defined depends on the scenario and behavior.
     t_D_class : pandas.Series
-      A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, corresponds to the potential behavior
+      A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, correspond to the potential behavior
       in the scenario. Here, each entry is itself a numpy array of lenght :math:`|t|`, which contains the projected time until
       the trajectories of the agents can be classified as that behavior.
     data_set : Dataset class
-      This is the instance of the dataset class which called this function.
+      This is the instance of the <dataset_name> class that called this function.
     path : pandas.Series
       A pandas series with :math:`(N_{agents})` entries,
       where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
