@@ -34,7 +34,7 @@ class dataset_name(data_set_template):
 ```
 
 Here, the get_name() function creates a dictionary with three keys, the value of each must be a string. The first key is 'print', which will be primarily used to refer to the dataset in console outputs.
-Meanwhile, the 'file' has to be a string with exactly 10 characters, that does not include any folder separators (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. Finally, the 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - such as using '$$' for math notation.  
+Meanwhile, the 'file' has to be a string with exactly **10 characters**, that does not include any folder separators (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. Finally, the 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - such as using '$$' for math notation.  
 
 For this class, a number of other prenamed methods then need to be defined as well, via which the dataset interacts with the rest of the framework.
 
