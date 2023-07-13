@@ -320,7 +320,7 @@ If the specific dataset does not provide for classifications, then those functio
 ## Filling empty paths
 As mentioned in a previous [chapter](#importing-the-raw-data), it is possible that some of the trajectories provided to the models might contain np.nan positions, which for some models might be problematic. Consequently, we might need a function that for a given sample fill up those missing position with extrapolated data (although those might be deleted later if such a setting is chosen). However, it has to be noted that not doing this will not cause an error by the framework, but will possibly limit the number of models available or require the adjustment of such models.
 
-Besides filling in missing positions in provided trajectories, it might also be possible to add further agents to the situation, which might not have been included in the scenario yet. However, it should be made sure that those agents are actually present in the scene during the timesteps used as model input. Generally, in a carefully thought-out dataset class, all agents should have been added during *self.create_path_samples* already.
+Besides filling in missing positions in provided trajectories, it might also be possible to add further agents to the situation, which might not have been included in the scenario yet. However, it should be made sure that those agents are actually present in the scene during the timesteps used as model input. Generally, in a carefully thought-out dataset class, all agents should have been added during *self.create_path_samples()* already.
 
 ```
   def fill_empty_path(self, path, t, domain, agent_types):
