@@ -56,7 +56,8 @@ class data_interface(object):
         self.num_samples_path_pred    = parameters[1]
         self.enforce_prediction_times = parameters[3]
         self.exclude_post_crit        = parameters[4]
-        self.overwrite_results        = parameters[5]
+        self.allow_extrapolation      = parameters[5]
+        self.overwrite_results        = parameters[6]
         
         # Get scenario
         scenario_names = []
@@ -125,8 +126,6 @@ class data_interface(object):
          self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
         (self.num_timesteps_out_real, 
          self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
-        
-        self.exclude_post_crit = list(self.Datasets.values())[0].exclude_post_crit
         
         if self.enforce_prediction_times:
             t0_type_name_addon = '_s'

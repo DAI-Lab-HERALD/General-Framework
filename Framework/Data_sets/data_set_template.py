@@ -72,6 +72,8 @@ class data_set_template():
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
         
+        self.allow_extrapolation = True
+        
         
 
     def load_raw_data(self):
@@ -871,8 +873,24 @@ class data_set_template():
                     output_T_pred = output_T_pred - t0
                     output_T_E = output_T_E - t0
                     
+                    # Save information abut missing positions to overwrite them back later if needed
+                    missing_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                    
+                    for agent in helper_path.index:
+                        if not isinstance(helper_path[agent], float):
+                            available_pos = np.isfinite(helper_path[agent]).all(-1)
+                            assert available_pos.sum() > 1 
+                            
+                            ind_start = np.where(available_pos)[0][0]
+                            ind_last = np.where(available_pos)[0][-1]
+                            
+                            available_pos[ind_start:ind_last] = True
+                            
+                            missing_positions[agent] = ~available_pos
+                        else:
+                            missing_positions[agent] = np.nan
+                    
                     # Combine input and output data
-                    helper_path = pd.Series(np.empty(len(path.index), object), index=path.index)
                     helper_T = np.concatenate([input_T, output_T])
                     
                     # complete partially available paths
@@ -888,6 +906,10 @@ class data_set_template():
                     output_path = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
                     for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
+                            # Reset extrapolated data if necessary
+                            if not self.allow_extrapolation:
+                                helper_path[agent]
+                            
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :]
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :]
                         else:

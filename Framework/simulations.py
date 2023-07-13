@@ -9,7 +9,7 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'RounD_round_about', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'Forking_Paths_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (25, 25)}] 
@@ -42,6 +42,9 @@ enforce_num_timesteps_out = False
 # should be exclude from the dataset
 exclude_post_crit = True
 
+# Decide wether missing position in trajectory data can be extrapolated
+allow_extrapolation = True
+
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = False
 
@@ -50,7 +53,7 @@ model_for_path_transform = 'trajectron_salzmann'
 
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
-                              exclude_post_crit, overwrite_results)
+                              exclude_post_crit, allow_extrapolation, overwrite_results)
 
 #%% Run experiment
 new_experiment.run()                  
@@ -61,4 +64,4 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_loss = True)
 
 # new_experiment.draw_figure(include_only_mean = False)
-# new_experiment.write_tables()
+# new_experiment.write_ta

@@ -124,6 +124,7 @@ class Experiment():
                        enforce_num_timesteps_out = False, 
                        enforce_prediction_times = True, 
                        exclude_post_crit = True,
+                       allow_extrapolation = True,
                        overwrite_results = False):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
@@ -134,19 +135,21 @@ class Experiment():
             raise TypeError("The chosen model does not predict trajectories.")
 
         # Set the number of paths that a trajectory prediction model has to predict
-        assert type(num_samples_path_pred) == type(0), "num_samples_path_pred should be an integer."
+        assert isinstance(num_samples_path_pred, int), "num_samples_path_pred should be an integer."
         
-        assert type(enforce_num_timesteps_out) == type(True), "num_samples_path_pred should be a boolean."
+        assert isinstance(enforce_num_timesteps_out, bool), "enforce_num_timesteps_out should be a boolean."
         
-        assert type(enforce_prediction_times) == type(True), "num_samples_path_pred should be a boolean."
+        assert isinstance(enforce_prediction_times, bool), "enforce_prediction_times should be a boolean."
         
-        assert type(exclude_post_crit) == type(True), "num_samples_path_pred should be a boolean."
+        assert isinstance(exclude_post_crit, bool), "exclude_post_crit should be a boolean."
         
-        assert type(overwrite_results) == type(True), "num_samples_path_pred should be a boolean."
+        assert isinstance(allow_extrapolation, bool), "allow_extrapolation should be a boolean."
+        
+        assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         
         self.parameters = [model_class_to_path, num_samples_path_pred, 
                            enforce_num_timesteps_out, enforce_prediction_times, 
-                           exclude_post_crit, overwrite_results]
+                           exclude_post_crit, allow_extrapolation, overwrite_results]
         
         self.provided_setting = True
     
