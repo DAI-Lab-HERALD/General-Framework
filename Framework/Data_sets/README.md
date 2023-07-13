@@ -34,7 +34,7 @@ class <dataset_name>(data_set_template):
     ...
 ```
 
-Here, the get_name() function creates a dictionary with three keys, the value of each must be a string. The first key is 'print', which will be primarily used to refer to the dataset in console outputs.
+Here, the *get_name()* function creates a dictionary with three keys, the value of each must be a string. The first key is 'print', which will be primarily used to refer to the dataset in console outputs.
 Meanwhile, the 'file' has to be a string with exactly **10 characters**, that does not include any folder separators (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. Finally, the 'latex' key string is used in automatically generated tables and figures for latex, and can include latex commands - such as using '$$' for math notation.  
 
 For this class, a number of other prenamed methods need to be defined as well, via which the dataset interacts with the rest of the framework.
@@ -235,7 +235,7 @@ While not necessary in all datasets, in some, being able to classify the interac
     return Dist
 ```
 It has to be pointed out that in this case, the input **path** provides trajectories in a three-dimensional array, to account for the possibility that in a certain scenario,
-multiple predictions ($N_{preds}$) are made at once. This will not be the case for the following two functions, as they are only applied to ground truth trajectories and not predictions.
+multiple predictions ($N_{preds}$) are made at once. This will not be the case for the following two functions, as they are only applied to ground truth trajectories and not predictions, so one should be careful when indexing arrays.
 
 The second function then is needed for cases, where some classifications are only possible under distinct conditions. For example, on a highway in a country with right-hand traffic, a target agent would only be in a position to cut in front of an ego agent trying to overtake them if they are one lane further to the right of them. The following function can then indicate for each time point in a given set of trajectories if those conditions are actually fulfilled.
 ```
@@ -274,14 +274,105 @@ The second function then is needed for cases, where some classifications are onl
     return in_position
 ```
 
+Finally, one has to consider the possibilities that there are classification models that cannot handle the trajectories provided. While those models can of course use the distances to the classification criteria as a possible input, further information extracted from the trajectories might be useful. The required outputs are provided by in *self.scenario.can_provide_general_input()*, and if missing, will cause an error. In the aforementioned example of highway lane changing, such information could be the distance at which another vehicle is following the ego vehicle, as the size of the following gap might influence the decision of the target vehicle whether to merge now or later. 
+```
+  def calculate_additional_distances(self, path, t, domain):
+    r'''
+    Some models cannot deal with trajectory data and instead are constrained to quasi-one-dimensional
+    data. While here the main data are the distances to the classification created in self.calculate_distance(),
+    this might be incomplete to fully describe the current situation. Consequently, it might be necessary
+    to extract further characteristic distances.
 
+    This function extracts these distances for one specific sample.
 
+    Parameters
+    ----------
+    path : pandas.Series
+      A pandas series with :math:`(N_{agents})` entries,
+      where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths.
+    t : numpy.ndarray
+      A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+      at which the positions in **path** were recorded.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample. Its entries contain at least all the columns of **self.Domain_old**. 
+
+    Returns
+    -------
+    Dist_other : pandas.Series
+      This is a :math:`N_{other dist}` dimensional Series.
+      For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
+
+      These columns should contain the minimum required distances set in self.scenario.can_provide_general_input().
+      If self.can_provide_general_input() == False, one should return None instead.
+    '''
+
+    ...
+
+    return Dist_other
+```
 
 If the specific dataset does not provide for classifications, then those functions can be set to *return None*. The only exception here is evaluate_scenario(), which can still be used to return a boolean array if one wants to exclude certain possible situations from the dataset.
 
 
 ## Filling empty paths
-...
+As mentioned in a previous [chapter](importing-the-raw-data), it is possible that some of the trajectories provided to the models might contain np.nan positions, which for some models might be problematic. Consequently, we might need a function that for a given sample fill up those missing position with extrapolated data (although those might be deleted later if such a setting is chosen). However, it has to be noted that not doing this will not cause an error by the framework, but will possibly limit the number of models available or require the adjustment of such models.
+
+Besides filling in missing positions in provided trajectories, it might also be possible to add further agents to the situation, which might not have been included in the scenario yet. However, it should be made sure that those agents are actually present in the scene during the timesteps used as model input. Generally, in a carefully thought-out dataset class, all agents should have been added during *self.create_path_samples* already.
+
+```
+  def fill_empty_path(self, path, t, domain, agent_types):
+    r'''
+    After extracting the trajectories of a sample at the given input and output timesteps, it might be possible
+    that an agent's trajectory is only partially recorded over this timespan, resulting in the position values being np.nan
+    at those missing time points. The main cause here is likely that the agent is outside the area over which its position 
+    could be recorded. 
+
+    However, some models might be unable to deal with such missing data. Consequently, it is required to fill those missing 
+    positions with extrapolated data. 
+
+    Additionally, it might be possible that **path** does not contain all the agents which were present during 
+    the *input* timesteps. As those might still be influencing the future behavior of the agents already included in 
+    **path**, they can be added here. Consequntly, math:`N_{agents, full} \geq N_{agents}` will be the case.
+        
+    Parameters
+    ----------
+    path : pandas.Series
+      A pandas series with :math:`(N_{agents})` entries,
+      where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths.
+    t : numpy.ndarray
+      A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+      at which the positions in **path** were recorded.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample. Its entries contain at least all the columns of **self.Domain_old**. 
+    agent_types : pandas.Series 
+      A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
+      sample. The columns should correspond to the columns in **self.Type_old** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths. Consequently, the 
+      column names are identical to those of **path**.
+
+    Returns
+    -------
+    path_full : pandas.Series
+      A pandas series with :math:`(N_{agents, full})` entries,
+      where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+      All columns of **path** should be included here. For those agents where trajectories are recorded, those trajectories 
+      can also no longer contain np.nan as a position value.
+    agent_types_full : pandas.Series 
+      A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
+      sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
+    '''
+
+    ...
+
+    return path_full, agent_types_full
+```
+
 
 ## Providing visulaization
 One important aspect of the framework is its ability to visualize ground truth and predicted trajectories. While it would be possible to just display these, putting them on a background might help with better understanding and easier analysis. While for datasets with images, those images can be taken as a background, it must be noted that those might not always be available. 
