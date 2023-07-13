@@ -8,12 +8,28 @@ This class, and by it the dataset, interact with the other parts of the Framewor
 from data_set_template import data_set_template
 
 class dataset_name(data_set_template):
-  def get_name(self = None) -> dict:
-    names = {'print': 'Dataset name',
-             'file': 'dataset_nm',
-             'latex': r'\emph{Dataset} name'}
-    return names
+ def get_name(self = None):
+  r'''
+  Provides a dictionary with the different names of the dataset
+        
+  Returns
+  -------
+  names : dict
+    The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
+            
+    The 'file' key has to be a string with exactly **10 characters**, that does not include any folder separators 
+    (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
+            
+    The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+    latex commands - such as using '$$' for math notation.
+        
+  '''
 
+  names = {'print': 'Dataset name',
+           'file': 'dataset_nm',
+           'latex': r'\emph{Dataset} name'}
+
+  return names
   ...
 ```
 
@@ -26,8 +42,21 @@ For this class, a number of other prenamed methods then need to be defined as we
 Firstly, one has to define what type of data types this class will be able to create:
 
 ```
-  def future_input(self = None) -> bool:
-    return False
+  def future_input(self = None):
+    r'''
+    return True: The future data of the pov agent can be used as input.
+    This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
+    making the recorded future data similar to the ego agent's planned path at each point in time.
+        
+    return False: This usage of future ego agent's trajectories as model input is prevented. This is especially advisable
+    if the behavior of the vehicle might include too many clues for a prediction model to use.
+        
+    Returns
+    -------
+    future_input_decision : bool
+        
+    '''
+    return future_input_decision
 ```
 This function defines whether for this dataset the recorded future trajectory of a designated ego agent can be used as a stand-in 
 for the planned future trajectory of this agent at each point in time (return True) or not (return False).
@@ -37,8 +66,18 @@ is tightly controlled (for example, its motion is set by a very simple algorithm
 clues about the actual future events about to happen.
 
 ```    
-  def includes_images(self = None) -> bool:
-    return True
+  def includes_images(self = None):
+    r'''
+    If True, then image data can be returned (if true, .image_id has to be a column of 
+    **self.Domain_old** to indicate which of the saved images is linked to which sample).
+    If False, then no image data is provided, and models have to content without them.
+        
+    Returns
+    -------
+    image_decision : bool
+        
+    '''
+    return image_decision
 ```
 The second datatype function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
 
@@ -54,12 +93,23 @@ class dataset_name(data_set_template):
   ...
 
   def set_scenario(self):
+    r'''
+    Sets the type of scenario to which this dataset belongs, using an imported class.
+            
+    Furthermore, if general information about the dataset is needed for later steps - 
+    and not only the extraction of the data from its original recorded form - those 
+    can be defined here. For example, certain distance measurements such as the radius 
+    of a roundabout might be needed here.
+    '''
+
     self.scenario = scenario_class()
+
+    ...
 ```
 
 Here, the scenario_class has to be selected from those available in the [Scenario folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios), where its required properties are discussed in more detail. 
 
-It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires for example any additional attributes, those should be set here.
+It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires for example any additional attributes (for example such as the radius of roundabouts at each possible location), those should be set here.
 
 ## Creating initial paths
 ...
