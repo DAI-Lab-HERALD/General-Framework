@@ -85,7 +85,7 @@ Here, $\Delta t_{default}(t)$ (included as an input of this function in the corr
       The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
       How those distances are defined depends on the scenario and behavior.
     t_D_class : pandas.Series
-      A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, correspond to the potential behavior
+      A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, correspond to the possible behaviors
       in the scenario. Here, each entry is itself a numpy array of lenght :math:`|t|`, which contains the projected time until
       the trajectories of the agents can be classified as that behavior.
     data_set : Dataset class
