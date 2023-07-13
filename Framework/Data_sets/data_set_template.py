@@ -11,6 +11,7 @@ class data_set_template():
                  enforce_num_timesteps_out = True, 
                  enforce_prediction_times = False, 
                  exclude_post_crit = True,
+                 allow_extrapolation = True,
                  overwrite_results = False):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
@@ -68,11 +69,11 @@ class data_set_template():
         self.enforce_prediction_times  = enforce_prediction_times
         self.exclude_post_crit         = exclude_post_crit
         self.overwrite_results         = overwrite_results
+        self.allow_extrapolation       = allow_extrapolation
 
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
         
-        self.allow_extrapolation = True
         
         
 
@@ -908,7 +909,7 @@ class data_set_template():
                         if not isinstance(helper_path[agent], float):
                             # Reset extrapolated data if necessary
                             if not self.allow_extrapolation:
-                                helper_path[agent]
+                                helper_path[agent][missing_positions[agent]] = np.nan
                             
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :]
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :]
