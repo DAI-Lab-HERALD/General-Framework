@@ -3,11 +3,11 @@ One can easily add a new dataset to the Framework, by implementing this dataset 
 
 ## Setting up the class
 
-This class, and by it the dataset, interact with the other parts of the Framework using the [data_set_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Therefore, the new dataset_name.py file with the class dataset_name (it is important that those two are the same strings so that the Framework can recognize the dataset) begins in the following way:
+This class, and by it the dataset, interact with the other parts of the Framework using the [data_set_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Therefore, the new <dataset_name>.py file with the class <dataset_name> (it is important that those two are the same strings so that the Framework can recognize the dataset) begins in the following way:
 ```
 from data_set_template import data_set_template
 
-class dataset_name(data_set_template):
+class <dataset_name>(data_set_template):
  def get_name(self = None):
   r'''
   Provides a dictionary with the different names of the dataset
@@ -25,9 +25,9 @@ class dataset_name(data_set_template):
         
   '''
 
-  names = {'print': 'Dataset name',
-           'file': 'dataset_nm',
-           'latex': r'\emph{Dataset} name'}
+  names = {'print': '<Dataset name>',
+           'file': '<dataname>',
+           'latex': r'<\emph{Dataset} name>'}
 
   return names
   ...
@@ -38,8 +38,8 @@ Meanwhile, the 'file' has to be a string with exactly **10 characters**, that do
 
 For this class, a number of other prenamed methods need to be defined as well, via which the dataset interacts with the rest of the framework.
 
-## Define the data types
-Firstly, one has to define what data types this class will be able to create:
+## Set the scope of available data
+Firstly, one has to define what data this class will be able to create:
 
 ```
   def future_input(self = None):
@@ -79,22 +79,22 @@ clues about the actual future events about to happen.
     '''
     return image_decision
 ```
-The second datatype function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
+The second function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
 
 
-## Setting the scenario type
-Next, the scenario that the dataset covers has to be set:
+## Setting the scenario
+Next, the scenario <scenario_class> that the dataset covers has to be set:
 ```
 ...
-from scenario_class import scenario_class
+from <scenario_class> import <scenario_class>
 
-class dataset_name(data_set_template):
+class <dataset_name>(data_set_template):
 
   ...
 
   def set_scenario(self):
     r'''
-    Sets the type of scenario to which this dataset belongs, using an imported class.
+    Sets the scenario to which this dataset belongs, using an imported class.
             
     Furthermore, if general information about the dataset is needed for later steps - 
     and not only the extraction of the data from its original recorded form - those 
@@ -102,12 +102,12 @@ class dataset_name(data_set_template):
     of a roundabout might be needed here.
     '''
 
-    self.scenario = scenario_class()
+    self.scenario = <scenario_class>()
 
     ...
 ```
 
-Here, the scenario_class has to be selected from those available in the [Scenario folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios), where its required properties are discussed in more detail. 
+Here, the <scenario_class> has to be selected from those available in the [Scenario folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios), where its required properties are discussed in more detail. 
 
 It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires for example any additional attributes (for example such as the radius of roundabouts at each possible location), those should be set here.
 
