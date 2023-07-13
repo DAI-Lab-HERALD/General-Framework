@@ -72,7 +72,7 @@ In the context of the framework, we then define the point in time, where the swi
 
 $$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) = 0 $$
 
-Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled, which is calculated by the [dataset.calculate_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Meanwhile, $\Delta t_{useful}(t)$ is defined in the following scenario bound function, where it corresponds to the variable ***t_safe_action***:
+Here, $\Delta t_{default}(t)$ (included as an input of this function in the corresponding column of **t_D_class**) is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled, which is calculated by the [dataset.calculate_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Meanwhile, $\Delta t_{useful}(t)$ is defined in the following scenario bound function, where it corresponds to the variable ***t_safe_action***:
 
 ```
   def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain) -> np.ndarray:
