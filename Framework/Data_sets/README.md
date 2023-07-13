@@ -140,9 +140,9 @@ The most important part of the dataset module is to provide access to training a
       self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
     **self.Type_old**
-      A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical
-      to the column names of **self.Path**. Each corresponding entry contains the type of the agent whose 
-      path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
+      A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are
+      identical to the column names of **self.Path**. Each corresponding entry contains the type of the agent
+      whose path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
       while a "P" stands for a pedestrian.
             
     **self.T**
@@ -158,8 +158,8 @@ The most important part of the dataset module is to provide access to training a
       originated from, as might be used later to extract surrounding agents from this raw data.
                 
     **self.num_samples**
-      A scalar integer value, which gives the number of samples :math:`N_{samples}`. 
-      It should be noted that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
+      A scalar integer value, which gives the number of samples :math:`N_{samples}`. It should be noted 
+      that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
     It might be possible that the selected dataset can provide images. In this case, it is
     paramount that **self.Domain_old** entails a column named 'image_id', so that images can
@@ -173,7 +173,8 @@ The most important part of the dataset module is to provide access to training a
       The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
       :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
       padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-      position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left corner of the image. 
+      position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left
+      corner of the image. 
                 
       If this is not the case, due to some translation and subsequent rotation 
       of the recoded positions, the corresponding information has to be recorded in columns of 
