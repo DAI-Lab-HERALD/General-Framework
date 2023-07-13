@@ -1747,14 +1747,15 @@ class data_set_template():
             A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
             sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def provide_map_drawing(self, domain):
         r'''
-        Provides the line information needed for the drawing of the predicted paths
-        and the corresponding analysis
-        return lines_solid, lines_dashed
-        (???)
+        For the visulaization feature of the framework, a background picture is desirable. However, such an
+        image might not be available, or it might be beneficial to highlight certain features. In that case,
+        one can provide additional lines (either dashed or solid) to be drawn (if needed on top of images),
+        that allow greater context for the depicted scenario.
+        
         Parameters
         ----------
         domain : pandas.Series
@@ -1764,28 +1765,39 @@ class data_set_template():
         Returns
         -------
         lines_solid : list
+            This is a list of numpy arrays, where each numpy array represents on line to be drawn. 
+            Each array is of the shape :math:`\{N_{points} \times 2 \}`, where the positions of the 
+            points are given in the same coordinate frame as the positions in **self.Path**. The lines
+            connecting those points will be solid.
             
         lines_dashed : list
+            This is identical in its form to **lines_solid**, however, the depicted points will be 
+            connected by dahed lines.
             
         '''
-        raise AttributeError("Has to be overridden in actual data-set class")
+        raise AttributeError("Has to be overridden in actual data-set class.")
 
-    def get_name(self=None) -> dict:
+    def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the dataset:
+            
         names = {'print': 'printable_name', 'file': 'files_name', 'latex': r'latex_name'}.
         
-        The first key 'print'  will be primarily used to refer to the dataset in console outputs. 
+        Returns
+        -------
+        names : dict
+            The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
+            
+            The 'file' key has to be a string with exactly **10 characters**, that does not include any folder separators 
+            (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
+            
+            The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+            latex commands - such as using '$$' for math notation.
         
-        The 'file' key has to be a string with exactly 10 characters, that does not include any folder separators (for any operating system), 
-        as it is mostly used to indicate that certain result files belong to this dataset. 
-        
-        The 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - 
-        such as using '$$' for math notation.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
-    def future_input(self=None) -> bool:
+    def future_input(self = None):
         r'''
         return True: The future data of the pov agent can be used as input.
         This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
@@ -1793,12 +1805,24 @@ class data_set_template():
         
         return False: This usage of future ego agents trajectories as model input is prevented. This is especially advisable
         if the behavior of the vehicle might include too many clues for a prediction model to use.
-        '''
-        raise AttributeError("Has to be overridden in actual data-set class")
         
-    def includes_images(self = None) -> bool:
-        r'''
-        If True, then image data can be returned (if true, location has to be a column of domain) (??? and **self.Domain_old**)
+        Returns
+        -------
+        future_input_decision : bool
+        
         '''
-        raise AttributeError("Has to be overridden in actual data-set class")
+        raise AttributeError("Has to be overridden in actual data-set class.")
+        
+    def includes_images(self = None):
+        r'''
+        If True, then image data can be returned (if true, .image_id has to be a column of 
+        **self.Domain_old** to indicate which of the saved images is linked to which sample).
+        If Fqlse, then no image data is provided, and models have to content without them.
+        
+        Returns
+        -------
+        image_decision : bool
+        
+        '''
+        raise AttributeError("Has to be overridden in actual data-set class.")
         
