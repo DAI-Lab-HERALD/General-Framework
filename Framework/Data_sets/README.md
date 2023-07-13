@@ -130,10 +130,12 @@ The most important part of the dataset module is to provide access to training a
       It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
       sample overall recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
       the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
-      aforementioned numpy array.
+      aforementioned numpy array. It is also possible that positional data for an agent is only available
+      at parts of the required time points, in which cases, the missing positions should be filled up with
+      (np.nan, np.nan).
                 
       The name of each column corresponds to the name of the corresponding
-      agent whose trajectory is covered. The name of such agents are relevant, as the selected scenario requires 
+      agent whose trajectory is covered. The name of such agents is relevant, as the selected scenario requires 
       some agents with a specific name to be present. The names of those relevant agents can be found in 
       self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
@@ -167,7 +169,7 @@ The most important part of the dataset module is to provide access to training a
     **self.Images**
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 2\}`.
       In the first column, named 'Image', the images for each location are saved. It is paramount that the 
-      indices of this DataFrame are equivalent to the unique values found in **self.Domain_old**.image_id. 
+      indices of this DataFrame are equivalent to the unique values found in **self.Domain_old**['image_id']. 
       The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
       :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
       padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
@@ -188,6 +190,7 @@ The most important part of the dataset module is to provide access to training a
 ```
 
 While the format of the original raw dataset might vary widely, the unified format required by the framework is clearly defined.
+It has to be noted that the framework will check if the provided attributes actually fulfill the format defined above, and will try to give feedback if this is not the case.
 
 ## Extracting classifiable behavior
 ... (This will be three functions)
