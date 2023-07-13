@@ -74,7 +74,7 @@ In the context of the framework, we then define the point in time, where the swi
 
 $$ \Delta t_{default}(t_{crit}) - \Delta t_{useful} (t_{crit}) = 0 $$
 
-Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled, which is calculated by the [dataset.calculate_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Meanwhile, $\Delta t_{useful}(t)$ is defined in the following scenario bound function:
+Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the default behavior ([see above](#define-classifiable-behaviors)) is fulfilled, which is calculated by the [dataset.calculate_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Meanwhile, $\Delta t_{useful}(t)$ is defined in the following scenario bound function, where it corresponds to the variable ***t_safe_action***:
 
 ```
   def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain) -> np.ndarray:
@@ -82,18 +82,32 @@ Here, $\Delta t_{default}(t)$ is the projected time until the criteria for the d
     Parameters
     ----------
     D_class : pandas.Series
-      A pandas series of :math:`N_{classes}` dimensions,
-      where each entry is itself a numpy array of lenght :math:`|t|`, 
-      and provides the distance to classification.
+      This is a series with :math:`N_{classes}` entries.
+      For each column, it returns an array of length :math:`|t|` with the distance to the classification marker.
+      The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+      How those distances are defined depends on the scenario and behavior.
     t_D_class : pandas.Series
-      A pandas series of :math:`N_{classes}` dimensions,
-      where each entry is itself a numpy array of lenght :math:`|t|`, 
-      and provides the time to classification.
+      A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, corresponds to the potential behavior
+      in the scenario. Here, each entry is itself a numpy array of lenght :math:`|t|`, which contains the projected time until
+      the trajectories of the agents can be classified as that behavior.
+    data_set : Dataset class
+      This is the instance of the dataset class which called this function.
+    path : pandas.Series
+      A pandas series with :math:`(N_{agents})` entries,
+      where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
+      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      and should include at least the relevant agents described in self.create_sample_paths.
+    t : numpy.ndarray
+      A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
+      at which the positions in **path** were recorded.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample. Its entries contain at least all the columns of **self.Domain_old**. 
 
     Returns
     -------
     t_safe_action : numpy.ndarray
-      This is a :math:`|t|` dimensioanl boolean array.
+      This is a :math:`|t|` dimensional boolean array.
   '''
 
   ...

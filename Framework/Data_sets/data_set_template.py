@@ -1549,7 +1549,7 @@ class data_set_template():
                 Here, each row :math:`i` represents one recorded sample, while each column includes the 
                 trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
                 It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
-                sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
+                sample overall recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
                 the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
                 aforementioned numpy array.
                 
@@ -1570,9 +1570,9 @@ class data_set_template():
                 
             **self.Domain_old**
                 A pandas array of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
-                In this dataframe, one can collect any ancilliary metadata that might be needed
+                In this dataframe, one can collect any ancillary metadata that might be needed
                 in the future. An example might be the location at which a sample was recorded
-                or the subject id involved, which might be needed later to construct training
+                or the subject id involved, which might be needed later to construct the training
                 and testing set. Another useful idea might be to record the place in the raw data the sample
                 originated from, as might be used later to extract surrounding agents from this raw data.
                 
@@ -1591,13 +1591,13 @@ class data_set_template():
                 The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
                 :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
                 padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-                position (0,0) recorderd in the trajectories in **self.Path** corresponds to the upper left corner of image. 
+                position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left corner of the image. 
                 
                 If this is not the case, due to some translation and subsequent rotation 
                 of the recoded positions, the corresponding information has to be recorded in columns of 
                 **self.Domain_old**, where the columns 'x_center' and 'y_center' record the position in the 
-                original cordinate system at which the current origin (0,0) now lies, and 'rot_angle' is 
-                the angle by which the coordinate system was rotated afterwards in clockwise direction.
+                original coordinate system at which the current origin (0,0) now lies, and 'rot_angle' is 
+                the angle by which the coordinate system was rotated afterward clockwise.
 
                 The second column of the dataframe, named 'Target_MeterPerPx', contains a scalar float value
                 that gives us the scaling of the images in the unit :math:`m /` Px. 
@@ -1608,9 +1608,9 @@ class data_set_template():
         r'''
         If the chosen scenario contains a number of possible behaviors, as which recorded or
         predicted trajectories might be classified, this function calculates the abridged distance of the 
-        relevant agents in a scenario towards fulfilling each of the possible classification criteria. 
+        relevant agents in a scenario toward fulfilling each of the possible classification criteria. 
         If the classification criterium is not yet fulfilled, those distances are positive, while them being negative 
-        means that a certain behaviour has occurred.
+        means that a certain behavior has occurred.
         
         This function extracts these distances for one specific sample.
 
@@ -1633,14 +1633,14 @@ class data_set_template():
         Dist : pandas.Series
             This is a series with :math:`N_{classes}` entries.
             For each column, it returns an array of shape :math:`\{N_{preds} \times |t|\}` with the distance to the classification marker.
-            The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
-            How those distances are defined dependes on the scenario and behavior.
+            The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+            How those distances are defined depends on the scenario and behavior.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
     def evaluate_scenario(self, path, D_class, domain):
         r'''
-        It might be that the given scenario requires all agents to be in certain positions, so that
+        It might be that the given scenario requires all agents to be in certain positions so that
         it can be considered that the scenario is indeed there. This function makes that evaluation.
 
         This function tests this for one specific sample.
@@ -1655,8 +1655,8 @@ class data_set_template():
         D_class : pandas.Series
             This is a series with :math:`N_{classes}` entries.
             For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
-            The column names shoud correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
-            How those distances are defined dependes on the scenario and behavior.
+            The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
+            How those distances are defined depends on the scenario and behavior.
         domain : pandas.Series
             A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
             sample. Its entries contain at least all the columns of **self.Domain_old**. 
@@ -1664,14 +1664,14 @@ class data_set_template():
         Returns
         -------
         in_position : numpy.ndarray
-            This is a :math:`|t|` dimensioanl boolean array, which is true if all agents are
+            This is a :math:`|t|` dimensional boolean array, which is true if all agents are
             in a position where the scenario is valid.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
     def calculate_additional_distances(self, path, t, domain):
         r'''
-        Some models cannot deal with trajectory data, and instead are constrained to quasi-one dimensional
+        Some models cannot deal with trajectory data and instead are constrained to quasi-one-dimensional
         data. While here the main data are the distances to the classification created in self.calculate_distance(),
         this might be incomplete to fully describe the current situation. Consequently, it might be necessary
         to extract further characteristic distances.
@@ -1706,11 +1706,11 @@ class data_set_template():
     def fill_empty_path(self, path, t, domain, agent_types):
         r'''
         After extracting the trajectories of a sample at the given input and output timesteps, it might be possible
-        that an agent's trajectory is only partially recorded over this timespan, resulting in the position values to be np.nan
-        at those missing timepoints. The main cause here is likely that the agent is outside the area over which its position 
+        that an agent's trajectory is only partially recorded over this timespan, resulting in the position values being np.nan
+        at those missing time points. The main cause here is likely that the agent is outside the area over which its position 
         could be recorded. 
 
-        However, some models might be unable to deal with such missing data. Consequntly, it is required to fill those missing 
+        However, some models might be unable to deal with such missing data. Consequently, it is required to fill those missing 
         positions with extrapolated data. 
 
         Additionally, it might be possible that **path** does not contain all the agents which were present during 
@@ -1733,7 +1733,7 @@ class data_set_template():
         agent_types : pandas.Series 
             A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
             sample. The columns should correspond to the columns in **self.Type_old** created in self.create_path_samples()
-            and should include at least the relevant agents described in self.create_sample_paths. Consequently the 
+            and should include at least the relevant agents described in self.create_sample_paths. Consequently, the 
             column names are identical to those of **path**.
 
         Returns
@@ -1747,14 +1747,15 @@ class data_set_template():
             A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
             sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def provide_map_drawing(self, domain):
         r'''
-        Provides the line information needed for the drawing of the predicted paths
-        and the corresponding analysis
-        return lines_solid, lines_dashed
-        (???)
+        For the visualization feature of the framework, a background picture is desirable. However, such an
+        image might not be available, or it might be beneficial to highlight certain features. In that case,
+        one can provide additional lines (either dashed or solid) to be drawn (if needed on top of images),
+        that allow greater context for the depicted scenario.
+        
         Parameters
         ----------
         domain : pandas.Series
@@ -1764,41 +1765,64 @@ class data_set_template():
         Returns
         -------
         lines_solid : list
+            This is a list of numpy arrays, where each numpy array represents on line to be drawn. 
+            Each array is of the shape :math:`\{N_{points} \times 2 \}`, where the positions of the 
+            points are given in the same coordinate frame as the positions in **self.Path**. The lines
+            connecting those points will be solid.
             
         lines_dashed : list
+            This is identical in its form to **lines_solid**, however, the depicted points will be 
+            connected by dashed lines.
             
         '''
-        raise AttributeError("Has to be overridden in actual data-set class")
+        raise AttributeError("Has to be overridden in actual data-set class.")
 
-    def get_name(self=None) -> dict:
+    def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the dataset:
+            
         names = {'print': 'printable_name', 'file': 'files_name', 'latex': r'latex_name'}.
         
-        The first key 'print'  will be primarily used to refer to the dataset in console outputs. 
+        Returns
+        -------
+        names : dict
+            The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
+            
+            The 'file' key has to be a string with exactly **10 characters**, that does not include any folder separators 
+            (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
+            
+            The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+            latex commands - such as using '$$' for math notation.
         
-        The 'file' key has to be a string with exactly 10 characters, that does not include any folder separators (for any operating system), 
-        as it is mostly used to indicate that certain result files belong to this dataset. 
-        
-        The 'latex' key string is used in automatically generated tables and figures for latex, and can there include latex commands - 
-        such as using '$$' for math notation.
         '''
-        raise AttributeError('Has to be overridden in actual data-set class')
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
-    def future_input(self=None) -> bool:
+    def future_input(self = None):
         r'''
         return True: The future data of the pov agent can be used as input.
         This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
-        making the recorded future data similar to the ego agents planned path at each point in time.
+        making the recorded future data similar to the ego agent's planned path at each point in time.
         
-        return False: This usage of future ego agents trajectories as model input is prevented. This is especially advisable
+        return False: This usage of future ego agent's trajectories as model input is prevented. This is especially advisable
         if the behavior of the vehicle might include too many clues for a prediction model to use.
-        '''
-        raise AttributeError("Has to be overridden in actual data-set class")
         
-    def includes_images(self = None) -> bool:
-        r'''
-        If True, then image data can be returned (if true, location has to be a column of domain) (??? and **self.Domain_old**)
+        Returns
+        -------
+        future_input_decision : bool
+        
         '''
-        raise AttributeError("Has to be overridden in actual data-set class")
+        raise AttributeError("Has to be overridden in actual data-set class.")
+        
+    def includes_images(self = None):
+        r'''
+        If True, then image data can be returned (if true, .image_id has to be a column of 
+        **self.Domain_old** to indicate which of the saved images is linked to which sample).
+        If False, then no image data is provided, and models have to content without them.
+        
+        Returns
+        -------
+        image_decision : bool
+        
+        '''
+        raise AttributeError("Has to be overridden in actual data-set class.")
         
