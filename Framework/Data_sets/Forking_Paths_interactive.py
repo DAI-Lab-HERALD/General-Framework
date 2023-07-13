@@ -126,7 +126,7 @@ class Forking_Paths_interactive(data_set_template):
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the classification is possible.
         '''
-        other_samples_bool = self.Domain_old.scene == domain.scene
+        other_samples_bool = (self.Domain_old.scene == domain.scene).to_numpy()
         num_T = path.tar.shape[0]
         Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
         for i in range(other_samples_bool.sum()):

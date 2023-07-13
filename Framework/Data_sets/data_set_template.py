@@ -48,8 +48,8 @@ class data_set_template():
         self.classification_useful = len(self.Behaviors) > 1
 
         # Check if general input is possible
-        self.general_input_available = (self.scenario.can_provide_general_input() != False and
-                                        self.classification_useful)
+        self.general_input_available = (self.classification_useful and
+                                        self.scenario.can_provide_general_input() is not None)
         
         if self.general_input_available:
             self.extra_input = self.scenario.can_provide_general_input()
@@ -1545,7 +1545,7 @@ class data_set_template():
         some required information. This information has to be collected in the following attributes, 
         which do not have to be returned, but only defined in this function.
             **self.Path**          
-                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
+                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
                 Here, each row :math:`i` represents one recorded sample, while each column includes the 
                 trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
                 It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
@@ -1559,7 +1559,7 @@ class data_set_template():
                 self.scenario.pov_agent() and self.scenario.classifying_agents().
                 
             **self.Type_old**
-                A pandas array of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical
+                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical
                 to the column names of **self.Path**. Each corresponding entry contains the type of the agent whose 
                 path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
                 while a "P" stands for a pedestrian.
@@ -1569,7 +1569,7 @@ class data_set_template():
                 of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
                 
             **self.Domain_old**
-                A pandas array of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
+                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
                 In this dataframe, one can collect any ancillary metadata that might be needed
                 in the future. An example might be the location at which a sample was recorded
                 or the subject id involved, which might be needed later to construct the training
@@ -1585,7 +1585,7 @@ class data_set_template():
         be assigned to each sample without having to save large amounts of data. 
         Two further attributes have to be created as well:
             **self.Images**
-                A pandas dataframe of dimensionality :math:`\{N_{samples} {\times} 2\}`.
+                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 2\}`.
                 In the first column, named 'Image', the images for each location are saved. It is paramount that the 
                 indices of this dataframe are equivalent to the unique values found in **self.Domain_old**.image_id. 
                 The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
@@ -1694,7 +1694,7 @@ class data_set_template():
 
         Returns
         -------
-        Dist : pandas.Series
+        Dist_other : pandas.Series
             This is a :math:`N_{other dist}` dimensional Series.
             For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
 

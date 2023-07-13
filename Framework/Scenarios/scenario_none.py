@@ -14,7 +14,7 @@ class scenario_none():
         return 'No specific scenario'
         
     def can_provide_general_input(self = None):
-        return False
+        return None
         
     def pov_agent(self = None):
         return None
