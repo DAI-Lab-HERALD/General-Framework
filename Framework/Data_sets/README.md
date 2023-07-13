@@ -49,8 +49,9 @@ Firstly, one has to define what data this class will be able to create:
     This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
     making the recorded future data similar to the ego agent's planned path at each point in time.
         
-    return False: This usage of future ego agent's trajectories as model input is prevented. This is especially advisable
-    if the behavior of the vehicle might include too many clues for a prediction model to use.
+    return False: This usage of future ego agent's trajectories as model input is prevented. This is
+    especially advisable if the behavior of the vehicle might include too many clues for a prediction
+    model to use.
         
     Returns
     -------
