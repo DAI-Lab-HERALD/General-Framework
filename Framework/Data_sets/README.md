@@ -117,7 +117,7 @@ The most important part of the dataset module is to provide access to training a
 
 ```
   def create_path_samples(self):
-  r'''
+    r'''
     Loads the original path data in its recorded form from wherever it is saved.
     Then, this function has to extract for each potential test case in the data set 
     some required information. This information has to be collected in the following attributes, 
