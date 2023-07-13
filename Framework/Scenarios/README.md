@@ -50,7 +50,7 @@ The names of those roles then have to be communicated to the Framework:
     return '<v_pov>'
 ```
 Here, the function self.classifying_agents() returns the list of those agents <v_i>. However, it needs to be noted that there might be an agent <v_pov> from whose point of view and for whose benefit a prediction is made, and for which extra information such as planned paths might be feasibly available.
-In this case, such an agent <v_pov> is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, one has set self.pov_agent() will instead return None.
+In this case, such an agent <v_pov> is not included in the list produced by self.classifying_agents(), but instead returned as the output of self.pov_agent(). If, however, no such agent exists, one has to set self.pov_agent() to instead return None.
 
 ## Generalized inputs
 Some scenarios require the provision of certain one-dimensional information, which might be used as additional model inputs, such as the size of the contested space in gap acceptance scenarios.
