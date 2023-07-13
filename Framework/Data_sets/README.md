@@ -361,8 +361,8 @@ Besides filling in missing positions in provided trajectories, it might also be 
     path_full : pandas.Series
       A pandas series with :math:`(N_{agents, full})` entries,
       where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-      All columns of **path** should be included here. For those agents where trajectories are recorded, those trajectories 
-      can also no longer contain np.nan as a position value.
+      All columns of **path** should be included here. For those agents where trajectories are recorded, those
+      trajectories should also no longer contain np.nan as a position value.
     agent_types_full : pandas.Series 
       A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
       sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
