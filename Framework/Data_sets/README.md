@@ -225,9 +225,9 @@ While not necessary in all datasets, in some, being able to classify the interac
     -------
     Dist : pandas.Series
       This is a series with :math:`N_{classes}` entries.
-      For each column, it returns an array of shape :math:`\{N_{preds} \times |t|\}` with the distance to the classification marker.
-      The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
-      How those distances are defined depends on the scenario and behavior.
+      For each column, it returns an array of shape :math:`\{N_{preds} \times |t|\}` with the distance to
+      the classification marker. The column names should correspond to the attribute
+      self.Behaviors = list(self.scenario.give_classifications().keys()).
     '''
 
     ...
@@ -255,9 +255,9 @@ The second function then is needed for cases, where some classifications are onl
       and should include at least the relevant agents described in self.create_sample_paths.
     D_class : pandas.Series
       This is a series with :math:`N_{classes}` entries.
-      For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
-      The column names should correspond to the attribute self.Behaviors = list(self.scenario.give_classifications().keys()). 
-      How those distances are defined depends on the scenario and behavior.
+      For each column, it returns an array of length :math:`|t|` with the distance to
+      the classification marker. The column names should correspond to the attribute
+      self.Behaviors = list(self.scenario.give_classifications().keys()).
     domain : pandas.Series
       A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
       sample. Its entries contain at least all the columns of **self.Domain_old**. 
