@@ -22,7 +22,7 @@ class Location_split(splitting_template):
         scene, loc = Situation[self.repetition]
         
         names = {'print': 'Location splitting (Testing on location ' + loc + ' in dataset ' + scene + ')',
-                 'file': 'locals_split_{}'.format(self.repetition),
+                 'file': 'locals_split',
                  'latex': r'Location split {}'.format(self.repetition + 1)}
         return names
     

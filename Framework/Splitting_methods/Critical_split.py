@@ -50,7 +50,7 @@ class Critical_split(splitting_template):
         
     def get_name(self):
         names = {'print': 'Critical splitting',
-                 'file': 'critical_split',
+                 'file': 'critic_split',
                  'latex': r'Critical split'}
         return names
     

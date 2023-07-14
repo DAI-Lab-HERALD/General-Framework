@@ -14,7 +14,7 @@ class no_split(splitting_template):
         
     def get_name(self):
         names = {'print': 'No splitting',
-                 'file': 'identic__split',
+                 'file': 'identi_split',
                  'latex': r'No split'}
         return names
     
