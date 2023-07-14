@@ -76,7 +76,7 @@ def evaluate_prediction_method(self):
 ```
 
 ## Check metric applicability
-Certain metrics such as TODO ... . Therefore, the following function checks whether the desired evaluation metric is applicable to the given ... .
+Not all metrics can be used for all types of models or datasets. For example, the Receiver Operating Characteristic (ROC) requires classifiable behaviors so that it can be used for evaluating a model. If a dataset does not contain classifiable behaviors, ROC is not applicable. Therefore, the following function checks whether the desired evaluation metric is applicable to the given evaluation setting.
 ```
 def check_applicability(self):
     # Provides feedback on if a metric can be used, as it might be
@@ -107,7 +107,7 @@ def get_opt_goal(self = None):
     # Should return 'minimize' or 'maximize'
 ```
 
-Some metrics such as Receiver Operating Characteristic (ROC) have additional information which can be plotted. In order to inform the framework if such information exists and can be plotted, one needs to define it through: 
+Some metrics such as ROC have additional information which can be plotted. In order to inform the framework if such information exists and can be plotted, one needs to define it through: 
 
 ```
 def allows_plot(self):
