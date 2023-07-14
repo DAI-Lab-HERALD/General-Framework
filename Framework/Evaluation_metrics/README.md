@@ -50,19 +50,46 @@ def setup_method(self):
         # self.weights_saved -  The weights that were created for this metric,
         #                       will be in the form of a list
 ```
-If no such calculations are required, one can simply write `pass` within the function definition.
+This is primarily intended for computationally heavy calculations of values which can be shared across the evaluation of different models. If no such calculations are required, one can simply write `pass` within the function definition. 
+Connected to this, one also has to define whether this type of pre-processing is even required for the desired evaluation metric. This is done in:
+
+```
+def requires_preprocessing(self):
+    # Returns a boolean output, True if preprocesing of true output
+    # data for the calculation of weights is required, which might be 
+    # avoided in repeated cases
+```
 
 ## Defining the evaluation metric
 
 The most important part of the evaluation module, is the definition of how the metric is calculated. This is done within:
 
 ```
-  def evaluate_prediction_method(self):
-      # Takes true outputs and corresponding predictions to calculate some metric to evaluate a model
+def evaluate_prediction_method(self):
+    # Takes true outputs and corresponding predictions to calculate some metric to evaluate a model.
 
-      Returns
-      -------
-      results : list
+    Returns
+    -------
+    results : list
 
-      return results 
+    return results 
+```
+
+## Provide contextual (?) metric information
+```
+def get_output_type(self = None):
+    # Should return 'class', 'class_and_time', 'path_tar', 'path_all'
+    raise AttributeError('Has to be overridden in actual metric class')
+``` 
+```
+def is_log_scale(self = None):
+    # Should return 'False' or 'True'
+    raise AttributeError('Has to be overridden in actual metric class')
+```
+
+Every metric has an optimal 
+```
+def get_opt_goal(self = None):
+    # Should return 'minimize' or 'maximize'
+    raise AttributeError('Has to be overridden in actual metric class')
 ```
