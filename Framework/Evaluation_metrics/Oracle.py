@@ -40,9 +40,6 @@ class Oracle(evaluation_template):
         E = Error / Samples 
         return [E.mean(), E, np.arange(len(E)) * self.data_set.dt]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         plt_label =  model_class.get_name()['latex']
         ax.plot(np.concatenate(([0], results[2] + results[2][1])), np.concatenate(([0], results[1])), label = plt_label)
