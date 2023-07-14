@@ -231,10 +231,21 @@ class evaluation_template():
         
 
     def get_name(self = None):
-        # Provides a dictionary with the different names of the dataset:
-        # Name = {'print': 'printable_name', 'file': 'name_used_in_files', 'latex': r'latex_name'}
-        # If the latex name includes mathmode, the $$ has to be included
-        # The file name cannot contain a '-'
+        r'''
+        Provides a dictionary with the different names of the evaluation metric.
+            
+        Returns
+        -------
+        names : dict
+          The first key of names ('print')  will be primarily used to refer to the evaluation metric in console outputs. 
+                
+          The 'file' key has to be a string that does not include any folder separators 
+          (for any operating system), as it is mostly used to indicate that certain result files belong to this evaluation metric. 
+                
+          The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+          latex commands - such as using '$$' for math notation.
+            
+        '''
         raise AttributeError('Has to be overridden in actual metric class')
         
     def requires_preprocessing(self):
