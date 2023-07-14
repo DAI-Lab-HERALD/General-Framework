@@ -22,7 +22,7 @@ class Dataset_split(splitting_template):
         scene = Situation[self.repetition]
         
         names = {'print': 'Dataset splitting (Testing on dataset ' + scene + ')',
-                 'file': 'scenes_split_{}'.format(self.repetition),
+                 'file': 'scenes_split',
                  'latex': r'Dataset split {}'.format(self.repetition + 1)}
         return names
     
