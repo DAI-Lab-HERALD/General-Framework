@@ -80,16 +80,17 @@ def evaluate_prediction_method(self):
 def get_output_type(self = None):
     # Should return 'class', 'class_and_time', 'path_tar', 'path_all'
     raise AttributeError('Has to be overridden in actual metric class')
-``` 
+```
+
+In some cases there can be large differences in the metric results between different models. To improve the readability of graphs it can be helpful to represent the metric results on a log scale rather than a linear scale. In order to determine whether the log_scale is to be used, one has to define this in:
 ```
 def is_log_scale(self = None):
     # Should return 'False' or 'True'
     raise AttributeError('Has to be overridden in actual metric class')
 ```
 
-Every metric has an optimal 
+Every metric has an optimal value which indicates that a model's prediction is identical to the true output. In order to be able to indicate if a model performs better than other models on a particular evaluation metric it is important to know whether a lower or higher value of the metric's result is desired. This is defined in the following function:
 ```
 def get_opt_goal(self = None):
     # Should return 'minimize' or 'maximize'
-    raise AttributeError('Has to be overridden in actual metric class')
 ```
