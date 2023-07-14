@@ -22,9 +22,7 @@ class splitting_template():
                                                                 self.get_name()['file'] + '_{}'.format(self.repetition))
         if os.path.isfile(self.split_file):
             [self.Train_index, 
-             self.Test_index,
-             sim_all,
-             Sim_any, _] = np.load(self.split_file, allow_pickle = True)
+             self.Test_index, _] = np.load(self.split_file, allow_pickle = True)
         else:
             self.split_data_method()
              
