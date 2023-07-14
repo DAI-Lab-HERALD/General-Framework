@@ -31,7 +31,7 @@ class Cross_split(splitting_template):
     def get_name(self):
         num_splits = int(np.ceil(1 / self.test_part))
         names = {'print': '{} fold Cross validation (Split {})'.format(num_splits, self.repetition + 1),
-                 'file': 'crossv_{}_split'.format(self.repetition),
+                 'file': 'crossv_split_{}'.format(self.repetition),
                  'latex': r'CV - Fold {}'.format(self.repetition + 1)}
         return names
         
