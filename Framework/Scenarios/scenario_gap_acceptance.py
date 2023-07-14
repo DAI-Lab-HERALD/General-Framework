@@ -3,18 +3,26 @@ import numpy as np
 class scenario_gap_acceptance():
     def __init__(self):
         pass
-    
-    def give_default_classification(self = None):
-        return 'rejected'
-    
+            
+    def get_name(self = None):
+        return 'Gap acceptance problem'
+        
     def give_classifications(self = None):
         Class = {'rejected': 0,
                  'accepted': 1}
         return Class, 2
+    
+    def give_default_classification(self = None):
+        return 'rejected'
         
-    def get_name(self = None):
-        return 'Gap acceptance problem'
-        
+    def classifying_agents(self = None):
+        # Tar is the vehicle that has to accept or reject the gap
+        return ['tar']
+            
+    def pov_agent(self = None):
+        # The ego vehicle is the vehicle offering the gap
+        return 'ego'
+
     def can_provide_general_input(self = None):
         '''
         D_1: Distance between ego vehicle and vehicle that it is following.
@@ -25,16 +33,7 @@ class scenario_gap_acceptance():
 
         '''
         return ['D_1', 'D_2', 'D_3', 'L_e', 'L_t']
-        
-    def pov_agent(self = None):
-        # The ego vehicle is the vehicle offering the gap
-        return 'ego'
-        
-    def classifying_agents(self = None):
-        # Tar is the vehicle that has to accept or reject the gap
-        return ['tar']
-    
-    
+
     def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain):
         a_brake = 4
         t_D_rej = t_D_class.rejected
