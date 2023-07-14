@@ -325,17 +325,18 @@ Besides filling in missing positions in provided trajectories, it might also be 
 ```
   def fill_empty_path(self, path, t, domain, agent_types):
     r'''
-    After extracting the trajectories of a sample at the given input and output timesteps, it might be possible
-    that an agent's trajectory is only partially recorded over this timespan, resulting in the position values being np.nan
-    at those missing time points. The main cause here is likely that the agent is outside the area over which its position 
-    could be recorded. 
+    After extracting the trajectories of a sample at the given input and output timesteps, it might
+    be possible that an agent's trajectory is only partially recorded over this timespan, resulting
+    in the position values being np.nan at those missing time points. The main cause here is likely
+    that the agent is outside the area over which its position could be recorded. 
 
-    However, some models might be unable to deal with such missing data. Consequently, it is required to fill those missing 
-    positions with extrapolated data. 
+    However, some models might be unable to deal with such missing data. Consequently, it is required
+    to fill those missing positions with extrapolated data. 
 
-    Additionally, it might be possible that **path** does not contain all the agents which were present during 
-    the *input* timesteps. As those might still be influencing the future behavior of the agents already included in 
-    **path**, they can be added here. Consequntly, math:`N_{agents, full} \geq N_{agents}` will be the case.
+    Additionally, it might be possible that **path** does not contain all the agents which were present
+    during the *input* timesteps. As those might still be influencing the future behavior of the agents
+    already included in  **path**, they can be added here. Consequntly,
+    math:`N_{agents, full} \geq N_{agents}` will be the case.
         
     Parameters
     ----------
@@ -351,10 +352,10 @@ Besides filling in missing positions in provided trajectories, it might also be 
       A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
       sample. Its entries contain at least all the columns of **self.Domain_old**. 
     agent_types : pandas.Series 
-      A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
-      sample. The columns should correspond to the columns in **self.Type_old** created in self.create_path_samples()
-      and should include at least the relevant agents described in self.create_sample_paths. Consequently, the 
-      column names are identical to those of **path**.
+      A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for
+      the considered sample. The columns should correspond to the columns in **self.Type_old** created
+      in self.create_path_samples() and should include at least the relevant agents described in
+      self.create_sample_paths. Consequently, the column names are identical to those of **path**.
 
     Returns
     -------
@@ -364,8 +365,9 @@ Besides filling in missing positions in provided trajectories, it might also be 
       All columns of **path** should be included here. For those agents where trajectories are recorded, those
       trajectories should also no longer contain np.nan as a position value.
     agent_types_full : pandas.Series 
-      A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
-      sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
+      A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the
+      considered sample. The columns should correspond to the columns in **path_full** and include all columns
+      of **agent_types**.
     '''
 
     ...
