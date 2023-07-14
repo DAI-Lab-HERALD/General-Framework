@@ -67,9 +67,6 @@ class ECE_traj(evaluation_template):
             num = 16 + len(self.get_name()['file'])
             fig.savefig(test_file[:-num] + 'ECE_traj_test.pdf', bbox_inches='tight')
             
-            
-    def main_result_idx(self = None):
-        return 0
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
