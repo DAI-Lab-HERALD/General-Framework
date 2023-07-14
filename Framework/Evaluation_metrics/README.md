@@ -51,3 +51,18 @@ def setup_method(self):
         #                       will be in the form of a list
 ```
 If no such calculations are required, one can simply write `pass` within the function definition.
+
+## Defining the evaluation metric
+
+The most important part of the evaluation module, is the definition of how the metric is calculated. This is done within:
+
+```
+  def evaluate_prediction_method(self):
+      # Takes true outputs and corresponding predictions to calculate some metric to evaluate a model
+
+      Returns
+      _______
+      results : list
+
+      return results 
+```
