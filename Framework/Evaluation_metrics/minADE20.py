@@ -39,9 +39,6 @@ class minADE20(evaluation_template):
         E = Error / Samples 
         return [E.mean()]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     
