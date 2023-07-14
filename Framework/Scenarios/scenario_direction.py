@@ -3,9 +3,9 @@ import numpy as np
 class scenario_direction():
     def __init__(self):
         pass
-    
-    def give_default_classification(self = None):
-        return 'staying'
+
+    def get_name(self = None):
+        return 'Direction prediction at intersection'
     
     def give_classifications(self = None):
         Class = {'staying':  0,
@@ -14,18 +14,18 @@ class scenario_direction():
                  'left':     3}
         return Class, 4
         
-    def get_name(self = None):
-        return 'Direction prediction at intersection'
+    def give_default_classification(self = None):
+        return 'staying'
+    
+    def classifying_agents(self = None):
+        return ['tar']
+    
+    def pov_agent(self = None):
+        return None
         
     def can_provide_general_input(self = None):
         return ['D_decision']
         
-    def pov_agent(self = None):
-        return None
-        
-    def classifying_agents(self = None):
-        return ['tar']
-    
     def calculate_safe_action(self, D_class, t_D_class, data_set, path, t, domain):
         t_D_default = np.minimum(1000, t_D_class[data_set.behavior_default])
         vehicle_len = 5
