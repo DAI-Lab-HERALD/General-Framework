@@ -18,8 +18,8 @@ class splitting_template():
         self.repetition = int(max(0,repetition))
        
     def split_data(self):
-        self.split_file = self.data_set.change_result_directory(self.data_set.data_file,
-                                                                'Splitting', self.get_name()['file'])
+        self.split_file = self.data_set.change_result_directory(self.data_set.data_file, 'Splitting', 
+                                                                self.get_name()['file'] + '_{}'.format(self.repetition))
         if os.path.isfile(self.split_file):
             [self.Train_index, 
              self.Test_index,
@@ -34,13 +34,10 @@ class splitting_template():
             
             np.random.shuffle(self.Train_index)
             np.random.shuffle(self.Test_index)
-            # Determine similarity
-            sim_all, Sim_any = self.get_similarity_method()
             
             save_data = np.array([self.Train_index, 
                                   self.Test_index,
-                                  sim_all,
-                                  Sim_any, 0], object) #0 is there to avoid some numpy load and save errors
+                                  0], object) #0 is there to avoid some numpy load and save errors
             
             
             os.makedirs(os.path.dirname(self.split_file), exist_ok=True)
