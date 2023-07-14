@@ -449,9 +449,9 @@ class Experiment():
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name)
                         
-                            results_file_name = (data_set.data_file[:-4] +
+                            results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
-                                                 '--' + splitter.get_name()['file'] + '--' + 
+                                                 splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
                                                  # Add model name
                                                  model_class.get_name()['file']  + '--' + 
                                                  # Add metric name
@@ -484,9 +484,9 @@ class Experiment():
                                 
                             if m == 0 and return_train_loss:
                                 if model_class.provides_epoch_loss():
-                                    train_loss_file_name = (data_set.data_file[:-4] +
+                                    train_loss_file_name = (data_set.data_file[:-4] + '--' + 
                                                             # Add splitting method
-                                                            '--' + splitter.get_name()['file'] + '--' + 
+                                                            splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
                                                             # Add model name
                                                             model_class.get_name()['file']  + '--train_loss.npy')
                                     

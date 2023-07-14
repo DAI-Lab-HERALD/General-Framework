@@ -435,7 +435,7 @@ class trajectron_salzmann(model_template):
          img, img_m_per_px) = self.extract_data(train = False)
         
         
-        Path_names = np.array([name for name in self.Output_path_train.columns])
+        Path_names = np.array(self.Output_path_train.columns)
         
         Output_Path = pd.DataFrame(np.empty((S.shape[0], Pred_agents.sum()), np.ndarray), 
                                    columns = Path_names[Pred_agents])
