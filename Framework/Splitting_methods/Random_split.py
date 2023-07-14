@@ -24,7 +24,7 @@ class Random_split(splitting_template):
     
     def get_name(self):
         names = {'print': 'Random splitting (random seed = {})'.format(self.repetition + 1),
-                 'file': 'random_{}_split'.format(self.repetition),
+                 'file': 'random_split_{}'.format(self.repetition),
                  'latex': r'Random split'}
         return names
         
