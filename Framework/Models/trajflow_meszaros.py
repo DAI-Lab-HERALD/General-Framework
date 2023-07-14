@@ -127,8 +127,7 @@ class trajflow_meszaros(model_template):
         
                 
         if train:
-            Xi = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2
-            Y = Y.transpose(0,1,3,2)
+            Xi = X # num_samples, num_agents, num_timesteps, 2
             
             
             # set agent to be predicted into first location
@@ -192,7 +191,7 @@ class trajflow_meszaros(model_template):
 
             return train_loader, val_loader, T
         else:
-            Xi = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2
+            Xi = X # num_samples, num_agents, num_timesteps, 2
             # set agent to be predicted into first location
             X = []
             T = []

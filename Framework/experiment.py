@@ -439,7 +439,7 @@ class Experiment():
                         splitter_module = importlib.import_module(splitter_name)
                         splitter_class = getattr(splitter_module, splitter_name)
                         
-                        splitter = splitter_class(None, splitter_tp, splitter_rep)
+                        splitter = splitter_class(data_set, splitter_tp, splitter_rep)
                         
                         create_plot = plot_if_possible and metric.allows_plot()
                         if create_plot:
