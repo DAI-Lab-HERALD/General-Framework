@@ -630,14 +630,11 @@ class trajflow_meszaros(model_template):
         else:
             Pred_agents, Agents, X, T, PPed_agents = self.extract_data(train = False)
         
-        
-        Path_names = np.array([name for name in self.Output_path_train.columns]).reshape(-1, 2)
-        
         # TODO keep in mind since len(test_loader.dataset) might cause issues
         samples_all = int(len(X)/ Pred_agents.sum())
 
         Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum() * 2), object), 
-                                   columns = Path_names[Pred_agents].reshape(-1))
+                                   columns = self.Output_path_train.columns)
         
         nums = np.unique(self.num_timesteps_out_test)
         
@@ -669,7 +666,6 @@ class trajflow_meszaros(model_template):
                     Ped_agent = PPed_agents[Index_use, 0]
                     test_loader = DataLoader(my_dataset, batch_size=len(Index_use)) # create your dataloader
 
-                    path_names = Path_names[np.where(Pred_agents)[0][i_agent]]
                     
                     # Run prediction pass
                     with torch.no_grad(): # Do not build graph for backprop
@@ -688,8 +684,7 @@ class trajflow_meszaros(model_template):
                     
                     for i, i_sample in enumerate(Index_use):
                         traj = Pred[i, :, :, :]
-                        for j, index in enumerate(path_names):
-                            Output_Path.iloc[i_sample][index] = traj[:,:,j].astype('float32')
+                        Output_Path.iloc[i_sample][agent] = traj.astype('float32')
                         
                         
                 samples_done += len(Index_use)
