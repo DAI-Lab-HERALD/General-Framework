@@ -397,15 +397,15 @@ class data_set_template():
                     # Get the corresponding class
                     d_class, in_position, behavior, t_D_class, t_class = self.classify_path(path, t, domain)
 
+                    # Check if scenario is fulfilled
+                    if not in_position.any():
+                        continue
+                    
                     # Get decision time
                     if self.classification_useful:
                         t_decision = t_class.to_numpy().min()
                     else:
                         t_decision = t[in_position][-1]
-
-                    # Check if scenario is fulfilled
-                    if not in_position.any():
-                        continue
 
                     # check if decision can be observed
                     if t_decision > t[in_position].max():
