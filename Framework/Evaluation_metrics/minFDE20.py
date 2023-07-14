@@ -37,9 +37,6 @@ class minFDE20(evaluation_template):
         
         return [Error / len(self.Output_path_pred)]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     
