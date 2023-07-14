@@ -61,7 +61,7 @@ The most important part of the evaluation module, is the definition of how the m
       # Takes true outputs and corresponding predictions to calculate some metric to evaluate a model
 
       Returns
-      _______
+      -------
       results : list
 
       return results 
