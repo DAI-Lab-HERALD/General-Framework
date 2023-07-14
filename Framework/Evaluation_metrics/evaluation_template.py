@@ -200,12 +200,6 @@ class evaluation_template():
             # self.weights_saved -  The weights that were created for this metric,
             #                       will be in the form of a list
         raise AttributeError('Has to be overridden in actual metric class.')
-        
-    
-    def main_result_idx(self = None):
-        # return 2    
-        # return index where main comparable result of metric is saved in results vector
-        raise AttributeError('Has to be overridden in actual metric class.')
     
     
     def evaluate_prediction_method(self):
