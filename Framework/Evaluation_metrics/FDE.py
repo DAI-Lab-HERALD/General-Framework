@@ -26,9 +26,6 @@ class FDE(evaluation_template):
             Error += diff[-1] * nto / sample_pred.shape[1]
         return [Error / len(self.Output_path_pred)]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     
