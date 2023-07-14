@@ -59,15 +59,6 @@ class splitting_template():
     ###                                                                                   ###
     #########################################################################################
     #########################################################################################
-
-    def split_data_method(self):
-        # this function takes the given input and then creates a 
-        # split according to a desied method
-        # creates:
-            # self.Train_index -    A 1D numpy including the samples IDs of the training set
-            # self.Test_index -     A 1D numpy including the samples IDs of the test set
-        raise AttributeError('Has to be overridden in actual method.')
-    
     
     def get_name(self):
         r'''
@@ -88,7 +79,13 @@ class splitting_template():
         '''
         raise AttributeError('Has to be overridden in actual method.')
         
-        
+    def split_data_method(self):
+        # this function takes the given input and then creates a 
+        # split according to a desied method
+        # creates:
+            # self.Train_index -    A 1D numpy including the samples IDs of the training set
+            # self.Test_index -     A 1D numpy including the samples IDs of the test set
+        raise AttributeError('Has to be overridden in actual method.')
     
     def check_splitability_method(self):
         # Provides feedback on if a splitting method can be used, as it might be
