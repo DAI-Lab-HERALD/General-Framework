@@ -75,6 +75,16 @@ def evaluate_prediction_method(self):
     return results 
 ```
 
+## Check metric applicability
+Certain metrics such as TODO ... . Therefore, the following function checks whether the desired evaluation metric is applicable to the given ... .
+```
+def check_applicability(self):
+    # Provides feedback on if a metric can be used, as it might be
+    # related to only specifc datasets/scenarios/models/etc.
+    # Returns None if metric is unrestricedly applicable.
+```
+
+
 ## Provide contextual (?) metric information
 
 TODO say something about output type. (Might also fit better in a different subsection but I wasn't sure)
@@ -95,4 +105,11 @@ Every metric has an optimal value which indicates that a model's prediction is i
 ```
 def get_opt_goal(self = None):
     # Should return 'minimize' or 'maximize'
+```
+
+Some metrics such as Receiver Operating Characteristic (ROC) have additional information which can be plotted. In order to inform the framework if such information exists and can be plotted, one needs to define it through: 
+
+```
+def allows_plot(self):
+    # Returns a boolean output, True if a plot can be created, False if not.
 ```
