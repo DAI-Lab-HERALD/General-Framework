@@ -70,13 +70,7 @@ class splitting_template():
             # self.Train_index -    A 1D numpy including the samples IDs of the training set
             # self.Test_index -     A 1D numpy including the samples IDs of the test set
         raise AttributeError('Has to be overridden in actual method.')
-        
     
-    def get_similarity_method(self):
-        sim_all = 1
-        Sim_any = np.ones(len(self.Test_index))
-        return sim_all, Sim_any
-        
     
     def get_name(self):
         # Provides a dictionary with the different names of the dataset:
