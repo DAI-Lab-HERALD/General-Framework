@@ -1504,7 +1504,7 @@ class Experiment():
                                         np.max(op, axis = (0,1)),
                                         np.max(ip, axis = (0,1))], axis = 0), axis = 0)
             
-            min_v = np.nanmax(np.stack([np.min(opp, axis = (0,1,2)), 
+            min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)), 
                                         np.min(op, axis = (0,1)),
                                         np.min(ip, axis = (0,1))], axis = 0), axis = 0)
             
@@ -1569,5 +1569,5 @@ class Experiment():
                                                            'traj_plot_{}'.format(sample_ind), '.pdf')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
-            plt.savefig(figure_file)
+            fig.savefig(figure_file)
             plt.close(fig)
