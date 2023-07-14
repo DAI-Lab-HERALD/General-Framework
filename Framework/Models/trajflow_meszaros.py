@@ -633,7 +633,7 @@ class trajflow_meszaros(model_template):
         # TODO keep in mind since len(test_loader.dataset) might cause issues
         samples_all = int(len(X)/ Pred_agents.sum())
 
-        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum() * 2), object), 
+        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum()), object), 
                                    columns = self.Output_path_train.columns)
         
         nums = np.unique(self.num_timesteps_out_test)
