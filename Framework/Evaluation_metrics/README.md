@@ -76,6 +76,8 @@ def evaluate_prediction_method(self):
 ```
 
 ## Provide contextual (?) metric information
+
+TODO say something about output type. (Might also fit better in a different subsection but I wasn't sure)
 ```
 def get_output_type(self = None):
     # Should return 'class', 'class_and_time', 'path_tar', 'path_all'
