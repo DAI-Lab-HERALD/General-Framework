@@ -1547,6 +1547,55 @@ class data_set_template():
 
     # %% Define data set dependent functions
 
+    def get_name(self = None):
+        r'''
+        Provides a dictionary with the different names of the dataset:
+            
+        names = {'print': 'printable_name', 'file': 'files_name', 'latex': r'latex_name'}.
+        
+        Returns
+        -------
+        names : dict
+            The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
+            
+            The 'file' key has to be a string with exactly **10 characters**, that does not include any folder separators 
+            (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
+            
+            The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+            latex commands - such as using '$$' for math notation.
+        
+        '''
+        raise AttributeError('Has to be overridden in actual data-set class.')
+
+    def future_input(self = None):
+        r'''
+        return True: The future data of the pov agent can be used as input.
+        This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
+        making the recorded future data similar to the ego agent's planned path at each point in time.
+        
+        return False: This usage of future ego agent's trajectories as model input is prevented. This is especially advisable
+        if the behavior of the vehicle might include too many clues for a prediction model to use.
+        
+        Returns
+        -------
+        future_input_decision : bool
+        
+        '''
+        raise AttributeError("Has to be overridden in actual data-set class.")
+        
+    def includes_images(self = None):
+        r'''
+        If True, then image data can be returned (if true, .image_id has to be a column of 
+        **self.Domain_old** to indicate which of the saved images is linked to which sample).
+        If False, then no image data is provided, and models have to content without them.
+        
+        Returns
+        -------
+        image_decision : bool
+        
+        '''
+        raise AttributeError("Has to be overridden in actual data-set class.")
+        
     def set_scenario(self):
         r'''
         Sets the scenario <scenario_class> to which this dataset belongs, using an imported class.
@@ -1800,52 +1849,4 @@ class data_set_template():
         '''
         raise AttributeError("Has to be overridden in actual data-set class.")
 
-    def get_name(self = None):
-        r'''
-        Provides a dictionary with the different names of the dataset:
-            
-        names = {'print': 'printable_name', 'file': 'files_name', 'latex': r'latex_name'}.
-        
-        Returns
-        -------
-        names : dict
-            The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
-            
-            The 'file' key has to be a string with exactly **10 characters**, that does not include any folder separators 
-            (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
-            
-            The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
-            latex commands - such as using '$$' for math notation.
-        
-        '''
-        raise AttributeError('Has to be overridden in actual data-set class.')
-
-    def future_input(self = None):
-        r'''
-        return True: The future data of the pov agent can be used as input.
-        This is especially feasible if the ego agent was controlled by an algorithm in a simulation,
-        making the recorded future data similar to the ego agent's planned path at each point in time.
-        
-        return False: This usage of future ego agent's trajectories as model input is prevented. This is especially advisable
-        if the behavior of the vehicle might include too many clues for a prediction model to use.
-        
-        Returns
-        -------
-        future_input_decision : bool
-        
-        '''
-        raise AttributeError("Has to be overridden in actual data-set class.")
-        
-    def includes_images(self = None):
-        r'''
-        If True, then image data can be returned (if true, .image_id has to be a column of 
-        **self.Domain_old** to indicate which of the saved images is linked to which sample).
-        If False, then no image data is provided, and models have to content without them.
-        
-        Returns
-        -------
-        image_decision : bool
-        
-        '''
-        raise AttributeError("Has to be overridden in actual data-set class.")
         
