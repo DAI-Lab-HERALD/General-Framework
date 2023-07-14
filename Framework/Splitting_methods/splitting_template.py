@@ -70,11 +70,21 @@ class splitting_template():
     
     
     def get_name(self):
-        # Provides a dictionary with the different names of the dataset:
-        # Name = {'print': 'printable_name', 'file': 'name_used_in_files', 'latex': r'latex_name'}
-        # If the latex name includes mathmode, the $$ has to be included
-        # Here, it has to be noted that name_used_in_files will be restricted in its length.
-        # For datasets, this length is 14 characters, without a '-' inside
+        r'''
+        Provides a dictionary with the different names of the dataset
+            
+        Returns
+        -------
+        names : dict
+          The first key of names ('print')  will be primarily used to refer to the dataset in console outputs. 
+                
+          The 'file' key has to be a string with exactly **14 characters**, that does not include any folder separators 
+          (for any operating system), as it is mostly used to indicate that certain result files belong to this dataset. 
+                
+          The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
+          latex commands - such as using '$$' for math notation.
+            
+        '''
         raise AttributeError('Has to be overridden in actual method.')
         
         
