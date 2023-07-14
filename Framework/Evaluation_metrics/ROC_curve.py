@@ -43,10 +43,7 @@ class ROC_curve(evaluation_template):
         # method 2
         assert auc1 != np.nan
         assert auc2 != np.nan
-        return [auc1, auc2]
-    
-    def main_result_idx(self = None):
-        return 1
+        return [auc2, auc1]
     
     def create_plot(self, results, test_file):
         pass
