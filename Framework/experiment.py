@@ -416,7 +416,7 @@ class Experiment():
             metric = metric_class(None, None, None)
             
             # Get index of result array at which comparable result is saved
-            result_index = metric_class.main_result_idx()
+            result_index = 0
                 
             for i, data_set_dict in enumerate(self.Data_sets):
                 # Get data set class
