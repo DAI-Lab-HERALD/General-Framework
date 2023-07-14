@@ -11,9 +11,6 @@ class Useless_brake(evaluation_template):
         Result = np.mean(self.Output_A_pred.accepted[self.Output_A.rejected] < Threshold)
         return [Result]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def get_output_type(self = None):
         return 'class'
     
