@@ -67,9 +67,6 @@ class ECE(evaluation_template):
         assert np.isfinite(ece)
         return [ece, p_pred, p_t_adjusted]
     
-    def main_result_idx(self = None):
-        return 0
-    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         P = np.unique(np.stack((results[1], results[2])), axis = 1)
         
