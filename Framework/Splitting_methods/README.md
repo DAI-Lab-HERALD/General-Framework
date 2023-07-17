@@ -34,5 +34,5 @@ class <splitting_name>(splitting_template):
 Especially for 'print' and 'latex', it might be possible that one wants different string outputs when using this method repeatedly. In such cases, it might be useful to include the repetition number *self.repetition* in the string.
 
 ## Checking applicability
-Given the settings, it might be possible that only a certain number of unique repetitions are possible. For example, when splitting by location, the number of locations might be limited. Similarly, when splitting for cross-validation, the number of repetitions is limited by the preset size of one split.
+Given the settings, it might be possible that only a certain number of unique repetitions are possible. For example, when splitting by location, the number of locations might be limited. Similarly, when splitting for cross-validation, the number of repetitions is limited by the preset size of one split. Alternatively, the splitting method might be limited to certain scenario types.
 
