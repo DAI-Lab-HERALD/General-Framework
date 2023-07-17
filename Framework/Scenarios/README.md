@@ -118,7 +118,7 @@ It has to be pointed out that it is possible, that $t_{crit}$ is instead defined
 There, $f(t)$ might depend on other inputs like **path** or **D_class**. In such cases, one can define $\Delta t_{useful}(t)$ in a 
 different way:
 
-$$ \Delta t_{useful}(t)$ = \Delta t_{default}(t) - f(t) $$.
+$$ \Delta t_{useful}(t)$ = \Delta t_{default}(t) - f(t) $$
 
 
 
