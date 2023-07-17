@@ -428,9 +428,9 @@ class data_set_template():
                     if self.classification_useful and (self.pov_agent is not None):
                         t_D_default = np.minimum(1000, t_D_class[self.behavior_default])
                         
-                        t_safe_action = self.scenario.calculate_safe_action(d_class, t_D_class, self, path, t, domain)
+                        t_D_useful = self.scenario.calculate_safe_action(d_class, t_D_class, self, path, t, domain)
                         try:
-                            Delta_tD = t_D_default - t_safe_action
+                            Delta_tD = t_D_default - t_D_useful
                             critical = (t > t_start) & (t < t_decision) & (Delta_tD < 0)
                             ind_crit = np.where(critical)[0][0]
                             if Delta_tD[ind_crit - 1] < 0:

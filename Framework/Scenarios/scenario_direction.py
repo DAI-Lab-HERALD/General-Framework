@@ -30,6 +30,5 @@ class scenario_direction():
         t_D_default = np.minimum(1000, t_D_class[data_set.behavior_default])
         vehicle_len = 5
         D_crit = data_set.calculate_additional_distances(path, None, domain).D_decision - vehicle_len
-        t_safe_action = t_D_default - D_crit
-        # Delta_tD = t_D_default - t_safe_action
-        return t_safe_action #TODO: if Anna wants to allow later prediction, change this
+        delta_t_useful = t_D_default - D_crit
+        return delta_t_useful #TODO: if Anna wants to allow later prediction, change this

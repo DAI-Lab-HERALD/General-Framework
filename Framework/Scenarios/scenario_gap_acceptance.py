@@ -38,5 +38,5 @@ class scenario_gap_acceptance():
         a_brake = 4
         t_D_rej = t_D_class.rejected
         t_D_rej[np.abs(t_D_rej) < 1e-3] = 1e-3
-        t_brake = 0.5 * D_class.rejected / (a_brake * t_D_rej + 1e-6)
-        return t_brake
+        delta_t_useful = 0.5 * D_class.rejected / (a_brake * t_D_rej + 1e-6)
+        return delta_t_useful
