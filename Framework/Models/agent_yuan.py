@@ -226,7 +226,6 @@ class agent_yuan(model_template):
         cfg.yml_dict["future_frames"] = self.num_timesteps_out.max()
         cfg.yml_dict["min_future_frames"] = self.num_timesteps_out.min()
         
-        cfg.yml_dict["sample_k"]
         cfg.yml_dict["sample_k"] = self.sample_number
         cfg.yml_dict["loss_cfg"]["sample"]["k"] = self.sample_number
         
