@@ -73,7 +73,8 @@ class DLow(nn.Module):
         pred_cfg.yml_dict["use_map"] = cfg.yml_dict["use_map"]
         
         if cfg.yml_dict["use_map"]:
-            pred_cfg.yml_dict["input_type"] = cfg.yml_dict["input_type"]
+            pred_cfg.yml_dict["input_type"]               = cfg.yml_dict["input_type"]
+            pred_cfg.yml_dict.map_encoder["map_channels"] = cfg.yml_dict.map_encoder["map_channels"]
         
         pred_cfg.yml_dict["past_frames"] = cfg.yml_dict["past_frames"]
         pred_cfg.yml_dict["min_past_frames"] = cfg.yml_dict["min_past_frames"]
