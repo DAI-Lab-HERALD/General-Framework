@@ -3,28 +3,21 @@ import numpy as np
 from os import path
 
 pd.options.mode.chained_assignment=None
-n = 0
+N = 0
 
 ### Prepare to get situation data, adjust values and position reference
-Scenario = []
-
 print('Preprocessing Data')
-while path.exists('data/{}_recordingMeta.csv'.format(str(n).zfill(2))):
-    Meta_data=pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
-    local_data=Meta_data[['locationId','speedLimit','orthoPxToMeter']].copy(deep=True)   
-    
-    Scenario.append(local_data)
-    n=n+1
+while path.exists('data/{}_recordingMeta.csv'.format(str(N).zfill(2))):
+    N=N+1
 
-Scenario=pd.DataFrame(Scenario)
 
 
     
 
 id_addition=0
 Final_out=[]
-for n in range(0, len(Scenario)):
-    print('Processing Scenario {}/{}'.format(str(n).zfill(2),len(Scenario)))
+for n in range(0, N):
+    print('Processing Scenario {}/{}'.format(str(n).zfill(2),N))
     Meta_data=pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
     Track_data=pd.read_csv('data/{}_tracks.csv'.format(str(n).zfill(2)))
     Track_data=Track_data[['frame', 'trackId', 'xCenter', 'yCenter', 'heading', 'lonVelocity', 'latVelocity', 'lonAcceleration', 'latAcceleration']]
