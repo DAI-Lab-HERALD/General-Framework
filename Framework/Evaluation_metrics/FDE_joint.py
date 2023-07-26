@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
 
-class FDE(evaluation_template):
+class FDE_joint(evaluation_template):
     def setup_method(self):
         pass
      
@@ -11,21 +11,26 @@ class FDE(evaluation_template):
         
         Error = 0
         
+        idx_l = np.arange(self.data_set.num_samples_path_pred)
         for i_sample in range(len(self.Output_path_pred)):
-            # sample_pred.shape = num_path x num_timesteps_out x 2 x num_agents
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = -1)[:,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = -1)[np.newaxis,:nto]
+            # sample_pred.shape = num_path x num_agents x num_timesteps_out x 2
+            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
+            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
             
             diff = (sample_pred - sample_true) ** 2
-            # sum over dimension and number agents
-            diff = diff.sum((2,3))
+            # sum over dimension and mean over number agents
+            diff = diff.sum(3).mean(1)
             diff = np.sqrt(diff)
+            
             # mean over predicted samples
             diff = diff.mean(0)
-            
-            Error += diff[-1] * nto / sample_pred.shape[1]
-        return [Error / len(self.Output_path_pred)]
-    
+            diff = diff[-1]
+
+            Error += diff
+        
+        E = Error / len(self.Output_path)
+        return [E]
+        
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     
@@ -33,17 +38,17 @@ class FDE(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'FDE',
-                 'file': 'FDE',
-                 'latex': r'\emph{FDE [m]}'}
+        names = {'print': 'FDE (joint predictions)',
+                 'file': 'FDE_joint',
+                 'latex': r'\emph{FDE$_{joint}$ [m]}'}
         return names
     
     
+    def check_applicability(self):
+        return None
     
     def is_log_scale(self = None):
         return True
-    def check_applicability(self):
-        return None
     
     
     def requires_preprocessing(self):

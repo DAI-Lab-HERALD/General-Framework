@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
 
-class Oracle(evaluation_template):
+class Oracle_indep(evaluation_template):
     def setup_method(self):
         pass
      
@@ -13,9 +13,9 @@ class Oracle(evaluation_template):
         num_samples_needed = 50
         num_samples = len(self.Output_path_pred.iloc[0,0])
         if num_samples >= num_samples_needed:
-            idx = np.random.permutation(num_samples)[:num_samples_needed]#
+            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
         else:
-            idx = np.random.randint(0, num_samples, num_samples_needed)
+            idx_l = np.random.randint(0, num_samples, num_samples_needed)
             
         nto = self.data_set.num_timesteps_out_real
         
@@ -23,40 +23,39 @@ class Oracle(evaluation_template):
         Samples = np.zeros(nto, int)
         
         for i_sample in range(len(self.Output_path_pred)):
-            # sample_pred.shape = num_path x num_timesteps_out x 2 x num_agents
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = -1)[idx,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = -1)[np.newaxis,:nto]
+            # sample_pred.shape = num_path x num_agents x num_timesteps_out x 2
+            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
+            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
             
             diff = (sample_pred - sample_true) ** 2
-            # sum over dimension and number agents
-            diff = diff.sum((2,3))
+            # sum over dimension
+            diff = diff.sum(3)
             diff = np.sqrt(diff)
             
-            diff_idx = np.argsort(diff.mean(axis = 1))
-            diff = diff[diff_idx[:5], :].mean(axis = 0)
+            # Find best five values for each sample
+            idx = np.argsort(diff.mean(axis = 2), 0)
+            diff = diff[idx[:5, :], np.arange(diff.shape[1])[np.newaxis], :]
+            
+            # Mean over 5 best samples and agents
+            diff = diff.mean((0,1))
             
             Error[:len(diff)] += diff
             Samples[:len(diff)] += 1
         E = Error / Samples 
-        return [E.mean(), E, np.arange(len(E)) * self.data_set.dt]
+        return [E.mean(), np.concatenate(([0], E)), np.arange(len(E) + 1) * self.data_set.dt]
     
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
-        plt_label =  model_class.get_name()['latex']
-        ax.plot(np.concatenate(([0], results[2] + results[2][1])), np.concatenate(([0], results[1])), label = plt_label)
-        ax.set_xlabel('Time')
-        ax.set_ylabel('Oracle 10%')
-        ax.set_xlim([0, results[2].max() + results[2][1]])
+        plt_label = model_class.get_name()['latex']
+        ax.plot(results[2], results[1], label = plt_label)
+        ax.set_xlabel('Time [s]')
+        ax.set_ylabel('Oracle 10% [m]')
+        
         max_val = 1.05 * np.array(results[1]).max()
-        if hasattr(self, 'max_val'):
-            self.max_val = max(self.max_val, max_val)
-        else:
-            self.max_val = max_val
-            
-        ax.set_ylim([0, self.max_val])
+        ax.set_ylim([0, max_val])
+        ax.set_xlim([0, results[2].max()])
+        
         fig.set_figwidth(5)
         fig.set_figheight(2.5)
-        #ax.set_title('Oracle 10%')
-        
         # ax.axis('off')
 
         if save:
@@ -72,9 +71,9 @@ class Oracle(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'Oracle',
-                 'file': 'Oracle',
-                 'latex': r'\emph{Oracle [m]}'}
+        names = {'print': 'Oracle (independent predictions)',
+                 'file': 'Oracle_indep',
+                 'latex': r'\emph{Oracle$_{indep}$ [m]}'}
         return names
     
     

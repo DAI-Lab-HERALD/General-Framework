@@ -3,7 +3,7 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 from sklearn.neighbors import KernelDensity
 
-class ECE_traj(evaluation_template):
+class ECE_traj_joint(evaluation_template):
     def setup_method(self):
         pass
      
@@ -13,28 +13,29 @@ class ECE_traj(evaluation_template):
         
         nto = self.data_set.num_timesteps_out_real
         
+        num_samples_needed = self.data_set.num_samples_path_pred
+        num_samples = len(self.Output_path_pred.iloc[0,0])
+        if num_samples >= num_samples_needed:
+            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
+        else:
+            idx_l = np.random.randint(0, num_samples, num_samples_needed)
+        
         for i_sample in range(len(self.Output_path_pred)):
-            if np.mod(i_sample, 100) == 0:
-                print('Sample {}/{}'.format(i_sample + 1, len(self.Output_path_pred)))
-
             std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
-            std = std[:,np.newaxis, np.newaxis, np.newaxis]
+            std = std[np.newaxis, :, np.newaxis, np.newaxis]
             
+            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
+            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
             
-            # samples.shape = num_path x num_timesteps_out x 2 x num_agents
-            samples = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 0)[:,:,:nto]
-            samples_comp = (samples / std).reshape(samples.shape[0], samples.shape[1], -1)
+            samples_pred_comp = (sample_pred / std).reshape(num_samples_needed, -1)
+            samples_true_comp = (sample_true / std).reshape(1, -1)
             
-            sample_gt = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[:,np.newaxis,:nto]
-            sample_gt_comp = (sample_gt / std).reshape(sample_gt.shape[0], sample_gt.shape[1], -1)
-            
-            for i_agent in range(len(samples)):
-                kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_comp[i_agent])
-                    
-                log_prob_other = kde.score_samples(samples_comp[i_agent])
-                log_prob_true  = kde.score_samples(sample_gt_comp[i_agent])[0]
+            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
                 
-                M.append((log_prob_other > log_prob_true).mean())
+            log_prob_other = kde.score_samples(samples_pred_comp)
+            log_prob_true  = kde.score_samples(samples_true_comp)[0]
+            
+            M.append((log_prob_other > log_prob_true).mean())
         
         M = np.array(M)
         
@@ -75,9 +76,9 @@ class ECE_traj(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'ECE (Trajectories)',
-                 'file': 'ECE_traj',
-                 'latex': r'\emph{ECE$_{\text{Traj}}$}'}
+        names = {'print': 'ECE (Trajectories, joint predictions)',
+                 'file': 'ECE_traj_joint',
+                 'latex': r'\emph{ECE$_{\text{Traj}, joint}$}'}
         return names
     
     
