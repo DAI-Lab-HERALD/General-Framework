@@ -6,26 +6,25 @@ pd.options.mode.chained_assignment=None
 N = 0
 
 ### Prepare to get situation data, adjust values and position reference
-Scenario = []
-
 print('Preprocessing Data')
 while path.exists('data/{}_recordingMeta.csv'.format(str(N).zfill(2))):
-    N = N+1
+    N=N+1
+ 
 
 id_addition=0
 Final_out=[]
 for n in range(0, N):
-    print('Processing Scenario {}/{}'.format(str(n).zfill(2), N))
-    Meta_data  = pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
-    Track_data = pd.read_csv('data/{}_tracks.csv'.format(str(n).zfill(2)))
-    Track_data = Track_data[['frame', 'trackId', 'xCenter', 'yCenter', 'heading', 'lonVelocity', 'latVelocity', 'lonAcceleration', 'latAcceleration']]
-    Track_Meta_data = pd.read_csv('data/{}_tracksMeta.csv'.format(str(n).zfill(2)))
-    Final = Track_Meta_data[['trackId','width','length','class']].copy(deep=True)
+    print('Processing Scenario {}/{}'.format(str(n).zfill(2),N))
+    Meta_data=pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
+    Track_data=pd.read_csv('data/{}_tracks.csv'.format(str(n).zfill(2)))
+    Track_data=Track_data[['frame', 'trackId', 'xCenter', 'yCenter', 'heading', 'lonVelocity', 'latVelocity', 'lonAcceleration', 'latAcceleration']]
+    Track_Meta_data=pd.read_csv('data/{}_tracksMeta.csv'.format(str(n).zfill(2)))
+    Final=Track_Meta_data[['trackId','width','length','class']].copy(deep=True)
     
     Track_data_keys = Track_data.set_index(['frame'])['trackId']
     
-    Final['locationId']  = Meta_data['locationId'][0]
-    Final['recordingId'] = Meta_data['recordingId'][0]
+    Final['locationId']=Meta_data['locationId'][0]
+    Final['recordingId']=Meta_data['recordingId'][0]
     
     Final['otherVehicles']='0'
     Final['track']='0'
@@ -50,5 +49,5 @@ for n in range(0, N):
     Final_out.append(Final.copy(deep=True))
    
 print('Save Data')
-Final_out = pd.concat(Final_out)
+Final_out= pd.concat(Final_out)
 Final_out.to_pickle("RounD_processed.pkl")
