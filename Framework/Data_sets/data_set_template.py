@@ -843,7 +843,7 @@ class data_set_template():
                                                            np.interp(helper_T_appr, t, pos_y, left=np.nan, right=np.nan)], 
                                                           axis = -1).astype(np.float32)
                             
-                            if np.isnan(helper_path[agent][:self.num_timesteps_in_real]).all():
+                            if np.sum(~np.isnan(helper_path[agent][:self.num_timesteps_in_real,0])) <= 1: #np.isnan(helper_path[agent][:self.num_timesteps_in_real]).all():
                                 helper_path[agent]  = np.nan
                                 agent_types[agent] = float('nan')
                                 

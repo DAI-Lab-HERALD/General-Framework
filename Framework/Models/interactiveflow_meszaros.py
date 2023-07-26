@@ -3,17 +3,13 @@ import numpy as np
 import pandas as pd
 import torch
 import random
-import scipy
 from JointPredictions.flowModels import InteractiveFlow
 import pickle
 from torch.utils.data import TensorDataset, DataLoader
 from JointPredictions.modules import FutureSceneAE
 from JointPredictions.utils import abs_to_rel, rel_to_abs, normalize_rotation, rotate
 import os
-
 import torch.nn.functional as F
-
-
 
 class interactiveflow_meszaros(model_template):
     
@@ -305,6 +301,9 @@ class interactiveflow_meszaros(model_template):
 
                     pred_agent_dist = pred_abs - pred_abs[:,0].unsqueeze(1)
                     future_agent_dist = future_traj_orig_sample - future_traj_orig_sample[:,0].unsqueeze(1)
+
+                    # check where agent is not present in the future
+                    # mask = future_traj_orig_sample == [] # TODO check what the placeholder value are
                         
                     loss_batch = loss_fn(pred, future_disp) + 0.1*loss_fn(pred_agent_dist, future_agent_dist)
                     # Loss.append(loss)
