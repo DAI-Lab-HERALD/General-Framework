@@ -9,10 +9,7 @@ N = 0
 print('Preprocessing Data')
 while path.exists('data/{}_recordingMeta.csv'.format(str(N).zfill(2))):
     N=N+1
-
-
-
-    
+ 
 
 id_addition=0
 Final_out=[]
