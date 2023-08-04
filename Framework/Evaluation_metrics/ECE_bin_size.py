@@ -7,7 +7,28 @@ from scipy.special import loggamma
 
 plt.rcParams['text.usetex'] = False
 
-class ECE(evaluation_template):
+class ECE_bin_size(evaluation_template):
+    r'''
+    The value :math:`F` of the Expected Calibration Error is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{| N_{samples} N_{classes}|}} \sum\limits_{i = 1}^{N_{samples}}  \sum\limits_{k} 
+            \left| \widehat{p}_{i,k} - p_{pred,i,k} \right|
+               
+    Here, for a specific sample :math:`i \in \{1, ..., N_{samples}\}` and 
+    classifcation :math:`k \in \{1, ..., N_{classes}\}`, :math:`p` is the actually observed and :math:`p_{pred}` 
+    the predicted probability for a classification to be observed. The sum of all these values over :math:`k\}` should always 
+    be equal to :math:`1`.
+    
+    Meanwhile, the adjusted true probability :math:`\widehat{p}_{i,k}` is an weighted average of a bin probability 
+    :math:`\widetilde{p}_{i,k, b}`, where for each bin :math:`b in B = \{2, ... 202\}`, a likelihood :math:`L_{i,k,b}` is assigned:
+        
+    .. math::
+        \widehat{p}_{i,k} = {\sum\limits_{b \in B} L_{i,k,b} \widetilde{p}_{i,k, b} \over {\sum\limits_{b \in B} L_{i,k,b}}} 
+        
+    For each bin with size 
+    '''
+    
     def setup_method(self):
         pass
      
@@ -31,26 +52,25 @@ class ECE(evaluation_template):
         model_b_log_likelihood = np.zeros(len(B_num))
         
         for b_ind, b_num in enumerate(B_num):
-            p_size = 1 / b_num + 1e-4
+            b_size = len(p_pred) / b_num
             for i in range(b_num):
-                p_pred_min = p_size * i
-                p_pred_max = p_size * (i + 1)
-                idx = np.where((p_pred_min <= p_pred) & (p_pred < p_pred_max))[0]
+                idx = np.arange(int(b_size * i), int(b_size * (i + 1)))
                 if len(idx) == 0:
                     continue
                 
-                bin_p = p_t_a[idx].mean()
+                bin_p_true = p_t_a[idx].mean()
+                bin_p_pred = p_pred[idx].mean()
                 
-                P_t_adjusted[idx,b_ind] = bin_p
+                P_t_adjusted[idx, b_ind] = bin_p_true
                 
                 # calculate model likelihood
                 N_hat = 2
-                alpha_b = N_hat * p_pred[idx].mean() / b_num
-                beta_b  = N_hat * (1 - p_pred[idx].mean()) / b_num
+                alpha_b = N_hat * bin_p_pred / b_num
+                beta_b  = N_hat * (1 - bin_p_pred) / b_num
                 
                 N_b = len(idx)
-                a_b = len(idx) * bin_p
-                b_b = len(idx) * (1 - bin_p)
+                a_b = len(idx) * bin_p_true
+                b_b = len(idx) * (1 - bin_p_true)
                 
                 L_b = (loggamma(N_hat / b_num + 1e-6) - loggamma(N_b + N_hat / b_num + 1e-6) +
                        loggamma(a_b + alpha_b + 1e-6) - loggamma(alpha_b + 1e-6) +

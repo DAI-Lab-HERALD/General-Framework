@@ -3,6 +3,19 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 
 class ADE_indep(evaluation_template):
+    r'''
+    The value :math:`F` of the Average Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples} | T_O | |P| N_{agents}}} \sum\limits_{i = 1}^{N_{samples}}  
+            \sum\limits_{p \in P}  \sum\limits_{t \in T_O} \sum\limits_{j = 1}^{N_{agents}} 
+            \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}
+        
+    Here, :math:`P` are the set of predictions made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

@@ -2,6 +2,18 @@ import numpy as np
 from FDE_indep import FDE_indep 
 
 class FDE20_indep(FDE_indep):
+    r'''
+    The value :math:`F` of the Final Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples}|P_{20}| N_{agents}}} \sum\limits_{i = 1}^{N_{samples}}  
+            \sum\limits_{p \in P_{20}} \sum\limits_{j = 1}^{N_{agents}} 
+            \sqrt{\left( x_{i,j}(\max T_O) - x_{pred,i,p,j} (\max T_O) \right)^2 + \left( y_{i,j}(\max T_O) - y_{pred,i,p,j} (\max T_O) \right)^2}
+        
+    Here, :math:`P_{20} \subset P` are 20 randomly selected instances of the set of predictions :math:`P` made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
      
     def evaluate_prediction_method(self):
         num_samples_needed = 20
