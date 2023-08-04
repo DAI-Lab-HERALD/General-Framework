@@ -24,20 +24,13 @@ class AUC_ROC(evaluation_template):
     the predicted probability for a classification to be observed. The sum of all these values over :math:`k\}` should always 
     be equal to :math:`1`.
     
-    Meanwhile, the :math:`r_{i,k} \in \mathbb{N}` is the likelihood rank of each sample:
+    Meanwhile, the :math:`r_{i,k} \in \{1, ..., N_{samples}\}` is the likelihood rank of each sample, where
         
     .. math::
         r_{i_1,k} > r_{i_2,k} \Rightarrow 
         {p_{pred,i_1,k} \over {p_{pred,i_1,k} + \underset{\widehat{k} \neq k}{\max} p_{pred,i_1,\widehat{k}}}} \geq
-        {p_{pred,i_2,k} \over {p_{pred,i_2,k} + \underset{\widehat{k} \neq k}{\max} p_{pred,i_2,\widehat{k}}}}
+        {p_{pred,i_2,k} \over {p_{pred,i_2,k} + \underset{\widehat{k} \neq k}{\max} p_{pred,i_2,\widehat{k}}}}\, .
         
-        
-    :math:`\widetilde{p}_{i,k, b}`, where for each bin :math:`b in B = \{2, ... 202\}`, a likelihood :math:`L_{i,k,b}` is assigned:
-        
-    .. math::
-        \widehat{p}_{i,k} = {\sum\limits_{b \in B} L_{i,k,b} \widetilde{p}_{i,k, b} \over {\sum\limits_{b \in B} L_{i,k,b}}} 
-        
-    For each bin with size 
     '''
     
     def setup_method(self):
