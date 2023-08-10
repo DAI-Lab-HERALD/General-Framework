@@ -7,7 +7,7 @@ from scipy.special import loggamma
 
 plt.rcParams['text.usetex'] = False
 
-class ECE_bin_size(evaluation_template):
+class ECE_class(evaluation_template):
     r'''
     The value :math:`F` of the Expected Calibration Error is calculated in the following way:
         
@@ -47,40 +47,44 @@ class ECE_bin_size(evaluation_template):
             p_t_a[use] = p_t[use].mean()
         
         
-        B_num = np.arange(2, 202)
+        N = len(p_pred)
+        C = 10
+        
+        B_num = np.arange(int(N ** (1/3) / C), int(N ** (1/3) * C))
         P_t_adjusted = np.zeros((len(p_pred), len(B_num)), float)
         model_b_log_likelihood = np.zeros(len(B_num))
         
-        for b_ind, b_num in enumerate(B_num):
-            b_size = len(p_pred) / b_num
-            for i in range(b_num):
+        N_hat = 2
+        
+        for b_ind, B in enumerate(B_num):
+            b_size = N / B
+            for i in range(B):
                 idx = np.arange(int(b_size * i), int(b_size * (i + 1)))
-                if len(idx) == 0:
-                    continue
                 
                 bin_p_true = p_t_a[idx].mean()
-                bin_p_pred = p_pred[idx].mean()
+                p_b = 0.5 * (p_pred[idx].max() + p_pred[idx].min())
                 
                 P_t_adjusted[idx, b_ind] = bin_p_true
                 
                 # calculate model likelihood
-                N_hat = 2
-                alpha_b = N_hat * bin_p_pred / b_num
-                beta_b  = N_hat * (1 - bin_p_pred) / b_num
+                alpha_b = N_hat * p_b / B
+                beta_b  = N_hat * (1 - p_b) / B
                 
                 N_b = len(idx)
-                a_b = len(idx) * bin_p_true
-                b_b = len(idx) * (1 - bin_p_true)
+                m_b = len(idx) * bin_p_true
+                n_b = len(idx) * (1 - bin_p_true)
                 
-                L_b = (loggamma(N_hat / b_num + 1e-6) - loggamma(N_b + N_hat / b_num + 1e-6) +
-                       loggamma(a_b + alpha_b + 1e-6) - loggamma(alpha_b + 1e-6) +
-                       loggamma(b_b + beta_b + 1e-6)  - loggamma(beta_b + 1e-6))
+                L_b = (loggamma(N_hat / B + 1e-6) - loggamma(N_b + N_hat / B + 1e-6) +
+                       loggamma(m_b + alpha_b + 1e-6) - loggamma(alpha_b + 1e-6) +
+                       loggamma(n_b + beta_b + 1e-6)  - loggamma(beta_b + 1e-6))
                 assert np.isfinite(L_b)
                 
                 model_b_log_likelihood[b_ind] += L_b
         
-        model_b_likelihood = np.exp(0.33 * (model_b_log_likelihood - model_b_log_likelihood.max()))
+        model_b_likelihood = np.exp(model_b_log_likelihood - model_b_log_likelihood.max())
         model_b_likelihood /= model_b_likelihood.sum()
+        
+        assert False
         
         p_t_adjusted = (P_t_adjusted * model_b_likelihood[np.newaxis]).sum(axis = 1)
         ece = np.abs(p_pred - p_t_adjusted).mean() 
