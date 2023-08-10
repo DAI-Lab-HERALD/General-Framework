@@ -10,8 +10,7 @@ from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
 import json
 import os
 
-class trajectron_salzmann(model_template):
-    
+class trajectron_salzmann_unicycle(model_template):
     def setup_method(self, seed = 0):
         # set random seeds
         random.seed(seed)
@@ -569,8 +568,8 @@ class trajectron_salzmann(model_template):
         return input_info
     
     def get_name(self = None):
-        names = {'print': 'Trajectron ++',
-                 'file': 'trajectron',
+        names = {'print': 'Trajectron ++ (Dynamic model: Unicycle)',
+                 'file': 'traject_UC',
                  'latex': r'\emph{T++}'}
         return names
         
