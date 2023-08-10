@@ -12,21 +12,58 @@ class ECE_class(evaluation_template):
     The value :math:`F` of the Expected Calibration Error is calculated in the following way:
         
     .. math::
-        F = {1 \over{| N_{samples} N_{classes}|}} \sum\limits_{i = 1}^{N_{samples}}  \sum\limits_{k} 
+        F = {1 \over{ N_{samples} N_{classes}}} \sum\limits_{i = 1}^{N_{samples}}  \sum\limits_{k} 
             \left| \widehat{p}_{i,k} - p_{pred,i,k} \right|
                
     Here, for a specific sample :math:`i \in \{1, ..., N_{samples}\}` and 
     classifcation :math:`k \in \{1, ..., N_{classes}\}`, :math:`p` is the actually observed and :math:`p_{pred}` 
-    the predicted probability for a classification to be observed. The sum of all these values over :math:`k\}` should always 
+    the predicted probability for a classification to be observed. The sum of all these values over :math:`k` should always 
     be equal to :math:`1`.
     
     Meanwhile, the adjusted true probability :math:`\widehat{p}_{i,k}` is an weighted average of a bin probability 
-    :math:`\widetilde{p}_{i,k, b}`, where for each bin :math:`b in B = \{2, ... 202\}`, a likelihood :math:`L_{i,k,b}` is assigned:
+    :math:`\widetilde{p}_{i,k, b}`, where for calibration model :math:`M_b` with bin number 
+    :math:`N_b \in B = \{\lfloor 0.1 \, (N_{samples}N_{classes})^{1\over{3}} \rfloor, ..., \lfloor 10 \,  (N_{samples}N_{classes})^{1\over{3}} \rfloor\}`, 
+    a likelihood :math:`L_{b}` is assigned:
         
     .. math::
-        \widehat{p}_{i,k} = {\sum\limits_{b \in B} L_{i,k,b} \widetilde{p}_{i,k, b} \over {\sum\limits_{b \in B} L_{i,k,b}}} 
+        \widehat{p}_{i,k} = {\sum\limits_{b \in B} L_{b} \widetilde{p}_{i,k, b} \over {\sum\limits_{b \in B} L_{b}}} 
         
-    For each bin with size 
+        
+    Given a number :math:`N_b`, a calibration model :math:`M_b` is built by firstly setting the bin size
+    
+    .. math::
+        s_b = {N_{samples} N_{classes} \over{N_b}}
+        
+    Then, we sort the predicted probabilites (using the bijective mapping :math:`\mathcal{S}: i,k \rightarrow j`) so that 
+    
+    .. math::
+        j_1 > j_2 \Rightarrow  p_{pred,i_1,k_1} = p_{pred, \mathcal{S}^{-1}(j_1)} \geq p_{pred,i_2, k_2} = p_{pred, \mathcal{S}^{-1}(j_2)}
+        
+    For the model :math:`M_b`, one can then set a number of bins, where the bin :math:`J_{b, n_b}` with
+    :math:`n_b \in \{1, ..., N_b\}` will be the following:
+        
+    .. math::
+        J_{b, n_b} = \left\{ \lfloor s_b (n_b - 1) \rfloor + 1, ..., \lfloor s_b n_b \rfloor + 1  \right\}
+        
+    with 
+    
+    .. math::
+        &\widehat{\widetilde{p}}_{b,n_b} & = {1\over{| J_{b,n_b} |}} \sum\limits_{j \in J_{b,n_b}} p_{\mathcal{S}^{-1}(j)} \\
+        &\widehat{\widetilde{p}}_{pred, b,n_b} & = {1\over{| J_{b,n_b} |}} \sum\limits_{j \in J_{b,n_b}} p_{pred, \mathcal{S}^{-1}(j)}     
+        
+    One then can get with :math:`\mathcal{S}(i,k) \in J_{b,l}` the searched for value
+    
+    .. math:: 
+        \widetilde{p}_{i,k, b} = \widehat{\widetilde{p}}_{b,l}
+        
+    The likelihood :math:`L_{b}` can be computed in the following way:
+        
+    .. math::
+        L_{b} = \prod\limits_{n_b = 1}^{N_b} 
+        {\Gamma \left({2\over{N_b}}\right) \over{\Gamma \left(| J_{b,n_b} | + {2\over{N_b}}\right)}} 
+        {\Gamma \left(| J_{b,n_b} |  \widehat{\widetilde{p}}_{b,l} + {2\over{N_b}} \widehat{\widetilde{p}}_{pred, b,n_b}\right) \over{\Gamma \left({2\over{N_b}} \widehat{\widetilde{p}}_{pred, b,n_b}\right)}}
+        {\Gamma \left(| J_{b,n_b} |  (1 - \widehat{\widetilde{p}}_{b,l}) + {2\over{N_b}}(1-  \widehat{\widetilde{p}}_{pred, b,n_b})\right) \over{\Gamma \left({2\over{N_b}} (1 -  \widehat{\widetilde{p}}_{pred, b,n_b})\right)}}
+        
     '''
     
     def setup_method(self):
@@ -62,7 +99,7 @@ class ECE_class(evaluation_template):
                 idx = np.arange(int(b_size * i), int(b_size * (i + 1)))
                 
                 bin_p_true = p_t_a[idx].mean()
-                p_b = 0.5 * (p_pred[idx].max() + p_pred[idx].min())
+                p_b = p_pred[idx].mean()
                 
                 P_t_adjusted[idx, b_ind] = bin_p_true
                 
