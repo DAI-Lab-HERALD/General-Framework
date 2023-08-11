@@ -19,26 +19,18 @@ class trajectron_salzmann_unicycle(model_template):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
         
-        # Get params
-        self.num_timesteps_in = len(self.Input_path_train.to_numpy()[0,0])
-        self.num_timesteps_out = np.zeros(len(self.Output_T_train), int)
-        for i_sample in range(self.Output_T_train.shape[0]):
-            len_use = len(self.Output_T_train[i_sample])
-            if self.data_set.num_timesteps_out_real == len_use:
-                self.num_timesteps_out[i_sample] = len_use
-            else:
-                self.num_timesteps_out[i_sample] = len_use - np.mod(len_use - self.data_set.num_timesteps_out_real, 5)
-        
-        self.remain_samples = self.num_timesteps_out >= 5
-        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], 100)
-        
-        self.use_map = self.data_set.includes_images()
+        # Required attributes of the model
+        self.min_t_O_train = 3
+        self.max_t_O_train = 100
+        self.predict_single_agent = True
+        self.can_use_map = True
+        # If self.can_use_map = True, the following is also required
         self.target_width = 175
         self.target_height = 100
+        self.grayscale = False
         
         config_path = os.sep.join(os.path.dirname(self.model_file).split(os.sep)[:-3])
         config_path += os.sep + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
-        
         
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
             config_file = config_path + 'pedestrian.json' 
@@ -71,16 +63,13 @@ class trajectron_salzmann_unicycle(model_template):
         self.std_vel_veh = 15
         self.std_acc_veh = 4
         
-        # Set time step
-        self.dt = self.Input_T_train[0][-1] - self.Input_T_train[0][-2]
-        
         # Prepare models
         model_registrar = ModelRegistrar(None, self.device)
         self.trajectron = Trajectron(model_registrar, hyperparams, None, self.device)
         self.trajectron.set_environment()
         self.trajectron.set_annealing_params()
-        
-    def extract_data(self, train = True):
+    
+    def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):
         attention_radius = dict()
         
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
@@ -91,60 +80,23 @@ class trajectron_salzmann_unicycle(model_template):
             attention_radius[(AgentType.PEDESTRIAN, AgentType.VEHICLE)] = 25.0
             attention_radius[(AgentType.VEHICLE, AgentType.PEDESTRIAN)] = 25.0
             attention_radius[(AgentType.VEHICLE, AgentType.VEHICLE)] = 100.0
-        
-        if train:
-            X_help = self.Input_path_train.to_numpy()
-            Y_help = self.Output_path_train.to_numpy() 
-            Types  = self.Type_train.to_numpy()
             
-            X_help = X_help[self.remain_samples]
-            Y_help = Y_help[self.remain_samples]
-            Typess = Types[self.remain_samples]
-            self.domain_old = self.Domain_train.iloc[self.remain_samples]
-        else:
-            X_help = self.Input_path_test.to_numpy()
-            Typess = self.Type_test.to_numpy()
-            self.domain_old = self.Domain_test    
+        Types = np.empty(T.shape, dtype = AgentType)
+        Types[T == 'P'] = AgentType.PEDESTRIAN
+        Types[T == 'V'] = AgentType.VEHICLE
         
-        Agents = np.array(self.input_names_train)
-        
-        Types = np.empty(Typess.shape, dtype = AgentType)
-        Types[Typess == 'P'] = AgentType.PEDESTRIAN
-        Types[Typess == 'V'] = AgentType.VEHICLE
-        
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
-        assert Pred_agents.sum() > 0, "nothing to predict"
-        
-        # Prepare numpy position array
-        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        if train:
-            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max(), 2], dtype = np.float32) * np.nan
-        
-        # Extract data from original number a samples
-        for i_sample in range(X.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if isinstance(X_help[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:    
-                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    if train:
-                        n_time = self.num_timesteps_out[i_sample]
-                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-        
-        # get velocities
         V = (X[...,1:,:] - X[...,:-1,:]) / self.dt
         V = np.concatenate((V[...,[0],:], V), axis = -2)
-        
+       
         # get accelaration
         A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
         A = np.concatenate((A[...,[0],:], A), axis = -2)
-        
+       
         H = np.angle(V[...,0] + 1j * V[...,1])[...,np.newaxis]
-        
+       
         Sin = np.sin(H)
         Cos = np.cos(H)
-        
+       
         #final state S
         S = np.concatenate((X, V, A, Sin, Cos), axis = -1).astype(np.float32)
         
@@ -158,71 +110,88 @@ class trajectron_salzmann_unicycle(model_template):
         S_st[Ped_agents,:,4:6]  /= self.std_acc_ped
         S_st[~Ped_agents,:,4:6] /= self.std_acc_veh
         
-        D = np.min(np.sqrt(np.sum((X[:,:,np.newaxis] - X[:,np.newaxis]) ** 2, axis = -1)), axis = - 1)
+        D = np.min(np.sqrt(np.sum((X[:,0] - X) ** 2, axis = -1)), axis = - 1)
         D_max = np.zeros_like(D)
         for i_sample in range(len(D)):
             for i_v in range(X.shape[1]):
                 if Types[i_sample, i_v] is None:
                     continue
-                for j_v in range(X.shape[1]):
-                    if Types[i_sample, j_v] is None:
-                        continue
-                    D_max[i_sample, i_v, j_v] = attention_radius[(Types[i_sample, j_v], Types[i_sample, i_v])]
-        
+                D_max[i_sample, i_v] = attention_radius[(Types[i_sample, 0], Types[i_sample, i_v])]
         
         Neighbor_bool = D < D_max
         
         # Get Neighbor for each pred value
-        Neigh      = np.nan * np.ones((X.shape[0], Pred_agents.sum(), *S.shape[1:]), dtype = np.float32)
-        Neigh_num  = np.zeros((X.shape[0], Pred_agents.sum()), dtype = np.int64)
-        Neigh_type = np.zeros((X.shape[0], Pred_agents.sum(), X.shape[1]), dtype = int)
-        Neigh_len  = np.zeros((X.shape[0], Pred_agents.sum(), X.shape[1]), dtype = int)
+        Neigh      = np.nan * np.ones((X.shape[0], *S.shape[1:]), dtype = np.float32)
+        Neigh_num  = np.zeros(X.shape[0], dtype = np.int64)
+        Neigh_type = np.zeros((X.shape[0], X.shape[1]), dtype = int)
+        Neigh_len  = np.zeros((X.shape[0], X.shape[1]), dtype = int)
 
-        i_pred_agent = 0
-        for i_agent, agent in enumerate(Agents):
-            avoid_self = np.array(Agents) != agent
-            if Pred_agents[i_agent]:
-                feasible_goals = avoid_self[np.newaxis] & Neighbor_bool[:, i_agent]
-                Neigh_num[:, i_pred_agent] = feasible_goals.sum(-1) 
-                for i_sample in range(X.shape[0]):
-                    Neigh[i_sample, i_pred_agent, 
-                          :Neigh_num[i_sample, i_pred_agent]] = S_st[i_sample, feasible_goals[i_sample]]
-                    Neigh_type[i_sample, i_pred_agent, 
-                               :Neigh_num[i_sample, i_pred_agent]] = Types[i_sample, feasible_goals[i_sample]].astype(int)
-                    Neigh_len[i_sample, i_pred_agent, 
-                              :Neigh_num[i_sample, i_pred_agent]] = self.num_timesteps_in
-                i_pred_agent += 1
-                
-                        
-                        
-        if self.use_map:
-            centre = X[:,Pred_agents,-1,:].reshape(-1, 2)
-            x_rel = centre - X[:,Pred_agents,-2,:].reshape(-1, 2)
-            rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-            domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(Pred_agents.sum())]
-            
-            img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                                  target_height = self.target_height, 
-                                                                  target_width = self.target_width, 
-                                                                  grayscale = False, return_resolution = True)
-            
-            img = img[:,:,75:].transpose(0,3,1,2).reshape(X.shape[0], Pred_agents.sum(), 3, 
-                                                          self.target_height, self.target_width - 75)
-            
-            img_m_per_px = img_m_per_px.reshape(X.shape[0], Pred_agents.sum()).astype('float32')
+        avoid_self = np.arange(X.shape[1]) != 0
+        feasible_goals = avoid_self[np.newaxis] & Neighbor_bool
+        Neigh_num = feasible_goals.sum(-1) 
+        for i_sample in range(X.shape[0]):
+            Neigh[i_sample, :Neigh_num[i_sample]] = S_st[i_sample, feasible_goals[i_sample]]
+            Neigh_type[i_sample, :Neigh_num[i_sample]] = Types[i_sample, feasible_goals[i_sample]].astype(int)
+            Neigh_len[i_sample, :Neigh_num[i_sample]] = self.num_timesteps_in
+        
+        num_batch_samples = len(X)
+        
+        node_type = Types[0,0]
+        
+        if img is not None:
+            img_batch = img[:,0,:,75].astype(np.float32) / 255 # Cut of image behind vehicle
+            img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
+            res_batch = 1 / torch.from_numpy(img_m_per_px[:,0])
         else:
-            img = None
-            img_m_per_px = None
-            
+            img_batch = None
+            res_batch = None
             
         
-        if train:
-            Y_st = Y.copy()
-            Y_st[Ped_agents]  /= self.std_pos_ped
-            Y_st[~Ped_agents] /= self.std_pos_veh
-            return Pred_agents, Agents, Types, S, S_st, Neigh, Neigh_num, Neigh_type, Neigh_len, img, img_m_per_px, Y, Y_st
+        if node_type == AgentType.PEDESTRIAN:
+            pos_to_vel_fac = self.std_vel_ped / self.std_pos_ped
+        elif node_type == AgentType.VEHICLE:
+            pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
         else:
-            return Pred_agents, Agents, Types, S, S_st, Neigh, Neigh_num, Neigh_type, Neigh_len, img, img_m_per_px
+            raise TypeError("Not considered.")
+        
+        if Y is None:
+            batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
+                               agent_type      = node_type,
+                               pos_to_vel_fac  = pos_to_vel_fac,
+                               agent_hist      = torch.from_numpy(S_st).to(dtype = torch.float32), 
+                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st.shape[2], 
+                               agent_fut       = None,
+                               agent_fut_len   = None, 
+                               robot_fut       = None,
+                               robot_fut_len   = None,
+                               num_neigh       = torch.from_numpy(Neigh_num).to(dtype = torch.int64), 
+                               neigh_types     = torch.from_numpy(Neigh_type).to(dtype = torch.int64), 
+                               neigh_hist      = torch.from_numpy(Neigh).to(dtype = torch.float32), 
+                               neigh_hist_len  = torch.from_numpy(Neigh_len).to(dtype = torch.int64), 
+                               maps            = img_batch, 
+                               maps_resolution = res_batch)
+        else:
+            Y_st = Y.copy()
+            Y_st[Ped_agents[:,0]]  /= self.std_pos_ped
+            Y_st[~Ped_agents[:,0]] /= self.std_pos_veh
+        
+            batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
+                               agent_type      = node_type,
+                               pos_to_vel_fac  = pos_to_vel_fac,
+                               agent_hist      = torch.from_numpy(S_st).to(dtype = torch.float32), 
+                               agent_fut       = torch.from_numpy(Y_st).to(dtype = torch.float32),
+                               # Todo: Generate better occupancy maps
+                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st.shape[2], 
+                               agent_fut_len   = torch.ones(num_batch_samples).to(dtype = torch.int64) * num_steps, 
+                               robot_fut       = None,
+                               robot_fut_len   = None,
+                               num_neigh       = torch.from_numpy(Neigh_num).to(dtype = torch.int64), 
+                               neigh_types     = torch.from_numpy(Neigh_type).to(dtype = torch.int64), 
+                               neigh_hist      = torch.from_numpy(Neigh).to(dtype = torch.float32), 
+                               neigh_hist_len  = torch.from_numpy(Neigh_len).to(dtype = torch.int64), 
+                               maps            = img_batch, 
+                               maps_resolution = res_batch)
+        return batch, node_type
     
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
@@ -246,12 +215,7 @@ class trajectron_salzmann_unicycle(model_template):
         return optimizer, lr_scheduler
 
     def train_method(self, epochs = 100): 
-        # Classify agents
-        (Pred_agents, Agents, Types, S, S_st, 
-         Neigh, Neigh_num, Neigh_type, Neigh_len, 
-         img, img_m_per_px, Y, Y_st) = self.extract_data(train = True)
-        
-        Pred_types = np.unique(Types[:,Pred_agents])
+        Pred_types = np.array([AgentType.PEDESTRIAN, AgentType.VEHICLE])
         
         # Get gradient clipping values              
         clip_value_final = self.trajectron.hyperparams['grad_clip']
@@ -262,154 +226,56 @@ class trajectron_salzmann_unicycle(model_template):
         # Generate training batches
         batch_size = self.trajectron.hyperparams['batch_size']   
         
-        # Collapse all predictions
-        S_cum = S_st[:, Pred_agents].reshape(-1, *S_st.shape[2:])
-        Y_cum = Y_st[:, Pred_agents].reshape(-1, *Y_st.shape[2:])
-        
-        Neigh_cum       = Neigh.reshape(-1, *Neigh.shape[2:])
-        Neigh_type_cum  = Neigh_type.reshape(-1, *Neigh_type.shape[2:])
-        Neigh_num_cum   = Neigh_num.reshape(-1)
-        Neigh_len_cum   = Neigh_len.reshape(-1, *Neigh_len.shape[2:])
-        
-        n_O_cum = np.tile(self.num_timesteps_out[:,np.newaxis], (1, Pred_agents.sum())).reshape(-1)
-        Types_cum = Types[:, Pred_agents].reshape(-1)
-        
-        if self.use_map:
-            img_cum = img.reshape(-1, *img.shape[2:])
-            img_m_per_px_cum = img_m_per_px.reshape(-1)
-        
-        differs = np.concatenate((n_O_cum[:,np.newaxis], Types_cum[:,np.newaxis].astype(int)), axis = 1)
-        
-        differ, count = np.unique(differs, axis = 0, return_counts = True)
-        num_batches = count // batch_size + 1
-        batch_index_num = np.repeat(np.arange(len(num_batches)), num_batches)
-        Index_num = [np.where((differs == d[np.newaxis]).all(1))[0] for d in differ]
-        Index_num_start = np.zeros(len(Index_num), int)
-        
-        
         # Move model to gpu
         self.trajectron.model_registrar.to(self.trajectron.device)
         
         # Get the current iteration of the model
         curr_iter = 0
         
-        # go over epochs
-        self.train_loss = np.ones((1, epochs)) * np.nan
         for epoch in range(1, epochs + 1):
             # print current epoch
             rjust_epoch = str(epoch).rjust(len(str(epochs)))
             print('Train trajectron: Epoch ' + rjust_epoch + '/{}'.format(epochs))
             
-            
-            # Randomly shuffle batches
-            Index_num_start[:] = 0
-            np.random.shuffle(batch_index_num)
-            for i in range(len(Index_num)):
-                np.random.shuffle(Index_num[i])
-            
             epoch_loss = 0.0
+            epoch_done = False
             
-            for i_batch, batch in enumerate(batch_index_num):
-                rjust_batch = str(i_batch + 1).rjust(len(str(len(batch_index_num))))
-                # Get number of output steps in this batch
-                num_steps = differ[batch, 0]
-                if num_steps > 1:
-                    Index_use = Index_num[batch][Index_num_start[batch]:Index_num_start[batch] + batch_size]
-                    num_batch_samples = len(Index_use)
-                    
-                    if num_batch_samples > 0:
-                        state_len = torch.from_numpy(np.ones(num_batch_samples) * S_st.shape[2])
-                        fut_len   = torch.from_numpy(np.ones(num_batch_samples) * num_steps)
-                        Index_num_start[batch] += num_batch_samples
-                        
-                        print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch '.format(epochs) + 
-                              rjust_batch + '/{}'.format(len(batch_index_num)))
-                        
-                        
-                        self.trajectron.set_curr_iter(curr_iter)
-                        self.trajectron.step_annealers()
-                        
-                        node_type = AgentType(differ[batch,1])
-                        optimizer[node_type].zero_grad()
-                    
-                        S_st_batch = torch.from_numpy(S_cum[Index_use])
-                        Y_st_batch = torch.from_numpy(Y_cum[Index_use,:num_steps])
-                        
-                        if self.use_map:
-                            img_batch = torch.from_numpy(img_cum[Index_use].astype(np.float32))
-                            img_batch = img_batch.to(device = self.trajectron.device) / 255
-                            res_batch = 1 / torch.from_numpy(img_m_per_px_cum[Index_use])
-                        else:
-                            img_batch = None
-                            res_batch = None
-                            
-                        # Get batch data
-                        Neigh_batch       = torch.from_numpy(Neigh_cum[Index_use])
-                        Neigh_types_batch = torch.from_numpy(Neigh_type_cum[Index_use])
-                        Neigh_num_batch   = torch.from_numpy(Neigh_num_cum[Index_use])
-                        Neigh_len_batch   = torch.from_numpy(Neigh_len_cum[Index_use])
-                        
-                        Weights = list(self.trajectron.model_registrar.parameters())
-                        model = self.trajectron.node_models_dict[node_type.name]
-                        
-                        if node_type == AgentType.PEDESTRIAN:
-                            pos_to_vel_fac = self.std_vel_ped / self.std_pos_ped
-                        elif node_type == AgentType.VEHICLE:
-                            pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
-                        else:
-                            raise TypeError("Not considered.")
-                        
-                        # Built Agent_batch
-                        batch = AgentBatch(dt = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
-                                           agent_type = node_type,
-                                           pos_to_vel_fac = pos_to_vel_fac,
-                                           agent_hist = S_st_batch, 
-                                           agent_hist_len = state_len.to(dtype = torch.int64), 
-                                           agent_fut = Y_st_batch,
-                                           agent_fut_len = fut_len.to(dtype = torch.int64), 
-                                           robot_fut = None,
-                                           robot_fut_len = None,
-                                           num_neigh = Neigh_num_batch, 
-                                           neigh_types = Neigh_types_batch, 
-                                           neigh_hist = Neigh_batch, 
-                                           neigh_hist_len = Neigh_len_batch.to(dtype = torch.int64), 
-                                           maps = img_batch, 
-                                           maps_resolution = res_batch)
-                        
-                        # Run forward pass
-                        batch.to(device = self.trajectron.device) 
-                        train_loss = model.train_loss(batch = batch)
-                        assert train_loss.isfinite().all(), "The overall loss of the model is nan"
-        
-                        train_loss.backward()
-         
-                        gradients_good = all([(weights.grad.isfinite().all() if weights.grad is not None else True) 
-                                              for weights in Weights])
-                        
-                        if gradients_good:
-                            if self.trajectron.hyperparams['grad_clip'] is not None:
-                                nn.utils.clip_grad_value_(self.trajectron.model_registrar.parameters(), clip_value_final)
-            
-                            optimizer[node_type].step()
-                            lr_scheduler[node_type].step()
-                            curr_iter += 1
-                        else:
-                            print('Too many output timesteps lead to exploding gradients => weights not updated')
-                        
-                        epoch_loss += train_loss.detach().cpu().numpy()
-                    
-                else:
-                    print("Not enough output timesteps => no loss can be calculated")
+            batch = 0
+            while not epoch_done:
+                batch += 1
+                print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch))
+                X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', batch_size)
+                batch, node_type = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
                 
+                batch.to(device = self.trajectron.device)
+                
+                self.trajectron.set_curr_iter(curr_iter)
+                self.trajectron.step_annealers()
+                
+                optimizer[node_type].zero_grad()
+                
+                # Run forward pass
+                model = self.trajectron.node_models_dict[node_type.name]
+                train_loss = model.train_loss(batch = batch)
+                
+                # Calculate gradients
+                assert train_loss.isfinite().all(), "The overall loss of the model is nan"
+                train_loss.backward()
+                
+                if self.trajectron.hyperparams['grad_clip'] is not None:
+                    nn.utils.clip_grad_value_(self.trajectron.model_registrar.parameters(), clip_value_final)
+                
+                optimizer[node_type].step()
+                lr_scheduler[node_type].step()
+                curr_iter += 1
+                
+                epoch_loss += train_loss.detach().cpu().numpy()
+  
             self.train_loss[0, epoch - 1] = epoch_loss       
                     
-                
-        
-        
-        
-        
+              
         # save weigths 
-        # after checking here, please return num_epochs to 100 and batch size to 
+        
         Weights = list(self.trajectron.model_registrar.parameters())
         self.weights_saved = []
         for weigths in Weights:
@@ -423,137 +289,43 @@ class trajectron_salzmann_unicycle(model_template):
                 Weights[i][:] = torch.from_numpy(weights)[:]
         
     def predict_method(self):
-        # get desired output length
-        self.num_timesteps_out_test = np.zeros(len(self.Output_T_pred_test), int)
-        for i_sample in range(len(self.Output_T_pred_test)):
-            self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
-            
-        # Classify agents
-        (Pred_agents, Agents, Types, S, S_st, 
-         Neigh, Neigh_num, Neigh_type, Neigh_len, 
-         img, img_m_per_px) = self.extract_data(train = False)
-        
-        
-        Path_names = np.array(self.Output_path_train.columns)
-        
-        Output_Path = pd.DataFrame(np.empty((S.shape[0], Pred_agents.sum()), np.ndarray), 
-                                   columns = Path_names[Pred_agents])
+        Output_path_pred = self.create_empty_output_path()
         
         batch_size = self.trajectron.hyperparams['batch_size']
         
-        samples_done = 0
-        calculations_done = 0
-        samples_all = len(S) * Pred_agents.sum()
-        calculations_all = np.sum(self.num_timesteps_out_test) * Pred_agents.sum()
-        i_pred_agent = 0
-        for i_agent, agent in enumerate(Agents):
-            if not Pred_agents[i_agent]:
-                continue
+        prediction_done = False
+        
+        batch = 0
+        while not prediction_done:
+            batch += 1
+            print('Predict trajectron: Batch {}'.format( batch))
+            X, T, img, img_m_per_px, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            batch, node_type = self.extract_data_batch(X, T, img, img_m_per_px, num_steps)
+        
+            batch.to(self.trajectron.device)
+            # Run prediction pass
+            model = self.trajectron.node_models_dict[node_type.name]
+            self.trajectron.model_registrar.to(self.trajectron.device)
             
+            with torch.no_grad():
+                predictions = model.predict(batch              = batch,
+                                            prediction_horizon = num_steps,
+                                            num_samples        = self.num_samples_path_pred)
             
-            differs = np.concatenate((self.num_timesteps_out_test[:,np.newaxis], 
-                                      Types[:,[i_agent]].astype(int)), axis = 1)
+            Pred = predictions.detach().cpu().numpy()
+            if node_type == AgentType.PEDESTRIAN:
+                Pred *= self.std_pos_ped
+            elif node_type == AgentType.VEHICLE:
+                Pred *= self.std_pos_veh
+            else:
+                raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
             
-            differs_unique = np.unique(differs, axis = 0)
-            
-            for differ in differs_unique:
-                num = differ[0]
-                node_type = AgentType(differ[1])
+            torch.cuda.empty_cache()
+            for i, i_sample in enumerate(Sample_id[:,0]):
+                agent = Agent_id[i,0]
+                Output_path_pred.iloc[i_sample][agent] = Pred[:, i, :, :].astype('float32')
                 
-                Index_num = np.where((differs == differ[np.newaxis]).all(1))[0]
-                
-                batch_size_real = int(np.floor((200 * batch_size) / (num * self.num_samples_path_pred)))
-                
-                if batch_size_real > len(Index_num):
-                    Index_uses = [Index_num]
-                else:
-                    Index_uses = [Index_num[i * batch_size_real : (i + 1) * batch_size_real] 
-                                  for i in range(int(np.ceil(len(Index_num)/ batch_size_real)))] 
-                
-                for Index_use in Index_uses:
-                    state_len = torch.from_numpy(np.ones(len(Index_use)) * S_st.shape[2])
-                    
-                    S_st_batch = torch.from_numpy(S_st[Index_use,i_agent])
-                    
-                    if self.use_map:
-                        img_batch = torch.from_numpy(img[Index_use, i_pred_agent].astype(np.float32))
-                        img_batch = img_batch.to(device = self.trajectron.device) / 255
-                        res_batch = 1 / torch.from_numpy(img_m_per_px[Index_use, i_pred_agent])
-                    else:
-                        img_batch = None
-                        res_batch = None
-                        
-                    # Get batch data
-                    Neigh_batch       = torch.from_numpy(Neigh[Index_use, i_pred_agent])
-                    Neigh_types_batch = torch.from_numpy(Neigh_type[Index_use, i_pred_agent])
-                    Neigh_num_batch   = torch.from_numpy(Neigh_num[Index_use, i_pred_agent])
-                    Neigh_len_batch   = torch.from_numpy(Neigh_len[Index_use, i_pred_agent])
-                    
-                    if node_type == AgentType.PEDESTRIAN:
-                        pos_to_vel_fac = self.std_vel_ped / self.std_pos_ped
-                    elif node_type == AgentType.VEHICLE:
-                        pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
-                    else:
-                        raise TypeError("Not considered.")
-                    
-                    # Built Agent_batch
-                    batch = AgentBatch(dt = torch.ones(len(Index_use), dtype = torch.float32) * self.dt, 
-                                       agent_type = node_type,
-                                       pos_to_vel_fac = pos_to_vel_fac,
-                                       agent_hist = S_st_batch, 
-                                       agent_hist_len = state_len.to(dtype = torch.int64), 
-                                       agent_fut = None,
-                                       agent_fut_len = None, 
-                                       robot_fut = None,
-                                       robot_fut_len = None,
-                                       num_neigh = Neigh_num_batch, 
-                                       neigh_types = Neigh_types_batch, 
-                                       neigh_hist = Neigh_batch, 
-                                       neigh_hist_len = Neigh_len_batch.to(dtype = torch.int64), 
-                                       maps = img_batch, 
-                                       maps_resolution = res_batch)
-                    
-                    batch.to(self.trajectron.device)
-                    # Run prediction pass
-                    model = self.trajectron.node_models_dict[node_type.name]
-                    self.trajectron.model_registrar.to(self.trajectron.device)
-                    
-                    
-                    with torch.no_grad(): # Do not build graph for backprop
-                        predictions = model.predict(batch              = batch,
-                                                    prediction_horizon = num,
-                                                    num_samples        = self.num_samples_path_pred)
-                    
-                    Pred = predictions.detach().cpu().numpy()
-                    if node_type == AgentType.PEDESTRIAN:
-                        Pred *= self.std_pos_ped
-                    elif node_type == AgentType.VEHICLE:
-                        Pred *= self.std_pos_veh
-                    else:
-                        raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
-                    
-                    torch.cuda.empty_cache()
-                    for i, i_sample in enumerate(Index_use):
-                        Output_Path.iloc[i_sample][agent] = Pred[:, i, :, :].astype('float32')
-                
-                    
-                    samples_done += len(Index_use)
-                    calculations_done += len(Index_use) * num
-                    
-                    samples_perc = 100 * samples_done / samples_all
-                    calculations_perc = 100 * calculations_done / calculations_all
-                    
-                    print('Predict trajectron: ' + 
-                          format(samples_perc, '.2f').rjust(len('100.00')) + 
-                          '% of samples, ' + 
-                          format(calculations_perc, '.2f').rjust(len('100.00')) +
-                          '% of calculations')
-                    
-            i_pred_agent += 1
-                
-                
-
-        return [Output_Path]
+        return [Output_path_pred]
     
     
     def check_trainability_method(self):
