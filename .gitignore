@@ -13,7 +13,7 @@ python_packages/
 *.xlsx
 *.docx
 *.json
-*.bin
+*.pcd.bin
 !nuScenes.json
 !nuScenes_state_delta.json
 !pedestrians.json
