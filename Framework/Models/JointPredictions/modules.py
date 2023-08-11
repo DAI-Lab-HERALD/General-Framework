@@ -375,6 +375,7 @@ class PastSceneEncoder(nn.Module):
         super().__init__()
         self.device = device
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
 
         self.in_dim = socialGNNparams['in_dim']
         # Module for encoding social interactions
@@ -391,9 +392,9 @@ class PastSceneEncoder(nn.Module):
     def forward(self, pastTrajEnc, pos, T, staticEnv=None):
         """
         Args: 
-            pos: (batch_size, n_agents, 2) - current position of all agents
-            pastTrajEnc: (batch_size, n_agents, seq_len, past_nout) - encoded past trajectories of all agents
-            T: (batch_size, n_agents) - class labels for all agents
+            pos: (batch_size, max_num_agents, 2) - current position of all agents
+            pastTrajEnc: (batch_size, max_num_agents, seq_len, past_nout) - encoded past trajectories of all agents
+            T: (batch_size, max_num_agents) - class labels for all agents
         """
         if staticEnv is not None:
             staticEnv_flattened = staticEnv.view(-1, *staticEnv.shape[2:])
@@ -401,40 +402,53 @@ class PastSceneEncoder(nn.Module):
             sceneStaticEnc = sceneStaticEnc.view(*staticEnv.shape[:2], -1)
         
         pastTrajEnc     = pastTrajEnc[...,-1,:]
-        num_nodes = pastTrajEnc.size(dim=1)
-        row = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-        col = torch.arange(num_nodes, dtype=torch.long, device=self.device)
+        max_num_agents  = pastTrajEnc.size(dim=1)
+        
+        # Find existing agents (T = 48 means that the agent does not exist)
+        existing_agent = T != 48 # (batch_size, max_num_agents)
 
-        row = row.view(-1, 1).repeat(1, num_nodes).view(-1)
-        col = col.repeat(num_nodes)
-        graph_edge_node = torch.stack([row, col], dim=0).unsqueeze(0).repeat((len(pastTrajEnc),1,1))
-        # Combine batch into one matrix
-        sample_enc = torch.arange(len(pastTrajEnc), device = self.device).unsqueeze(1).repeat((1,num_nodes ** 2)) 
-        graph_edge_index = graph_edge_node + sample_enc.unsqueeze(1) * num_nodes # get indices for separating out each sample
-        # Combine
-        graph_edge_index = graph_edge_index.permute(1,0,2).reshape(2,-1) # (2, n_agents ** 2 * batch_size)
+        # Find connection matrix for existing agents
+        Edge_bool = existing_agent[:, None] & existing_agent[:, :, None] # (batch_size, max_num_agents, max_num_agents)
 
-        T_one_hot = (T.unsqueeze(-1) == self.t_unique.unsqueeze(0).unsqueeze(0)).float().reshape(-1, len(self.t_unique))
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+        exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
 
-        class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
+        # Differentiate between agents of different samples
+        node_adder = exist_sample3 * max_num_agents
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder[None, :] # shape: 2 x num_edges
+
+        # Eliminate the holes due to missing agents
+        # i.e node ids go from (0,3,4,6,...) to (0,1,2,3,...)
+        graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
+
+        # Get type of existing agents
+        T_exisiting_agents = T[exist_sample2, exist_row2] # shape: num_nodes
+        # Get one hot encodeing of this agent type
+        T_one_hot = (T_exisiting_agents.unsqueeze(-1) == self.t_unique.unsqueeze(0)).float() # shape: num_nodes x num_classes
+        # Get one hot encoding from start and goal node of each edge
+        T_one_hot_edge = T_one_hot[graph_edge_index, :] # shape: 2 x num_edges x num_classes
+        # Concatenate in and output type for each edge
+        class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
+
         
         D = torch.sqrt(torch.sum((pos[:,None,:] - pos[:,:,None]) ** 2, dim = -1))
-        dist_in_out = D[sample_enc, graph_edge_node[:,0], graph_edge_node[:,1]]
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3]
         dist_in_out = dist_in_out.reshape(-1,1)
          
         graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
         
-        graph_batch = torch.arange((len(pastTrajEnc)), dtype=torch.long, device=self.device).repeat_interleave(num_nodes)
+        pastTrajEnc_existing_agents = pastTrajEnc[exist_sample2, exist_row2]
         
         if staticEnv is not None:
-            sceneContext = torch.cat((sceneStaticEnc, pastTrajEnc), dim = 2)
+            sceneStaticEncEnc_existing_agents = sceneStaticEnc[exist_sample2, exist_row2]
+            sceneContext = torch.cat((sceneStaticEncEnc_existing_agents, pastTrajEnc_existing_agents), dim = 1)
         else:
-            sceneContext = pastTrajEnc
+            sceneContext = pastTrajEnc_existing_agents
 
         socialData = Data(x=sceneContext.reshape(-1, self.in_dim), 
                           edge_index=graph_edge_index, 
                           edge_attr=graph_edge_attr, 
-                          batch=graph_batch)
+                          batch=exist_sample2)
         
         sceneEncoding = self.encoder(socialData) # (batch_size, emb_dim)
 
@@ -498,6 +512,7 @@ class FutureSceneEncoder(nn.Module):
         super().__init__()
         self.device = device
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
         self.in_dim = socialGNNparams['in_dim']
        
         
@@ -524,40 +539,51 @@ class FutureSceneEncoder(nn.Module):
             pos_emb: (batch_size, n_agents, pos_emb_dim) - positional encoding of all agents
             numAgents_emb: (batch_size, n_agents, 1) - encoding of number of agents in the scene 
             T: (batch_size, n_agents) - class labels for all agents
-        """        
-        num_nodes = x_enc.size(dim=1)
-        row = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-        col = torch.arange(num_nodes, dtype=torch.long, device=self.device)
+        """    
+        max_num_agents  = x_enc.size(dim=1)
+        
+        # Find existing agents (T = 48 means that the agent does not exist)
+        existing_agent = T != 48 # (batch_size, max_num_agents)
 
-        row = row.view(-1, 1).repeat(1, num_nodes).view(-1)
-        col = col.repeat(num_nodes)
-        graph_edge_node = torch.stack([row, col], dim=0).unsqueeze(0).repeat((len(x_enc),1,1))
-        # Combine batch into one matrix
-        sample_enc = torch.arange(len(x_enc), device = self.device).unsqueeze(1).repeat((1,num_nodes ** 2)) 
-        graph_edge_index = graph_edge_node + sample_enc.unsqueeze(1) * num_nodes # get indices for separating out each sample
-        # Combine
-        graph_edge_index = graph_edge_index.permute(1,0,2).reshape(2,-1) # (2, n_agents ** 2 * batch_size)
+        # Find connection matrix for existing agents
+        Edge_bool = existing_agent[:, None] & existing_agent[:, :, None] # (batch_size, max_num_agents, max_num_agents)
 
-        T_one_hot = (T.unsqueeze(-1) == self.t_unique.unsqueeze(0).unsqueeze(0)).float().reshape(-1, len(self.t_unique))
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+        exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
 
-        class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
+        # Differentiate between agents of different samples
+        node_adder = exist_sample3 * max_num_agents
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder[None, :] # shape: 2 x num_edges
+
+        # Eliminate the holes due to missing agents
+        # i.e node ids go from (0,3,4,6,...) to (0,1,2,3,...)
+        graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
+
+        # Get type of existing agents
+        T_exisiting_agents = T[exist_sample2, exist_row2] # shape: num_nodes
+        # Get one hot encodeing of this agent type
+        T_one_hot = (T_exisiting_agents.unsqueeze(-1) == self.t_unique.unsqueeze(0)).float() # shape: num_nodes x num_classes
+        # Get one hot encoding from start and goal node of each edge
+        T_one_hot_edge = T_one_hot[graph_edge_index, :] # shape: 2 x num_edges x num_classes
+        # Concatenate in and output type for each edge
+        class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
+
         
         D = torch.sqrt(torch.sum((pos[:,None,:] - pos[:,:,None]) ** 2, dim = -1))
-        dist_in_out = D[sample_enc, graph_edge_node[:,0], graph_edge_node[:,1]]
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3]
         dist_in_out = dist_in_out.reshape(-1,1)
          
         graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
         
-        graph_batch = torch.arange((len(x_enc)), dtype=torch.long, device=self.device).repeat_interleave(num_nodes)
+        x_enc_existing_agents = x_enc[exist_sample2, exist_row2]
+        
 
-        socialData = Data(x=x_enc.reshape(-1, self.in_dim), 
+        socialData = Data(x=x_enc_existing_agents, 
                           edge_index=graph_edge_index, 
                           edge_attr=graph_edge_attr, 
-                          batch=graph_batch)
-
+                          batch=exist_sample2)
         
         graphEncoding = self.encoder(socialData) # (batch_size, emb_dim)
-        
         sceneEncoding = self.encoder_fc(graphEncoding)
 
         return sceneEncoding
@@ -570,6 +596,7 @@ class FutureSceneDecoder(nn.Module):
         super().__init__()
         self.device = device
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
         self.in_dim = socialGNNparams['in_dim'] + pos_emb_dim + 1
         
         # Module for encoding social interactions
@@ -586,7 +613,7 @@ class FutureSceneDecoder(nn.Module):
         )
 
     # def forward(self, enc, num_agents, agentPos, target_length): 
-    def forward(self, pos, enc, pos_emb, numAgents_emb, num_agents, T): 
+    def forward(self, pos, enc, pos_emb, numAgents_emb, max_num_agents, T): 
 
         """
         Args: 
@@ -596,48 +623,64 @@ class FutureSceneDecoder(nn.Module):
             numAgents_emb: (batch_size, n_agents, 1) - encoding of number of agents in the scene 
             T: (batch_size, n_agents) - class labels for all agents
         """
-        enc_emb = self.decoder_fc(enc)
-        enc_emb = enc_emb.unsqueeze(1).repeat((1,num_agents,1))
-
-        numAgents_emb = numAgents_emb.unsqueeze(1).repeat((1,num_agents,1))
-
-        num_nodes = num_agents
-        row = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-        col = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-
-        row = row.view(-1, 1).repeat(1, num_nodes).view(-1)
-        col = col.repeat(num_nodes)
-        graph_edge_node = torch.stack([row, col], dim=0).unsqueeze(0).repeat((len(enc),1,1))
-        # Combine batch into one matrix
-        sample_enc = torch.arange(len(enc), device = self.device).unsqueeze(1).repeat((1,num_nodes ** 2)) 
-        graph_edge_index = graph_edge_node + sample_enc.unsqueeze(1) * num_nodes # get indices for separating out each sample
-        # Combine
-        graph_edge_index = graph_edge_index.permute(1,0,2).reshape(2,-1) # (2, n_agents ** 2 * batch_size)
-
-        T_one_hot = (T.unsqueeze(-1) == self.t_unique.unsqueeze(0).unsqueeze(0)).float().reshape(-1, len(self.t_unique))
-
-        class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
         
-        D = torch.sqrt(torch.sum((pos[:,None,:] - pos[:,:,None]) ** 2, dim = -1))
-        dist_in_out = D[sample_enc, graph_edge_node[:,0], graph_edge_node[:,1]]
+        enc_emb = self.decoder_fc(enc)
+        # repeat the graph scene encodings for the maximum number of possible agents
+        enc_emb = enc_emb.unsqueeze(1).repeat((1,max_num_agents,1))
 
+        # Find existing agents (T = 48 means that the agent does not exist)
+        existing_agent = T != 48 # (batch_size, max_num_agents)
+
+        numAgents_emb = numAgents_emb.unsqueeze(1).repeat((1,max_num_agents,1))
+        # num_nodes = num_agents
+
+        # Find connection matrix for existing agents
+        Edge_bool = existing_agent[:, None] & existing_agent[:, :, None] # (batch_size, max_num_agents, max_num_agents)
+
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+        exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
+
+        # Differentiate between agents of different samples
+        node_adder = exist_sample3 * max_num_agents
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder[None, :] # shape: 2 x num_edges
+
+        # Eliminate the holes due to missing agents
+        # i.e node ids go from (0,3,4,6,...) to (0,1,2,3,...)
+        graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
+
+        # Get type of existing agents
+        T_exisiting_agents = T[exist_sample2, exist_row2] # shape: num_nodes
+        # Get one hot encodeing of this agent type
+        T_one_hot = (T_exisiting_agents.unsqueeze(-1) == self.t_unique.unsqueeze(0)).float() # shape: num_nodes x num_classes
+        # Get one hot encoding from start and goal node of each edge
+        T_one_hot_edge = T_one_hot[graph_edge_index, :] # shape: 2 x num_edges x num_classes
+        # Concatenate in and output type for each edge
+        class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
+
+
+        D = torch.sqrt(torch.sum((pos[:,None,:] - pos[:,:,None]) ** 2, dim = -1))
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3]
         dist_in_out = dist_in_out.reshape(-1,1)
          
          # TODO possibly put back
         graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
-        
-        graph_batch = torch.arange((len(enc)), dtype=torch.long, device=self.device).repeat_interleave(num_nodes)
 
-        graph_x = torch.cat((pos_emb, numAgents_emb, enc_emb), dim=2)
-        encSocialData = Data(x=graph_x.reshape(-1, self.in_dim), 
+        pos_emb_existing_agents = pos_emb[exist_sample2, exist_row2]
+        numAgents_emb_existing_agents = numAgents_emb[exist_sample2, exist_row2]
+        enc_emb_existing_agents = enc_emb[exist_sample2, exist_row2]
+
+
+        graph_x = torch.cat((pos_emb_existing_agents, numAgents_emb_existing_agents, enc_emb_existing_agents), dim=1)
+        decSocialData = Data(x=graph_x.reshape(-1, self.in_dim), 
                           edge_index=graph_edge_index, 
                           edge_attr=graph_edge_attr, 
-                          batch=graph_batch)
+                          batch=exist_sample2)
 
         
-        graphDecoding = self.decoder(encSocialData) # (n_agents, emb_dim)
+        graphDecoding = self.decoder(decSocialData) # (num_existing_agents, emb_dim)       
 
-        return graphDecoding
+
+        return graphDecoding, existing_agent
 
 class FutureSceneAE(nn.Module):
 
@@ -652,6 +695,7 @@ class FutureSceneAE(nn.Module):
         self.traj_decoder = nn.ModuleDict({})
 
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
         for t in self.t_unique:
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
             self.traj_encoder[t_key] = FutureTrajEncoder(futureRNNencParams, device=device).to(device)
@@ -672,7 +716,19 @@ class FutureSceneAE(nn.Module):
         num_agents = agentTrajs.size(dim=1)
         batch_size = agentTrajs.size(dim=0)
 
-        pos_emb = F.tanh(self.pos_emb(agentPos)) # (n_agents, enc_dim)
+        existing_agent = T != 48 # (batch_size, max_num_agents)
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+
+        agentPos_existing = agentPos[exist_sample2, exist_row2] # (num_existing_agents, 2)
+
+        pos_emb = F.tanh(self.pos_emb(agentPos_existing)) # (n_agents, enc_dim)
+
+        tmp = torch.zeros((batch_size, num_agents, 2), device = self.device)
+        tmp[tmp == 0] = float('nan')
+        tmp[exist_sample2, exist_row2] = pos_emb
+
+        pos_emb = tmp
+
         numAgents_emb = F.tanh(self.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
         numAgents_emb = numAgents_emb.repeat(batch_size, 1) # (n_agents, 1)
 
@@ -696,10 +752,12 @@ class FutureSceneAE(nn.Module):
         agentFutureTrajEnc = agentFutureTrajEnc_flattened.reshape(batch_size, num_agents, -1) # (batch_size, n_agents, 1, hs)
 
         scene_enc = self.scene_encoder(agentPos, agentFutureTrajEnc, T) # (batch_size, enc_dim)
-        graphDecoding = self.scene_decoder(agentPos, scene_enc, pos_emb, numAgents_emb, num_agents, T)
+        graphDecoding, existing_agents = self.scene_decoder(agentPos, scene_enc, pos_emb, numAgents_emb, num_agents, T)
 
-        agentFutureTrajDec = torch.zeros((agentTrajs_flattened.shape[0], agentTrajs_flattened.shape[1], 2),
+        agentFutureTrajDec = torch.zeros((graphDecoding.shape[0], agentTrajs_flattened.shape[1], 2),
                                                     device = self.device)
+        
+        T_flattened = T_flattened[T_flattened != 48]
         for t in self.t_unique:
             assert t in T_flattened
             t_in = T_flattened == t
@@ -708,7 +766,13 @@ class FutureSceneAE(nn.Module):
             agentFutureTrajDec[t_in] = self.traj_decoder[t_key](graphDecoding[t_in], target_length=target_length, batch_size=len(graphDecoding[t_in]))
 
         # Needed for batch training
-        agentFutureTrajDec = agentFutureTrajDec.reshape(batch_size, num_agents, target_length, 2)
+        tmp = torch.zeros((batch_size, num_agents, target_length, 2), device = self.device)
+        tmp[tmp == 0] = float('nan')
+        existing_sample, existing_row = torch.where(existing_agents)
+
+        tmp[existing_sample, existing_row] = agentFutureTrajDec
+
+        agentFutureTrajDec = tmp
         
         return agentFutureTrajDec, agentTrajs
 

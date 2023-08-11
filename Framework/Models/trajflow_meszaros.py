@@ -128,19 +128,20 @@ class trajflow_meszaros(model_template):
                 
         if train:
             Xi = X # num_samples, num_agents, num_timesteps, 2
+            T = Types
             
             
             # set agent to be predicted into first location
-            X = []
-            T = []
-            for i_agent in np.where(Pred_agents)[0]:
-                reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
-                                         list(np.arange(i_agent + 1, Xi.shape[1])))
-                X.append(Xi[:,reorder_index])
-                T.append(Types[:, reorder_index])
-            X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
-            T = T.astype(str)
+            # X = []
+            # T = []
+            # for i_agent in np.where(Pred_agents)[0]:
+            #     reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
+            #                              list(np.arange(i_agent + 1, Xi.shape[1])))
+            #     X.append(Xi[:,reorder_index])
+            #     T.append(Types[:, reorder_index])
+            # X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
+            # T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
+            # T = T.astype(str)
             PPed_agents = T == 'P'
             # transform to ascii int:
             T[T == 'nan'] = '0'
