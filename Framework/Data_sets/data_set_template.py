@@ -729,7 +729,7 @@ class data_set_template():
             num_samples = len(self.id)
             for i in range(num_samples):
                 # print progress
-                if np.mod(i, 50) == 0:
+                if np.mod(i, 1) == 0:
                     print('path ' + str(i).rjust(len(str(num_samples))) +
                           '/{} divided'.format(num_samples))
 

@@ -192,7 +192,7 @@ class RounD_round_about(data_set_template):
             img_pad = np.pad(img, ((0, max_height - img.shape[0]),
                                    (0, max_width  - img.shape[1]),
                                    (0,0)), 'constant', constant_values=0)
-            self.Images.loc[loc_id].Image = img_pad            
+            self.Images.Image.loc[loc_id] = img_pad            
         
         
         

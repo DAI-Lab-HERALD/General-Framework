@@ -44,7 +44,7 @@ from data_interface import data_interface
 
 # Filter out the DeprecationWarning messages
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = False
 
 
 class Experiment():
