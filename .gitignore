@@ -37,6 +37,7 @@ Latex_files/
 rename_files.py
 remove_files.py
 Results/
+Data_sets/NuScenes/v1.0-mini/
 simulations*.py
 
 
