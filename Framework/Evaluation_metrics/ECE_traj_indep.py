@@ -4,6 +4,34 @@ from evaluation_template import evaluation_template
 from sklearn.neighbors import KernelDensity
 
 class ECE_traj_indep(evaluation_template):
+    r'''
+    The value :math:`F` of the Trajectory Expected Calibration Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+    
+    .. math::
+        F = {1\over{201}} \sum\limits_{k = 0}^{200} \left| \left({1\over{N_{samples} N_{agents}}} \left| \left\{i,j \, | \, m_{i,j} > {k\over{200}}  \right\} \right| \right) + {k\over{200}} - 1 \right|
+    
+    Here, :math:`m_{i,j}` is calculated for each sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j` with
+    
+    .. math::
+        m_{i,j} = {1\over{|P|}} \left|\left\{ p \in P \, | \, L_{pred,i,p,j} > L_{i,j} \right\} \right|,
+        
+    where the true and predicted likelihoods for each prediction :math:`p \in P`
+    
+    .. math::
+        & L_{i,j} & = P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_O\} \right) \\
+        & L_{pred,i,p,j} & = P_{KDE,i,j} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \right)
+    
+    
+    are calculated using a sample and agent specific gaussian Kernel Density Estimate :math:`P_{KDE,i,j}` trained on 
+    all predictions (:math:`p \in P`) for sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`
+    
+    .. math::
+        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\}
+    
+    For each prediction timestep in :math:`T_O`, :math:`x` and :math:`y` are the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      
@@ -34,10 +62,10 @@ class ECE_traj_indep(evaluation_template):
                 
                 kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
                     
-                log_prob_other = kde.score_samples(samples_pred_comp)
-                log_prob_true  = kde.score_samples(samples_true_comp)[0]
+                log_prob_pred = kde.score_samples(samples_pred_comp)
+                log_prob_true = kde.score_samples(samples_true_comp)[0]
                 
-                M.append((log_prob_other > log_prob_true).mean())
+                M.append((log_prob_pred > log_prob_true).mean())
         
         M = np.array(M)
         
@@ -45,7 +73,7 @@ class ECE_traj_indep(evaluation_template):
         
         ECE = (M[np.newaxis] > T[:,np.newaxis]).mean(-1)
         
-        ece = np.abs(ECE - (1 - T)).sum() / (len(T) - 1)
+        ece = np.abs(ECE - (1 - T)).sum() / len(T)
         
         return [ece, T, ECE]
    

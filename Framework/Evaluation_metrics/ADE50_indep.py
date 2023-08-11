@@ -2,6 +2,18 @@ import numpy as np
 from ADE_indep import ADE_indep 
 
 class ADE50_indep(ADE_indep):
+    r'''
+    The value :math:`F` of the Average Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples} | T_O | |P_{50}| N_{agents}}} \sum\limits_{i = 1}^{N_{samples}}  
+            \sum\limits_{p \in P_{50}}  \sum\limits_{t \in T_O} \sum\limits_{j = 1}^{N_{agents}} 
+            \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}
+        
+    Here, :math:`P_{50} \subset P` are 50 randomly selected instances of the set of predictions :math:`P` made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
      
     def evaluate_prediction_method(self):
         num_samples_needed = 50

@@ -4,6 +4,24 @@ from evaluation_template import evaluation_template
 from sklearn.neighbors import KernelDensity
 
 class FDE_ML_joint(evaluation_template):
+    r'''
+    The value :math:`F` of the most likely Final Displacement Error (assuming :math:`N_{agents}` jointly predicted agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples}}} \sum\limits_{i = 1}^{N_{samples}} 
+            \sqrt{{1\over{N_{agents}}} \sum\limits_{j = 1}^{N_{agents}} 
+            \left( x_{i,j}(\max T_O) - x_{pred,i,p^*_i,j} (\max T_O) \right)^2 + \left( y_{i,j}(\max T_O) - y_{pred,i,p^*_i,j} (\max T_O) \right)^2}
+            
+    Here, for each specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    
+    .. math::
+            p^*_{i} = \underset{p \in P}{\text{arg} \min} P_{KDE,i} \left(\{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \, | \; \forall \, j \} \right) , 
+    
+    where :math:`P_{KDE,i}`, a sample specific gaussian Kernel Density Estimate trained on all predictions :math:`p \in P`, returns the
+    likelihood for trajectories predicted at timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

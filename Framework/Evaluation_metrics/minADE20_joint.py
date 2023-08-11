@@ -3,6 +3,19 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 
 class minADE20_joint(evaluation_template):
+    r'''
+    The value :math:`F` of the minimum Average Displacement Error (assuming :math:`N_{agents}` jointly predicted agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples} }} \sum\limits_{i = 1}^{N_{samples}}  \underset{p \in P_{20}}{\min} 
+            \left( {1\over{| T_O |}} \sum\limits_{t \in T_O}\sqrt{{1\over{N_{agents}}} \sum\limits_{j = 1}^{N_{agents}} 
+            \left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2} \right)
+        
+    Here, :math:`P_{20} \subset P` are 20 randomly selected instances of the set of predictions :math:`P` made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

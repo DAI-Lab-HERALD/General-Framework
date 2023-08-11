@@ -3,6 +3,27 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 
 class Oracle_indep(evaluation_template):
+    r'''
+    The value :math:`F` of Oracle 10 (the Average Displacement Error of the best 10\% of predictions (assuming :math:`N_{agents}` independent agents :math:`j`)), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples} N_{agents} | T_O | |P^*_{i,j}|}}  \sum\limits_{j = 1}^{N_{agents}} 
+            \sum\limits_{i = 1}^{N_{samples}} \sum\limits_{p \in P^*_{i,j}}  \sum\limits_{t \in T_O}
+            \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}
+            
+    Here, for each specific sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`, :math:`P^*_{i,j} \subset P_{50}` are 
+    the 5 values of :math:`p \in P_{50}` (:math:`5` is 10\% of :math:`50 = | P_{50}|`), where the term
+    
+    .. math::
+            {1 \over{| T_O |}} \sum\limits_{t \in T_O} \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}   
+    
+    is smallest.
+    
+    Here, :math:`P_{50} \subset P` are 50 randomly selected instances of the set of predictions :math:`P` made 
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

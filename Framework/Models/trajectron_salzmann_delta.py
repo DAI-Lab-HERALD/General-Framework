@@ -10,7 +10,7 @@ from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
 import json
 import os
 
-class trajectron_salzmann(model_template):
+class trajectron_salzmann_delta(model_template):
     
     def setup_method(self, seed = 0):
         # set random seeds
@@ -46,7 +46,7 @@ class trajectron_salzmann(model_template):
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
         else:
-            config_file = config_path + 'nuScenes.json' 
+            config_file = config_path + 'nuScenes_state_delta.json' 
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
             
@@ -569,8 +569,8 @@ class trajectron_salzmann(model_template):
         return input_info
     
     def get_name(self = None):
-        names = {'print': 'Trajectron ++',
-                 'file': 'trajectron',
+        names = {'print': 'Trajectron ++ (Dynamic model: Delta)',
+                 'file': 'traject_SD',
                  'latex': r'\emph{T++}'}
         return names
         

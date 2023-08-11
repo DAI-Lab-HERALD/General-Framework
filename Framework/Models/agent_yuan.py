@@ -80,7 +80,7 @@ class agent_yuan(model_template):
         # Prepare numpy position array
         X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
         if train:
-            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max(), 2], dtype = np.float32) * np.nan
+            Y = np.ones(list(Y_help.shape) + [N_O.max(), 2], dtype = np.float32) * np.nan
         
         # Extract data from original number a samples
         for i_sample in range(X.shape[0]):
@@ -90,7 +90,7 @@ class agent_yuan(model_template):
                 else:    
                     X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
                     if train:
-                        n_time = self.num_timesteps_out[i_sample]
+                        n_time = N_O[i_sample]
                         Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
         
         # Transform to torch tensor
@@ -123,23 +123,26 @@ class agent_yuan(model_template):
         Data = []
         
         for i in range(len(X)):
-            X_i = X[i].clone()
-            useful = torch.isfinite(X_i).all(-1).all(-1)
-            X_i[~useful] = 0.0
-            useful = useful.to(dtype = torch.float32)
+            X_i = X[i].clone() # num_agents x num_timesteps x 2
+            if train:
+                Y_i = Y[i].clone()
+            else:
+                Y_i = torch.ones((len(X_i), N_O.max(), 2)) * torch.nan
+                
+            X_useful = torch.isfinite(X_i).all(-1)
+            Y_useful = torch.isfinite(Y_i).all(-1)
+            
+            X_i[~X_useful] = 0.0
+            Y_i[~Y_useful] = 0.0
+            
+            if not train:
+                Y_useful[Pred_agents, :N_O[i]] = True
             
             pre_motion_3D = list(X_i)
-            pre_motion_mask = [torch.ones(self.num_timesteps_in) * useful[j] for j in range(len(pre_motion_3D))] 
+            fut_motion_3D = list(Y_i)
             
-            fut_motion_3D = [torch.zeros((N_O.max(),2)) for i in range(len(pre_motion_3D))] 
-            fut_motion_mask = [torch.zeros(N_O.max()) for i in range(len(pre_motion_3D))] 
-            for i_agent, agent in enumerate(Agents):
-                if Pred_agents[i_agent]:
-                    if train:
-                        Y_fut = Y[i,i_agent,:N_O[i]]
-                        assert torch.isfinite(Y_fut).all()
-                        fut_motion_3D[i_agent][:N_O[i],:] = Y_fut
-                    fut_motion_mask[i_agent][:N_O[i]] = 1.0
+            pre_motion_mask = list(X_useful.to(dtype = torch.float32))
+            fut_motion_mask = list(Y_useful.to(dtype = torch.float32))
             
             data = {
                 'pre_motion_3D': pre_motion_3D,

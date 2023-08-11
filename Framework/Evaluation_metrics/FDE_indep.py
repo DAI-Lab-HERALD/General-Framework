@@ -3,6 +3,19 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 
 class FDE_indep(evaluation_template):
+    r'''
+    The value :math:`F` of the Final Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = {1 \over{N_{samples}|P| N_{agents}}} \sum\limits_{i = 1}^{N_{samples}}  
+            \sum\limits_{p \in P} \sum\limits_{j = 1}^{N_{agents}} 
+            \sqrt{\left( x_{i,j}(\max T_O) - x_{pred,i,p,j} (\max T_O) \right)^2 + \left( y_{i,j}(\max T_O) - y_{pred,i,p,j} (\max T_O) \right)^2}
+        
+    Here, :math:`P` are the set of predictions made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    at the predicted timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

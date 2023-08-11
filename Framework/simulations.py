@@ -9,7 +9,7 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'Forking_Paths_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'RounD_round_about', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (25, 25)}] 
@@ -18,12 +18,10 @@ Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (2
 Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
 
 # Select the models to be trained
-Models = ['trajflow_meszaros']
+Models = ['trajectron_salzmann_unicycle']
 
 # Select the metrics to be used
-Metrics = ['minADE20', 'minFDE20', 'ADE_ML', 'FDE_ML',
-           'Oracle', 'KDE_NLL', 'ECE_traj',
-           'ECE', 'ROC_curve']
+Metrics = ['ECE_class']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 
@@ -49,7 +47,7 @@ allow_extrapolation = True
 overwrite_results = False
 
 # Select method used for transformation function to path predictions
-model_for_path_transform = 'trajectron_salzmann'
+model_for_path_transform = 'trajectron_salzmann_unicycle'
 
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 

@@ -4,6 +4,23 @@ from evaluation_template import evaluation_template
 from sklearn.neighbors import KernelDensity
 
 class KDE_NLL_indep(evaluation_template):
+    r'''
+    The value :math:`F` of the Negative Log Likelihood (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+        
+    .. math::
+        F = - {1 \over{N_{samples} N_{agents}}}  \sum\limits_{j = 1}^{N_{agents}} 
+            \sum\limits_{i = 1}^{N_{samples}} \ln \left( P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_O\} \right)\right)
+            
+    Here, :math:`P_{KDE,i,j}` is a sample and agent specific gaussian Kernel Density Estimate trained on all predictions (:math:`p \in P`)
+    for sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`
+    
+    .. math::
+        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\}
+    
+    For each prediction timestep in :math:`T_O`, :math:`x` and :math:`y` are the actual observed positions, while 
+    :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+    '''
+    
     def setup_method(self):
         pass
      

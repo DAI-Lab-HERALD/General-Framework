@@ -644,7 +644,7 @@ class Experiment():
         
         plot_height = plot_height
         if plot_width is not None:
-            allowed_width = plot_width * self.num_data_sets +  outer_space + inter_plot_space * (self.num_data_sets - 1)
+            allowed_width = plot_width * self.num_data_sets + outer_space + inter_plot_space * (self.num_data_sets - 1)
         
         else:
             ## Based on IEEE transactions template

@@ -667,36 +667,55 @@ class TrajFlow_I(TrajFlow):
         x_enc     = x_enc[...,-1,:]
         x_tar_enc = x_tar_enc[...,-1,:]
         
-        # Deal with autoencoder here
-        existing_agent = T != 48
-        Edge_bool = existing_agent[:,None] & existing_agent[:,:,None]
+        # Define sizes
+        num_samples = len(x_enc)
+        max_num_agents = x_enc.shape[1]
         
-        num_nodes_samples = existing_agent.sum(1)
-        num_nodes_samples_before = torch.arange(len(x_enc), device=self.device) * x_enc.size(dim=1)
-        node_adder = torch.repeat_interleave(num_nodes_samples_before, num_nodes_samples ** 2) 
+        # Deal with autoencoder here
+        # Find existing agents (T = 48 means that the agent does not exist)
+        existing_agent = T != 48 # shape: num_samples x max_num_agents
+        # Find number of existing agents for each sample
+        num_nodes_samples = existing_agent.sum(1) # shape: num_samples
+        
+        # Find connection matrix of existing agents
+        Edge_bool = existing_agent[:,None] & existing_agent[:,:,None] # shape: num_samples x max_num_agents x max_num_agents
         
         exist_sample2, exist_row2 = torch.where(existing_agent)
         exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
         
-        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder
+        # Differentiate between agents of different samples
+        node_adder = exist_sample3 * max_num_agents
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder[None,:] # shape: 2 x num_edges
         
-        # Eliminate the holes
+        # Eliminate the holes due to missing agents
+        # i.e node ids go from (0,3,4,6,...) to (0,1,2,3,...)
         graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
         
-        T_one_hot = (T[exist_sample2, exist_row2].unsqueeze(-1) == self.t_unique.unsqueeze(0)).float()
+        # Get type of existing agents
+        T_exisiting_agents = T[exist_sample2, exist_row2] # shape: num_nodes
+        # Get one hot encodeing of this agent type
+        T_one_hot = (T_exisiting_agents.unsqueeze(-1) == self.t_unique.unsqueeze(0)).float() # shape: num_nodes x num_classes
+        # Get one hot encoding from start and goal node of each edge
+        T_one_hot_edge = T_one_hot[graph_edge_index, :] # shape: 2 x num_edges x num_classes
+        # Concatenate in and output type for each edge
+        class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
         
-        class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
-        
-        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1))
-        dist_in_out = D[exist_sample3, exist_row3, exist_col3]
+        # Get distance between all agents at prediction time
+        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        # Get distance along each edge
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
+        # Concatenate edge information
         graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
         
-        socialData = Data(x          = x_enc[exist_sample2, exist_row2], 
+        # Get encoded trajectory for each edge
+        x_enc_existing_agents = x_enc[exist_sample2, exist_row2] # shape: num_nodes x enc_size
+        
+        # Apply the graph neural network to the batch 
+        socialData = Data(x          = x_enc_existing_agents, 
                           edge_index = graph_edge_index, 
                           edge_attr  = graph_edge_attr, 
                           batch      = exist_sample2)
-        
         social_enc = self.GNNencoder(socialData)
         
         if scene is not None:
