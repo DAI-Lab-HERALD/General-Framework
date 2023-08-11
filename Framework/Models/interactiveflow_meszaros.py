@@ -322,9 +322,19 @@ class interactiveflow_meszaros(model_template):
                     # mask = future_traj_orig_sample == [] # TODO check what the placeholder value are
                         
                     # remove nan values from pred
-                    mask = ~torch.isnan(pred)
+                    mask = torch.isfinite(pred)
+                    
+                    upper_diag_ids = torch.triu_indices(agent_types.shape[1], agent_types.shape[1])
+                    
+                    D_true = torch.sqrt(torch.sum((future_disp[:,:,-1,:][:,None,:] - future_disp[:,:,-1,:][:,:,None]) ** 2, dim = -1))
+                    D_pred = torch.sqrt(torch.sum((pred[:,:,-1,:][:,None,:] - pred[:,:,-1,:][:,:,None]) ** 2, dim = -1))
+                    
+                    D_true = D_true[:,upper_diag_ids[0], upper_diag_ids[1]]
+                    D_pred = D_pred[:,upper_diag_ids[0], upper_diag_ids[1]]
+                    
+                    mask_D = torch.isfinite(D_pred)
 
-                    loss_batch = loss_fn(pred[mask], future_disp[mask]) #+ 0.1*loss_fn(pred_agent_dist, future_agent_dist)
+                    loss_batch = loss_fn(pred[mask], future_disp[mask]) + loss_fn(D_pred[mask_D], D_true[mask_D]) #+ 0.1*loss_fn(pred_agent_dist, future_agent_dist)
                     # Loss.append(loss)
                     
                     # loss_batch = torch.mean(torch.stack(Loss))
@@ -376,8 +386,18 @@ class interactiveflow_meszaros(model_template):
                         # pred_val_agent_dist = pred_val_abs - pred_val_abs[:,0].unsqueeze(1)
                         # future_val_agent_dist = future_traj_val_orig_sample - future_traj_val_orig_sample[:,0].unsqueeze(1)
                         
-                        mask = ~torch.isnan(pred_val)
-                        loss_val_batch = loss_fn(pred_val[mask], future_disp_val[mask]) #+ 0.1*loss_fn(pred_val_agent_dist, future_val_agent_dist)
+                        mask = torch.isfinite(pred_val)
+                        
+                        
+                        upper_diag_ids = torch.triu_indices(agent_types.shape[1], agent_types.shape[1])
+                        D_true_val = torch.sqrt(torch.sum((future_disp_val[:,:,-1,:][:,None,:] - future_disp_val[:,:,-1,:][:,:,None]) ** 2, dim = -1))
+                        D_pred_val = torch.sqrt(torch.sum((pred_val[:,:,-1,:][:,None,:] - pred_val[:,:,-1,:][:,:,None]) ** 2, dim = -1))
+                        
+                        D_true_val = D_true_val[:,upper_diag_ids[0], upper_diag_ids[1]]
+                        D_pred_val = D_pred_val[:,upper_diag_ids[0], upper_diag_ids[1]]
+                        mask_D = torch.isfinite(D_pred_val)
+                        
+                        loss_val_batch = loss_fn(pred_val[mask], future_disp_val[mask]) + loss_fn(D_pred_val[mask_D], D_true_val[mask_D]) #+ 0.1*loss_fn(pred_val_agent_dist, future_val_agent_dist)
                         # Loss_val.append(loss_val)
                         # # loss_val = loss_fn(pred_graph_val, y_in_val)
                         # loss_val_batch = torch.mean(torch.stack(Loss_val))
@@ -483,6 +503,7 @@ class interactiveflow_meszaros(model_template):
 
 
                     target_length = y_rel.size(dim=2)
+                    #should be fine
                     num_agents = y_rel.size(dim=1)
                     batch_size = y_rel.size(dim=0)
 
@@ -494,7 +515,7 @@ class interactiveflow_meszaros(model_template):
                     
                     T_flattened = agent_types.reshape(-1)
                     for t in self.t_unique:
-                        assert t in T_flattened
+                        # assert t in T_flattened
                         t_in = T_flattened == t
                         
                         t_key = str(int(t.detach().cpu().numpy().astype(int)))
@@ -549,6 +570,7 @@ class interactiveflow_meszaros(model_template):
 
 
                         target_length = y_rel.size(dim=2)
+                        #should be fine
                         num_agents = y_rel.size(dim=1)
                         batch_size = y_rel.size(dim=0)
 
@@ -560,7 +582,7 @@ class interactiveflow_meszaros(model_template):
                         
                         T_flattened = agent_types_val.reshape(-1)
                         for t in self.t_unique:
-                            assert t in T_flattened
+                            # assert t in T_flattened
                             t_in = T_flattened == t
                             
                             t_key = str(int(t.detach().cpu().numpy().astype(int)))
@@ -672,8 +694,13 @@ class interactiveflow_meszaros(model_template):
             agentPos = agentPos.squeeze(2)
 
             pos_emb = F.tanh(fut_model.pos_emb(agentPos)) # (n_agents, enc_dim)
-            numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
-            numAgents_emb = numAgents_emb.repeat(batch_size*self.num_samples_path_pred, 1) # (n_agents, 1)
+            
+            existing_agent = T != 48 # (batch_size, max_num_agents)
+            num_existing_agents = existing_agent.sum(axis=1)
+            numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_existing_agents).float().to(self.device).unsqueeze(1))) # (n_agents, 1)
+            
+            # numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
+            # numAgents_emb = numAgents_emb.repeat(batch_size*self.num_samples_path_pred, 1) # (n_agents, 1)
             
             graphDecoding, existing_agents = fut_model.scene_decoder(agentPos, samples_rel, pos_emb, numAgents_emb, num_agents, T)
 
@@ -683,14 +710,14 @@ class interactiveflow_meszaros(model_template):
             T_flattened = T.reshape(-1)
             T_flattened = T_flattened[T_flattened != 48]
             for t in t_unique:
-                assert t in T_flattened
+                # assert t in T_flattened
                 t_in = T_flattened == t
                 
                 t_key = str(int(t.detach().cpu().numpy().astype(int)))
                 agentFutureTrajDec[t_in] = fut_model.traj_decoder[t_key](graphDecoding[t_in], target_length=target_length, batch_size=len(graphDecoding[t_in]))
 
             # Needed for batch training
-            tmp = torch.zeros((batch_size, num_agents, target_length, 2), device = self.device)
+            tmp = torch.zeros((batch_size*self.num_samples_path_pred, num_agents, target_length, 2), device = self.device)
             tmp[tmp == 0] = float('nan')
             existing_sample, existing_row = torch.where(existing_agents)
 
@@ -705,10 +732,17 @@ class interactiveflow_meszaros(model_template):
             y_hat = flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad)#.unsqueeze(1))
 
             #prediction.shape = (batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)   
-            y_hat = y_hat.reshape(batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)
+            # y_hat = y_hat.reshape(batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)
+            tmp = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, target_length, 2)
+            tmp = tmp.transpose(2,1)
+            y_hat = tmp
+            
+            # y_hat = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, target_length, 2)
+            # y_hat = y_hat.transpose(2,1)
             
             Y_pred = y_hat.detach()
                 
+            log_probs = log_probs.reshape(batch_size, self.num_samples_path_pred)
             log_probs = log_probs.detach()
             log_probs[torch.isnan(log_probs)] = -1000
             prob = torch.exp(log_probs)#[exp(x) for x in log_probs]
@@ -789,11 +823,10 @@ class interactiveflow_meszaros(model_template):
                 
                 for i, i_sample in enumerate(Index_use):
                     traj = Pred[i, :, :, :]
-                    for index in Path_names.reshape(-1):
-                        j = np.where(index[2:-2]==Agents)[0][0] 
+                    for index in Path_names:
+                        j = np.where(index==Agents)[0][0] 
                         if Pred_agents[j]:
-                            dim = int(index[-1] == 'y')
-                            Output_Path.iloc[i_sample][index] = traj[j,:,:,dim].astype('float32')
+                            Output_Path.iloc[i_sample][index] = traj[j,:,:,:].astype('float32')
                         
                         
                 samples_done += len(Index_use)

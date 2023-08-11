@@ -729,8 +729,10 @@ class FutureSceneAE(nn.Module):
 
         pos_emb = tmp
 
-        numAgents_emb = F.tanh(self.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
-        numAgents_emb = numAgents_emb.repeat(batch_size, 1) # (n_agents, 1)
+        # num_agents needs to be changed here
+        num_existing_agents = existing_agent.sum(axis=1)
+        numAgents_emb = F.tanh(self.numAgents_emb(torch.tensor(num_existing_agents).float().to(self.device).unsqueeze(1))) # (n_agents, 1)
+        # numAgents_emb = numAgents_emb.repeat(batch_size, 1) # (n_agents, 1)
 
 
 

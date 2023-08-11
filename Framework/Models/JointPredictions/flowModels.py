@@ -72,7 +72,7 @@ class InteractiveFlow(nn.Module):
             
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         for t in self.t_unique:
-            assert t in T
+            # assert t in T
             t_in = T == t
             
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
