@@ -13,6 +13,9 @@ python_packages/
 *.xlsx
 *.docx
 *.json
+!nuScenes.json
+!nuScenes_state_delta.json
+!pedestrians.json
 
 # ignore tempory files
 *.tmp
