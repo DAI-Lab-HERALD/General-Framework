@@ -44,7 +44,7 @@ class AUC_ROC(evaluation_template):
         However, we instead used this expansion here instead.
         '''
         P_true = self.Output_A.to_numpy()
-        P_pred = self.Output_P_pred.to_numpy()
+        P_pred = self.Output_A_pred.to_numpy()
         
         num_c = P_true.shape[1]
         
@@ -95,6 +95,6 @@ class AUC_ROC(evaluation_template):
         return False
     
     def check_applicability(self):
-        if not self.datP_set.classification_useful:
+        if not self.data_set.classification_useful:
             return 'because a classification metric requires more than one available class.'
         return None

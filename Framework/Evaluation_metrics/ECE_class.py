@@ -121,8 +121,6 @@ class ECE_class(evaluation_template):
         model_b_likelihood = np.exp(model_b_log_likelihood - model_b_log_likelihood.max())
         model_b_likelihood /= model_b_likelihood.sum()
         
-        assert False
-        
         p_t_adjusted = (P_t_adjusted * model_b_likelihood[np.newaxis]).sum(axis = 1)
         ece = np.abs(p_pred - p_t_adjusted).mean() 
         assert np.isfinite(ece)
