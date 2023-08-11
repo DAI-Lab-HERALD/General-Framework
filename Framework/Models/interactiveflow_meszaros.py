@@ -102,72 +102,81 @@ class interactiveflow_meszaros(model_template):
         if train:
             X_help = self.Input_path_train.to_numpy()
             Y_help = self.Output_path_train.to_numpy() 
-            Y_help = Y_help.reshape(len(X_help), -1, 2)  
+            Types  = self.Type_train.to_numpy()
             
             X_help = X_help[self.remain_samples]
             Y_help = Y_help[self.remain_samples]
+            Types  = Types[self.remain_samples]
 
             self.domain_old = self.Domain_train.iloc[self.remain_samples]
         else:
             X_help = self.Input_path_test.to_numpy()
+            Types  = self.Type_test.to_numpy()
             self.domain_old = self.Domain_test
         
-        X_help = X_help.reshape(len(X_help), -1, 2)  
-            
-        Names = [name[:-2] for name in np.array(self.input_names_train).reshape(-1,2)[:,0]]
-        Agents = np.array([name[2:] for name in Names])
-        Types = np.array([name[0] for name in Names])
-        
+        Agents = np.array(self.input_names_train)
         
         # Extract predicted agents
         Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
         assert Pred_agents.sum() > 0, "nothing to predict"
         
-        X = np.zeros(list(X_help.shape) + [self.num_timesteps_in])
+        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
         if train:
-            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max()]) * np.nan
+            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max(), 2], dtype = np.float32) * np.nan
+            
         for i_sample in range(X.shape[0]):
             for i_agent, agent in enumerate(Agents):
-                for dim in range(2):
-                    X[i_sample, i_agent, dim, :] = X_help[i_sample, i_agent, dim]
+                if isinstance(X_help[i_sample, i_agent], float):
+                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
+                else:    
+                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
                     if train:
-                        if Pred_agents[i_agent]:
-                            assert not np.isnan(Y_help[i_sample, i_agent, dim]).any()
                         n_time = self.num_timesteps_out[i_sample]
-                        Y[i_sample, i_agent, dim, :n_time] = Y_help[i_sample, i_agent, dim][:n_time]
+                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
         
         #standardize input
         Ped_agents = Types == 'P'
         
                 
         if train:
-            X = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2
-            Y = Y.transpose(0,1,3,2)
+            Xi = X # num_samples, num_agents, num_timesteps, 2
+            T = Types
             
             
-            T = np.tile(Types[np.newaxis,:], (len(X), 1))
+            # set agent to be predicted into first location
+            # X = []
+            # T = []
+            # for i_agent in np.where(Pred_agents)[0]:
+            #     reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
+            #                              list(np.arange(i_agent + 1, Xi.shape[1])))
+            #     X.append(Xi[:,reorder_index])
+            #     T.append(Types[:, reorder_index])
+            # X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
+            # T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
+            T = T.astype(str)
             PPed_agents = T == 'P'
             # transform to ascii int:
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
+            T[T == 'nan'] = '0'
+            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
 
             if self.use_map:
                 
-                centre = X[:,:,-1,:].reshape(-1,2) #X[:,Pred_agents,-1,:] for just the to predict agents
-                x_rel = centre - X[:,:,-2,:].reshape(-1,2) #X[:,Pred_agents,-2,:]
+                Img_needed = T != 48
+                centre = X[Img_needed, -1,:]
+                x_rel = centre - X[Img_needed, -2,:]
                 rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
 
-                domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(X.shape[1])]
-            
-                img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                        target_height = self.target_height, 
-                                                        target_width = self.target_width, grayscale = True)
-                img = img.reshape(len(X), X.shape[1], self.target_height, self.target_width, -1)
+                domain_index = self.domain_old.index.to_numpy()
+                domain_index = domain_index.repeat(Img_needed.sum(1))
+                domain_repeat = self.domain_old.loc[domain_index]
 
-
+                img = np.zeros((X.shape[0], X.shape[1], self.target_height, self.target_width, 1), dtype = 'uint8')
+                img[Img_needed] = self.data_set.return_batch_images(domain_repeat, centre, rot, target_height=self.target_height, target_width=self.target_width, grayscale = True)
+                
                 X[PPed_agents]   /= self.std_pos_ped
                 X[~PPed_agents]  /= self.std_pos_veh
-                Y[:,Ped_agents]  /= self.std_pos_ped
-                Y[:,~Ped_agents] /= self.std_pos_veh
+                Y[Ped_agents]  /= self.std_pos_ped
+                Y[~Ped_agents] /= self.std_pos_veh
                 # Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
                 
                 my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
@@ -178,8 +187,8 @@ class interactiveflow_meszaros(model_template):
             else:
                 X[PPed_agents]   /= self.std_pos_ped
                 X[~PPed_agents]  /= self.std_pos_veh
-                Y[:,Ped_agents]  /= self.std_pos_ped
-                Y[:,~Ped_agents] /= self.std_pos_veh
+                Y[Ped_agents]  /= self.std_pos_ped
+                Y[~Ped_agents] /= self.std_pos_veh
                 # Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
                 
                 my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
@@ -195,27 +204,36 @@ class interactiveflow_meszaros(model_template):
             train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
             val_loader = DataLoader(val_data, batch_size=self.batch_size, shuffle=True)
             
-            return train_loader, val_loader
+            return train_loader, val_loader, T
         else:
-            X = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2            
+            Xi = X # num_samples, num_agents, num_timesteps, 2
+            # set agent to be predicted int
             
-            T = np.tile(Types[np.newaxis,:], (len(X), 1))
+            # X = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2            
+            
+            T = Types #np.tile(Types[np.newaxis,:], (len(X), 1))
+            T = T.astype(str)
             PPed_agents = T == 'P'
+            T[T == 'nan'] = '0'
             # transform to ascii int:
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
+            T = T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0] #np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
 
             if self.use_map:
                 
-                centre = X[:,:,-1,:].reshape(-1,2) #X[:,:,-1,:].reshape(-1,2) for all agents #X[:,Pred_agents,-1,:] for just the to predict agents
-                x_rel = centre - X[:,:,-2,:].reshape(-1,2) # X[:,:,-2,:].reshape(-1,2) #X[:,Pred_agents,-2,:]
+                Img_needed = T != 48
+                centre = X[Img_needed, -1,:]
+                x_rel = centre - X[Img_needed, -2,:]
                 rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
 
-                domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(X.shape[1])]
-            
-                img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                        target_height = self.target_height, 
-                                                        target_width = self.target_width, grayscale = True)
-                img = img.reshape(len(X), X.shape[1], self.target_height, self.target_width, -1)
+                domain_index = self.domain_old.index.to_numpy()
+                domain_index = domain_index.repeat(Img_needed.sum(1))
+                domain_repeat = self.domain_old.loc[domain_index]
+
+                img = np.zeros((X.shape[0], X.shape[1], self.target_height, self.target_width, 1), dtype = 'uint8')
+                img[Img_needed] = self.data_set.return_batch_images(domain_repeat, centre, rot, target_height=self.target_height, target_width=self.target_width, grayscale = True)
+                
+                
+                # img = img.reshape(len(X), X.shape[1], self.target_height, self.target_width, -1)
                 
                 X[PPed_agents]   /= self.std_pos_ped
                 X[~PPed_agents]  /= self.std_pos_veh
@@ -227,12 +245,10 @@ class interactiveflow_meszaros(model_template):
                 return Pred_agents, Agents, X, T, PPed_agents
 
 
-    def train_futureAE(self, train_loader, val_loader):
+    def train_futureAE(self, train_loader, val_loader, T_all):
 
-        
-        T_all = np.array([name[0] for name in np.array(self.input_names_train).reshape(-1,2)[:,0]])
-        T_all = np.fromstring(T_all, dtype = np.uint32).astype(np.uint8)
         t_unique = torch.unique(torch.from_numpy(T_all).to(self.device))
+        t_unique = t_unique[t_unique != 48]
         
         future_traj_enc_dim = self.ft_enc_dim 
         pos_emb_dim = self.pos_emb_dim 
@@ -291,7 +307,7 @@ class interactiveflow_meszaros(model_template):
                     future_disp = abs_to_rel(future_traj, x_t, alpha=self.alpha)
                     
                     # set agents' current positions relative to a target agent (agent 0) (should ideally set this to ego-vehicle when testing)
-                    curr_pos = x_t-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
+                    curr_pos = x_t - x_t.nanmean(1, keepdims=True)#-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
                     curr_pos = curr_pos.squeeze(2)
                     
                     pred, _ = future_scene_ae(future_disp, curr_pos, agent_types_sample)        
@@ -299,13 +315,16 @@ class interactiveflow_meszaros(model_template):
                     pred_abs = rel_to_abs(pred, x_t, alpha=self.alpha)       
                     pred_abs = rotate(pred_abs, x_t, -1 * rot_angles_rad)     
 
-                    pred_agent_dist = pred_abs - pred_abs[:,0].unsqueeze(1)
-                    future_agent_dist = future_traj_orig_sample - future_traj_orig_sample[:,0].unsqueeze(1)
+                    # pred_agent_dist = pred_abs - pred_abs[:,0].unsqueeze(1)
+                    # future_agent_dist = future_traj_orig_sample - future_traj_orig_sample[:,0].unsqueeze(1)
 
                     # check where agent is not present in the future
                     # mask = future_traj_orig_sample == [] # TODO check what the placeholder value are
                         
-                    loss_batch = loss_fn(pred, future_disp) + 0.1*loss_fn(pred_agent_dist, future_agent_dist)
+                    # remove nan values from pred
+                    mask = ~torch.isnan(pred)
+
+                    loss_batch = loss_fn(pred[mask], future_disp[mask]) #+ 0.1*loss_fn(pred_agent_dist, future_agent_dist)
                     # Loss.append(loss)
                     
                     # loss_batch = torch.mean(torch.stack(Loss))
@@ -346,7 +365,7 @@ class interactiveflow_meszaros(model_template):
                         
                         future_disp_val = abs_to_rel(future_traj_val, x_t, alpha=self.alpha)
 
-                        curr_pos_val = x_t-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
+                        curr_pos_val = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
                         curr_pos_val = curr_pos_val.squeeze(2)
 
                         pred_val, _ = future_scene_ae(future_disp_val, curr_pos_val, agent_types_sample)
@@ -354,10 +373,11 @@ class interactiveflow_meszaros(model_template):
                         pred_val_abs = rel_to_abs(pred_val, x_t, alpha=self.alpha)       
                         pred_val_abs = rotate(pred_val_abs, x_t, -1 * rot_angles_rad_val)     
 
-                        pred_val_agent_dist = pred_val_abs - pred_val_abs[:,0].unsqueeze(1)
-                        future_val_agent_dist = future_traj_val_orig_sample - future_traj_val_orig_sample[:,0].unsqueeze(1)
+                        # pred_val_agent_dist = pred_val_abs - pred_val_abs[:,0].unsqueeze(1)
+                        # future_val_agent_dist = future_traj_val_orig_sample - future_traj_val_orig_sample[:,0].unsqueeze(1)
                         
-                        loss_val_batch = loss_fn(pred_val, future_disp_val) + 0.1*loss_fn(pred_val_agent_dist, future_val_agent_dist)
+                        mask = ~torch.isnan(pred_val)
+                        loss_val_batch = loss_fn(pred_val[mask], future_disp_val[mask]) #+ 0.1*loss_fn(pred_val_agent_dist, future_val_agent_dist)
                         # Loss_val.append(loss_val)
                         # # loss_val = loss_fn(pred_graph_val, y_in_val)
                         # loss_val_batch = torch.mean(torch.stack(Loss_val))
@@ -385,15 +405,14 @@ class interactiveflow_meszaros(model_template):
         return future_scene_ae
 
 
-    def train_flow(self, fut_model, train_loader, val_loader):
+    def train_flow(self, fut_model, train_loader, val_loader, T_all):
         steps = self.flow_epochs
 
         beta_noise = 0 
         gamma_noise = 0 
-                    
-        T_all = np.array([name[0] for name in np.array(self.input_names_train).reshape(-1,2)[:,0]])
-        T_all = np.fromstring(T_all, dtype = np.uint32).astype(np.uint8)
+
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(self.device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
 
         if self.use_map:
             gnn_in_dim = self.obs_encoding_size + self.map_encoding_size
@@ -454,7 +473,7 @@ class interactiveflow_meszaros(model_template):
                     y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
                     # set agents' current positions relative to a target agent (agent 0) (should ideally set this to ego-vehicle when testing)
-                    curr_pos = x_t-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
+                    curr_pos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
                     curr_pos = curr_pos.squeeze(2)
 
                     if self.use_map:
@@ -519,7 +538,7 @@ class interactiveflow_meszaros(model_template):
                         y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
                         # set agents' current positions relative to a target agent (agent 0) (should ideally set this to ego-vehicle when testing)
-                        curr_pos = x_t-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
+                        curr_pos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
                         curr_pos = curr_pos.squeeze(2)
                         
                         if self.use_map:
@@ -588,10 +607,10 @@ class interactiveflow_meszaros(model_template):
 
     def train_method(self):    
 
-        train_loader, val_loader = self.extract_data(train = True)
-        self.fut_model = self.train_futureAE(train_loader, val_loader)
+        train_loader, val_loader, T = self.extract_data(train = True)
+        self.fut_model = self.train_futureAE(train_loader, val_loader, T_all=T)
 
-        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader)
+        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader, T_all=T)
         
         # save weigths 
         # after checking here, please return num_epochs to 100 and batch size to 
@@ -609,7 +628,7 @@ class interactiveflow_meszaros(model_template):
         x = x.repeat(1, 1, n)
         return x.view(-1, n, org_dim)
                 
-    def predict_batch(self, models, test_loader, target_length, batch_sz):
+    def predict_batch(self, models, test_loader, target_length, batch_sz, T_all):
         flow_dist = models[1]
         fut_model = models[0]
 
@@ -631,9 +650,9 @@ class interactiveflow_meszaros(model_template):
             else:
                 img = None
             
-            T_all = np.array([name[0] for name in np.array(self.input_names_train).reshape(-1,2)[:,0]])
-            T_all = np.fromstring(T_all, dtype = np.uint32).astype(np.uint8)
             t_unique = torch.unique(torch.from_numpy(T_all))
+            t_unique = t_unique[t_unique != 48]
+
             num_agents = past.size(dim=1)
             batch_size = past.size(dim=0)
             x_t = past_traj[...,-1:,:]
@@ -649,19 +668,20 @@ class interactiveflow_meszaros(model_template):
             
             samples_rel = samples_rel.squeeze(0)
                     
-            agentPos = x_t-x_t[:,0].unsqueeze(1)#x_t[:,0].unsqueeze(1)
+            agentPos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
             agentPos = agentPos.squeeze(2)
 
             pos_emb = F.tanh(fut_model.pos_emb(agentPos)) # (n_agents, enc_dim)
             numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
             numAgents_emb = numAgents_emb.repeat(batch_size*self.num_samples_path_pred, 1) # (n_agents, 1)
             
-            graphDecoding = fut_model.scene_decoder(agentPos, samples_rel, pos_emb, numAgents_emb, num_agents, T)
+            graphDecoding, existing_agents = fut_model.scene_decoder(agentPos, samples_rel, pos_emb, numAgents_emb, num_agents, T)
 
-            agentFutureTrajDec = torch.zeros((num_agents*batch_size*self.num_samples_path_pred, 
-                                              target_length, 2), device = self.device)
-            
+            agentFutureTrajDec = torch.zeros((graphDecoding.shape[0], target_length, 2),
+                                                    device = self.device)
+        
             T_flattened = T.reshape(-1)
+            T_flattened = T_flattened[T_flattened != 48]
             for t in t_unique:
                 assert t in T_flattened
                 t_in = T_flattened == t
@@ -670,7 +690,13 @@ class interactiveflow_meszaros(model_template):
                 agentFutureTrajDec[t_in] = fut_model.traj_decoder[t_key](graphDecoding[t_in], target_length=target_length, batch_size=len(graphDecoding[t_in]))
 
             # Needed for batch training
-            agentFutureTrajDec = agentFutureTrajDec.reshape(batch_size*self.num_samples_path_pred, num_agents, target_length, 2)
+            tmp = torch.zeros((batch_size, num_agents, target_length, 2), device = self.device)
+            tmp[tmp == 0] = float('nan')
+            existing_sample, existing_row = torch.where(existing_agents)
+
+            tmp[existing_sample, existing_row] = agentFutureTrajDec
+
+            agentFutureTrajDec = tmp
             torch.cuda.empty_cache() 
             
             y_hat = flow_dist._rel_to_abs(agentFutureTrajDec, x_t)
@@ -704,12 +730,12 @@ class interactiveflow_meszaros(model_template):
             Pred_agents, Agents, X, T, PPed_agents = self.extract_data(train = False)
         
         
-        Path_names = np.array([name for name in self.Output_path_train.columns]).reshape(-1, 2)
+        Path_names = np.array([name for name in self.Output_path_train.columns])
         
         # TODO keep in mind since len(test_loader.dataset) might cause issues
         samples_all = int(len(X)) 
 
-        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum() * 2), object), 
+        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum()), object), 
                                    columns = Path_names[Pred_agents].reshape(-1))
         
         nums = np.unique(self.num_timesteps_out_test)
@@ -747,7 +773,7 @@ class interactiveflow_meszaros(model_template):
                 
                 # Run prediction pass
                 with torch.no_grad(): # Do not build graph for backprop
-                    predictions, predictions_prob = self.predict_batch([self.fut_model, self.flow_dist], test_loader, num, len(Index_use))
+                    predictions, predictions_prob = self.predict_batch([self.fut_model, self.flow_dist], test_loader, num, len(Index_use), T_all=T)
 
                 #prediction.shape = (batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)                
                 Pred = predictions.detach().cpu().numpy()
@@ -806,4 +832,7 @@ class interactiveflow_meszaros(model_template):
         return False
     
     def requires_torch_gpu(self = None):
+        return True
+    
+    def provides_epoch_loss(self = None):
         return True
