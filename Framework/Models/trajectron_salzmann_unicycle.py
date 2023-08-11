@@ -140,6 +140,7 @@ class trajectron_salzmann_unicycle(model_template):
         
         if img is not None:
             img_batch = img[:,0,:,75].astype(np.float32) / 255 # Cut of image behind vehicle
+            img_batch = img_batch.transpose(0,3,1,2) # put channels first
             img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
             res_batch = 1 / torch.from_numpy(img_m_per_px[:,0])
         else:
@@ -321,7 +322,7 @@ class trajectron_salzmann_unicycle(model_template):
                 raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
             
             torch.cuda.empty_cache()
-            for i, i_sample in enumerate(Sample_id[:,0]):
+            for i, i_sample in enumerate(Sample_id):
                 agent = Agent_id[i,0]
                 Output_path_pred.iloc[i_sample][agent] = Pred[:, i, :, :].astype('float32')
                 

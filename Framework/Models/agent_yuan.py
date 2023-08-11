@@ -25,109 +25,35 @@ class agent_yuan(model_template):
         
         torch.cuda.empty_cache()
         # Get params
-        self.num_timesteps_in = len(self.Input_path_train.to_numpy()[0,0])
-        self.num_timesteps_out = np.zeros(len(self.Output_T_train), int)
-        for i_sample in range(self.Output_T_train.shape[0]):
-            len_use = len(self.Output_T_train[i_sample])
-            if self.data_set.num_timesteps_out_real == len_use:
-                self.num_timesteps_out[i_sample] = len_use
-            else:
-                self.num_timesteps_out[i_sample] = len_use - np.mod(len_use - self.data_set.num_timesteps_out_real, 5)
-                
-        self.remain_samples = self.num_timesteps_out >= 5
-        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], self.data_set.num_timesteps_out_real)
-        
-        self.use_map = self.data_set.includes_images()
+        # Required attributes of the model
+        self.min_t_O_train = 5
+        self.max_t_O_train = self.data_set.num_timesteps_out_real
+        self.predict_single_agent = False
+        self.can_use_map = True
+        # If self.can_use_map = True, the following is also required
         self.target_width = 180
         self.target_height = 100
-        
+        self.grayscale = True
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
         self.batch_size = int(np.floor(2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * 
                                                            (self.num_timesteps_out.max() + 
                                                             self.num_timesteps_in))))
+        
         self.sample_number = 10
-        self.grayscale = True
         
-        
-    def extract_data(self, train = True):
-        if train:
-            N_O = self.num_timesteps_out
             
-            X_help = self.Input_path_train.to_numpy()
-            Y_help = self.Output_path_train.to_numpy() 
-            Types  = self.Type_train.to_numpy()
-            
-            X_help = X_help[self.remain_samples]
-            Y_help = Y_help[self.remain_samples]
-            Types  = Types[self.remain_samples]
-            self.domain_old = self.Domain_train.iloc[self.remain_samples]
-        else:
-            N_O = self.num_timesteps_out_test
-            
-            X_help = self.Input_path_test.to_numpy()
-            Types  = self.Type_test.to_numpy()
-            self.domain_old = self.Domain_test
-        
-        
-        
-        Agents = np.array(self.input_names_train)
-        
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
-        assert Pred_agents.sum() > 0, "nothing to predict"
-        
-        # Prepare numpy position array
-        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        if train:
-            Y = np.ones(list(Y_help.shape) + [N_O.max(), 2], dtype = np.float32) * np.nan
-        
-        # Extract data from original number a samples
-        for i_sample in range(X.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if isinstance(X_help[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:    
-                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    if train:
-                        n_time = N_O[i_sample]
-                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-        
-        # Transform to torch tensor
-        X = torch.from_numpy(X)
-        if train:
-            Y = torch.from_numpy(Y)
-        
-        
-        if self.use_map:
-            centre = X[...,-1,:].reshape(-1, 2).cpu().numpy()
-            x_rel = centre - X[...,-2,:].reshape(-1, 2).cpu().numpy()
-            rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-            domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(X.shape[1])]
-            img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                                  target_height = self.target_height, 
-                                                                  target_width = self.target_width, 
-                                                                  grayscale = False, return_resolution = True)
-            if self.grayscale:
-                img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 1, 
-                                                              self.target_height, self.target_width - 80)
-            else:
-                img = img[:,:,80:].transpose(0,3,1,2).reshape(X.shape[0], X.shape[1], 3, 
-                                                              self.target_height, self.target_width - 80)
-
-            img_scale = 1 / img_m_per_px.reshape(X.shape[0], X.shape[1]).mean(1)
-        else:
-            img = np.ones(len(self.domain_old)) * np.nan
-            img_scale = np.zeros(len(self.domain_old))
+    def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):  
+        # Determine if this is training
+        train = Y != None
         
         Data = []
-        
         for i in range(len(X)):
-            X_i = X[i].clone() # num_agents x num_timesteps x 2
+            X_i = torch.from_numpy(X[i]).to(dtype = torch.float32) # num_agents x num_timesteps x 211
             if train:
-                Y_i = Y[i].clone()
+                Y_i = torch.from_numpy(Y[i]).to(dtype = torch.float32)
             else:
-                Y_i = torch.ones((len(X_i), N_O.max(), 2)) * torch.nan
+                Y_i = torch.ones((len(X_i), num_steps, 2), dtype = torch.float32) * torch.nan
                 
             X_useful = torch.isfinite(X_i).all(-1)
             Y_useful = torch.isfinite(Y_i).all(-1)
@@ -136,13 +62,19 @@ class agent_yuan(model_template):
             Y_i[~Y_useful] = 0.0
             
             if not train:
-                Y_useful[Pred_agents, :N_O[i]] = True
+                Y_useful[self.Pred_agents, :num_steps] = True
             
             pre_motion_3D = list(X_i)
             fut_motion_3D = list(Y_i)
             
             pre_motion_mask = list(X_useful.to(dtype = torch.float32))
             fut_motion_mask = list(Y_useful.to(dtype = torch.float32))
+            
+            if img is not None:
+                img_sample = img[i,:,:,80:] # Cut of behond agent
+                img_sample = img_sample.transpose(0,3,1,2) # Put channels first
+                
+                img_scale = 1 / img_m_per_px[i].mean()
             
             data = {
                 'pre_motion_3D': pre_motion_3D,
@@ -152,75 +84,25 @@ class agent_yuan(model_template):
                 'pre_data': None,
                 'fut_data': None,
                 'heading': None,
+                # Todo: Check what this exactly does
                 'valid_id': [1.0, 2.0, 3.0, 4.0, 5.0],
                 'pred_mask': None,
-                'scene_map': img[i],
-                'traj_scale': img_scale[i],
+                'scene_map': img_sample,
+                'traj_scale': img_scale,
                 'seq': 'Not_needed',
                 'frame': i
             }
             
             Data.append(data)
         
-        Data = np.array(Data)    
-        
-        
-        # Get indices
-        Index = np.argsort(-N_O)
-        
-        # Get dlow batches
-        if train:
-            max_batch_size_dlow = self.batch_size
-        else:
-            max_batch_size_dlow = self.batch_size
-            
-        
-        Index_batches_dlow = []
-        batch_dlow = []
-        batch_size_dlow = 0
-        
-        for i, ind in enumerate(Index):
-            batch_dlow.append(ind)
-            batch_size_dlow += N_O[ind] / self.num_timesteps_out.max()
-            if batch_size_dlow >= max_batch_size_dlow or i == len(Index) - 1:
-                Index_batches_dlow.append(batch_dlow)
-                batch_dlow = []
-                batch_size_dlow = 0
-                
-        Batches_dlow = np.arange(len(Index_batches_dlow))
-        
-        
-        if train:
-            max_batch_size_vae = self.batch_size
-            Index_batches_vae = []
-            batch_vae = []
-            batch_size_vae = 0
-            for i, ind in enumerate(Index):
-                batch_vae.append(ind)
-                batch_size_vae += N_O[ind] / N_O.max()
-                if batch_size_vae >= max_batch_size_vae or i == len(Index) - 1:
-                    Index_batches_vae.append(batch_vae)
-                    batch_vae = []
-                    batch_size_vae = 0
-                    
-            Batches_vae = np.arange(len(Index_batches_vae))
-            
-        if train:
-            return Data, Batches_dlow, Index_batches_dlow, Batches_vae, Index_batches_vae
-        else:
-            return Data, Batches_dlow, Index_batches_dlow, Pred_agents, Agents
-            
+        Data = np.array(Data)  
+        return Data
         
 
     def train_method(self):
-        # Prepare data preliminary
-        Data, Batches_dlow, Index_batches_dlow, Batches_vae, Index_batches_vae = self.extract_data(train = True)
-        
         ######################################################################
         ##                Train VAE                                         ##
         ######################################################################
-        
-        
         # load hyperparams and set up model
         cfg = Config('hyperparams_pre', False, create_dirs = False)        
         cfg.yml_dict["past_frames"] = self.num_timesteps_in
@@ -246,6 +128,7 @@ class agent_yuan(model_template):
         self.model_vae = model_dict[model_id](cfg)
         
         cp_path = self.model_file[:-4] + '_vae.p'
+        
         if not os.path.isfile(cp_path):
             
             optimizer = optim.Adam(self.model_vae.parameters(), lr=cfg.lr)
@@ -278,7 +161,6 @@ class agent_yuan(model_template):
                     
                     break
                 
-                
             self.model_vae.set_device(self.device)
             self.model_vae.train()
             
@@ -295,23 +177,31 @@ class agent_yuan(model_template):
                 print('Train VAE: Epoch ' + 
                       str(epoch).rjust(len(str(epochs))) + 
                       '/{}'.format(epochs), flush = True)
-                np.random.shuffle(Batches_vae)
+                
                 epoch_loss = 0.0
-                for i, ind in enumerate(Batches_vae):
+                epoch_done = False
+                
+                batch = 0
+                samples = 0
+                while not epoch_done:
+                    batch += 1
                     print('Train VAE: Epoch ' + 
                           str(epoch).rjust(len(str(epochs))) + 
-                          '/{}, Batch '.format(epochs) + 
-                          str(i + 1).rjust(len(str(len(Batches_vae)))) + 
-                          '/{}'.format(len(Batches_vae)), flush = True)
-                    data = Data[Index_batches_vae[ind]]
+                          '/{}, Batch {}'.format(epochs, batch), flush = True)
+                    
+                    X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    data = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
+                    samples += len(data)
                     # prevent unnecessary simulations
-                    self.model_vae.future_decoder.future_frames = self.num_timesteps_out[Index_batches_vae[ind]].max()
+                    self.model_vae.future_decoder.future_frames = num_steps
                     
                     # Give data to model
                     self.model_vae.set_data(data)
                     self.model_vae()
                     total_loss, loss_dict, loss_unweighted_dict = self.model_vae.compute_loss()
                     optimizer.zero_grad()
+                    
+                    # Update model
                     total_loss.backward()
                     optimizer.step()
                     epoch_loss += total_loss.detach().cpu().numpy()
@@ -319,8 +209,9 @@ class agent_yuan(model_template):
                 scheduler.step()
                     
                 Epoch_loss_vae.append(epoch_loss)
+                
                 print('Train VAE: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
-                      '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
+                      '/{} with loss {:0.3f}'.format(epochs, epoch_loss/samples), flush = True)
                 print('', flush = True)
                 
                 # Save intermediate
@@ -441,20 +332,31 @@ class agent_yuan(model_template):
                 print('Train DLow: Epoch ' + 
                       str(epoch).rjust(len(str(epochs))) + 
                       '/{}'.format(epochs))
-                np.random.shuffle(Batches_dlow)
+                
                 epoch_loss = 0.0
-                for i, ind in enumerate(Batches_dlow):
+                epoch_done = False
+                
+                batch = 0
+                samples = 0
+                while not epoch_done:
+                    batch += 1
                     print('Train DLow: Epoch ' + 
                           str(epoch).rjust(len(str(epochs))) + 
-                          '/{}, Batch '.format(epochs) + 
-                          str(i + 1).rjust(len(str(len(Batches_dlow)))) + 
-                          '/{}'.format(len(Batches_dlow)), flush = True)
-                    data = Data[Index_batches_dlow[ind]]
-                    self.model_dlow.pred_model[0].future_decoder.future_frames = self.num_timesteps_out[Index_batches_dlow[ind]].max()
+                          '/{}, Batch {}'.format(epochs, batch), flush = True)
+                    
+                    X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    data = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
+                    samples += len(data)
+                    # prevent unnecessary simulations
+                    self.model_dlow.pred_model[0].future_decoder.future_frames = num_steps
+                    
+                    # Give data to model
                     self.model_dlow.set_data(data)
                     self.model_dlow()
                     total_loss, loss_dict, loss_unweighted_dict = self.model_dlow.compute_loss()
                     optimizer.zero_grad()
+                    
+                    # Update model
                     total_loss.backward()
                     optimizer.step()
                     epoch_loss += total_loss.detach().cpu().numpy()
@@ -463,7 +365,7 @@ class agent_yuan(model_template):
                 
                 Epoch_loss_dlow.append(epoch_loss)
                 print('Train DLow: Epoch ' + str(epoch).rjust(len(str(epochs))) + 
-                      '/{} with loss {:0.3f}'.format(epochs, epoch_loss/len(Data)), flush = True)
+                      '/{} with loss {:0.3f}'.format(epochs, epoch_loss/samples), flush = True)
                 print('')  
                 
                 # Save intermediate
@@ -591,63 +493,58 @@ class agent_yuan(model_template):
 
         
     def predict_method(self):
-        self.num_timesteps_out_test = np.zeros(len(self.Output_T_pred_test), int)
-        for i_sample in range(len(self.Output_T_pred_test)):
-            self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
-            
-        # get desired output length
-        Data, Batches_dlow, Index_batches_dlow, Pred_agents, Agents = self.extract_data(train = False)
-        
-        Path_names = np.array([name for name in self.Output_path_train.columns]).reshape(-1, 2)
-        
-        Output_Path = pd.DataFrame(np.empty((len(Data), Pred_agents.sum()), np.ndarray), 
-                                   columns = Path_names[Pred_agents])
+        Output_path_pred = self.create_empty_output_path()
+        Agents = np.array(self.input_names_train)
         
         self.model_dlow.set_device(self.device)
         self.model_dlow.eval()
-        
-        for batch in Batches_dlow:
-            print('Eval DLow: Batch ' + 
-                  str(batch + 1).rjust(len(str(len(Batches_dlow)))) + 
-                  '/{}'.format(len(Batches_dlow)))
+        batch = 0
+        prediction_done = False
+        while not prediction_done:
+            batch += 1
+            print('Predict trajectron: Batch {}'.format( batch))
             
             # check if problem was already solved in saved data
-            index_batch = Index_batches_dlow[batch]
+            X, T, img, img_m_per_px, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 2)
+            data = self.extract_data_batch(X, T, img, img_m_per_px, num_steps)
             
-            
-            data = Data[index_batch]
             # OOM protection
             splits = int(np.ceil((self.num_samples_path_pred / self.sample_number)))
             
             num_samples_path_pred_max = int(self.sample_number * splits)
             
-            Pred = np.zeros((len(data),Pred_agents.sum(), num_samples_path_pred_max, 
-                             self.num_timesteps_out_test[index_batch].max(), 2))
+            Pred = np.zeros((len(data), Output_path_pred.shape[1], num_samples_path_pred_max, num_steps, 2), dtype = np.float32)
             
             for i in range(splits):
+                # Rewrite random generators
+                np.random.seed(i)
+                torch.manual_seed(i)
+                torch.cuda.manual_seed_all(i)
+                
                 Index = np.arange(i * self.sample_number, min((i + 1) * self.sample_number, num_samples_path_pred_max))
                 with torch.no_grad():
-                    self.model_dlow.pred_model[0].future_decoder.future_frames = self.num_timesteps_out_test[index_batch].max()
+                    self.model_dlow.pred_model[0].future_decoder.future_frames = num_steps
                     self.model_dlow.set_data(data)
                     
                     sample_motion_3D, _ = self.model_dlow.inference(mode = 'infer', sample_num = self.sample_number)
             
-                pred = sample_motion_3D.detach().cpu().numpy()
+                pred = sample_motion_3D.detach().cpu().numpy().astype(np.float32)
                 torch.cuda.empty_cache()
-                if pred.shape[1] == len(Pred_agents):
-                    Pred[:,:,Index] = pred[:,Pred_agents]
-                elif pred.shape[1] == Pred_agents.sum():
-                    Pred[:,:,Index] = pred
+                if pred.shape[1] == len(self.Pred_agents):
+                    Pred[:,:,Index] = pred[:,self.Pred_agents,:,:num_steps]
+                elif pred.shape[1] == self.Pred_agents.sum():
+                    Pred[:,:,Index] = pred[:,:,:,:num_steps]
                 else:
                     raise TypeError("Something went wrong")
             # Write the results into the pandas dataframe
-            for i, ind in enumerate(index_batch):
-                for i_agent, agent in enumerate(Agents):
-                    if Pred_agents[i_agent]:
-                        Output_Path.iloc[ind][agent] = Pred[i, i_agent, :self.num_samples_path_pred, 
-                                                            :self.num_timesteps_out_test[ind]].astype('float32')
+            for i, i_sample in enumerate(Sample_id):
+                agent_ids = Agent_id[i]
+                for i_agent, agent_id in enumerate(agent_ids):
+                    agent = Agents[agent_id]
+                    if agent in Output_path_pred.columns:
+                        Output_path_pred.iloc[i_sample][agent] = Pred[i, i_agent, :self.num_samples_path_pred]
                     
-        return [Output_Path]
+        return [Output_path_pred]
 
     
     def check_trainability_method(self):
@@ -675,13 +572,3 @@ class agent_yuan(model_template):
     
     def provides_epoch_loss(self = None):
         return True
-
-        
-        
-        
-        
-        
-    
-        
-        
-      
