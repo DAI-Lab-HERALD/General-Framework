@@ -75,15 +75,28 @@ class trajectron_salzmann_unicycle(model_template):
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
             attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 3.0
         else:
-            # for inD/rounD
-            attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 10.0
-            attention_radius[(AgentType.PEDESTRIAN, AgentType.VEHICLE)] = 25.0
-            attention_radius[(AgentType.VEHICLE, AgentType.PEDESTRIAN)] = 25.0
-            attention_radius[(AgentType.VEHICLE, AgentType.VEHICLE)] = 100.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 5.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.VEHICLE)]    = 25.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.BICYCLE)]    = 10.0
+            attention_radius[(AgentType.PEDESTRIAN, AgentType.MOTORCYCLE)] = 25.0
+            attention_radius[(AgentType.VEHICLE,    AgentType.PEDESTRIAN)] = 25.0
+            attention_radius[(AgentType.VEHICLE,    AgentType.VEHICLE)]    = 75.0
+            attention_radius[(AgentType.VEHICLE,    AgentType.BICYCLE)]    = 50.0
+            attention_radius[(AgentType.VEHICLE,    AgentType.MOTORCYCLE)] = 75.0
+            attention_radius[(AgentType.BICYCLE,    AgentType.PEDESTRIAN)] = 10.0
+            attention_radius[(AgentType.BICYCLE,    AgentType.VEHICLE)]    = 50.0
+            attention_radius[(AgentType.BICYCLE,    AgentType.BICYCLE)]    = 10.0
+            attention_radius[(AgentType.BICYCLE,    AgentType.MOTORCYCLE)] = 50.0
+            attention_radius[(AgentType.MOTORCYCLE, AgentType.PEDESTRIAN)] = 25.0
+            attention_radius[(AgentType.MOTORCYCLE, AgentType.VEHICLE)]    = 75.0
+            attention_radius[(AgentType.MOTORCYCLE, AgentType.BICYCLE)]    = 50.0
+            attention_radius[(AgentType.MOTORCYCLE, AgentType.MOTORCYCLE)] = 75.0
             
         Types = np.empty(T.shape, dtype = AgentType)
         Types[T == 'P'] = AgentType.PEDESTRIAN
         Types[T == 'V'] = AgentType.VEHICLE
+        Types[T == 'B'] = AgentType.BICYCLE
+        Types[T == 'M'] = AgentType.MOTORCYCLE
         
         V = (X[...,1:,:] - X[...,:-1,:]) / self.dt
         V = np.concatenate((V[...,[0],:], V), axis = -2)
@@ -139,7 +152,7 @@ class trajectron_salzmann_unicycle(model_template):
         node_type = Types[0,0]
         
         if img is not None:
-            img_batch = img[:,0,:,75].astype(np.float32) / 255 # Cut of image behind vehicle
+            img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind vehicle
             img_batch = img_batch.transpose(0,3,1,2) # put channels first
             img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
             res_batch = 1 / torch.from_numpy(img_m_per_px[:,0])
@@ -154,6 +167,9 @@ class trajectron_salzmann_unicycle(model_template):
             pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
         else:
             raise TypeError("Not considered.")
+            
+        # Only take out prediction agent
+        S_st = S_st[:,0]
         
         if Y is None:
             batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
@@ -176,6 +192,9 @@ class trajectron_salzmann_unicycle(model_template):
             Y_st[Ped_agents[:,0]]  /= self.std_pos_ped
             Y_st[~Ped_agents[:,0]] /= self.std_pos_veh
         
+            # Only take out prediction agent
+            Y_st = Y_st[:,0]
+            
             batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
                                agent_type      = node_type,
                                pos_to_vel_fac  = pos_to_vel_fac,
