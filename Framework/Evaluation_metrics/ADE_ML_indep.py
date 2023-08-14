@@ -5,7 +5,7 @@ from sklearn.neighbors import KernelDensity
 
 class ADE_ML_indep(evaluation_template):
     r'''
-    The value :math:`F` of the most likely Average Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+    The value :math:`F` of the most likely Average Displacement Error (assuming :math:`N_{agents,i}` independent agents :math:`j`), is calculated in the following way:
         
     .. math::
         F = {1 \over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}}  

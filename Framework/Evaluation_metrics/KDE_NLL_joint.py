@@ -5,19 +5,19 @@ from sklearn.neighbors import KernelDensity
 
 class KDE_NLL_joint(evaluation_template):
     r'''
-    The value :math:`F` of the Negative Log Likelihood (assuming :math:`N_{agents}` jointly predicted agents :math:`j`), is calculated in the following way:
+    The value :math:`F` of the Negative Log Likelihood (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j`), is calculated in the following way:
         
     .. math::
-        F = - {1 \over{N_{samples} N_{agents}}}
-            \sum\limits_{i = 1}^{N_{samples}} \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_O\} \, | \; \forall \, j \} \right)\right)
+        F = - {1 \over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}}
+            \sum\limits_{i = 1}^{N_{samples}} \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_{O,i}\} \, | \; \forall \, j \} \right)\right)
             
     Here, :math:`P_{KDE,i}` is a sample and agent specific gaussian Kernel Density Estimate trained on all predictions (:math:`p \in P`)
     for sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`
     
     .. math::
-        \{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \, | \; \forall \, j \}
+        \{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_{O,i}\} \, | \; \forall \, j \}
     
-    For each prediction timestep in :math:`T_O`, :math:`x` and :math:`y` are the actual observed positions, while 
+    For each prediction timestep in :math:`T_{O,i}`, :math:`x` and :math:`y` are the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
     
@@ -25,39 +25,34 @@ class KDE_NLL_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        nto = self.data_set.num_timesteps_out_real
+        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Pred_agents = Pred_steps.any(-1) 
+        Num_agents = Pred_agents.sum(-1)
+        Num_steps = Pred_steps.sum(-1).max(-1)
         
-        num_samples_needed = self.data_set.num_samples_path_pred
-        num_samples = len(self.Output_path_pred.iloc[0,0])
-        if num_samples >= num_samples_needed:
-            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
-        else:
-            idx_l = np.random.randint(0, num_samples, num_samples_needed)
-            
         NLL = 0
         
         for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
+            std = 1 + (Types[i_sample, Pred_agents[i_sample]] != 'P') * 79
             std = std[np.newaxis, :, np.newaxis, np.newaxis]
             
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
+            nto = Num_steps[i_sample]
+            n_agents = Num_agents[i_sample]
             
-            samples_pred_comp = (sample_pred / std).reshape(num_samples_needed, -1)
-            samples_true_comp = (sample_true / std).reshape(1, -1)
+            path_true = Path_true[i_sample,:,Pred_agents[i_sample],:nto]
+            path_pred = Path_pred[i_sample,:,Pred_agents[i_sample],:nto]
             
-            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
-
-            log_prob = kde.score_samples(samples_true_comp)[0]
+            path_true_comp = (path_true / std).reshape(-1, n_agents * nto * 2)
+            path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
             
-            # mean over agents
-            num_agents = sample_pred.shape[1]
-            log_prob = log_prob / num_agents
+            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
+                
+            log_prob_true = kde.score_samples(path_true_comp)
             
-            NLL -= log_prob
+            NLL += np.log(Num_steps.max() / nto) - log_prob_true[0]
         
-        E = NLL / len(self.Output_path) 
-        return [E]
+        Error = NLL / Pred_agents.sum()
+        return [Error]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

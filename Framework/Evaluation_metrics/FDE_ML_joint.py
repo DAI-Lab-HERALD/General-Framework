@@ -5,20 +5,20 @@ from sklearn.neighbors import KernelDensity
 
 class FDE_ML_joint(evaluation_template):
     r'''
-    The value :math:`F` of the most likely Final Displacement Error (assuming :math:`N_{agents}` jointly predicted agents :math:`j`), is calculated in the following way:
+    The value :math:`F` of the most likely Final Displacement Error (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j`), is calculated in the following way:
         
     .. math::
         F = {1 \over{N_{samples}}} \sum\limits_{i = 1}^{N_{samples}} 
-            \sqrt{{1\over{N_{agents}}} \sum\limits_{j = 1}^{N_{agents}} 
-            \left( x_{i,j}(\max T_O) - x_{pred,i,p^*_i,j} (\max T_O) \right)^2 + \left( y_{i,j}(\max T_O) - y_{pred,i,p^*_i,j} (\max T_O) \right)^2}
+            \sqrt{{1\over{N_{agents,i}}} \sum\limits_{j = 1}^{N_{agents,i}} 
+            \left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p^*_i,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p^*_i,j} (\max T_{O,i}) \right)^2}
             
     Here, for each specific sample :math:`i \in \{1, ..., N_{samples}\}`
     
     .. math::
-            p^*_{i} = \underset{p \in P}{\text{arg} \min} P_{KDE,i} \left(\{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \, | \; \forall \, j \} \right) , 
+            p^*_{i} = \underset{p \in P}{\text{arg} \min} P_{KDE,i} \left(\{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_{O,i}\} \, | \; \forall \, j \} \right) , 
     
     where :math:`P_{KDE,i}`, a sample specific gaussian Kernel Density Estimate trained on all predictions :math:`p \in P`, returns the
-    likelihood for trajectories predicted at timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    likelihood for trajectories predicted at timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
     
@@ -26,46 +26,46 @@ class FDE_ML_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        nto = self.data_set.num_timesteps_out_real
+        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Pred_agents = Pred_steps.any(-1) 
+        Num_agents = Pred_agents.sum(-1)
+        Num_steps = Pred_steps.sum(-1).max(-1)
         
-        num_samples_needed = self.data_set.num_samples_path_pred
-        num_samples = len(self.Output_path_pred.iloc[0,0])
-        if num_samples >= num_samples_needed:
-            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
-        else:
-            idx_l = np.random.randint(0, num_samples, num_samples_needed)
-        Error = 0
-
+        
+        Path_pred_ml = np.zeros(Path_pred[:,0].shape)
         for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
+            std = 1 + (Types[i_sample, Pred_agents[i_sample]] != 'P') * 79
             std = std[np.newaxis, :, np.newaxis, np.newaxis]
             
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
+            nto = Num_steps[i_sample]
+            n_agents = Num_agents[i_sample]
             
-            samples_pred_comp = (sample_pred / std).reshape(num_samples_needed, -1)
+            path_pred = Path_pred[i_sample,:,Pred_agents[i_sample],:nto]
             
-            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
+            path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
+            
+            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
 
-            log_prob = kde.score_samples(samples_pred_comp)
+            log_prob = kde.score_samples(path_pred_comp)
+            p_ml = np.argmax(log_prob)
 
-            i_ml = np.argmax(log_prob)
-
-            sample_pred_ml = sample_pred[[i_ml]]       
+            Path_pred_ml[i_sample, Pred_agents[i_sample], :nto] = path_pred[p_ml]    
             
-            diff = (sample_pred_ml - sample_true) ** 2
-            # sum over dimension and mean over number agents
-            diff = diff.sum(3).mean(1)
-            diff = np.sqrt(diff)
-            
-            # mean over predicted samples
-            diff = diff.mean(0)
-            diff = diff[-1]
-            
-            Error += diff
+        # Get squared distance
+        Diff = ((Path_true[:,0] - Path_pred_ml) ** 2).sum(-1)
         
-        E = Error / len(self.Output_path)
-        return [E]
+        # Get mean over agents
+        Diff = Diff.sum(1) / Num_agents[:,np.newaxis]
+        
+        # Get absolute distance
+        Diff = np.sqrt(Diff)
+        
+        # Take last timestep
+        Diff = Diff[np.arange(len(Diff)),Num_steps - 1]
+        
+        # Get mean over samples        
+        Error = Diff.mean()
+        return [Error]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
