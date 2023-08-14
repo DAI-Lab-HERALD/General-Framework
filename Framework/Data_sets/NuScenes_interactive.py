@@ -69,7 +69,6 @@ class NuScenes_interactive(data_set_template):
 
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
 
-
         for data_idx, scene_record in enumerate(data_obj.scene):
             scene_name = scene_record['name']
             scene_desc = scene_record['description']

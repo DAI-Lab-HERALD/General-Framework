@@ -25,20 +25,25 @@ class evaluation_template():
                 Agent_index = np.ones(len(Agents), bool)
                 
                 if self.get_output_type() == 'path_all_wo_pov':
-                    Agent_index[]
+                    pov_bool = Agents == data_set.pov_agent
+                    Agent_index[pov_bool] = False
             else:
                 Agent_index = np.zeros(len(self.Input_path_full.columns), bool)
             
             self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
             self.Type_full = data_set.Type.iloc[:, Agent_index]
-                
+            self.Pred_agents_full = model._determine_pred_agents(data_set, 
+                                                                 data_set.Recorded,
+                                                                 data_set.dynamic_prediction_agents)
+            self.Pred_agents_full = self.Pred_agents_full[:, Agent_index]
+            
             self.data_set = data_set
             self.splitter = splitter
             self.model = model
             
     
             if self.requires_preprocessing():
-                test_file = data_set.change_result_directory(splitter.split_file,
+                test_file = data_set.change_result_directory(splitter.split_filse,
                                                              'Metrics', self.get_name()['file'] + '_weights')
                 if os.path.isfile(test_file):
                     self.weights_saved = list(np.load(test_file, allow_pickle = True)[:-1])  
@@ -51,7 +56,62 @@ class evaluation_template():
                     np.save(test_file, save_data)
         else:
             self.depict_results = True
+    
+    
+    def _set_current_data(self, Index):
+        self.Input_path        = self.Input_path_full.iloc[Index]
+        self.Input_T           = self.Input_T_full[Index]
         
+        self.Output_path       = self.Output_path_full.iloc[Index]
+        self.Output_T          = self.Output_T_full[Index]
+        self.Output_A          = self.Output_A_full.iloc[Index]
+        self.Output_T_E        = self.Output_T_E_full[Index]
+        
+        self.Type              = self.Type_full.iloc[Index]
+        self.Pred_agents       = self.Pred_agents_full.iloc[Index]
+        self.Domain            = self.Domain_full.iloc[Index]
+        
+        self.num_samples = len(self.Output_path)
+    
+    
+    def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
+        nto = self.data_set.num_timesteps_out_real
+        
+        if num_preds == None:
+            idx = np.arange(self.data_set.num_samples_path_pred)
+        elif num_preds <= self.data_set.num_samples_path_pred:
+            idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds]#
+        else:
+            idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
+        
+        num_samples, num_agents = self.Output_path_pred.shape
+        
+        Path_pred = np.zeros((num_samples, num_preds, num_agents, nto, 2))
+        Path_true = np.zeros((num_samples, 1, num_agents, nto, 2))
+        Pred_step = np.zeros((num_samples, num_agents, nto))
+        
+        for i in range(num_samples):
+            nto_i = min(nto, len(self.Output_T[i]))
+            
+            pred_agents = self.Pred_agents[i] 
+            
+            path_pred = self.Output_path_pred.iloc[i, pred_agents]
+            path_pred = np.stack(path_pred.to_numpy(), axis = 1)
+            
+            path_true = self.Output_path.iloc[i, pred_agents]
+            path_true = np.stack(path_true, axis = 0)[np.newaxis]
+            
+            Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i]
+            Path_true[i,:,pred_agents,:nto_i] = path_true[:,:,:nto_i]
+            
+            Pred_step[i,pred_agents,:nto_i] = True
+        
+        if return_types:
+            Types = self.Type.to_numpy()
+            return Path_true, Path_pred, Pred_step, Types     
+        else:
+            return Path_true, Path_pred, Pred_step
+    
         
     def evaluate_prediction(self, Output_pred, create_plot_if_possible = False):
         if self.depict_results:
@@ -73,6 +133,9 @@ class evaluation_template():
                     for j in range(Output_path_pred.shape[1]):
                         # Ensure that prediction has corresponding ground truth
                         Output_path_pred.iloc[i,j] = Output_path_pred.iloc[i,j][:,:test_length]
+                        if self.Pred_agents_full[i,j]:
+                            assert np.isfinite(Output_path_pred.iloc[i,j]).all(), "NaN positions are predicted."
+                            
                 
             elif self.get_output_type() == 'class_and_time':
                 [Output_A_pred, Output_T_E_pred] = Output_pred
@@ -108,7 +171,7 @@ class evaluation_template():
                     self.Output_T_E        = self.Output_T_E_full[Index]
                     
                     self.Type              = self.Type_full.iloc[Index]
-                    self.Type_other        = self.Type_other_full.iloc[Index]
+                    self.Pred_agents       = self.Pred_agents_full.iloc[Index]
                     self.Domain            = self.Domain_full.iloc[Index]
                     
                     self.num_samples = len(self.Output_path)
@@ -135,7 +198,7 @@ class evaluation_template():
                 self.Output_T_E        = self.Output_T_E_full[Index]
                 
                 self.Type              = self.Type_full.iloc[Index]
-                self.Type_other        = self.Type_other_full.iloc[Index]
+                self.Pred_agents       = self.Pred_agents_full.iloc[Index]
                 self.Domain            = self.Domain_full.iloc[Index]
                 
                 self.num_samples = len(self.Output_path)

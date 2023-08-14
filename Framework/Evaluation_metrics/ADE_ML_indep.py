@@ -8,8 +8,8 @@ class ADE_ML_indep(evaluation_template):
     The value :math:`F` of the most likely Average Displacement Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
         
     .. math::
-        F = {1 \over{N_{samples} N_{agents} | T_O |}}  \sum\limits_{j = 1}^{N_{agents}} 
-            \sum\limits_{i = 1}^{N_{samples}} \sum\limits_{t \in T_O}
+        F = {1 \over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}}  
+            \sum\limits_{i = 1}^{N_{samples}}  \sum\limits_{j = 1}^{N_{agents,i}} {1\over{| T_{O,i} | }} \sum\limits_{t \in T_{O,i}}
             \sqrt{\left( x_{i,j}(t) - x_{pred,i,p^*_{i,j},j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p^*_{i,j},j} (t) \right)^2}
             
     Here, for each specific sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`
@@ -18,7 +18,7 @@ class ADE_ML_indep(evaluation_template):
             p^*_{i,j} = \underset{p \in P}{\text{arg} \min} P_{KDE,i,j} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \right) , 
     
     where :math:`P_{KDE,i,j}`, a sample and agent specific gaussian Kernel Density Estimate trained on all predictions :math:`p \in P`, returns the
-    likelihood for trajectories predicted at timesteps :math:`T_O`. :math:`x` and :math:`y` are here the actual observed positions, while 
+    likelihood for trajectories predicted at timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
     
@@ -26,50 +26,47 @@ class ADE_ML_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        nto = self.data_set.num_timesteps_out_real
+        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Pred_agents = Pred_steps.any(-1)
         
-        num_samples_needed = self.data_set.num_samples_path_pred
-        num_samples = len(self.Output_path_pred.iloc[0,0])
-        if num_samples >= num_samples_needed:
-            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
-        else:
-            idx_l = np.random.randint(0, num_samples, num_samples_needed)
-        Error = 0
-
-        for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
-            
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
-            
-            num_agents = sample_pred.shape[1]
-            for i_agent in range(num_agents):
-                samples_pred_comp = (sample_pred[:,i_agent] / std[:,i_agent]).reshape(num_samples_needed, -1)
-                
-                kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
-    
-                log_prob = kde.score_samples(samples_pred_comp)
-    
-                i_ml = np.argmax(log_prob)
-    
-                sample_pred_ml = sample_pred[i_ml, i_agent]       
-                
-                diff = (sample_pred_ml - sample_true[0, i_agent]) ** 2
-                # sum over dimension
-                diff = diff.sum(1)
-                diff = np.sqrt(diff)
-                
-                # mean over timesteps
-                diff = diff.mean(0)
-                
-                # mean over agents
-                diff = diff / num_agents
-                
-                Error += diff
+        # Combine agent and sample dimension
+        Path_true  = Path_true.transpose(0,2,1,3,4)[Pred_agents]
+        Path_pred  = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
+        Pred_steps = Pred_steps[Pred_agents]
+        Types      = Types[Pred_agents]
         
-        E = Error / len(self.Output_path)
-        return [E]
+        Num_steps = Pred_steps.sum(-1)
+        
+        Path_pred_ml = np.zeros(Path_pred[:,0].shape)
+        
+        for i_case in range(len(Path_true)):
+            std = 1 + (Types[i_case] != 'P') * 79
+            
+            nto = Num_steps[i_case]
+            
+            path_pred = Path_pred[i_case,:,:nto]
+            
+            path_pred_comp = (path_pred / std).reshape(-1, nto * 2)
+            
+            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
+            
+            log_prob = kde.score_samples(path_pred_comp)
+            p_ml = np.argmax(log_prob)
+    
+            Path_pred_ml[i_case, :nto] = path_pred[p_ml]       
+            
+        # Get squared distance    
+        Diff = ((Path_true[:,0] - Path_pred_ml) ** 2).sum(-1)
+        
+        # Get absolute distance
+        Diff = np.sqrt(Diff)
+        
+        # Mean over timesteps
+        Diff = Diff.sum(-1) / Num_steps
+        
+        # Mean over predicted agents
+        Error = Diff.mean()
+        return [Error]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

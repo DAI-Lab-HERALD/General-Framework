@@ -117,9 +117,9 @@ class model_template():
         
     
         
-    def _determine_pred_agents(self, Recorded, dynamic):
-        Agents = np.array(self.input_names_train)
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
+    def _determine_pred_agents(self, data_set, Recorded, dynamic):
+        Agents = np.array(data_set.Input_path.columns)
+        Pred_agents = np.array([agent in data_set.needed_agents for agent in Agents])
         Pred_agents = np.tile(Pred_agents[np.newaxis], (len(Recorded), 1))
         
         if dynamic:
@@ -272,7 +272,7 @@ class model_template():
             
         # Determine needed agents
         Agents = np.array(self.input_names_train)
-        Pred_agents = self._determine_pred_agents(Recorded_old, self.dynamic_prediction_agents)
+        Pred_agents = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
         
         use_map = self.data_set.includes_images() and self.can_use_map
             

@@ -5,10 +5,10 @@ from sklearn.neighbors import KernelDensity
 
 class ECE_traj_indep(evaluation_template):
     r'''
-    The value :math:`F` of the Trajectory Expected Calibration Error (assuming :math:`N_{agents}` independent agents :math:`j`), is calculated in the following way:
+    The value :math:`F` of the Trajectory Expected Calibration Error (assuming :math:`N_{agents,i}` independent agents :math:`j`), is calculated in the following way:
     
     .. math::
-        F = {1\over{201}} \sum\limits_{k = 0}^{200} \left| \left({1\over{N_{samples} N_{agents}}} \left| \left\{i,j \, | \, m_{i,j} > {k\over{200}}  \right\} \right| \right) + {k\over{200}} - 1 \right|
+        F = {1\over{201}} \sum\limits_{k = 0}^{200} \left| \left({1\over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \left| \left\{i,j \, | \, m_{i,j} > {k\over{200}}  \right\} \right| \right) + {k\over{200}} - 1 \right|
     
     Here, :math:`m_{i,j}` is calculated for each sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j` with
     
@@ -18,17 +18,17 @@ class ECE_traj_indep(evaluation_template):
     where the true and predicted likelihoods for each prediction :math:`p \in P`
     
     .. math::
-        & L_{i,j} & = P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_O\} \right) \\
-        & L_{pred,i,p,j} & = P_{KDE,i,j} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\} \right)
+        & L_{i,j} & = P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, t \in T_{O,i}\} \right) \\
+        & L_{pred,i,p,j} & = P_{KDE,i,j} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_{O,i}\} \right)
     
     
     are calculated using a sample and agent specific gaussian Kernel Density Estimate :math:`P_{KDE,i,j}` trained on 
     all predictions (:math:`p \in P`) for sample :math:`i \in \{1, ..., N_{samples}\}` and agent :math:`j`
     
     .. math::
-        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_O\}
+        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, t \in T_{O,i}\}
     
-    For each prediction timestep in :math:`T_O`, :math:`x` and :math:`y` are the actual observed positions, while 
+    For each prediction timestep in :math:`T_{O,i}`, :math:`x` and :math:`y` are the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
     
@@ -36,44 +36,45 @@ class ECE_traj_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
+        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Pred_agents = Pred_steps.any(-1)
+        
+        # Combine agent and sample dimension
+        Path_true  = Path_true.transpose(0,2,1,3,4)[Pred_agents]
+        Path_pred  = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
+        Pred_steps = Pred_steps[Pred_agents]
+        Types      = Types[Pred_agents]
+        
+        Num_steps = Pred_steps.sum(-1)
         
         M = []
         
-        nto = self.data_set.num_timesteps_out_real
-        
-        num_samples_needed = self.data_set.num_samples_path_pred
-        num_samples = len(self.Output_path_pred.iloc[0,0])
-        if num_samples >= num_samples_needed:
-            idx_l = np.random.permutation(num_samples)[:num_samples_needed]#
-        else:
-            idx_l = np.random.randint(0, num_samples, num_samples_needed)
-        
-        for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (np.array(self.Type.iloc[i_sample]) == 'V') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
+        for i_case in range(len(Path_true)):
+            std = 1 + (Types[i_case] != 'P') * 79
             
-            sample_pred = np.stack(self.Output_path_pred.iloc[i_sample].to_numpy(), axis = 1)[idx_l,:,:nto]
-            sample_true = np.stack(self.Output_path.iloc[i_sample].to_numpy(), axis = 0)[np.newaxis,:,:nto]
+            nto = Num_steps[i_case]
             
-            num_agents = sample_pred.shape[1]
-            for i_agent in range(num_agents):
-                samples_pred_comp = (sample_pred[:,i_agent] / std[:,i_agent]).reshape(num_samples_needed, -1)
-                samples_true_comp = (sample_true[:,i_agent] / std[:,i_agent]).reshape(1, -1)
-                
-                kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(samples_pred_comp)
+            path_true = Path_true[i_case,:,:nto]
+            path_pred = Path_pred[i_case,:,:nto]
+            
+            path_true_comp = (path_true / std).reshape(-1, nto * 2)
+            path_pred_comp = (path_pred / std).reshape(-1, nto * 2)
                     
-                log_prob_pred = kde.score_samples(samples_pred_comp)
-                log_prob_true = kde.score_samples(samples_true_comp)[0]
-                
-                M.append((log_prob_pred > log_prob_true).mean())
+            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
+            
+            log_prob_pred = kde.score_samples(path_pred_comp)
+            log_prob_true = kde.score_samples(path_true_comp)
+            
+            M.append((log_prob_pred > log_prob_true).mean())
         
         M = np.array(M)
         
         T = np.linspace(0,1,201)
         
+        # Mean over predicted agents
         ECE = (M[np.newaxis] > T[:,np.newaxis]).mean(-1)
         
-        ece = np.abs(ECE - (1 - T)).sum() / len(T)
+        ece = np.abs(ECE - (1 - T)).mean()
         
         return [ece, T, ECE]
    
