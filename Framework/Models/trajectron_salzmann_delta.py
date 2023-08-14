@@ -75,7 +75,6 @@ class trajectron_salzmann_delta(model_template):
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
             attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 3.0
         else:
-            # for inD/rounD
             attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 5.0
             attention_radius[(AgentType.PEDESTRIAN, AgentType.VEHICLE)]    = 25.0
             attention_radius[(AgentType.PEDESTRIAN, AgentType.BICYCLE)]    = 10.0
