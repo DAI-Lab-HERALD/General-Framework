@@ -22,7 +22,8 @@ class ADE_indep(evaluation_template):
     def evaluate_prediction_method(self):
         Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
-        Num_steps = Pred_steps.sum(-1)
+        Num_steps = Pred_steps.sum(-1).max(-1)
+        Num_agents = Pred_agents.sum(-1)
         
         # Get squared distance
         Diff = ((Path_true - Path_pred) ** 2).sum(-1)
@@ -31,13 +32,13 @@ class ADE_indep(evaluation_template):
         Diff = np.sqrt(Diff)
         
         # Mean over timesteps
-        Diff = Diff.sum(-1) / Num_steps[:,np.newaxis]
+        Diff = Diff.sum(-1) / Num_steps[:,np.newaxis,np.newaxis]
         
         # Mean over predictions
         Diff = Diff.mean(1)
         
         # Mean over samples and agents
-        Error = Diff.sum() / Pred_agents.sum()
+        Error = Diff.sum() / Num_agents.sum()
         
         return [Error]
         
