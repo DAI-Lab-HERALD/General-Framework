@@ -36,13 +36,15 @@ class NuScenes_interactive(data_set_template):
         self.Domain_old = []
 
         # prepare images
-        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes'
+        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
         image_path_full = image_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
         self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
         map_files = os.listdir(image_path_full)
         px_per_meter = 1
-
+        
+        assert False 
+        
         max_width = 0
         max_height = 0
         for map_file in map_files:
@@ -65,9 +67,10 @@ class NuScenes_interactive(data_set_template):
             self.Images.Image.loc[loc_id] = img_pad 
 
         nuscenes_dt = 0.5
-        file_path  = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'v1.0-mini'
+        file_path  = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
 
-        data_obj = NuScenes(version = 'v1.0-mini', dataroot = file_path, verbose = True)
+        data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
+        
         for data_idx, scene_record in enumerate(data_obj.scene):
             scene_name = scene_record['name']
             scene_desc = scene_record['description']
