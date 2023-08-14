@@ -12,6 +12,7 @@ class data_set_template():
                  enforce_prediction_times = False, 
                  exclude_post_crit = True,
                  allow_extrapolation = True,
+                 dynamic_prediction_agents = False,
                  overwrite_results = False):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])

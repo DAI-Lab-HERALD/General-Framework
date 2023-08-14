@@ -43,8 +43,6 @@ class NuScenes_interactive(data_set_template):
         map_files = os.listdir(image_path_full)
         px_per_meter = 1
         
-        assert False 
-        
         max_width = 0
         max_height = 0
         for map_file in map_files:
@@ -70,7 +68,8 @@ class NuScenes_interactive(data_set_template):
         file_path  = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
 
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
-        
+
+
         for data_idx, scene_record in enumerate(data_obj.scene):
             scene_name = scene_record['name']
             scene_desc = scene_record['description']
