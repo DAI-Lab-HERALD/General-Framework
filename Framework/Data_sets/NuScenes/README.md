@@ -1,11 +1,16 @@
 In order to obtain the raw data it is necessary to first create an account at https://www.nuscenes.org.
 
 Upon doing this, go to https://www.nuscenes.org/nuscenes.
+
 Go to the section titled **Downloads**.
+
 Under **Map expansion** download *Map expansion pack (v1.3) \[US\]*.
+
 Under **Full dataset (v1.0)** download *Metadata \[US\]*.
+
 The data should be extracted and placed into the following structure:
 
+```
 ├── NuScenes
 │   ├── data
 │   │   ├── maps
@@ -39,6 +44,6 @@ The data should be extracted and placed into the following structure:
 │   │   │   ├── scene.json
 │   │   │   ├── sensor.json
 │   │   │   ├── visibility.json
-
+```
 
 
