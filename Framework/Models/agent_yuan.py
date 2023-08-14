@@ -43,7 +43,7 @@ class agent_yuan(model_template):
         self.sample_number = 10
         
             
-    def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):  
+    def extract_data_batch(self, X, T, Pred_agents, Y = None, img = None, img_m_per_px = None, num_steps = 10):  
         # Determine if this is training
         train = Y != None
         
@@ -62,7 +62,7 @@ class agent_yuan(model_template):
             Y_i[~Y_useful] = 0.0
             
             if not train:
-                Y_useful[self.Pred_agents, :num_steps] = True
+                Y_useful[torch.from_numpy(Pred_agents[i]), :num_steps] = True
             
             pre_motion_3D = list(X_i)
             fut_motion_3D = list(Y_i)
@@ -189,8 +189,8 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
-                    data = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
+                    X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations
                     self.model_vae.future_decoder.future_frames = num_steps
@@ -344,8 +344,8 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
-                    data = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
+                    X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations
                     self.model_dlow.pred_model[0].future_decoder.future_frames = num_steps
@@ -505,15 +505,15 @@ class agent_yuan(model_template):
             print('Predict trajectron: Batch {}'.format( batch))
             
             # check if problem was already solved in saved data
-            X, T, img, img_m_per_px, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 2)
-            data = self.extract_data_batch(X, T, img, img_m_per_px, num_steps)
+            X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 2)
+            data = self.extract_data_batch(X, T, Pred_agents, img, img_m_per_px, num_steps)
             
             # OOM protection
             splits = int(np.ceil((self.num_samples_path_pred / self.sample_number)))
             
             num_samples_path_pred_max = int(self.sample_number * splits)
             
-            Pred = np.zeros((len(data), Output_path_pred.shape[1], num_samples_path_pred_max, num_steps, 2), dtype = np.float32)
+            Pred = np.zeros((len(data), Pred_agents.shape[1], num_samples_path_pred_max, num_steps, 2), dtype = np.float32)
             
             for i in range(splits):
                 # Rewrite random generators
@@ -530,19 +530,16 @@ class agent_yuan(model_template):
             
                 pred = sample_motion_3D.detach().cpu().numpy().astype(np.float32)
                 torch.cuda.empty_cache()
-                if pred.shape[1] == len(self.Pred_agents):
-                    Pred[:,:,Index] = pred[:,self.Pred_agents,:,:num_steps]
-                elif pred.shape[1] == self.Pred_agents.sum():
-                    Pred[:,:,Index] = pred[:,:,:,:num_steps]
-                else:
-                    raise TypeError("Something went wrong")
+                
+                Pred[:,:,Index] = pred[:,:,:,:num_steps]
+                
             # Write the results into the pandas dataframe
             for i, i_sample in enumerate(Sample_id):
                 agent_ids = Agent_id[i]
-                for i_agent, agent_id in enumerate(agent_ids):
+                for j, agent_id in enumerate(agent_ids):
                     agent = Agents[agent_id]
-                    if agent in Output_path_pred.columns:
-                        Output_path_pred.iloc[i_sample][agent] = Pred[i, i_agent, :self.num_samples_path_pred]
+                    if Pred_agents[i, j]:
+                        Output_path_pred.iloc[i_sample][agent] = Pred[i, j, :self.num_samples_path_pred]
                     
         return [Output_path_pred]
 

@@ -9,10 +9,10 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'RounD_round_about', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'NuScenes_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
-Data_params = [{'dt': 0.2, 'num_timesteps_in': (15, 15), 'num_timesteps_out': (25, 25)}] 
+Data_params = [{'dt': 0.5, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (12, 12)}] 
 
 # Select the spitting methods to be considered
 Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
@@ -21,7 +21,7 @@ Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
 Models = ['trajectron_salzmann_unicycle']
 
 # Select the metrics to be used
-Metrics = ['ECE_class']
+Metrics = ['ADE_joint']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 
@@ -43,6 +43,9 @@ exclude_post_crit = True
 # Decide wether missing position in trajectory data can be extrapolated
 allow_extrapolation = True
 
+# Use all available agents for predictions
+dynamic_prediction_agents = True
+
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = False
 
@@ -51,7 +54,8 @@ model_for_path_transform = 'trajectron_salzmann_unicycle'
 
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
-                              exclude_post_crit, allow_extrapolation, overwrite_results)
+                              exclude_post_crit, allow_extrapolation, 
+                              dynamic_prediction_agents, overwrite_results)
 
 #%% Run experiment
 new_experiment.run()                  

@@ -682,6 +682,7 @@ class data_set_template():
              self.Output_T_E,
 
              self.Type,
+             self.Recorded,
              self.Domain,
              self.num_behaviors, _] = np.load(self.data_file, allow_pickle=True)
 
@@ -722,8 +723,9 @@ class data_set_template():
             Output_T_E    = []
 
             # Domain
-            Type   = []
-            Domain = []
+            Type     = []
+            Recorded = []
+            Domain   = []
 
             # Go through samples
             num_samples = len(self.id)
@@ -875,7 +877,7 @@ class data_set_template():
                     output_T_E = output_T_E - t0
                     
                     # Save information abut missing positions to overwrite them back later if needed
-                    missing_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                    recorded_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
                     
                     for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
@@ -887,9 +889,9 @@ class data_set_template():
                             
                             available_pos[ind_start:ind_last] = True
                             
-                            missing_positions[agent] = ~available_pos
+                            recorded_positions[agent] = available_pos
                         else:
-                            missing_positions[agent] = np.nan
+                            recorded_positions[agent] = np.nan
                     
                     # Combine input and output data
                     helper_T = np.concatenate([input_T, output_T])
@@ -908,15 +910,21 @@ class data_set_template():
                     for agent in helper_path.index:
                         if not isinstance(helper_path[agent], float):
                             # Reset extrapolated data if necessary
-                            if not self.allow_extrapolation:
-                                helper_path[agent][missing_positions[agent]] = np.nan
+                            if agent not in recorded_positions.index:
+                                recorded_positions[agent] = np.zeros(len(helper_path[index]), dtype = bool)
+                            else:
+                                if not self.allow_extrapolation:
+                                    helper_path[agent][~recorded_positions[agent]] = np.nan
+                            
                             
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :]
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :]
+                            
                         else:
-                            input_path[agent]  = np.nan
-                            output_path[agent] = np.nan
-                            agent_types[agent] = float('nan')
+                            input_path[agent]         = np.nan
+                            output_path[agent]        = np.nan
+                            recorded_positions[agent] = np.nan
+                            agent_types[agent]        = float('nan')
                             
                     # save results
                     Input_prediction.append(input_prediction)
@@ -930,6 +938,7 @@ class data_set_template():
                     Output_T_E.append(output_T_E)
 
                     Type.append(agent_types)
+                    Recorded.append(recorded_positions)
                     Domain.append(domain)
             
             self.Input_prediction = pd.DataFrame(Input_prediction)
@@ -942,8 +951,9 @@ class data_set_template():
             self.Output_A      = pd.DataFrame(Output_A)
             self.Output_T_E    = np.array(Output_T_E, float)
 
-            self.Type   = pd.DataFrame(Type).reset_index(drop=True)
-            self.Domain = pd.DataFrame(Domain).reset_index(drop=True)
+            self.Type     = pd.DataFrame(Type).reset_index(drop = True)
+            self.Recorded = pd.DataFrame(Type).reset_index(drop = True)
+            self.Domain   = pd.DataFrame(Domain).reset_index(drop = True)
 
             save_data = np.array([self.Input_prediction,
                                   self.Input_path,
@@ -956,6 +966,7 @@ class data_set_template():
                                   self.Output_T_E,
 
                                   self.Type,
+                                  self.Recorded,
                                   self.Domain,
                                   self.num_behaviors, 0], object)  # 0 is there to avoid some numpy load and save errros
 

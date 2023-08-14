@@ -21,26 +21,16 @@ class evaluation_template():
             
             # Ensure the right numebr of agents
             if self.get_output_type()[:4] == 'path':
-                if self.get_output_type() == 'path_all_wi_pov':
-                    agents = data_set.needed_agents 
-                elif self.get_output_type() == 'path_all_wo_pov':
-                    agents = data_set.scenario.classifying_agents()
-                else:
-                    raise TypeError("This type of path prediction is not implemented.")
-                Agent_index = np.array([name in agents for name in self.Input_path_full.columns])
-                self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
-                self.Output_path_other_full = data_set.Output_path.iloc[:, ~Agent_index]
+                Agents = np.array(self.Input_path_full.columns)
+                Agent_index = np.ones(len(Agents), bool)
                 
-                self.Type_full = data_set.Type.iloc[:, Agent_index]
-                self.Type_other_full = data_set.Type.iloc[:, ~Agent_index]
+                if self.get_output_type() == 'path_all_wo_pov':
+                    Agent_index[]
             else:
                 Agent_index = np.zeros(len(self.Input_path_full.columns), bool)
-                self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
-                self.Output_path_other_full = data_set.Output_path.iloc[:, ~Agent_index]
-                
-                self.Type_full = data_set.Type.iloc[:, Agent_index]
-                self.Type_other_full = data_set.Type.iloc[:, ~Agent_index]
-                
+            
+            self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
+            self.Type_full = data_set.Type.iloc[:, Agent_index]
                 
             self.data_set = data_set
             self.splitter = splitter
@@ -113,7 +103,6 @@ class evaluation_template():
                     self.Input_T           = self.Input_T_full[Index]
                     
                     self.Output_path       = self.Output_path_full.iloc[Index]
-                    self.Output_path_other = self.Output_path_other_full.iloc[Index]
                     self.Output_T          = self.Output_T_full[Index]
                     self.Output_A          = self.Output_A_full.iloc[Index]
                     self.Output_T_E        = self.Output_T_E_full[Index]
@@ -141,7 +130,6 @@ class evaluation_template():
                 self.Input_T           = self.Input_T_full[Index]
                 
                 self.Output_path       = self.Output_path_full.iloc[Index]
-                self.Output_path_other = self.Output_path_other_full.iloc[Index]
                 self.Output_T          = self.Output_T_full[Index]
                 self.Output_A          = self.Output_A_full.iloc[Index]
                 self.Output_T_E        = self.Output_T_E_full[Index]

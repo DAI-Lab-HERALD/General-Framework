@@ -52,12 +52,13 @@ class data_interface(object):
         self.single_dataset = len(self.Datasets.keys()) <= 1    
         
         # Borrow dataset paprameters
-        self.model_class_to_path      = parameters[0]
-        self.num_samples_path_pred    = parameters[1]
-        self.enforce_prediction_times = parameters[3]
-        self.exclude_post_crit        = parameters[4]
-        self.allow_extrapolation      = parameters[5]
-        self.overwrite_results        = parameters[6]
+        self.model_class_to_path       = parameters[0]
+        self.num_samples_path_pred     = parameters[1]
+        self.enforce_prediction_times  = parameters[3]
+        self.exclude_post_crit         = parameters[4]
+        self.allow_extrapolation       = parameters[5]
+        self.dynamic_prediction_agents = parameters[6]
+        self.overwrite_results         = parameters[7]
         
         # Get scenario
         scenario_names = []
@@ -165,6 +166,7 @@ class data_interface(object):
         self.Output_T_E       = np.zeros(0, float)
 
         self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
+        self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Domain           = pd.DataFrame(np.zeros((0,0), np.ndarray))
         
         self.num_behaviors = np.zeros(len(self.Behaviors), int)
@@ -177,6 +179,7 @@ class data_interface(object):
             self.Output_T_E       = np.concatenate((self.Output_T_E, data_set.Output_T_E), axis = 0)
             
             self.Type             = pd.concat((self.Type, data_set.Type))
+            self.Recorded         = pd.concat((self.Recorded, data_set.Recorded))
             self.Domain           = pd.concat((self.Domain, data_set.Domain))
             
             if self.scenario.get_name() != data_set.scenario.get_name():
@@ -218,6 +221,8 @@ class data_interface(object):
         self.Input_path       = self.Input_path.reset_index(drop = True)
         self.Output_path      = self.Output_path.reset_index(drop = True)
         self.Output_A         = self.Output_A.reset_index(drop = True)
+        self.Type             = self.Type.reset_index(drop = True)
+        self.Recorded         = self.Recorded.reset_index(drop = True)
         self.Domain           = self.Domain.reset_index(drop = True)
         
         self.data_loaded = True

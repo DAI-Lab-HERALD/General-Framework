@@ -125,6 +125,7 @@ class Experiment():
                        enforce_prediction_times = True, 
                        exclude_post_crit = True,
                        allow_extrapolation = True,
+                       dynamic_prediction_agents = False,
                        overwrite_results = False):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
@@ -145,11 +146,14 @@ class Experiment():
         
         assert isinstance(allow_extrapolation, bool), "allow_extrapolation should be a boolean."
         
+        assert isinstance(dynamic_prediction_agents, bool), "dynamic_prediction_agents should be a boolean."
+        
         assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         
         self.parameters = [model_class_to_path, num_samples_path_pred, 
                            enforce_num_timesteps_out, enforce_prediction_times, 
-                           exclude_post_crit, allow_extrapolation, overwrite_results]
+                           exclude_post_crit, allow_extrapolation, 
+                           dynamic_prediction_agents, overwrite_results]
         
         self.provided_setting = True
     

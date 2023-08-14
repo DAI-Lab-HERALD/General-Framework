@@ -166,7 +166,7 @@ class trajectron_salzmann_unicycle(model_template):
         elif node_type == AgentType.VEHICLE:
             pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh    
         else:
-            raise TypeError("Not considered.")
+            pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh 
             
         # Only take out prediction agent
         S_st = S_st[:,0]
