@@ -309,8 +309,6 @@ class trajectron_salzmann_delta(model_template):
                 Weights[i][:] = torch.from_numpy(weights)[:]
         
     def predict_method(self):
-        Output_path_pred = self.create_empty_output_path()
-        
         batch_size = self.trajectron.hyperparams['batch_size']
         
         prediction_done = False
@@ -341,11 +339,10 @@ class trajectron_salzmann_delta(model_template):
                 raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
             
             torch.cuda.empty_cache()
-            for i, i_sample in enumerate(Sample_id):
-                agent = Agent_id[i,0]
-                Output_path_pred.iloc[i_sample][agent] = Pred[:, i, :, :].astype('float32')
-                
-        return [Output_path_pred]
+            
+            # set batchsize first
+            Pred = Pred.transpose(1,0,2,3)
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
     
     
     def check_trainability_method(self):

@@ -493,9 +493,6 @@ class agent_yuan(model_template):
 
         
     def predict_method(self):
-        Output_path_pred = self.create_empty_output_path()
-        Agents = np.array(self.input_names_train)
-        
         self.model_dlow.set_device(self.device)
         self.model_dlow.eval()
         batch = 0
@@ -533,15 +530,10 @@ class agent_yuan(model_template):
                 
                 Pred[:,:,Index] = pred[:,:,:,:num_steps]
                 
-            # Write the results into the pandas dataframe
-            for i, i_sample in enumerate(Sample_id):
-                agent_ids = Agent_id[i]
-                for j, agent_id in enumerate(agent_ids):
-                    agent = Agents[agent_id]
-                    if Pred_agents[i, j]:
-                        Output_path_pred.iloc[i_sample][agent] = Pred[i, j, :self.num_samples_path_pred]
-                    
-        return [Output_path_pred]
+            # cut number of predictions down if needed
+            Pred = Pred[:, :, :self.num_samples_path_pred]
+            
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
 
     
     def check_trainability_method(self):

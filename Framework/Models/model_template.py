@@ -23,7 +23,7 @@ class model_template():
         if behavior == None:
             self.is_data_transformer = False
             
-            Index = splitter.Train_index
+            self.Index_train = splitter.Train_index
             
             self.model_file = data_set.change_result_directory(splitter.split_file,
                                                                'Models', self.get_name()['file'])
@@ -51,12 +51,12 @@ class model_template():
             
         else:
             self.is_data_transformer = True
-            Index = np.where(data_set.Output_A[behavior])[0]
-            if len(Index) == 0:
+            self.Index_train = np.where(data_set.Output_A[behavior])[0]
+            if len(self.Index_train) == 0:
                 # There are no samples of the required behavior class
                 # Use those cases where the other behaviors are the furthers away
                 num_long_index = int(len(data_set.Output_A) / len(data_set.Behaviors))
-                Index = np.argsort(data_set.Output_T_E)[-num_long_index :]
+                self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
             
             save_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
             self.model_file = save_file
@@ -71,43 +71,43 @@ class model_template():
         self.input_names_train = data_set.Input_path.columns
         # Only provide one kind of input (if model cheats and tries to use both)
         if self.get_input_type()['past'] == 'general':
-            self.Input_prediction_train = data_set.Input_prediction.iloc[Index]
+            self.Input_prediction_train = data_set.Input_prediction.iloc[self.Index_train]
             self.Input_path_train       = None
             
         elif self.get_input_type()['past'] == 'path':
             self.Input_prediction_train = None
-            self.Input_path_train       = data_set.Input_path.iloc[Index]
+            self.Input_path_train       = data_set.Input_path.iloc[self.Index_train]
             
         elif self.get_input_type()['past'] == 'both':
-            self.Input_prediction_train = data_set.Input_prediction.iloc[Index]
-            self.Input_path_train       = data_set.Input_path.iloc[Index]
+            self.Input_prediction_train = data_set.Input_prediction.iloc[self.Index_train]
+            self.Input_path_train       = data_set.Input_path.iloc[self.Index_train]
         else:
             raise AttributeError("This kind of past input information is not implemented.")
             
         
         if self.get_input_type()['future']:
             Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
-            self.Input_future_train = data_set.Output_path.iloc[Index, Pov_ind]
+            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, Pov_ind]
         else:
-            self.Input_future_train = data_set.Output_path.iloc[Index, np.zeros(len(self.input_names_train), bool)]
+            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, np.zeros(len(self.input_names_train), bool)]
             
         # check if model is allowed
         
-        self.Input_T_train           = data_set.Input_T[Index]
+        self.Input_T_train           = data_set.Input_T[self.Index_train]
         
-        self.Output_path_train       = data_set.Output_path.iloc[Index]
-        self.Output_T_train          = data_set.Output_T[Index]
-        self.Output_T_pred_train     = data_set.Output_T_pred[Index]
-        self.Output_A_train          = data_set.Output_A.iloc[Index]
-        self.Output_T_E_train        = data_set.Output_T_E[Index]
+        self.Output_path_train       = data_set.Output_path.iloc[self.Index_train]
+        self.Output_T_train          = data_set.Output_T[self.Index_train]
+        self.Output_T_pred_train     = data_set.Output_T_pred[self.Index_train]
+        self.Output_A_train          = data_set.Output_A.iloc[self.Index_train]
+        self.Output_T_E_train        = data_set.Output_T_E[self.Index_train]
         
-        self.Type_train              = data_set.Type.iloc[Index]
-        self.Recorded_train          = data_set.Recorded.iloc[Index]
-        self.Domain_train            = data_set.Domain.iloc[Index]
+        self.Type_train              = data_set.Type.iloc[self.Index_train]
+        self.Recorded_train          = data_set.Recorded.iloc[self.Index_train]
+        self.Domain_train            = data_set.Domain.iloc[self.Index_train]
         
         self.num_samples_path_pred = self.data_set.num_samples_path_pred
         
-        self.num_samples_train = len(Index)
+        self.num_samples_train = len(self.Index_train)
         
         self.setup_method()
         
@@ -131,7 +131,6 @@ class model_template():
     
     
     def train(self):
-        self.extracted_data = False
         if os.path.isfile(self.model_file) and not self.data_set.overwrite_results:
             self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
             self.load_method()
@@ -180,7 +179,6 @@ class model_template():
         
         
     def predict(self):
-        self.extracted_data = False
         # perform prediction
         if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
             output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
@@ -200,6 +198,8 @@ class model_template():
             if self.get_input_type()['future']:
                 Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
                 self.Input_future_test = self.data_set.Output_path.iloc[:, Pov_ind]
+                
+            
             
             # Make predictions on all samples, test and training samples
             self.Input_T_test       = self.data_set.Input_T
@@ -213,7 +213,12 @@ class model_template():
             self.num_samples_test = len(self.Input_T_test)
             
             # apply model to test samples
-            output = self.predict_method() # output needs to be a list of components
+            if self.get_output_type()[:4] == 'path':
+                self.create_empty_output_path()
+                self.predict_method()
+                output = [self.Output_path_pred]
+            else:
+                output = self.predict_method() # output needs to be a list of components
             
             save_data = np.array(output + [0], object) #0 is there to avoid some numpy load and save errros
             
@@ -226,7 +231,7 @@ class model_template():
         return output
     
     
-    def prepare_batch_generation(self, train = True, val_split_size = 0.1):
+    def prepare_batch_generation(self):
         # Required attributes of the model
         # self.min_t_O_train: How many timesteps do we need for training
         # self.max_t_O_train: How many timesteps do we allow training for
@@ -238,47 +243,30 @@ class model_template():
         # self.grayscale: Are image required in grayscale
         
         
+        N_I = len(self.data_set.Input_T[0])
         
-        # Get general outputs
-        if train:
-            N_O = np.zeros(len(self.Output_T_train), int)
-            for i_sample in range(self.Output_T_train.shape[0]):
-                N_O[i_sample] = len(self.Output_T_train[i_sample])
-            
-            remain_samples = N_O >= self.min_t_O_train
-            N_O = np.minimum(N_O[remain_samples], self.max_t_O_train)
-            N_I = len(self.Input_T_train[0])
-            
-            X_help = self.Input_path_train.to_numpy()[remain_samples]
-            Y_help = self.Output_path_train.to_numpy()[remain_samples]
-            
-            T            = self.Type_train.to_numpy()[remain_samples]
-            Recorded_old = self.Recorded_train.iloc[remain_samples]
-            domain_old   = self.Domain_train.iloc[remain_samples]
-            
-            
-        else:
-            N_O = np.zeros(len(self.Output_T_pred_test), int)
-            for i_sample in range(self.Output_T_pred_test.shape[0]):
-                N_O[i_sample] = len(self.Output_T_pred_test[i_sample])
-
-            N_I = len(self.Input_T_test[0])
-            
-            X_help = self.Input_path_test.to_numpy()
-            
-            T            = self.Type_test.to_numpy()
-            Recorded_old = self.Recorded_test
-            domain_old   = self.Domain_test
-            
+        N_O_data = np.zeros(len(self.data_set.Output_T), int)
+        N_O_pred = np.zeros(len(self.data_set.Output_T), int)
+        for i_sample in range(self.data_set.Output_T.shape[0]):
+            N_O_data[i_sample] = len(self.data_set.Output_T[i_sample])
+            N_O_pred[i_sample] = len(self.data_set.Output_T_pred[i_sample])
+        
+        X_help = self.data_set.Input_path.to_numpy()
+        Y_help = self.data_set.Output_path.to_numpy()
+        
+        T = self.data_set.Type.to_numpy()
+        Recorded_old = self.data_set.Recorded
+        domain_old = self.data_set.Domain
+        
         # Determine needed agents
         Agents = np.array(self.input_names_train)
         Pred_agents = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
         
+        # Determine map use
         use_map = self.data_set.includes_images() and self.can_use_map
             
         X = np.ones(list(X_help.shape) + [N_I, 2], dtype = np.float32) * np.nan
-        if train:
-            Y = np.ones(list(Y_help.shape) + [N_O.max(), 2], dtype = np.float32) * np.nan
+        Y = np.ones(list(Y_help.shape) + [N_O_data.max(), 2], dtype = np.float32) * np.nan
         
         # Extract data from original number a samples
         for i_sample in range(X.shape[0]):
@@ -286,14 +274,14 @@ class model_template():
                 if isinstance(X_help[i_sample, i_agent], float):
                     assert not Pred_agents[i_sample, i_agent], 'A needed agent is not given.'
                 else:    
+                    n_time = N_O_data[i_sample]
                     X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    if train:
-                        n_time = N_O[i_sample]
-                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+                    Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
         
         
         if self.predict_single_agent or (Pred_agents.sum(1) == 1).all():
-            N_O = N_O.repeat(Pred_agents.sum(axis = 1))
+            N_O_data = N_O_data.repeat(Pred_agents.sum(axis = 1))
+            N_O_pred = N_O_pred.repeat(Pred_agents.sum(axis = 1))
             
             # set agent to be predicted into first location
             ID = []
@@ -330,8 +318,7 @@ class model_template():
             
             ID = np.stack((Sample_id, Agent_id), axis = -1)
             
-            if train: 
-                Y = Y[Pred_agents].reshape(-1, 1, N_O.max(), 2)
+            Y = Y[Pred_agents].reshape(-1, 1, *Y.shape[-2:])
             
             if use_map:
                 centre = X[:,0,-1,:] #x_t.squeeze(-2)
@@ -385,16 +372,17 @@ class model_template():
                                                                                               return_resolution = True)
                 
                 
-        self.Pred_agents = Pred_agents        
-        self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        self.T = T # num_samples, num_agents
-        self.N_O = N_O
-        self.ID = ID
+        self.Pred_agents = Pred_agents   
         
-        if train:
-            self.Y = Y.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        else:
-            self.Y = None
+        self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+        self.Y = Y.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+        
+        self.T = T # num_samples, num_agents
+        
+        self.N_O_pred = N_O_pred
+        self.N_O_data = N_O_data
+        
+        self.ID = ID
         
         if use_map:
             self.img = img  # num_samples, num_agents, height, width, channels
@@ -404,15 +392,6 @@ class model_template():
             self.img_m_per_px = None
         
         self.extracted_data = True
-        
-        # Prepare split into main and val set
-        Index = np.arange(len(self.X))
-        np.random.shuffle(Index)
-        
-        num_norm = int(len(self.X) * (1 - val_split_size))
-        
-        self.Index_norm = [Index[:num_norm], np.array([], int)]
-        self.Index_val  = [Index[num_norm:], np.array([], int)]
     
     
     def provide_all_included_agent_types(self):
@@ -421,36 +400,56 @@ class model_template():
         T_all = np.unique(T.astype(str))
         T_all = T_all[T_all != 'nan']
         return T_all
+    
+    def _extract_useful_training_samples(self):
+        I_train = self.Index_train
+        N_O = np.minimum(self.N_O_data, self.max_t_O_train)
         
+        remain_samples = N_O[I_train] >= self.min_t_O_train
+        
+        # Only use samples with enough timesteps for training
+        I_train = I_train[remain_samples]
+        
+        return I_train
+    
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+        if not self.extracted_data:
+            self.prepare_batch_generation()
+        
+        if mode == 'pred':
+            if not hasattr(self, 'Ind_pred'):
+                self.Ind_pred = [np.arange(len(self.X)), np.array([], int)]
+            N_O = self.N_O_pred
+            Ind_advance = self.Ind_pred
+            
+        elif mode == 'val':
+            if not hasattr(self, 'Ind_val'):
+                I_train = self._extract_useful_training_samples()
+                num_train = int(len(I_train) * (1 - val_split_size))
+                self.Ind_val = [I_train[num_train:], np.array([], int)]
+                
+            N_O = self.N_O_data
+            Ind_advance = self.Ind_val
+            
+        elif mode == 'train':
+            if not hasattr(self, 'Ind_train'):
+                I_train = self._extract_useful_training_samples()
+                num_train = int(len(I_train) * (1 - val_split_size))
+                self.Ind_train = [I_train[:num_train], np.array([], int)]
+            
+            N_O = self.N_O_data
+            Ind_advance = self.Ind_train
+        
+        else:
+            raise TypeError("Unknown mode.")
+        
+        
         # TODO: add method that allows one to extract the whole dataset in one batch 
         # For classification models
         
-        assert mode in ['train', 'val', 'pred'], "Unknown Mode"
-        
-        if mode == 'pred':
-            val_split_size = 0.0
-            advance_norm = True
-            train_mode = False
-        elif mode == 'train':
-            advance_norm = True
-            train_mode = True
-        else:
-            advance_norm = False
-            train_mode = True
-            
-        if not self.extracted_data:
-            self.prepare_batch_generation(train = train_mode, val_split_size = val_split_size)
-        
-        # Ensure that for single_pred_agents, the predictions are alwways the same type
-        if advance_norm:
-            Index_advance = self.Index_norm
-        else:
-            Index_advance = self.Index_val
-            
         # Find identical agents
-        N_O_advance = self.N_O[Index_advance[0]]
+        N_O_advance = N_O[Ind_advance[0]]
         Use_candidate = N_O_advance == N_O_advance[0]
         
         # If not enough agents are available during training, use the next ones
@@ -465,40 +464,31 @@ class model_template():
                 Use_candidate = (N_O_advance >= N_O_advance[0])
             
         if self.predict_single_agent:
-            T_advance = self.T[Index_advance[0],0]
+            T_advance = self.T[Ind_advance[0],0]
             Use_candidate = Use_candidate & (T_advance == T_advance[0])
              
         # Find in remaining samples those whose type corresponds to that of the first
         Ind_candidates = np.where(Use_candidate)[0]
-        ind_advance = Index_advance[0][Ind_candidates[:batch_size]]
         
+        # Get the final indices to be returned
+        ind_advance = Ind_advance[0][Ind_candidates[:batch_size]]
         
-        if len(Ind_candidates) > batch_size:
-            pos_max = Ind_candidates[batch_size - 1] + 1
-            
-            index_begin = Index_advance[0][:pos_max][~Use_candidate[:pos_max]]
-            index_end   = Index_advance[0][pos_max:]
-            
-            ind_remain = np.concatenate((index_begin, index_end))
-        else:
-            ind_remain = Index_advance[0][~Use_candidate]
-            
+        # Get the indices that will remain
+        ind_remain = np.setdiff1d(Ind_advance[0], ind_advance)
+        
+        # get num_steps
+        num_steps = N_O[ind_advance].min()
+        
         X = self.X[ind_advance]
         T = self.T[ind_advance]
+        Y = self.Y[ind_advance,:,:num_steps]
         Pred_agents = self.Pred_agents[ind_advance]
         
         if self.predict_single_agent:
             assert len(np.unique(T[:,0])) == 1
         
-        assert len(np.unique(self.N_O[ind_advance])) == 1
-        
-        if self.Y is not None:
-            n_o = self.N_O[ind_advance].min()
-            Y = self.Y[ind_advance,:,:n_o]
-        else:
-            assert len(np.unique(self.N_O[ind_advance])) == 1
-            n_o = self.N_O[ind_advance].max()
-            Y = None
+        if mode == 'pred':
+            assert len(np.unique(N_O[ind_advance])) == 1
         
         if (self.img is not None) and (not ignore_map):
             img          = self.img[ind_advance]
@@ -507,32 +497,60 @@ class model_template():
             img          = None
             img_m_per_px = None
             
-        # Move used indices from Index_advance[0] to Index_advance[1]
-        Index_advance[1] = np.concatenate((Index_advance[1], ind_advance))
-        Index_advance[0] = ind_remain
-        
-        if len(Index_advance[0]) == 0:
+        # Check if epoch is completed
+        if len(ind_remain) == 0:
             epoch_done = True
-            Index_advance[0] = Index_advance[1].astype(np.int32)
-            Index_advance[1] = np.array([], int)
-            np.random.shuffle(Index_advance[0])
+            ind_all = np.concatenate((Ind_advance[1], ind_advance))
+            np.random.shuffle(ind_all)
+            
+            Ind_advance[1] = np.array([], int)
+            Ind_advance[0] = ind_all
+            
         else:
             epoch_done = False
+            Ind_advance[1] = np.concatenate((Ind_advance[1], ind_advance))
+            Ind_advance[0] = ind_remain
             
         # check if epoch is completed, if so, shuffle and reset index
         if mode == 'pred':
             Sample_id = self.ID[ind_advance,0,0]
             Agents = np.array(self.input_names_train)
             Agent_id = Agents[self.ID[ind_advance,:,1]]
-            return X, T, img, img_m_per_px, Pred_agents, n_o, Sample_id, Agent_id, epoch_done    
+            return X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
-            return X, Y, T, img, img_m_per_px, Pred_agents, n_o, epoch_done
+            return X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done
         
     def create_empty_output_path(self):
         Agents = np.array(self.Output_path_train.columns)
         
-        Output_Path = pd.DataFrame(np.empty((len(self.Output_T_pred_test), len(Agents)), np.ndarray), columns = Agents)
-        return Output_Path
+        self.Output_path_pred = pd.DataFrame(np.empty((len(self.Output_T_pred_test), len(Agents)), np.ndarray), columns = Agents)
+    
+    
+    def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
+        if self.predict_single_agent:
+            if len(Pred.shape) == 4:
+                Pred = Pred[:,np.newaxis]
+                
+            assert Pred.shape[:1] == Sample_id.shape
+            if Pred_agents is None:
+                Pred_agents = np.zeros(Agent_id.shape, bool)
+                Pred_agents[:,0] = True
+        else:
+            assert Pred_agents is not None
+            assert Pred.shape[:2] == Agent_id.shape
+            assert Pred_agents.shape == Agent_id.shape
+        
+        assert Sample_id.shape == Agent_id.shape[:1]
+        assert Pred.shape[[2,4]] == [self.num_samples_path_pred, 2]
+        
+        for i, i_sample in enumerate(Sample_id):
+            for j, j_agent in enumerate(Agent_id[i]):
+                if not Pred_agents[i,j]:
+                    continue
+                self.Output_path_pred.iloc[i_sample, j_agent] = Pred[i, j,:, :, :].astype('float32')
+        
+        
+        
         
     def check_trainability(self):
         if self.get_input_type()['future']: 

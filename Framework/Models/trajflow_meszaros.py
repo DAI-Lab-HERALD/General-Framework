@@ -427,8 +427,6 @@ class trajflow_meszaros(model_template):
     
 
     def predict_method(self):
-        Output_path_pred = self.create_empty_output_path()
-        
         prediction_done = False
         while not prediction_done:
             X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
@@ -497,11 +495,8 @@ class trajflow_meszaros(model_template):
             
             torch.cuda.empty_cache()
             
-            for i, i_sample in enumerate(Sample_id):
-                agent = Agent_id[i, 0]
-                Output_path_pred.iloc[i_sample][agent] = Pred[i, :, :, :].astype('float32')
-                
-        return [Output_path_pred]
+            # save predictions
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
     
     
     def check_trainability_method(self):
