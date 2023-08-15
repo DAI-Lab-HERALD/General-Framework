@@ -341,9 +341,6 @@ class model_template():
             Pred_agents[:,0] = True
             
         else:
-            sample_ID = np.tile(np.arange(len(X))[:,np.newaxis], (1, len(Agents)))
-            Agent_ID  = np.tile(np.arange(len(Agents)[np.newaxis,:], (len(X), 1)))
-            ID = np.stack((sample_ID, Agent_ID), -1)
             
             if use_map:
                 Img_needed = T != 48
@@ -370,6 +367,23 @@ class model_template():
                                                                                               target_width = self.target_width, 
                                                                                               grayscale = self.grayscale, 
                                                                                               return_resolution = True)
+            
+            # Sort agents to move the absent ones to the behind, and pred agents first
+            Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - Pred_agents.astype(int)
+            
+            Agent_id = np.argsort(Value, axis = 1)
+            Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, len(Agents)))
+            
+            ID = np.stack((Sample_id, Agent_id), -1)
+            
+            X = X[Sample_id, Agent_id]
+            Y = Y[Sample_id, Agent_id]
+            T = T[Sample_id, Agent_id]
+            
+            img = img[Sample_id, Agent_id]
+            img_m_per_px = img_m_per_px[Sample_id, Agent_id]
+            
+            
                 
                 
         self.Pred_agents = Pred_agents   
