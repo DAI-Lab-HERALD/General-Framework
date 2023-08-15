@@ -34,13 +34,14 @@ class ADE_ML_joint(evaluation_template):
         
         Path_pred_ml = np.zeros(Path_pred[:,0].shape)
         for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (Types[i_sample, Pred_agents[i_sample]] != 'P') * 79
+            pred_agents = Pred_agents[i_sample]
+            std = 1 + (Types[i_sample, pred_agents] != 'P') * 79
             std = std[np.newaxis, :, np.newaxis, np.newaxis]
             
             nto = Num_steps[i_sample]
             n_agents = Num_agents[i_sample]
             
-            path_pred = Path_pred[i_sample,:,Pred_agents[i_sample],:nto]
+            path_pred = Path_pred[i_sample][:,pred_agents,:nto]
             
             path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
             
@@ -49,7 +50,7 @@ class ADE_ML_joint(evaluation_template):
             log_prob = kde.score_samples(path_pred_comp)
             p_ml = np.argmax(log_prob)
 
-            Path_pred_ml[i_sample, Pred_agents[i_sample], :nto] = path_pred[p_ml]    
+            Path_pred_ml[i_sample, pred_agents, :nto] = path_pred[p_ml]    
             
         # Get squared distance
         Diff = ((Path_true[:,0] - Path_pred_ml) ** 2).sum(-1)

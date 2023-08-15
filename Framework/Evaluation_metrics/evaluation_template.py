@@ -58,7 +58,7 @@ class evaluation_template():
             self.depict_results = True
     
     
-    def _set_current_data(self, Index):
+    def _set_current_data(self, Index, Predictions):
         self.Input_path        = self.Input_path_full.iloc[Index]
         self.Input_T           = self.Input_T_full[Index]
         
@@ -68,16 +68,33 @@ class evaluation_template():
         self.Output_T_E        = self.Output_T_E_full[Index]
         
         self.Type              = self.Type_full.iloc[Index]
-        self.Pred_agents       = self.Pred_agents_full.iloc[Index]
+        self.Pred_agents       = self.Pred_agents_full[Index]
         self.Domain            = self.Domain_full.iloc[Index]
         
         self.num_samples = len(self.Output_path)
+        
+                    
+        if self.get_output_type()[:4] == 'path':
+            self.Output_path_pred = Predictions[0].iloc[Index]
+            
+        elif self.get_output_type() == 'class_and_time':
+            self.Output_A_pred   = Predictions[0].iloc[Index]
+            self.Output_T_E_pred = Predictions[1].iloc[Index]
+            
+        elif self.get_output_type() == 'class':
+            self.Output_A_pred = Predictions[0].iloc[Index]
+    
+    
+    def get_true_and_predicted_class_probabilities(self):
+        pass
     
     
     def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
+        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
         nto = self.data_set.num_timesteps_out_real
         
         if num_preds == None:
+            num_preds = self.data_set.num_samples_path_pred
             idx = np.arange(self.data_set.num_samples_path_pred)
         elif num_preds <= self.data_set.num_samples_path_pred:
             idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds]#
@@ -88,7 +105,7 @@ class evaluation_template():
         
         Path_pred = np.zeros((num_samples, num_preds, num_agents, nto, 2))
         Path_true = np.zeros((num_samples, 1, num_agents, nto, 2))
-        Pred_step = np.zeros((num_samples, num_agents, nto))
+        Pred_step = np.zeros((num_samples, num_agents, nto), bool)
         
         for i in range(num_samples):
             nto_i = min(nto, len(self.Output_T[i]))
@@ -101,8 +118,9 @@ class evaluation_template():
             path_true = self.Output_path.iloc[i, pred_agents]
             path_true = np.stack(path_true, axis = 0)[np.newaxis]
             
-            Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i]
-            Path_true[i,:,pred_agents,:nto_i] = path_true[:,:,:nto_i]
+            # For some reason using pred_agents here moves the agent dimension to the front
+            Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i].transpose(1,0,2,3)
+            Path_true[i,:,pred_agents,:nto_i] = path_true[:,:,:nto_i].transpose(1,0,2,3)
             
             Pred_step[i,pred_agents,:nto_i] = True
         
@@ -132,11 +150,15 @@ class evaluation_template():
                     test_length = len(self.Output_T_full[i])
                     for j in range(Output_path_pred.shape[1]):
                         # Ensure that prediction has corresponding ground truth
+                        if not isinstance(Output_path_pred.iloc[i,j], np.ndarray):
+                            assert not self.Pred_agents_full[i,j], "Desired agent is missing"
+                            continue
+                        
                         Output_path_pred.iloc[i,j] = Output_path_pred.iloc[i,j][:,:test_length]
                         if self.Pred_agents_full[i,j]:
                             assert np.isfinite(Output_path_pred.iloc[i,j]).all(), "NaN positions are predicted."
                             
-                
+                Predictions = [Output_path_pred]
             elif self.get_output_type() == 'class_and_time':
                 [Output_A_pred, Output_T_E_pred] = Output_pred
                 
@@ -144,12 +166,15 @@ class evaluation_template():
                 Output_A_pred   = Output_A_pred[self.Output_A_full.columns]
                 Output_T_E_pred = Output_T_E_pred[self.Output_A_full.columns]
                 
+                Predictions = [Output_A_pred, Output_T_E_pred]
+                
             elif self.get_output_type() == 'class':
                 [Output_A_pred] = Output_pred
                 
                 # reorder columns if needed
                 Output_A_pred = Output_A_pred[self.Output_A_full.columns]
-                    
+                
+                Predictions = [Output_A_pred]
             else:
                 raise AttributeError("This type of prediction is not implemented")
             
@@ -162,56 +187,12 @@ class evaluation_template():
                 Indeces = [self.splitter.Train_index, self.splitter.Test_index]
                 
                 for Index in Indeces:
-                    self.Input_path        = self.Input_path_full.iloc[Index]
-                    self.Input_T           = self.Input_T_full[Index]
-                    
-                    self.Output_path       = self.Output_path_full.iloc[Index]
-                    self.Output_T          = self.Output_T_full[Index]
-                    self.Output_A          = self.Output_A_full.iloc[Index]
-                    self.Output_T_E        = self.Output_T_E_full[Index]
-                    
-                    self.Type              = self.Type_full.iloc[Index]
-                    self.Pred_agents       = self.Pred_agents_full.iloc[Index]
-                    self.Domain            = self.Domain_full.iloc[Index]
-                    
-                    self.num_samples = len(self.Output_path)
-                    
-                    if self.get_output_type()[:4] == 'path':
-                        self.Output_path_pred = Output_path_pred.iloc[Index]
-                        
-                    elif self.get_output_type() == 'class_and_time':
-                        self.Output_A_pred = Output_A_pred.iloc[Index]
-                        self.Output_T_E_pred = Output_T_E_pred.iloc[Index]
-                        
-                    elif self.get_output_type() == 'class':
-                        self.Output_A_pred = Output_A_pred.iloc[Index]
+                    self._set_current_data(Index, Predictions)
                     
                     Results.append(self.evaluate_prediction_method()) # output needs to be a list of components
             else:
                 Index = self.splitter.Test_index
-                self.Input_path        = self.Input_path_full.iloc[Index]
-                self.Input_T           = self.Input_T_full[Index]
-                
-                self.Output_path       = self.Output_path_full.iloc[Index]
-                self.Output_T          = self.Output_T_full[Index]
-                self.Output_A          = self.Output_A_full.iloc[Index]
-                self.Output_T_E        = self.Output_T_E_full[Index]
-                
-                self.Type              = self.Type_full.iloc[Index]
-                self.Pred_agents       = self.Pred_agents_full.iloc[Index]
-                self.Domain            = self.Domain_full.iloc[Index]
-                
-                self.num_samples = len(self.Output_path)
-                
-                if self.get_output_type()[:4] == 'path':
-                    self.Output_path_pred = Output_path_pred.iloc[Index]
-                    
-                elif self.get_output_type() == 'class_and_time':
-                    self.Output_A_pred = Output_A_pred.iloc[Index]
-                    self.Output_T_E_pred = Output_T_E_pred.iloc[Index]
-                    
-                elif self.get_output_type() == 'class':
-                    self.Output_A_pred = Output_A_pred.iloc[Index]
+                self._set_current_data(Index)
                 
                 results = self.evaluate_prediction_method()
                 

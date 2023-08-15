@@ -46,7 +46,7 @@ class Oracle_joint(evaluation_template):
         
         # Best 5 over predictions
         idx = np.argsort(Diff.sum(-1), axis = 1)
-        idx_p = idx[:5]
+        idx_p = idx[:,:5]
         idx_i = np.tile(np.arange(len(Diff))[:,np.newaxis], (1,5))
         Diff = Diff[idx_i, idx_p,:]
         

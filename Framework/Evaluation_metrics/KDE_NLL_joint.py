@@ -33,14 +33,15 @@ class KDE_NLL_joint(evaluation_template):
         NLL = 0
         
         for i_sample in range(len(self.Output_path_pred)):
-            std = 1 + (Types[i_sample, Pred_agents[i_sample]] != 'P') * 79
+            pred_agents = Pred_agents[i_sample]
+            std = 1 + (Types[i_sample, pred_agents] != 'P') * 79
             std = std[np.newaxis, :, np.newaxis, np.newaxis]
             
             nto = Num_steps[i_sample]
             n_agents = Num_agents[i_sample]
             
-            path_true = Path_true[i_sample,:,Pred_agents[i_sample],:nto]
-            path_pred = Path_pred[i_sample,:,Pred_agents[i_sample],:nto]
+            path_true = Path_true[i_sample][:,pred_agents,:nto]
+            path_pred = Path_pred[i_sample][:,pred_agents,:nto]
             
             path_true_comp = (path_true / std).reshape(-1, n_agents * nto * 2)
             path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
