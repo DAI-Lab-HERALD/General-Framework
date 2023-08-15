@@ -264,7 +264,7 @@ class trajectron_salzmann_unicycle(model_template):
             while not epoch_done:
                 batch += 1
                 print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch))
-                X, Y, T, img, img_m_per_px, num_steps, epoch_done = self.provide_batch_data('train', batch_size)
+                X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', batch_size)
                 batch, node_type = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
                 
                 batch.to(device = self.trajectron.device)
@@ -319,8 +319,8 @@ class trajectron_salzmann_unicycle(model_template):
         while not prediction_done:
             batch += 1
             print('Predict trajectron: Batch {}'.format( batch))
-            X, T, img, img_m_per_px, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
-            batch, node_type = self.extract_data_batch(X, T, img, img_m_per_px, num_steps)
+            X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            batch, node_type = self.extract_data_batch(X, T, None, img, img_m_per_px, num_steps)
         
             batch.to(self.trajectron.device)
             # Run prediction pass

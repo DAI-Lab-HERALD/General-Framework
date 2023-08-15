@@ -18,25 +18,24 @@ class trajflow_meszaros(model_template):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        self.batch_size = 128
-        # Get params
-        self.num_timesteps_in = len(self.Input_path_train.to_numpy()[0,0])
-        self.num_timesteps_out = np.zeros(len(self.Output_T_train), int)
-        for i_sample in range(self.Output_T_train.shape[0]):
-            len_use = len(self.Output_T_train[i_sample])
-            self.num_timesteps_out[i_sample] = len_use
-
-        self.future_traj_len = self.data_set.num_timesteps_out_real
-        self.norm_rotation = True
         
-        self.use_map = self.data_set.includes_images()
+        self.batch_size = 128
+        
+        self.future_traj_len = self.data_set.num_timesteps_out_real
+        self.past_traj_len   = self.data_set.num_timesteps_in_real
+        
+        # Required attributes of the model
+        self.min_t_O_train = self.future_traj_len
+        self.max_t_O_train = self.future_traj_len
+        self.predict_single_agent = True
+        self.can_use_map = True
+        # If self.can_use_map, the following is also required
         self.target_width = 257
         self.target_height = 156
+        self.grayscale = True
         
-        self.past_traj_len = self.data_set.num_timesteps_in_real
-        self.remain_samples = self.num_timesteps_out >= self.future_traj_len 
-        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], self.future_traj_len )
-
+        self.norm_rotation = True
+        
         
         self.hs_rnn = 16
         self.n_layers_rnn = 3
@@ -45,8 +44,8 @@ class trajflow_meszaros(model_template):
         if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
             self.beta_noise = 0.2
             self.gamma_noise = 0.02
-            self.scene_encoding_size = 4
             
+            self.scene_encoding_size = 4
             self.obs_encoding_size = 16 
             
             self.alpha = 10
@@ -60,6 +59,7 @@ class trajflow_meszaros(model_template):
             
             self.scene_encoding_size = 4
             self.obs_encoding_size = 4
+            
             self.alpha = 3
             self.s_min = 0.8
             self.s_max = 1.2
@@ -77,161 +77,37 @@ class trajflow_meszaros(model_template):
         self.std_pos_ped = 1
         self.std_pos_veh = 80
         
-        
-        # Set time step
-        self.dt = self.Input_T_train[0][-1] - self.Input_T_train[0][-2]
-        
-        
-        
-    def extract_data(self, train = True):
-        
-        if train:
-            X_help = self.Input_path_train.to_numpy()
-            Y_help = self.Output_path_train.to_numpy() 
-            Types  = self.Type_train.to_numpy()
-            
-            X_help = X_help[self.remain_samples]
-            Y_help = Y_help[self.remain_samples]
-            Types  = Types[self.remain_samples]
-
-            self.domain_old = self.Domain_train.iloc[self.remain_samples]
-        else:
-            X_help = self.Input_path_test.to_numpy()
-            Types  = self.Type_test.to_numpy()
-            self.domain_old = self.Domain_test
-        
-        Agents = np.array(self.input_names_train)
-        
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
-        assert Pred_agents.sum() > 0, "nothing to predict"
-        
-        # Prepare numpy position array
-        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        if train:
-            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max(), 2], dtype = np.float32) * np.nan
-        
-        # Extract data from original number a samples
-        for i_sample in range(X.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if isinstance(X_help[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:    
-                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    if train:
-                        n_time = self.num_timesteps_out[i_sample]
-                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-        
-        #standardize input
-        Ped_agents = Types == 'P'
-        
-                
-        if train:
-            Xi = X # num_samples, num_agents, num_timesteps, 2
-            T = Types
-            
-            
-            # set agent to be predicted into first location
-            X = []
-            T = []
-            for i_agent in np.where(Pred_agents)[0]:
-                reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
-                                         list(np.arange(i_agent + 1, Xi.shape[1])))
-                X.append(Xi[:,reorder_index])
-                T.append(Types[:, reorder_index])
-            X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
-            T = T.astype(str)
-            PPed_agents = T == 'P'
-            # transform to ascii int:
-            T[T == 'nan'] = '0'
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
-
-            if self.use_map:
-                
-                centre = X[:,0,-1,:] #x_t.squeeze(-2)
-                x_rel = centre - X[:,0,-2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-
-                domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(Pred_agents.sum())]
-            
-                img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                        target_height = self.target_height, 
-                                                        target_width = self.target_width, grayscale = True)
-                
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                Y[Ped_agents]  /= self.std_pos_ped
-                Y[~Ped_agents] /= self.std_pos_veh
-                Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
-                
-                my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
-                                           torch.tensor(Y).to(device=self.device), 
-                                           torch.tensor(img),
-                                           torch.tensor(T).to(device=self.device)) # create your datset
-                
-            else:
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                Y[Ped_agents]  /= self.std_pos_ped
-                Y[~Ped_agents] /= self.std_pos_veh
-                Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
-                
-                my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
-                                           torch.tensor(Y).to(device=self.device),
-                                           torch.tensor(T).to(device=self.device)) # create your datset
-
-            
-            train_data, val_data = torch.utils.data.random_split(my_dataset, 
-                                                                 [int(np.round(len(my_dataset)*0.9)),
-                                                                  int(len(my_dataset) - np.round(len(my_dataset)*0.9))],
-                                                                 generator=torch.Generator().manual_seed(42))
-
-            train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
-            val_loader = DataLoader(val_data, batch_size=self.batch_size, shuffle=True)
-
-            return train_loader, val_loader, T
-        else:
-            Xi = X # num_samples, num_agents, num_timesteps, 2
-            # set agent to be predicted into first location
-            X = []
-            T = []
-            for i_agent in np.where(Pred_agents)[0]:
-                reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
-                                         list(np.arange(i_agent + 1, Xi.shape[1])))
-                X.append(Xi[:,reorder_index])
-                T.append(Types[:, reorder_index])
-            X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
-            T = T.astype(str)
-            PPed_agents = T == 'P'
-            # transform to ascii int:
-            T[T == 'nan'] = '0'
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
-            
-            if self.use_map:
-                centre = X[:,0,-1,:] #x_t.squeeze(-2)
-                x_rel = centre - X[:,0,-2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-
-                domain_repeat = self.domain_old.loc[self.domain_old.index.repeat(Pred_agents.sum())]
-
-                img = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                        target_height = self.target_height, 
-                                                        target_width = self.target_width, grayscale = True)
-                
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                return Pred_agents, Agents, X, T, PPed_agents, img
-            
-            else:
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                return Pred_agents, Agents, X, T, PPed_agents
-            
-        
     
-    def train_futureAE(self, train_loader, val_loader):
+    def extract_batch_data(self, X, T, Y = None, img = None):
+        # Get type of agents
+        T_out = T.astype(str)
+        Ped_agents = T_out == 'P'
+        
+        # Transform types to numbers
+        T_out[T_out == 'nan'] = '0'
+        T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, 3).astype(np.uint8)[:,:,0]
+        T_out = torch.from_numpy(T_out).to(device = self.device)
+        
+        # TODO: Think about moving the application of the standardization to somewhat later
+        # TODO: There might be problems with the distance calculation in the scene encoder
+        # Standardize positions
+        X[Ped_agents]  /= self.std_pos_ped
+        X[~Ped_agents] /= self.std_pos_veh
+        X = torch.from_numpy(X).float().to(device = self.device)
+        
+        if Y is not None:
+            # Standardize future positions
+            Y[Ped_agents[:,0]]  /= self.std_pos_ped
+            Y[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y = torch.from_numpy(Y).float().to(device = self.device)
+        
+        if img is not None:
+            img = torch.from_numpy(img).float().to(device = self.device) / 255
+            
+        return X, T_out, Y, img
+    
+    
+    def train_futureAE(self):
         hs_rnn = self.hs_rnn
         obs_encoding_size = self.obs_encoding_size # 4
         n_layers_rnn = self.n_layers_rnn
@@ -243,9 +119,6 @@ class trajflow_meszaros(model_template):
                                     gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
                                     obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
                                     n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn)
-        
-        num_epochs = self.fut_ae_epochs
-        
 
         enc = Future_Encoder(2, enc_size, enc_size, enc_size)
         dec = Future_Decoder(2, enc_size, enc_size)
@@ -267,45 +140,45 @@ class trajflow_meszaros(model_template):
             
             
             converged = False
-            for epoch in range(num_epochs):
+            for epoch in range(self.fut_ae_epochs):
                 print('')
-                rjust_epoch = str(epoch).rjust(len(str(num_epochs)))
-                print('Train TrajFlow Autoencoder: Epoch ' + rjust_epoch + '/{}'.format(num_epochs), flush = True)
+                rjust_epoch = str(epoch).rjust(len(str(self.fut_ae_epochs)))
+                print('Train TrajFlow Autoencoder: Epoch ' + rjust_epoch + '/{}'.format(self.fut_ae_epochs), flush = True)
                 # Analyize memory:
                 fut_model.to(device = self.device)
                 fut_model.train()
                 train_loss = []
+                
+                train_epoch_done = False
+                while not train_epoch_done:
+                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                           val_split_size = 0.1)
+                    X, T, Y, _ = self.extract_batch_data(X, T, Y)
                     
-                for _, sample_batched in enumerate(train_loader):
+                    # X.shape:   bs x num_agents x num_timesteps_is x 2
+                    # Y.shape:   bs x 1 x num_timesteps_is x 2
+                    # T.shape:   bs x num_agents
+                    # img.shape: bs x 1 x 156 x 257 x 1
                     
-                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, loc=1, scale=self.sigma, size=sample_batched[0].shape[0]))
+                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                    loc=1, scale=self.sigma, size=X.shape[0])).float()
                     scaler = scaler.unsqueeze(1)
                     scaler = scaler.unsqueeze(2)
-                    scaler_past = torch.tile(scaler, (1, self.past_traj_len, 2)).to(self.device)
-                    scaler_future = torch.tile(scaler, (1, self.future_traj_len, 2)).to(self.device)
+                    scaler = scaler.to(device = self.device)
                     
-                    past_pos = sample_batched[0][:,0].float()
-                    future_pos = sample_batched[1][:,0].float()
+                    tar_pos_past   = X[:,0]
+                    tar_pos_future = Y[:,0]
                     
+                    mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True)
                     
-                    mean_pos = torch.mean(torch.concat((sample_batched[0][:,0], sample_batched[1][:,0]), dim=1), dim=1)
-                    mean_pos_past = torch.tile(mean_pos.unsqueeze(1), (1,self.past_traj_len,1))
-                    mean_pos_future = torch.tile(mean_pos.unsqueeze(1), (1,self.future_traj_len,1))
-                    
-                    shifted_past = past_pos - mean_pos_past
-                    shifted_future = future_pos - mean_pos_future
+                    shifted_past = tar_pos_past - mean_pos
+                    shifted_future = tar_pos_future - mean_pos
                         
-                    scaled_past = shifted_past*scaler_past + mean_pos_past
-                    scaled_future = shifted_future*scaler_future + mean_pos_future
-                    
-                    past_data = scaled_past.float()
-                    future_data = scaled_future.float()
-                    
-                    past_data = past_data.to(device = self.device)
-                    future_data = future_data.to(device = self.device)
+                    past_data = shifted_past * scaler + mean_pos
+                    future_data = shifted_future * scaler + mean_pos
                     
                     past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
-                    
+                     
                     x_t = past_traj[...,-1:,:]
                     y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
                     
@@ -324,23 +197,23 @@ class trajflow_meszaros(model_template):
                 with torch.no_grad():
                     conc_out = []
                     conc_label = []
-                    for i_batch, sample_batched in enumerate(val_loader):
+                    
+                    val_epoch_done = False
+                    while not val_epoch_done:
+                        X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                val_split_size = 0.1)
+                        X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
-                        past_data = sample_batched[0][:,0].float()
-                        future_data = sample_batched[1][:,0].float()
-                        
-                        past_data = past_data.to(device = self.device)
-                        future_data = future_data.to(device = self.device)
+                        past_data = X[:,0]
+                        future_data = Y[:,0]
                         
                         past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
                         
                         x_t = past_traj[...,-1:,:]
                         y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
                         
-                            
                         future_traj_hat, y_in = fut_model(y_rel)
                             
-                        
                         conc_out.append(future_traj_hat.cpu())
                         conc_label.append(y_rel.cpu())
                             
@@ -371,19 +244,18 @@ class trajflow_meszaros(model_template):
         return fut_model
 
 
-    def train_flow(self, fut_model, train_loader, val_loader, T_all):
-        steps = self.flow_epochs
+    def train_flow(self, fut_model, T_all):
+        use_map = self.can_use_map and self.data_set.includes_images()
         
-        if self.use_map:
+        if use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
         else:
             scene_encoder = None
-        
         # TODO: Set the gnn parameters
         flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
                                scene_encoder=scene_encoder, norm_rotation=self.norm_rotation, device=self.device,
                                obs_encoding_size=self.obs_encoding_size, scene_encoding_size=self.scene_encoding_size, n_layers_rnn=self.n_layers_rnn, 
-                               es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=self.use_map, 
+                               es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=use_map, 
                                n_layers_gnn=4, es_gnn=32, T_all = T_all)
         
         for param in fut_model.parameters():
@@ -402,7 +274,7 @@ class trajflow_meszaros(model_template):
             val_losses = []
 
 
-            for step in range(steps):
+            for step in range(self.flow_epochs):
 
                 flow_dist.train()
                 fut_model.eval()
@@ -410,58 +282,59 @@ class trajflow_meszaros(model_template):
                 losses_epoch = []
                 val_losses_epoch = []
                 
-                for i, data in enumerate(train_loader, 0):
-                    # Introduce noise to make model more robust
-                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, loc=1, scale=self.sigma, size=data[0].shape[0]))
-                    # scaler = torch.ones(data[0].shape[0])
-                    scaler = scaler.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(self.device)
+                train_epoch_done = False
+                while not train_epoch_done:
+                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                           val_split_size = 0.1)
+                    X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
-                    past_pos = data[0].to(device = self.device)
-                    future_pos = data[1].to(device = self.device)
-                    agent_types = data[-1].to(device = self.device)
+                    # X.shape:   bs x num_agents x num_timesteps_is x 2
+                    # Y.shape:   bs x 1 x num_timesteps_is x 2
+                    # T.shape:   bs x num_agents
+                    # img.shape: bs x 1 x 156 x 257 x 1
                     
+                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                    loc=1, scale=self.sigma, size=X.shape[0])).float()
+                    scaler = scaler.unsqueeze(1)
+                    scaler = scaler.unsqueeze(2)
+                    scaler = scaler.unsqueeze(3)
+                    scaler = scaler.to(device = self.device)
                     
-                    mean_pos = torch.mean(torch.concat((past_pos[:,0], future_pos[:,0]), 
-                                                       dim=1), dim=1, keepdims = True).unsqueeze(1)
-                    # mean_pos shape: batch_size, dims
+                    all_pos_past   = X
+                    tar_pos_past   = X[:,0]
+                    all_pos_future = Y
+                    tar_pos_future = Y[:,0]
                     
-                    shifted_past = past_pos - mean_pos
-                    shifted_future = future_pos - mean_pos
+                    mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True).unsqueeze(1)
+                    
+                    shifted_past   = all_pos_past - mean_pos
+                    shifted_future = all_pos_future - mean_pos
                         
-                    scaled_past = shifted_past * scaler + mean_pos
-                    scaled_future = shifted_future * scaler + mean_pos
+                    past_data   = shifted_past * scaler + mean_pos
+                    future_data = shifted_future * scaler + mean_pos
                     
                     optimizer.zero_grad()
                     
-                    past_data = scaled_past.float()
-                    
-                    future_data = scaled_future.float()
-                    
                     past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data, future_data)
                     
-                    x_t = past_traj[:,[0],-1:,:]
+                    x_t   = past_traj[:,[0],-1:,:]
                     y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
-                    if self.use_map:
-                        img = data[2].float().to(device = self.device)
-                        # img.shape = (batch_sz, target_height, target_width, 3)
-                        img = img.permute(0,3,1,2)
+                    if img is not None:
+                        img = img[:,0].permute(0,3,1,2)
 
                     out, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:,-1]
                     # out.shape:       batch size x enc_dims
-                    # past_data.shape: btach_size x num_agents x input_timesteps x num_dims
                     
-                    if self.use_map:
-                        logprob = flow_dist.log_prob(out, past_data, agent_types, img)#prior_logprob + log_det
+                    if img is not None:
+                        logprob = flow_dist.log_prob(out, past_data, T, img) #prior_logprob + log_det
                     else:
-                        logprob = flow_dist.log_prob(out, past_data, agent_types)#prior_logprob + log_det
+                        logprob = flow_dist.log_prob(out, past_data, T) #prior_logprob + log_det
 
                     loss = -torch.mean(logprob) # NLL
                     losses_epoch.append(loss.item())
                     
-                    # TODO check if flow_dist.zero_grad() was decisive
-                    flow_dist.zero_grad()
                     loss.backward()
                     optimizer.step()
                     
@@ -469,11 +342,14 @@ class trajflow_meszaros(model_template):
                 flow_dist.eval()
                 fut_model.eval()
                 with torch.no_grad():
-                    for j, val in enumerate(val_loader, 0):
+                    val_epoch_done = False
+                    while not val_epoch_done:
+                        X, Y, T, img, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                val_split_size = 0.1)
+                        X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                         
-                        past_data_val = val[0].float().to(device = self.device)
-                        future_data_val = val[1].float().to(device = self.device)  
-                        agent_types_val = val[-1].to(device = self.device)
+                        past_data_val = X
+                        future_data_val = Y
                         
                         past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data_val, future_data_val)
                         
@@ -481,10 +357,8 @@ class trajflow_meszaros(model_template):
                         y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
                         
-                        if self.use_map:
-                            img_val = val[2].float().to(device = self.device)
-                            # img.shape = (batch_sz, target_height, target_width, channels)
-                            img_val = img_val.permute(0,3,1,2)
+                        if img is not None:
+                            img_val = img[:,0].permute(0,3,1,2)
 
                         out, _ = fut_model.encoder(y_rel[:,0])
                         out = out[:, -1]
@@ -492,10 +366,10 @@ class trajflow_meszaros(model_template):
                             
                         optimizer.zero_grad()
 
-                        if self.use_map:
-                            log_prob = flow_dist.log_prob(out, past_data_val, agent_types_val, img_val)
+                        if img is not None:
+                            log_prob = flow_dist.log_prob(out, past_data_val, T, img_val)
                         else:
-                            log_prob = flow_dist.log_prob(out, past_data_val, agent_types_val)
+                            log_prob = flow_dist.log_prob(out, past_data_val, T)
                     
                         val_loss = -torch.mean(log_prob)
                         val_losses_epoch.append(val_loss.item())
@@ -528,13 +402,15 @@ class trajflow_meszaros(model_template):
     def train_method(self):    
         self.train_loss = np.ones((2, max(self.fut_ae_epochs, self.flow_epochs))) * np.nan
         
-        train_loader, val_loader, T_all = self.extract_data(train = True)
-        self.fut_model = self.train_futureAE(train_loader, val_loader)
-
-        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader, T_all)
+        # Get needed agent types
+        T_all = self.provide_all_included_agent_types().astype(str)
+        T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), 3).astype(np.uint8)[:,0]
+        
+        # Train model components        
+        self.fut_model = self.train_futureAE()
+        self.flow_dist = self.train_flow(self.fut_model, T_all)
         
         # save weigths 
-        # after checking here, please return num_epochs to 100 and batch size to 
         self.weights_saved = []
         
         
@@ -548,160 +424,84 @@ class trajflow_meszaros(model_template):
         org_dim = x.size(-1)
         x = x.repeat(1, 1, n)
         return x.view(-1, n, org_dim)
-                
-    def predict_batch(self, models, test_loader, target_length, batch_sz):
-        flow_dist = models[1]
-        fut_model = models[0]
-
-        
-        for _, sample_batched in enumerate(test_loader):
-            
-            past=sample_batched[0]
-            past=past.float().to(device = self.device)
-            agent_types = sample_batched[-1].to(device = self.device)
-            
-            past_traj, rot_angles_rad = flow_dist._normalize_rotation(past)
-            
-            
-            if self.use_map:
-                img = sample_batched[1].float().to(device=self.device)
-                # img.shape = (batch_sz, target_height, target_width, channels)
-                img = img.permute(0,3,1,2)
-
-                # img[img>0] = 1
-                # img = img
-            else:
-                img = None
-            
-            
-
-            x_t = past_traj[:,0,-1:,:]
-            x_t = self._repeat_rowwise(x_t, self.num_samples_path_pred)
-            x_t = x_t.reshape(batch_sz*self.num_samples_path_pred,-1).unsqueeze(1)
-            
-            rot_angles_rad = rot_angles_rad.repeat_interleave(self.num_samples_path_pred)
-
-            if self.use_map: 
-                samples_rel, log_probs = flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types, img)
-            else:
-                samples_rel, log_probs = flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types)
-            
-            samples_rel = samples_rel.squeeze(0)
-                    
-            hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (fut_model.decoder.nl,1,1))
-            
-            # Decoder part
-            x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
-            
-            outputs = torch.zeros(batch_sz*self.num_samples_path_pred, target_length, 2).to(device = self.device)
-            for t in range(0, target_length):
-
-                output, hidden = fut_model.decoder(x, hidden)
-                
-                outputs[:, t, :] = output.squeeze()
-                
-                x = hidden[-1].unsqueeze(1)
-            
-            y_hat = flow_dist._rel_to_abs(outputs, x_t)
-
-            # invert rotation normalization
-            y_hat = flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad.unsqueeze(1))
-
-            y_hat = y_hat.reshape(batch_sz, self.num_samples_path_pred, target_length, 2)
-            
-            Y_pred = y_hat.detach()
-                
-            log_probs = log_probs.detach()
-            log_probs[torch.isnan(log_probs)] = -1000
-            prob = torch.exp(log_probs)#[exp(x) for x in log_probs]
-            prob = torch.tensor(prob)
-        
-        return Y_pred, prob
-
+    
 
     def predict_method(self):
-        # get desired output length
-        self.num_timesteps_out_test = np.zeros(len(self.Output_T_pred_test), int)
-        for i_sample in range(len(self.Output_T_pred_test)):
-            self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
+        Output_path_pred = self.create_empty_output_path()
+        
+        prediction_done = False
+        while not prediction_done:
+            X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+            actual_batch_size = len(X)
+            Ped_agent = T == 'P'
             
-        if self.use_map:
-            Pred_agents, Agents, X, T, PPed_agents, img = self.extract_data(train = False)
-        else:
-            Pred_agents, Agents, X, T, PPed_agents = self.extract_data(train = False)
-        
-        # TODO keep in mind since len(test_loader.dataset) might cause issues
-        samples_all = int(len(X)/ Pred_agents.sum())
-        
-        Path_names = np.array(self.Output_path_train.columns)
-        
-        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum()), np.ndarray), 
-                                   columns = Path_names[Pred_agents])
-        
-        nums = np.unique(self.num_timesteps_out_test)
-        
-        
-        samples_done = 0
-        calculations_done = 0
-        calculations_all = np.sum(self.num_timesteps_out_test)
-        for num in nums:
-            Index_num = np.where(self.num_timesteps_out_test == num)[0]
-            
-            if self.batch_size > len(Index_num):
-                Index_uses = [Index_num]
-            else:
-                Index_uses = [Index_num[i * self.batch_size : (i + 1) * self.batch_size] 
-                              for i in range(int(np.ceil(len(Index_num)/ self.batch_size)))] 
-            
-            for Index_use in Index_uses:
-                for i_agent, agent in enumerate(Agents[Pred_agents]):
-                    if self.use_map:
-                        Index_use_agent = Index_use * Pred_agents.sum() + i_agent
-                        my_dataset = TensorDataset(torch.tensor(X[Index_use_agent]).to(device=self.device),
-                                                   torch.tensor(img[Index_use_agent]),
-                                                   torch.tensor(T[Index_use_agent]).to(device=self.device)) # create your datset
-                    else:
-                        Index_use_agent = Index_use * Pred_agents.sum() + i_agent
-                        my_dataset = TensorDataset(torch.tensor(X[Index_use_agent]).to(device=self.device),
-                                                   torch.tensor(T[Index_use_agent]).to(device=self.device)) # create your datset
-                    
-                    Ped_agent = PPed_agents[Index_use, 0]
-                    test_loader = DataLoader(my_dataset, batch_size=len(Index_use)) # create your dataloader
+            X, T, _, img = self.extract_batch_data(X, T, img = img)
+            # Run prediction pass
+            with torch.no_grad():
+                past_traj, rot_angles_rad = self.flow_dist._normalize_rotation(X)
+                
+                if img is not None:
+                    img = img[:,0].permute(0,3,1,2)
+                else:
+                    img = None
+                
+                x_t = past_traj[:,0,-1:,:]
+                x_t = self._repeat_rowwise(x_t, self.num_samples_path_pred)
+                x_t = x_t.reshape(actual_batch_size * self.num_samples_path_pred,-1).unsqueeze(1)
+                
+                rot_angles_rad = rot_angles_rad.repeat_interleave(self.num_samples_path_pred)
 
-                    
-                    # Run prediction pass
-                    with torch.no_grad(): # Do not build graph for backprop
-                        predictions, predictions_prob = self.predict_batch([self.fut_model, self.flow_dist], test_loader, num, len(Index_use))
+                if img is not None: 
+                    samples_rel, log_probs = self.flow_dist.sample(self.num_samples_path_pred, X, T, img)
+                else:
+                    samples_rel, log_probs = self.flow_dist.sample(self.num_samples_path_pred, X, T)
+                
+                samples_rel = samples_rel.squeeze(0)
+                        
+                hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
+                
+                # Decoder part
+                x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
+                
+                outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
+                for t in range(0, num_steps):
 
+                    output, hidden = self.fut_model.decoder(x, hidden)
                     
-                    Pred = predictions.detach().cpu().numpy()
-                    if len(Pred.shape) == 3:
-                        Pred = Pred[np.newaxis]
+                    outputs[:, t, :] = output.squeeze()
                     
-                    Pred[Ped_agent]  *= self.std_pos_ped
-                    Pred[~Ped_agent] *= self.std_pos_veh
-                    
-                    
-                    torch.cuda.empty_cache()
-                    
-                    for i, i_sample in enumerate(Index_use):
-                        traj = Pred[i, :, :, :]
-                        Output_Path.iloc[i_sample][agent] = traj.astype('float32')
-                        
-                        
-                samples_done += len(Index_use)
-                calculations_done += len(Index_use) * num
+                    x = hidden[-1].unsqueeze(1)
                 
-                samples_perc = 100 * samples_done / samples_all
-                calculations_perc = 100 * calculations_done / calculations_all
+                y_hat = self.flow_dist._rel_to_abs(outputs, x_t)
+
+                # invert rotation normalization
+                y_hat = self.flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad.unsqueeze(1))
+
+                y_hat = y_hat.reshape(actual_batch_size, self.num_samples_path_pred, num_steps, 2)
                 
-                print('Predict TrajFlow: ' + 
-                      format(samples_perc, '.2f').rjust(len('100.00')) + 
-                      '% of samples, ' + 
-                      format(calculations_perc, '.2f').rjust(len('100.00')) +
-                      '% of calculations')
+                Y_pred = y_hat.detach()
+                    
+                # This should not be needed
+                # log_probs = log_probs.detach()
+                # log_probs[torch.isnan(log_probs)] = -1000
+                # prob = torch.exp(log_probs)#[exp(x) for x in log_probs]
+                # prob = torch.tensor(prob)
+                    
+                    
+            Pred = Y_pred.detach().cpu().numpy()
+            if len(Pred.shape) == 3:
+                Pred = Pred[np.newaxis]
+            
+            Pred[Ped_agent[:,0]]  *= self.std_pos_ped
+            Pred[~Ped_agent[:,0]] *= self.std_pos_veh
+            
+            torch.cuda.empty_cache()
+            
+            for i, i_sample in enumerate(Sample_id):
+                agent = Agent_id[i, 0]
+                Output_path_pred.iloc[i_sample][agent] = Pred[i, :, :, :].astype('float32')
                 
-        return [Output_Path]
+        return [Output_path_pred]
     
     
     def check_trainability_method(self):

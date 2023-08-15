@@ -103,7 +103,8 @@ class data_interface(object):
             self.t0_type_name = 'mixed'
             
         self.p_quantile = list(self.Datasets.values())[0].p_quantile
-            
+        
+        self.max_num_agents = max([data_set.max_num_agents for data_set in list(self.Datasets.values())])
         self.data_loaded = False
         
     

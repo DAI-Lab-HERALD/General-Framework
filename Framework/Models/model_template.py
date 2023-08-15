@@ -247,7 +247,7 @@ class model_template():
             
             remain_samples = N_O >= self.min_t_O_train
             N_O = np.minimum(N_O[remain_samples], self.max_t_O_train)
-            N_I = len(self.Input_path_train.to_numpy()[0,0])
+            N_I = len(self.Input_T_train[0])
             
             X_help = self.Input_path_train.to_numpy()[remain_samples]
             Y_help = self.Output_path_train.to_numpy()[remain_samples]
@@ -262,7 +262,7 @@ class model_template():
             for i_sample in range(self.Output_T_pred_test.shape[0]):
                 N_O[i_sample] = len(self.Output_T_pred_test[i_sample])
 
-            N_I = len(self.Input_path_test.to_numpy()[0,0])
+            N_I = len(self.Input_T_test[0])
             
             X_help = self.Input_path_test.to_numpy()
             
@@ -292,7 +292,7 @@ class model_template():
                         Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
         
         
-        if self.predict_single_agent:
+        if self.predict_single_agent or (Pred_agents.sum(1) == 1).all():
             N_O = N_O.repeat(Pred_agents.sum(axis = 1))
             
             # set agent to be predicted into first location
@@ -307,10 +307,28 @@ class model_template():
             Agent_id = Agent_id + pred_agent_id[:,np.newaxis]
             Agent_id = np.mod(Agent_id, Pred_agents.shape[1]) 
                 
-            ID = np.stack((Sample_id, Agent_id), axis = -1)
             # Project out the sample ID
-            X = X[ID[...,0], ID[...,1]]
-            T = T[ID[...,0], ID[...,1]]
+            X = X[Sample_id, Agent_id]
+            T = T[Sample_id, Agent_id]
+            
+            # Set agents to nan that are to far away from the predicted agent
+            num_agent = self.data_set.max_num_agents
+            
+            # Find closest distance between agents during past observation
+            D = np.nanmin(((X[:,[0]] - X) ** 2).sum(-1), axis = -1)
+            Agents_sorted_id = np.argsort(D, axis = 1)
+            
+            Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
+            
+            X = X[Sample_id_sorted, Agents_sorted_id] 
+            T = T[Sample_id_sorted, Agents_sorted_id] 
+            
+            X[:, num_agent:] = np.nan
+            T[:, num_agent:] = np.nan
+            
+            Agent_id = Agent_id[Sample_id_sorted, Agents_sorted_id] 
+            
+            ID = np.stack((Sample_id, Agent_id), axis = -1)
             
             if train: 
                 Y = Y[Pred_agents].reshape(-1, 1, N_O.max(), 2)
@@ -369,7 +387,7 @@ class model_template():
                 
         self.Pred_agents = Pred_agents        
         self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        self.T = T.astype(np.float32) # num_samples, num_agents
+        self.T = T # num_samples, num_agents
         self.N_O = N_O
         self.ID = ID
         
@@ -393,40 +411,44 @@ class model_template():
         
         num_norm = int(len(self.X) * (1 - val_split_size))
         
-        self.Index_norm = [Index[:num_norm], np.array([])]
-        self.Index_val  = [Index[num_norm:], np.array([])]
+        self.Index_norm = [Index[:num_norm], np.array([], int)]
+        self.Index_val  = [Index[num_norm:], np.array([], int)]
     
+    
+    def provide_all_included_agent_types(self):
+        T = self.data_set.Type.to_numpy()
+        T[T == np.nan] = '0'
+        T_all = np.unique(T.astype(str))
+        T_all = T_all[T_all != 'nan']
+        return T_all
+        
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+        # TODO: add method that allows one to extract the whole dataset in one batch 
+        # For classification models
         
         assert mode in ['train', 'val', 'pred'], "Unknown Mode"
         
         if mode == 'pred':
             val_split_size = 0.0
             advance_norm = True
+            train_mode = False
         elif mode == 'train':
             advance_norm = True
+            train_mode = True
         else:
             advance_norm = False
+            train_mode = True
             
         if not self.extracted_data:
-            if mode == 'pred':
-                train_mode = False
-            else:
-                train_mode = True
-        
             self.prepare_batch_generation(train = train_mode, val_split_size = val_split_size)
         
-        
-        
-            
         # Ensure that for single_pred_agents, the predictions are alwways the same type
         if advance_norm:
             Index_advance = self.Index_norm
         else:
             Index_advance = self.Index_val
             
-        
         # Find identical agents
         N_O_advance = self.N_O[Index_advance[0]]
         Use_candidate = N_O_advance == N_O_advance[0]
@@ -457,7 +479,7 @@ class model_template():
             index_begin = Index_advance[0][:pos_max][~Use_candidate[:pos_max]]
             index_end   = Index_advance[0][pos_max:]
             
-            ind_remain = np.concat((index_begin, index_end))
+            ind_remain = np.concatenate((index_begin, index_end))
         else:
             ind_remain = Index_advance[0][~Use_candidate]
             
@@ -466,7 +488,7 @@ class model_template():
         Pred_agents = self.Pred_agents[ind_advance]
         
         if self.predict_single_agent:
-            assert len(np.unique(T[:,0])) == 0
+            assert len(np.unique(T[:,0])) == 1
         
         assert len(np.unique(self.N_O[ind_advance])) == 1
         
@@ -486,13 +508,13 @@ class model_template():
             img_m_per_px = None
             
         # Move used indices from Index_advance[0] to Index_advance[1]
-        Index_advance[1] = np.concat(Index_advance[1], ind_advance)
+        Index_advance[1] = np.concatenate((Index_advance[1], ind_advance))
         Index_advance[0] = ind_remain
         
         if len(Index_advance[0]) == 0:
             epoch_done = True
-            Index_advance[0] = Index_advance[1]
-            Index_advance[1] = np.array([])
+            Index_advance[0] = Index_advance[1].astype(np.int32)
+            Index_advance[1] = np.array([], int)
             np.random.shuffle(Index_advance[0])
         else:
             epoch_done = False

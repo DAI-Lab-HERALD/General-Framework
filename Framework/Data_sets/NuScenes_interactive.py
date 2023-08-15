@@ -41,7 +41,7 @@ class NuScenes_interactive(data_set_template):
         self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
         map_files = os.listdir(image_path_full)
-        px_per_meter = 1
+        px_per_meter = 2
         
         max_width = 0
         max_height = 0

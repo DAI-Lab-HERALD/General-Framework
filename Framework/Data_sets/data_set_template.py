@@ -622,7 +622,7 @@ class data_set_template():
         
         self.t0_type = t0_type
         self.T0_type_compare = T0_type_compare
-        self.max_num_agents = max_num_agents
+        self.max_num_agents = max(1, max_num_agents)
         self.prediction_time_set = True
     
     
