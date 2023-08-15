@@ -86,7 +86,11 @@ class evaluation_template():
     
     
     def get_true_and_predicted_class_probabilities(self):
-        pass
+        P_true = self.Output_A.to_numpy()
+        P_pred = self.Output_A_pred.to_numpy()
+        Class_names = self.Output_A.columns
+        
+        return P_true, P_pred, Class_names
     
     
     def get_true_and_predicted_paths(self, num_preds = None, return_types = False):

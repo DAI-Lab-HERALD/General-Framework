@@ -43,8 +43,7 @@ class AUC_ROC(evaluation_template):
         It has to be noted here that it would be ideal if one could calcualte the VUS instead of AUC
         However, we instead used this expansion here instead.
         '''
-        P_true = self.Output_A.to_numpy()
-        P_pred = self.Output_A_pred.to_numpy()
+        P_true, P_pred, _ = self.get_true_and_predicted_class_probabilities()
         
         num_c = P_true.shape[1]
         

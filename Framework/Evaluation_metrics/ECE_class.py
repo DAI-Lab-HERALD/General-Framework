@@ -70,25 +70,29 @@ class ECE_class(evaluation_template):
         pass
      
     def evaluate_prediction_method(self, plot = False):
-        p_t = self.Output_A.to_numpy().reshape(-1).astype(float)
-        p_pred = self.Output_A_pred.to_numpy().reshape(-1)
-        Idx = np.argsort(p_pred)
+        P_true, P_pred, _ = self.get_true_and_predicted_class_probabilities()
         
-        p_pred = p_pred[Idx]
-        p_t = p_t[Idx]
+        # Sort probabilities
+        P_true = P_true.reshape(-1)
+        P_pred = P_pred.reshape(-1)
+        
+        Idx = np.argsort(P_pred)
+        
+        P_pred = P_pred[Idx]
+        P_true = P_true[Idx]
         
         # Average the true p_t values over p_pred of same value
-        p_t_a = np.zeros_like(p_t)
-        for p in np.unique(p_pred):
-            use = p == p_pred
-            p_t_a[use] = p_t[use].mean()
+        P_true_similar = np.zeros_like(P_true)
+        for p in np.unique(P_pred):
+            use = p == P_pred
+            P_true_similar[use] = P_true[use].mean()
         
         
-        N = len(p_pred)
+        N = len(P_pred)
         C = 10
         
         B_num = np.arange(int(N ** (1/3) / C), int(N ** (1/3) * C))
-        P_t_adjusted = np.zeros((len(p_pred), len(B_num)), float)
+        P_tilde = np.zeros((len(P_pred), len(B_num)), float)
         model_b_log_likelihood = np.zeros(len(B_num))
         
         N_hat = 2
@@ -98,10 +102,10 @@ class ECE_class(evaluation_template):
             for i in range(B):
                 idx = np.arange(int(b_size * i), int(b_size * (i + 1)))
                 
-                bin_p_true = p_t_a[idx].mean()
-                p_b = p_pred[idx].mean()
+                bin_p_true = P_true_similar[idx].mean()
+                p_b = P_pred[idx].mean()
                 
-                P_t_adjusted[idx, b_ind] = bin_p_true
+                P_tilde[idx, b_ind] = bin_p_true
                 
                 # calculate model likelihood
                 alpha_b = N_hat * p_b / B
@@ -121,10 +125,10 @@ class ECE_class(evaluation_template):
         model_b_likelihood = np.exp(model_b_log_likelihood - model_b_log_likelihood.max())
         model_b_likelihood /= model_b_likelihood.sum()
         
-        p_t_adjusted = (P_t_adjusted * model_b_likelihood[np.newaxis]).sum(axis = 1)
-        ece = np.abs(p_pred - p_t_adjusted).mean() 
+        P_hat = (P_tilde * model_b_likelihood[np.newaxis]).sum(axis = 1)
+        ece = np.abs(P_pred - P_hat).mean() 
         assert np.isfinite(ece)
-        return [ece, p_pred, p_t_adjusted]
+        return [ece, P_pred, P_hat]
     
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         P = np.unique(np.stack((results[1], results[2])), axis = 1)
