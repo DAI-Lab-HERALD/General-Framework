@@ -27,7 +27,7 @@ class agent_yuan(model_template):
         # Get params
         # Required attributes of the model
         self.min_t_O_train = 5
-        self.max_t_O_train = self.data_set.num_timesteps_out_real
+        self.max_t_O_train = self.num_timsteps_out
         self.predict_single_agent = False
         self.can_use_map = True
         # If self.can_use_map = True, the following is also required
@@ -36,9 +36,8 @@ class agent_yuan(model_template):
         self.grayscale = True
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
-        self.batch_size = int(np.floor(2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * 
-                                                           (self.num_timesteps_out.max() + 
-                                                            self.num_timesteps_in))))
+        self.batch_size = 2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * (self.num_timsteps_out + self.num_timesteps_in))
+        self.batch_size = max(1, int(np.floor(self.batch_size)))
         
         self.sample_number = 10
         

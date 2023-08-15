@@ -21,12 +21,9 @@ class trajflow_meszaros(model_template):
         
         self.batch_size = 128
         
-        self.future_traj_len = self.data_set.num_timesteps_out_real
-        self.past_traj_len   = self.data_set.num_timesteps_in_real
-        
         # Required attributes of the model
-        self.min_t_O_train = self.future_traj_len
-        self.max_t_O_train = self.future_traj_len
+        self.min_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = self.num_timesteps_out
         self.predict_single_agent = True
         self.can_use_map = True
         # If self.can_use_map, the following is also required
@@ -41,7 +38,7 @@ class trajflow_meszaros(model_template):
         self.n_layers_rnn = 3
         self.fut_enc_sz = 4
         
-        if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
+        if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
             self.gamma_noise = 0.02
             
@@ -115,7 +112,7 @@ class trajflow_meszaros(model_template):
 
         enc_size = self.fut_enc_sz
 
-        flow_dist_futMdl = TrajFlow(pred_steps=self.future_traj_len, alpha=self.alpha, beta=self.beta_noise, 
+        flow_dist_futMdl = TrajFlow(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
                                     gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
                                     obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
                                     n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn)

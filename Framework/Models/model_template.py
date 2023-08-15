@@ -66,6 +66,9 @@ class model_template():
         
         self.dt = data_set.dt
         
+        self.num_timesteps_in = data_set.num_timesteps_in_real
+        self.num_timesteps_out = data_set.num_timesteps_out_real
+        
         self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
         
         self.input_names_train = data_set.Input_path.columns
@@ -163,9 +166,8 @@ class model_template():
                                        footer    = '\n \n',
                                        comments  = '')
             
-            if self.provides_epoch_loss():
+            if self.provides_epoch_loss() and hasattr(self, 'train_loss'):
                 self.loss_file = self.model_file[:-4] + '--train_loss.npy'
-                assert hasattr(self, 'train_loss'), "No train loss is provided."
                 assert isinstance(self.train_loss, np.ndarray), "The train loss should be a numpy array."
                 assert len(self.train_loss.shape) == 2, "The train loss should be a 2D numpy array."
                 np.save(self.loss_file, self.train_loss.astype(np.float32))
@@ -230,6 +232,7 @@ class model_template():
         print('')
         return output
     
+    #%% 
     
     def prepare_batch_generation(self):
         # Required attributes of the model
@@ -243,7 +246,6 @@ class model_template():
         # self.grayscale: Are image required in grayscale
         
         
-        N_I = len(self.data_set.Input_T[0])
         
         N_O_data = np.zeros(len(self.data_set.Output_T), int)
         N_O_pred = np.zeros(len(self.data_set.Output_T), int)
@@ -265,7 +267,7 @@ class model_template():
         # Determine map use
         use_map = self.data_set.includes_images() and self.can_use_map
             
-        X = np.ones(list(X_help.shape) + [N_I, 2], dtype = np.float32) * np.nan
+        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
         Y = np.ones(list(Y_help.shape) + [N_O_data.max(), 2], dtype = np.float32) * np.nan
         
         # Extract data from original number a samples
@@ -409,6 +411,19 @@ class model_template():
     
     
     def provide_all_included_agent_types(self):
+        '''
+        This function allows a quick generation of all the available agent types. Right now, the following are implemented:
+        - 'P':    Pedestrian
+        - 'B':    Bicycle
+        - 'M':    Motorcycle
+        - 'V':    All other vehicles (cars, trucks, etc.)     
+    
+        Returns
+        -------
+        T_all : np.ndarray
+          This is a one-dimensional numpy array that includes all agent types that can be found in the given dataset.
+    
+        '''
         T = self.data_set.Type.to_numpy()
         T[T == np.nan] = '0'
         T_all = np.unique(T.astype(str))
@@ -427,7 +442,98 @@ class model_template():
         return I_train
     
     
+    def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
+        
+        
+        assert self.get_output_type()[:4] == 'path'
+        if self.predict_single_agent:
+            if len(Pred.shape) == 4:
+                Pred = Pred[:,np.newaxis]
+                
+            assert Pred.shape[:1] == Sample_id.shape
+            if Pred_agents is None:
+                Pred_agents = np.zeros(Agent_id.shape, bool)
+                Pred_agents[:,0] = True
+        else:
+            assert Pred_agents is not None
+            assert Pred.shape[:2] == Agent_id.shape
+            assert Pred_agents.shape == Agent_id.shape
+        
+        assert Sample_id.shape == Agent_id.shape[:1]
+        assert Pred.shape[[2,4]] == [self.num_samples_path_pred, 2]
+        
+        for i, i_sample in enumerate(Sample_id):
+            for j, j_agent in enumerate(Agent_id[i]):
+                if not Pred_agents[i,j]:
+                    continue
+                self.Output_path_pred.iloc[i_sample, j_agent] = Pred[i, j,:, :, :].astype('float32')
+                
+    
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+        r'''
+        This function provides trajectroy data an associated metadata for the training of model
+        during prediction and training.
+
+        Parameters
+        ----------
+        mode : str
+            This discribes the type of data needed. *'pred'* will indicate that this is for predictions,
+            while during training, *'train'* and *'val'* indicate training and validation set respectively.
+        batch_size : int
+            The number of samples to be selected.
+        val_split_size : float, optional
+            The part of the overall training set that is set aside for model validation during the
+            training process. The default is *0.0*.
+        ignore_map : ignore_map, optional
+            This indicates if image data is not needed, even if available in the dataset 
+            and processable by the model. The default is *False*.
+
+        Returns
+        -------
+        X : np.ndarray
+            This is the past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
+        Y : np.ndarray, optional
+            This is the future observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
+            This value is not returned for **mode** = *'pred'*.
+        T : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+            the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
+            If an agent is not observed at all, the value will instead be np.nan.
+        img : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+            It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
+            of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
+            at its current position, and are rotated so that the agent is right now driving to the right. 
+            If an agent is not observed at prediction time, 0 values are returned.
+        img_m_per_px : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
+            the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+            Both for **Y**, **img** and 
+        Pred_agents : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+            if it expected by the framework that a prediction will be made for the specific agent.
+            
+            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
+        num_steps : int
+            This is the number of future timesteps provided in the case of traning in expected in the case of prediction. In the 
+            former case, it has the value :math:`N_{O}`.
+        Sample_id : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+            in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+        Agent_id : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+            original agent in the dataset this agent was extracted.. This value is only returned for **mode** = *'pred'*.
+        epoch_done : bool
+            This indicates wether one has just sampled all batches from an epoch and has to go to the next one.
+
+        '''
+        
+        assert self.get_output_type()[:4] == 'path'
         if not self.extracted_data:
             self.prepare_batch_generation()
         
@@ -530,38 +636,14 @@ class model_template():
             Sample_id = self.ID[ind_advance,0,0]
             Agents = np.array(self.input_names_train)
             Agent_id = Agents[self.ID[ind_advance,:,1]]
-            return X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+            return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
-            return X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done
+            return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
         
     def create_empty_output_path(self):
         Agents = np.array(self.Output_path_train.columns)
         
         self.Output_path_pred = pd.DataFrame(np.empty((len(self.Output_T_pred_test), len(Agents)), np.ndarray), columns = Agents)
-    
-    
-    def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
-        if self.predict_single_agent:
-            if len(Pred.shape) == 4:
-                Pred = Pred[:,np.newaxis]
-                
-            assert Pred.shape[:1] == Sample_id.shape
-            if Pred_agents is None:
-                Pred_agents = np.zeros(Agent_id.shape, bool)
-                Pred_agents[:,0] = True
-        else:
-            assert Pred_agents is not None
-            assert Pred.shape[:2] == Agent_id.shape
-            assert Pred_agents.shape == Agent_id.shape
-        
-        assert Sample_id.shape == Agent_id.shape[:1]
-        assert Pred.shape[[2,4]] == [self.num_samples_path_pred, 2]
-        
-        for i, i_sample in enumerate(Sample_id):
-            for j, j_agent in enumerate(Agent_id[i]):
-                if not Pred_agents[i,j]:
-                    continue
-                self.Output_path_pred.iloc[i_sample, j_agent] = Pred[i, j,:, :, :].astype('float32')
         
         
         
@@ -603,6 +685,55 @@ class model_template():
     #########################################################################################
     #########################################################################################
     
+
+    def get_name(self = None):
+        # Provides a dictionary with the different names of the dataset:
+        # Name = {'print': 'printable_name', 'file': 'name_used_in_files', 'latex': r'latex_name'}
+        # If the latex name includes mathmode, the $$ has to be included
+        # Here, it has to be noted that name_used_in_files will be restricted in its length.
+        # For models, this length is 10 characters, without a '-' inside
+        raise AttributeError('Has to be overridden in actual model.')
+        
+    
+    def requires_torch_gpu(self = None):
+        # Returns true or false, depending if the model does calculations on the gpu
+        raise AttributeError('Has to be overridden in actual model.')
+        
+            
+    def get_output_type(self = None):
+        # Should return 'class', 'class_and_time', 'path_all_wo_pov', 'path_all_wi_pov'
+        # the same as above, only this time callable from class
+        raise AttributeError('Has to be overridden in actual model.')
+        
+        
+    def get_input_type(self = None):
+        # Should return a dictionary, with the first key being 'past', 
+        # where the value is either 'general' (using self.Input_prediction_train) 
+        # or 'path' (using self.Input_path_train) or 'both'
+        # The second key is 'future', which is either False or True, with pov being
+        # the role of the actor whose future input is used. If this is not None, than 
+        # the output type must not be 'path_all_wi_pov'
+        # the same as above, only this time callable from class
+        raise AttributeError('Has to be overridden in actual model.')
+        
+        
+    def save_params_in_csv(self = None):
+        # Returns true or false, depending on if the params of the trained model should be saved as a .csv file or not
+        raise AttributeError('Has to be overridden in actual model.')
+        
+    
+    def provides_epoch_loss(self = None):
+        # Returns true or false, depending on if the model provides losses or not
+        raise AttributeError('Has to be overridden in actual model.')
+        
+        
+    def check_trainability_method(self):
+        # checks if current environment (i.e, number of agents, number of input timesteps) make this trainable.
+        # If not, it also retuns the reason in form of a string.
+        # If it is trainable, return None
+        raise AttributeError('Has to be overridden in actual model.')
+        
+        
     def setup_method(self):
         # setsup the model, but only use the less expensive calculations.
         # Anything more expensive, especially if only needed for training,
@@ -626,50 +757,6 @@ class model_template():
         raise AttributeError('Has to be overridden in actual model.')
         # return output
 
-    def check_trainability_method(self):
-        # checks if current environment (i.e, number of agents, number of input timesteps) make this trainable.
-        # If not, it also retuns the reason in form of a string.
-        # If it is trainable, return None
-        raise AttributeError('Has to be overridden in actual model.')
-        
-            
-    def get_output_type(self = None):
-        # Should return 'class', 'class_and_time', 'path_all_wo_pov', 'path_all_wi_pov'
-        # the same as above, only this time callable from class
-        raise AttributeError('Has to be overridden in actual model.')
-        
-    def get_input_type(self = None):
-        # Should return a dictionary, with the first key being 'past', 
-        # where the value is either 'general' (using self.Input_prediction_train) 
-        # or 'path' (using self.Input_path_train) or 'both'
-        # The second key is 'future', which is either False or True, with pov being
-        # the role of the actor whose future input is used. If this is not None, than 
-        # the output type must not be 'path_all_wi_pov'
-        # the same as above, only this time callable from class
-        raise AttributeError('Has to be overridden in actual model.')
-        
-
-    def get_name(self = None):
-        # Provides a dictionary with the different names of the dataset:
-        # Name = {'print': 'printable_name', 'file': 'name_used_in_files', 'latex': r'latex_name'}
-        # If the latex name includes mathmode, the $$ has to be included
-        # Here, it has to be noted that name_used_in_files will be restricted in its length.
-        # For models, this length is 10 characters, without a '-' inside
-        raise AttributeError('Has to be overridden in actual model.')
-        
-        
-    def save_params_in_csv(self = None):
-        # Returns true or false, depending on if the params of the trained model should be saved as a .csv file or not
-        raise AttributeError('Has to be overridden in actual model.')
-        
-        
-    def requires_torch_gpu(self = None):
-        # Returns true or false, depending if the model does calculations on the gpu
-        raise AttributeError('Has to be overridden in actual model.')
-        
     
-    def provides_epoch_loss(self = None):
-        # Returns true or false, depending on if the model provides losses or not
-        raise AttributeError('Has to be overridden in actual model.')
         
         
