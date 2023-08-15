@@ -111,7 +111,8 @@ For later analysis, saving a model's loss during training might be valuable. To 
 
 
 ## Useful helper functions
-During the training and prediction parts of the model, the following functions are provided to allow for easier access to the dataset on which the model is trained:
+During the training and prediction parts of the model, the following functions are provided by the model template to allow for easier access 
+to the dataset on which the model is trained:
 ```
   def provide_all_included_agent_types(self):
     '''
@@ -131,7 +132,8 @@ During the training and prediction parts of the model, the following functions a
     ...
 
     return T_all
-
+```
+```
 def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
   r'''
   This function provides trajectory data an associated metadata for the training of the model
@@ -170,29 +172,29 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
     It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
     of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
-    at its current position, and are rotated so that the agent is right now driving to the right. 
+    at its current position and are rotated so that the agent is right now driving to the right. 
     If an agent is not observed at prediction time, 0 values are returned.
   img_m_per_px : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
     the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
     Both for **Y**, **img** and 
   Pred_agents : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
-    if it expected by the framework that a prediction will be made for the specific agent.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values, and is true
+    if it is expected by the framework that a prediction will be made for the specific agent.
     
     If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
     be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
   num_steps : int
-    This is the number of future timesteps provided in the case of traning in expected in the case of prediction. In the 
+    This is the number of future timesteps provided in the case of training and expected in the case of prediction. In the 
     former case, it has the value :math:`N_{O}`.
   Sample_id : np.ndarray, optional
     This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
     in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
   Agent_id : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
-    original agent in the dataset this agent was extracted.. This value is only returned for **mode** = *'pred'*.
+    original agent in the dataset this agent was extracted. This value is only returned for **mode** = *'pred'*.
   epoch_done : bool
-    This indicates wether one has just sampled all batches from an epoch and has to go to the next one.
+    This indicates whether one has just sampled all batches from an epoch and has to go to the next one.
   
   '''
   
@@ -204,8 +206,38 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     return X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done
 
 ```
+```
+def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
+  r'''
 
-Meanwhile, the following model attributes designed by the framework are useful:
+  Parameters
+  ----------
+  Pred : np.ndarray
+    This is the predicted future observed data of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+    If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+    The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+  Sample_id : np.ndarray, optional
+    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+    in the dataset this sample was extracted.
+  Agent_id : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+    original agent in the dataset this agent was extracted.
+  Pred_agents : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+    if it expected by the framework that a prediction will be made for the specific agent.
+    
+    This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
+    incaable of joint predictions.
+
+  Returns
+  -------
+  None.
+
+  '''
+```
+
+Meanwhile, the following model attributes set by the framework are useful or give needed reuirements:
 ```
 **self.dt** : float
   This value gives the current size of the time steps in the model.
@@ -215,6 +247,9 @@ Meanwhile, the following model attributes designed by the framework are useful:
 
 **self.num_timesteps_put** : int
   The number of output timesteps desired. It must be however noted, that depending on other framework settings, fewer or more timesteps can appear in the dataset.
+
+**self.num_samples_path_pred** : int
+  This gives the number of predictions the model must make to adequately simulate stochasticity.
 
 **self.model_file** : str
   This is the location at which the model should be saved. If one wants to save for example parts of the model separately, this should still happen in the
