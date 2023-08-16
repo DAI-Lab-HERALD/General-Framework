@@ -216,21 +216,21 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
   ----------
   Pred : np.ndarray
     This is the predicted future observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array with float values. 
-    If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
-    The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array
+    with float values. If an agent is fully or on some timesteps partially not observed, then this can include
+    np.nan values. The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
   Sample_id : np.ndarray, optional
-    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
-    in the dataset this sample was extracted.
+    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which
+    original sample in the dataset this sample was extracted.
   Agent_id : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
-    original agent in the dataset this agent was extracted.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those
+    indicate from which original agent in the dataset this agent was extracted.
   Pred_agents : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
-    if it expected by the framework that a prediction will be made for the specific agent.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and
+    is true if it is expected by the framework that a prediction will be made for the specific agent.
     
-    This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
-    incaable of joint predictions.
+    This input does not have to be provided if the model can only predict one single agent at the same time and
+    is therefore incaable of joint predictions. In this case, None is assumed as the value.
 
   Returns
   -------
@@ -239,7 +239,7 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
   '''
 ```
 
-Meanwhile, the following model attributes set by the framework are useful or give needed reuirements:
+Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
 ```
 **self.dt** : float
   This value gives the current size of the time steps in the model.
@@ -248,12 +248,15 @@ Meanwhile, the following model attributes set by the framework are useful or giv
   The number of input timesteps that the model is given.
 
 **self.num_timesteps_put** : int
-  The number of output timesteps desired. It must be however noted, that depending on other framework settings, fewer or more timesteps can appear in the dataset.
+  The number of output timesteps desired. It must be however noted, that depending on other
+  framework settings, fewer or more timesteps can appear in the dataset.
 
 **self.num_samples_path_pred** : int
   This gives the number of predictions the model must make to adequately simulate stochasticity.
 
 **self.model_file** : str
-  This is the location at which the model should be saved. If one wants to save for example parts of the model separately, this should still happen in the
-  same folder and the corresponding file should include the name in **self.model_file** with potential extensions, but must not be the same.
+  This is the location at which the model should be saved. If one wants to save for example parts of
+  the model separately, this should still happen in the same folder and the corresponding file should
+  include the name in **self.model_file** with potential extensions, but must not be the same.
+
 ```
