@@ -170,9 +170,9 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     If an agent is not observed at all, the value will instead be np.nan.
   img : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
-    It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
-    of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
-    at its current position and are rotated so that the agent is right now driving to the right. 
+    It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
+    (:math:`C = 1`) of the map image with height :math:`H` and width :math:`W`. These images are centered around
+    the agent at its current position and are rotated so that the agent is driving to the right. 
     If an agent is not observed at prediction time, 0 values are returned.
   img_m_per_px : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that
@@ -182,8 +182,9 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
     true if it is expected by the framework that a prediction will be made for the specific agent.
     
-    If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1`
-    will be returned instead, and the agent to be predicted will be the one mentioned first in **X** and **T**.
+    If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**,
+    :math:`N_{agents} = 1` will be returned instead, and the agent to be predicted will be the one mentioned
+    first in **X** and **T**.
   num_steps : int
     This is the number of future timesteps provided in the case of training and expected in the case of prediction.
     In the former case, it has the value :math:`N_{O}`.
