@@ -175,24 +175,25 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     at its current position and are rotated so that the agent is right now driving to the right. 
     If an agent is not observed at prediction time, 0 values are returned.
   img_m_per_px : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
-    the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
-    Both for **Y**, **img** and 
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that
+    indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
+    np.nan.
   Pred_agents : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values, and is true
-    if it is expected by the framework that a prediction will be made for the specific agent.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
+    true if it is expected by the framework that a prediction will be made for the specific agent.
     
-    If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
-    be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
+    If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1`
+    will be returned instead, and the agent to be predicted will be the one mentioned first in **X** and **T**.
   num_steps : int
-    This is the number of future timesteps provided in the case of training and expected in the case of prediction. In the 
-    former case, it has the value :math:`N_{O}`.
+    This is the number of future timesteps provided in the case of training and expected in the case of prediction.
+    In the former case, it has the value :math:`N_{O}`.
   Sample_id : np.ndarray, optional
-    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
-    in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original
+    sample in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
   Agent_id : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
-    original agent in the dataset this agent was extracted. This value is only returned for **mode** = *'pred'*.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate
+    from which original agent in the dataset this agent was extracted. This value is only returned for
+    **mode** = *'pred'*.
   epoch_done : bool
     This indicates whether one has just sampled all batches from an epoch and has to go to the next one.
   
