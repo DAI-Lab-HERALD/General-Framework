@@ -443,7 +443,33 @@ class model_template():
     
     
     def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
-        
+        r'''
+
+        Parameters
+        ----------
+        Pred : np.ndarray
+            This is the predicted future observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+            The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+        Sample_id : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+            in the dataset this sample was extracted.
+        Agent_id : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+            original agent in the dataset this agent was extracted.
+        Pred_agents : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+            if it expected by the framework that a prediction will be made for the specific agent.
+            
+            This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
+            incaable of joint predictions.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         assert self.get_output_type()[:4] == 'path'
         if self.predict_single_agent:
