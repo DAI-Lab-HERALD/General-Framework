@@ -434,6 +434,9 @@ Meanwhile, the following model attributes set by the framework are useful or giv
 **self.input_names_train** : np.ndarray
   This is a :math:`N_{agents}` dimensional array with the names of all the agents.
 
+**self.has_map** : bool
+  True if the chosen dataset can provide map images, False if not.
+
 **self.num_samples_path_pred** : int
   This gives the number of predictions the model must make to adequately simulate stochasticity.
 
