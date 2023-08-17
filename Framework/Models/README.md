@@ -79,6 +79,8 @@ But equally important in the interactions with the rest of the framework is the 
     '''
     return output_type
 ```
+Of the two trajectory prediction methods, *'path_all_wi_pov'* is generally to be preferred, as it does not rely on the existence of a distinguished pov agent, and even if such an agent exists, predicting its future behavior is most often no problem.
+
 
 Furthermore, it must also be checked if the model can be even applied to the selected dataset. For this, the method *check_trainability_method()* is needed.
 If the model can be applied, it should return None, while otherwise, it should return a string that completes the sentence: "*This model can not be trained, because...*".
