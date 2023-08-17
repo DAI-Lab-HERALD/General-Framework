@@ -249,6 +249,9 @@ To use those functions, the following attributes have to be set in [*setup_metho
 - **self.max_T_O_train** (int): This is the maximum number of future timesteps to be processed during training. This can lead to the discarding of some observations.
 - **self.predict_single_agent** (bool): This is true if the model is unable to make joint predictions and it is only possible to predict the future trajectory of one agent at a time.
 - **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
+- **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
+- **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
+- **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
  
 ### Classification models
 
