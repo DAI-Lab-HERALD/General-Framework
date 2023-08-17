@@ -20,12 +20,6 @@ class logit_theofilatos_general(logit_theofilatos):
         X = X - self.mean
         X[np.isnan(X)] = 0
         return X, P, class_names
-
-    
-    def get_input_type(self = None):
-        input_info = {'past': 'general',
-                      'future': None}
-        return input_info
     
     
     def get_name(self = None):
@@ -33,3 +27,8 @@ class logit_theofilatos_general(logit_theofilatos):
                  'file': 'log_reg_1D',
                  'latex': r'$\text{\emph{LR}}_{1D}$'}
         return names   
+    
+    def check_trainability_method(self):
+        if not self.general_input_available:
+            return " there is no generalized input data available."
+        return None

@@ -70,17 +70,11 @@ class model_template():
         self.num_timesteps_out = data_set.num_timesteps_out_real
         
         self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
+        self.general_input_available = self.data_set.general_input_available
         
         self.input_names_train = data_set.Input_path.columns
         
         self.t_e_quantile = self.data_set.p_quantile
-            
-        
-        if self.get_input_type()['future']:
-            Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
-            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, Pov_ind]
-        else:
-            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, np.zeros(len(self.input_names_train), bool)]
             
         # check if model is allowed
         self.Domain_train            = data_set.Domain.iloc[self.Index_train]
@@ -160,10 +154,6 @@ class model_template():
         if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
             output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
         else:
-            if self.get_input_type()['future']:
-                Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
-                self.Input_future_test = self.data_set.Output_path.iloc[:, Pov_ind]
-            
             # apply model to test samples
             if self.get_output_type()[:4] == 'path':
                 self.create_empty_output_path()
@@ -518,7 +508,6 @@ class model_template():
 
         '''
         
-        assert self.get_output_type()[:4] == 'path'
         if not self.extracted_data:
             self.prepare_batch_generation()
         
@@ -673,8 +662,6 @@ class model_template():
 
         '''
         
-        assert self.get_output_type()[:5] == 'class'
-        
         X_help = self.data_set.Input_path.to_numpy()
         D_help = self.data_set.Input_prediction.to_numpy()
         
@@ -685,14 +672,18 @@ class model_template():
         
         # Determine map use
         X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        D = np.ones(list(X_help.shape) + [self.timesteps], dtype = np.float32) * np.nan
+        if self.data_set.general_input_available:
+            D = np.ones(list(X_help.shape) + [self.timesteps], dtype = np.float32) * np.nan
+        else:
+            D = None
         
         # Extract data from original number a samples
         for i_sample in range(X.shape[0]):
             for i_agent, agent in enumerate(Agents):
                 if not isinstance(X_help[i_sample, i_agent], float):
                     X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                D[i_sample, i_agent] = D_help[i_sample, i_agent].astypt(np.float32)
+                if self.data_set.general_input_available:
+                    D[i_sample, i_agent] = D_help[i_sample, i_agent].astypt(np.float32)
         
         P = self.data_set.Output_A.to_numpy().astpye(np.float32)
         DT = self.data_set.Output_T_E.astype(np.float32)
@@ -780,29 +771,10 @@ class model_template():
                 self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
         
         
-        
-        
     def check_trainability(self):
-        if self.get_input_type()['future']: 
-            if self.data_set.pov_agent is None:
-                return 'the needed pov agent is not included in this dataset.'
-            
-            if not self.data_set.future_input():
-                return 'the required future trajectory of the pov agent contains too many clues.'
-            
-            if self.get_output_type() == 'path_all_wi_pov':
-                return 'the trajectory of the poc agent that has to be predicted should be used as input.'
-        else:
-            if self.get_output_type() == 'path_all_wo_pov': 
-                return 'the trajectory of the poc agent is not predicted, although it is not know a priori.'
-        
         if self.get_output_type() == 'path_all_wo_pov':
             if len(self.data_set.needed_agents) == 1:
                 return 'there is no agent of which a trajectory can be predicted.'
-        
-        if self.get_input_type()['past'] in ['general', 'both']:
-            if not self.data_set.general_input_available:
-                return 'this dataset cannot provide the required 1D inputs.'
             
         if self.get_output_type() in ['class', 'class_and_time']:
             if not self.data_set.classification_useful:
@@ -838,18 +810,6 @@ class model_template():
         # Should return 'class', 'class_and_time', 'path_all_wo_pov', 'path_all_wi_pov'
         # the same as above, only this time callable from class
         raise AttributeError('Has to be overridden in actual model.')
-        
-        
-    def get_input_type(self = None):
-        # Should return a dictionary, with the first key being 'past', 
-        # where the value is either 'general' (using self.Input_prediction_train) 
-        # or 'path' (using self.Input_path_train) or 'both'
-        # The second key is 'future', which is either False or True, with pov being
-        # the role of the actor whose future input is used. If this is not None, than 
-        # the output type must not be 'path_all_wi_pov'
-        # the same as above, only this time callable from class
-        raise AttributeError('Has to be overridden in actual model.')
-        
         
     def save_params_in_csv(self = None):
         # Returns true or false, depending on if the params of the trained model should be saved as a .csv file or not

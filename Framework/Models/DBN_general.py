@@ -24,12 +24,6 @@ class DBN_general(DBN):
         
         X = (X - self.xmin) / (self.xmax - self.xmin + 1e-5)
         return X, P, class_names
-
-    
-    def get_input_type(self = None):
-        input_info = {'past': 'general',
-                      'future': None}
-        return input_info
     
     
     def get_name(self = None):
@@ -37,3 +31,8 @@ class DBN_general(DBN):
                  'file': 'Deep_BN_1D',
                  'latex': r'$\text{\emph{DBN}}_{1D}$'}
         return names   
+    
+    def check_trainability_method(self):
+        if not self.general_input_available:
+            return " there is no generalized input data available."
+        return None

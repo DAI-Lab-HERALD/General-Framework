@@ -62,11 +62,6 @@ class logit_theofilatos(model_template):
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
         names = {'print': 'Logistic regression (2D inputs)',

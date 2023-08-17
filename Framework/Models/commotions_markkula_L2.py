@@ -67,6 +67,9 @@ class commotions_markkula_L2(model_template, commotions_template):
     def check_trainability_method(self):
         if self.data_set.scenario.get_name() != 'Gap acceptance problem':
             return "this model is only valid for gap acceptance scenarios."
+        
+        if not self.general_input_available:
+            return " there is no generalized input data available."
         # If data is okay
         return None
      
@@ -74,12 +77,6 @@ class commotions_markkula_L2(model_template, commotions_template):
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class_and_time'
-        
-    
-    def get_input_type(self = None):
-        input_info = {'past': 'general',
-                      'future': False}
-        return input_info
     
     
     def get_name(self = None):

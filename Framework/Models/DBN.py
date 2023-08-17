@@ -399,15 +399,10 @@ class DBN(model_template):
     def check_trainability_method(self):
         return None
     
-        
+    
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
         names = {'print': 'Deep belief network (2D inputs)',
