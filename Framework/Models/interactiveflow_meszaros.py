@@ -54,13 +54,14 @@ class interactiveflow_meszaros(model_template):
         self.frd_nout = 2
         self.frd_nl = 3
 
+
+        self.obs_encoding_size = 16 
+        self.scene_encoding_size = 4
+
         # TODO dependent on dataset
         if self.data_set.get_name()['file'][:3] == 'ETH':
             self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            self.scene_encoding_size = 4
-            
-            self.obs_encoding_size = 16 
+            self.gamma_noise = 0.02    
             
             self.alpha = 10
             self.s_min = 0.3
@@ -71,8 +72,6 @@ class interactiveflow_meszaros(model_template):
             self.beta_noise = 0
             self.gamma_noise = 0 
             
-            self.scene_encoding_size = 4
-            self.obs_encoding_size = 4
             self.alpha = 3
             self.s_min = 0.8
             self.s_max = 1.2
@@ -324,23 +323,31 @@ class interactiveflow_meszaros(model_template):
                     # remove nan values from pred
                     mask = torch.isfinite(pred)
                     
-                    upper_diag_ids = torch.triu_indices(agent_types.shape[1], agent_types.shape[1])
+                    upper_diag_ids = torch.triu_indices(agent_types.shape[1], agent_types.shape[1], offset=1)
                     
-                    D_true = torch.sqrt(torch.sum((future_disp[:,:,-1,:][:,None,:] - future_disp[:,:,-1,:][:,:,None]) ** 2, dim = -1))
-                    D_pred = torch.sqrt(torch.sum((pred[:,:,-1,:][:,None,:] - pred[:,:,-1,:][:,:,None]) ** 2, dim = -1))
+                    D_true = torch.sqrt(torch.sum((future_disp[:,:,-1,:][:,None,:] - future_disp[:,:,-1,:][:,:,None]) ** 2, dim = -1)+1e-6)
+                    D_pred = torch.sqrt(torch.sum((pred[:,:,-1,:][:,None,:] - pred[:,:,-1,:][:,:,None]) ** 2, dim = -1)+1e-6)
                     
                     D_true = D_true[:,upper_diag_ids[0], upper_diag_ids[1]]
                     D_pred = D_pred[:,upper_diag_ids[0], upper_diag_ids[1]]
                     
                     mask_D = torch.isfinite(D_pred)
 
-                    loss_batch = loss_fn(pred[mask], future_disp[mask]) + loss_fn(D_pred[mask_D], D_true[mask_D]) #+ 0.1*loss_fn(pred_agent_dist, future_agent_dist)
+                    loss_batch = loss_fn(pred[mask], future_disp[mask]) #+ 0.1*loss_fn(D_pred[mask_D], D_true[mask_D]) #+ 0.1*loss_fn(pred_agent_dist, future_agent_dist)
                     # Loss.append(loss)
                     
                     # loss_batch = torch.mean(torch.stack(Loss))
 
                     optim.zero_grad()
-                    loss_batch.backward()
+                    loss_batch.backward(retain_graph=True)
+
+
+                    # # Set the maximum norm value to 1.0
+                    # max_norm = 1.0
+
+                    # # Calculate the norm of the gradients
+                    # grad_norm = torch.nn.utils.clip_grad_norm_(future_scene_ae.parameters(), max_norm)
+
                     optim.step()
 
                     train_loss_ep.append(loss_batch.item())  
@@ -693,9 +700,19 @@ class interactiveflow_meszaros(model_template):
             agentPos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
             agentPos = agentPos.squeeze(2)
 
-            pos_emb = F.tanh(fut_model.pos_emb(agentPos)) # (n_agents, enc_dim)
-            
             existing_agent = T != 48 # (batch_size, max_num_agents)
+            exist_sample2, exist_row2 = torch.where(existing_agent)
+
+            agentPos_existing = agentPos[exist_sample2, exist_row2] # (num_existing_agents, 2)
+
+            pos_emb = F.tanh(fut_model.pos_emb(agentPos_existing)) # (n_agents, enc_dim)
+            
+            tmp = torch.zeros((batch_size, num_agents, 2), device = self.device)
+            tmp[tmp == 0] = float('nan')
+            tmp[exist_sample2, exist_row2] = pos_emb
+
+            pos_emb = tmp
+
             num_existing_agents = existing_agent.sum(axis=1)
             numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_existing_agents).float().to(self.device).unsqueeze(1))) # (n_agents, 1)
             

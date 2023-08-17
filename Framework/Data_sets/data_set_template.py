@@ -915,7 +915,7 @@ class data_set_template():
                         if not isinstance(helper_path[agent], float):
                             # Reset extrapolated data if necessary
                             if agent not in recorded_positions.index:
-                                recorded_positions[agent] = np.zeros(len(helper_path[index]), dtype = bool)
+                                recorded_positions[agent] = np.zeros(len(helper_path[agent]), dtype = bool)
                             else:
                                 if not self.allow_extrapolation:
                                     helper_path[agent][~recorded_positions[agent]] = np.nan
