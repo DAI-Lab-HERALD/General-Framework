@@ -56,9 +56,51 @@ In the first step, it is necessary to define the type of model. One aspect might
 ```
 If this function returns true, then the corresponding model device will be named **self.device**.
 
-But equally important in the interactions with the rest of the framework is the type of input and output the model requires
+But equally important in the interactions with the rest of the framework is the type of output the model produces:
 
-*TODO Later: Decribe everythin here get_input_type(), get_output_type()*
+```    
+  def get_output(self = None):
+    r'''
+    This returns a string with the output type:
+    The possibilities are:
+    'path_all_wo_pov' : This returns the predicted trajectories of all agents except the pov agent (defined
+    in scenario), if this is for example assumed to be an AV.
+    'path_all_wi_pov' : This returns the predicted trajectories of all designated agents, including the
+    pov agent.
+    'class' : This returns the predicted probability that some class of behavior will be observable
+    in the future.
+    'class' : This predicted both the aforementioned probabilities, as well as the time at which the behavior
+    will become observable.
+        
+    Returns
+    -------
+    output_type : str
+        
+    '''
+    return output_type
+```
+Of the two trajectory prediction methods, *'path_all_wi_pov'* is generally to be preferred, as it does not rely on the existence of a distinguished pov agent, and even if such an agent exists, predicting its future behavior is most often no problem.
+
+
+Furthermore, it must also be checked if the model can be even applied to the selected dataset. For this, the method *check_trainability_method()* is needed.
+If the model can be applied, it should return None, while otherwise, it should return a string that completes the sentence: "*This model can not be trained, because...*".
+
+```    
+  def check_trainability_method(self):
+    r'''
+    This function potentiall returns reasons why the model is not applicable to the chosen scenario.
+        
+    Returns
+    -------
+    reason : str
+      This str gives the reason why the model cannot be used in this instance. If the model is usable,
+      return None instead.
+        
+    '''
+    return reason
+```
+Potential reason why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
+
 
 ## Training process data
 
@@ -400,5 +442,8 @@ Meanwhile, the following model attributes set by the framework are useful or giv
 **self.t_e_quantile** : np.ndarray
   This is a one-dimensional array that says which quantile values of the predicted distribution for the
   times at which classification criteria would be fulfilled are expected to be returned.
+
+**self.general_input_available** : bool
+  This is true if generalized distance values are available, if not, it is False.
 
 ```
