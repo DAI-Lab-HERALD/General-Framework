@@ -118,6 +118,8 @@ After setting up the model, the next step is to train certain parameters of the 
 
 While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
 
+If the data is somehow standardized based on data, those standardization parameters should also be saved similar to model weights, as the test dataset will not be identical to the training one.
+
 
 ## Saving and loading the model
 An important part of the framework is the ability to save trained models, so repeated training is not necessarily needed. Saving a model can be done in two ways.
@@ -290,7 +292,61 @@ To use those functions, the following attributes have to be set in [*setup_metho
 - **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
  
 ### Classification models
+```
+def get_classification_data(self, train = True):
+  '''
+  This function retuns inputs and outputs for classification models.
 
+  Parameters
+  ----------
+  train : bool, optional
+    This discribes whether one wants to generate training or testing data. The default is True.
+
+  Returns
+  -------
+  X : np.ndarray
+    This is the past observed data of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
+    float values. If an agent is fully or or some timesteps partially not observed, then this can 
+    include np.nan values.
+  T : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+    that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+    for available types). If an agent is not observed at all, the value will instead be np.nan.
+  agent_names : list
+    This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
+    agent.
+  D : np.ndarray
+    This is the generalized past observed data of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+    It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+    distances between vehicles.
+  dist_names : list
+    This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+    characteristic distance.
+  class_names : list
+    This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+    class.
+  P : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+    class contains the probability that it was observed in the sample. As this are observed values, 
+    per row, there should be exactly one value 1 and the rest should be zeroes.
+    It is only retuned if **train** = *True*.
+  DT : np.ndarray, optional
+    This is a :math:`N_{samples}` dimensional numpy array, which for each 
+    class contains the time period after the prediction time at which the fullfilment of the 
+    classification crieria could be observed. It is only retuned if **train** = *True*.
+  
+
+  '''
+  
+  ...
+  
+  if train:
+    return X, T, agent_names, D, dist_names, class_names, P, DT
+  else:
+    return X, T, agent_names, D, dist_names, class_names
+```
 
 ## Model attributes
 
