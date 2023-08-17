@@ -32,7 +32,7 @@ class trajectron_salzmann_unicycle(model_template):
         config_path = os.sep.join(os.path.dirname(self.model_file).split(os.sep)[:-3])
         config_path += os.sep + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
         
-        if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
+        if (self.provide_all_included_agent_types() == 'P').all():
             config_file = config_path + 'pedestrian.json' 
             with open(config_file) as json_file:
                 hyperparams = json.load(json_file)
@@ -43,7 +43,7 @@ class trajectron_salzmann_unicycle(model_template):
             
         hyperparams["dec_final_dim"]                 = 32
         
-        hyperparams["map_encoding"]                  = self.use_map
+        hyperparams["map_encoding"]                  = self.can_use_map
         hyperparams["incl_robot_node"]               = False
         
         hyperparams["edge_encoding"]                 = True
@@ -72,7 +72,7 @@ class trajectron_salzmann_unicycle(model_template):
     def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):
         attention_radius = dict()
         
-        if (np.array([name[0] for name in np.array(self.input_names_train)]) == 'P').all():
+        if (self.provide_all_included_agent_types() == 'P').all():
             attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 3.0
         else:
             attention_radius[(AgentType.PEDESTRIAN, AgentType.PEDESTRIAN)] = 5.0
@@ -309,8 +309,6 @@ class trajectron_salzmann_unicycle(model_template):
                 Weights[i][:] = torch.from_numpy(weights)[:]
         
     def predict_method(self):
-        Output_path_pred = self.create_empty_output_path()
-        
         batch_size = self.trajectron.hyperparams['batch_size']
         
         prediction_done = False
@@ -341,11 +339,10 @@ class trajectron_salzmann_unicycle(model_template):
                 raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
             
             torch.cuda.empty_cache()
-            for i, i_sample in enumerate(Sample_id):
-                agent = Agent_id[i,0]
-                Output_path_pred.iloc[i_sample][agent] = Pred[:, i, :, :].astype('float32')
-                
-        return [Output_path_pred]
+            
+            # set batchsize first
+            Pred = Pred.transpose(1,0,2,3)
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
     
     
     def check_trainability_method(self):

@@ -27,7 +27,7 @@ class agent_yuan(model_template):
         # Get params
         # Required attributes of the model
         self.min_t_O_train = 5
-        self.max_t_O_train = self.data_set.num_timesteps_out_real
+        self.max_t_O_train = self.num_timsteps_out
         self.predict_single_agent = False
         self.can_use_map = True
         # If self.can_use_map = True, the following is also required
@@ -36,9 +36,8 @@ class agent_yuan(model_template):
         self.grayscale = True
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
-        self.batch_size = int(np.floor(2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * 
-                                                           (self.num_timesteps_out.max() + 
-                                                            self.num_timesteps_in))))
+        self.batch_size = 2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * (self.num_timsteps_out + self.num_timesteps_in))
+        self.batch_size = max(1, int(np.floor(self.batch_size)))
         
         self.sample_number = 10
         
@@ -493,9 +492,6 @@ class agent_yuan(model_template):
 
         
     def predict_method(self):
-        Output_path_pred = self.create_empty_output_path()
-        Agents = np.array(self.input_names_train)
-        
         self.model_dlow.set_device(self.device)
         self.model_dlow.eval()
         batch = 0
@@ -533,15 +529,10 @@ class agent_yuan(model_template):
                 
                 Pred[:,:,Index] = pred[:,:,:,:num_steps]
                 
-            # Write the results into the pandas dataframe
-            for i, i_sample in enumerate(Sample_id):
-                agent_ids = Agent_id[i]
-                for j, agent_id in enumerate(agent_ids):
-                    agent = Agents[agent_id]
-                    if Pred_agents[i, j]:
-                        Output_path_pred.iloc[i_sample][agent] = Pred[i, j, :self.num_samples_path_pred]
-                    
-        return [Output_path_pred]
+            # cut number of predictions down if needed
+            Pred = Pred[:, :, :self.num_samples_path_pred]
+            
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
 
     
     def check_trainability_method(self):
