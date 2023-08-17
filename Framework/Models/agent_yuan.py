@@ -27,7 +27,7 @@ class agent_yuan(model_template):
         # Get params
         # Required attributes of the model
         self.min_t_O_train = 5
-        self.max_t_O_train = self.num_timsteps_out
+        self.max_t_O_train = self.num_timesteps_out
         self.predict_single_agent = False
         self.can_use_map = True
         # If self.can_use_map = True, the following is also required
@@ -36,10 +36,12 @@ class agent_yuan(model_template):
         self.grayscale = True
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
-        self.batch_size = 2 * total_memory / (len(self.Input_path_train.columns) ** 1.5 * (self.num_timsteps_out + self.num_timesteps_in))
+        self.batch_size = 2 * total_memory / (len(self.input_names_train) ** 1.5 * (self.num_timesteps_out + self.num_timesteps_in))
         self.batch_size = max(1, int(np.floor(self.batch_size)))
         
         self.sample_number = 10
+        
+        self.use_map = self.can_use_map and self.has_map
         
             
     def extract_data_batch(self, X, T, Pred_agents, Y = None, img = None, img_m_per_px = None, num_steps = 10):  
@@ -107,8 +109,8 @@ class agent_yuan(model_template):
         cfg.yml_dict["past_frames"] = self.num_timesteps_in
         cfg.yml_dict["min_past_frames"] = self.num_timesteps_in
               
-        cfg.yml_dict["future_frames"] = self.num_timesteps_out.max()
-        cfg.yml_dict["min_future_frames"] = self.num_timesteps_out.min()
+        cfg.yml_dict["future_frames"] = self.num_timesteps_out
+        cfg.yml_dict["min_future_frames"] = 1
         
         cfg.yml_dict["sample_k"] = self.sample_number
         cfg.yml_dict["loss_cfg"]["sample"]["k"] = self.sample_number
@@ -144,6 +146,7 @@ class agent_yuan(model_template):
             
             # check if partially trained model exists
             cp_path_test = cp_path[:-2]
+            os.makedirs(os.path.dirname(cp_path_test), exist_ok = True)
             files = os.listdir(os.path.dirname(cp_path_test))
             filename = os.path.basename(cp_path_test)
             
@@ -262,8 +265,8 @@ class agent_yuan(model_template):
         cfg_d.yml_dict["past_frames"] = self.num_timesteps_in
         cfg_d.yml_dict["min_past_frames"] = self.num_timesteps_in
               
-        cfg_d.yml_dict["future_frames"] = max(self.num_timesteps_out)
-        cfg_d.yml_dict["min_future_frames"] = min(self.num_timesteps_out)
+        cfg_d.yml_dict["future_frames"] = self.num_timesteps_out
+        cfg_d.yml_dict["min_future_frames"] = 1
         
         cfg_d.yml_dict["sample_k"] = self.sample_number
         cfg_d.yml_dict['model_path'] = cp_path
@@ -424,8 +427,8 @@ class agent_yuan(model_template):
         cfg.yml_dict["past_frames"] = self.num_timesteps_in
         cfg.yml_dict["min_past_frames"] = self.num_timesteps_in
               
-        cfg.yml_dict["future_frames"] = max(self.num_timesteps_out)
-        cfg.yml_dict["min_future_frames"] = min(self.num_timesteps_out)
+        cfg.yml_dict["future_frames"] = self.num_timesteps_out
+        cfg.yml_dict["min_future_frames"] = 1
         
         cfg.yml_dict["sample_k"] = self.sample_number
         cfg.yml_dict["loss_cfg"]["sample"]["k"] = self.sample_number
@@ -463,8 +466,8 @@ class agent_yuan(model_template):
         cfg_d.yml_dict["past_frames"] = self.num_timesteps_in
         cfg_d.yml_dict["min_past_frames"] = self.num_timesteps_in
               
-        cfg_d.yml_dict["future_frames"] = max(self.num_timesteps_out)
-        cfg_d.yml_dict["min_future_frames"] = min(self.num_timesteps_out)
+        cfg_d.yml_dict["future_frames"] = self.num_timesteps_out
+        cfg_d.yml_dict["min_future_frames"] = 1
         
         cfg_d.yml_dict["sample_k"] = self.sample_number
         cfg_d.yml_dict['model_path'] = cp_path

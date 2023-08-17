@@ -7,11 +7,7 @@ import json
 from scipy import interpolate as interp
 from pyquaternion import Quaternion
 
-# from nuscenes.map_expansion.map_api import NuScenesMap, locations
-from nuscenes.nuscenes import NuScenes
-from nuscenes.map_expansion.map_api import NuScenesMap, locations
-from NuScenes.vec_map import VectorMap
-from NuScenes.nusc_utils import populate_vector_map
+
 
 class NuScenes_interactive(data_set_template):
     def get_name(self=None):
@@ -30,6 +26,12 @@ class NuScenes_interactive(data_set_template):
         self.scenario = scenario_none()
 
     def create_path_samples(self):
+        # from nuscenes.map_expansion.map_api import NuScenesMap, locations
+        from nuscenes.nuscenes import NuScenes
+        from nuscenes.map_expansion.map_api import NuScenesMap, locations
+        from NuScenes.vec_map import VectorMap
+        from NuScenes.nusc_utils import populate_vector_map
+        
         self.num_samples = 0 
         self.Path = []
         self.Type_old = []

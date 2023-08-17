@@ -65,6 +65,7 @@ class model_template():
         self.data_set = data_set
         
         self.dt = data_set.dt
+        self.has_map = self.data_set.includes_images()
         
         self.num_timesteps_in = data_set.num_timesteps_in_real
         self.num_timesteps_out = data_set.num_timesteps_out_real
@@ -72,7 +73,7 @@ class model_template():
         self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
         self.general_input_available = self.data_set.general_input_available
         
-        self.input_names_train = data_set.Input_path.columns
+        self.input_names_train = np.array(data_set.Input_path.columns)
         
         self.t_e_quantile = self.data_set.p_quantile
             
@@ -99,6 +100,23 @@ class model_template():
                 for i_agent, agent in enumerate(Agents):
                     recorded = Recorded.iloc[i_sample][agent]
                     Pred_agents[i_sample, i_agent] = np.all(recorded)
+        
+        # NuScenes exemption:
+        if self.data_set.get_name()['print'] == 'NuScenes':
+            if self.num_timesteps_in == 4 and self.num_timesteps_out == 12:
+                if self.dt == 0.5 and self.data_set.t0_type == 'all':
+                    Pred_agents_N = np.zeros(Pred_agents.shape, bool)
+                    PA = self.data_set.Domain.pred_agents
+                    PT = self.data_set.Domain.pred_timepoints
+                    T0 = self.data_set.Domain.t_0
+                    for i_sample in range(len(Recorded)):
+                        pt = PT.iloc[i_sample]
+                        t0 = T0.iloc[i_sample]
+                        i_time = np.argmin(np.abs(t0 - pt))
+                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)[i_time]
+                        
+                        Pred_agents_N[i_sample, :len(pa)] = pa
+        
         return Pred_agents
     
     
@@ -214,7 +232,7 @@ class model_template():
         Pred_agents = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
         
         # Determine map use
-        use_map = self.data_set.includes_images() and self.can_use_map
+        use_map = self.has_map and self.can_use_map
             
         X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
         Y = np.ones(list(Y_help.shape) + [N_O_data.max(), 2], dtype = np.float32) * np.nan

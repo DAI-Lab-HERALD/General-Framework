@@ -956,7 +956,7 @@ class data_set_template():
             self.Output_T_E    = np.array(Output_T_E, float)
 
             self.Type     = pd.DataFrame(Type).reset_index(drop = True)
-            self.Recorded = pd.DataFrame(Type).reset_index(drop = True)
+            self.Recorded = pd.DataFrame(Recorded).reset_index(drop = True)
             self.Domain   = pd.DataFrame(Domain).reset_index(drop = True)
 
             save_data = np.array([self.Input_prediction,
