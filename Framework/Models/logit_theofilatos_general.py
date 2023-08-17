@@ -6,15 +6,10 @@ from sklearn.linear_model import LogisticRegression as LR
 class logit_theofilatos_general(logit_theofilatos):
     def get_data(self, train = True):
         if train:
-            Input_array = self.Input_prediction_train.to_numpy()
+            _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            Input_array = self.Input_prediction_test.to_numpy()
-        X = np.ones([Input_array.shape[0], Input_array.shape[1], self.timesteps]) * np.nan
-        for i in range(len(X)):
-            for j in range(Input_array.shape[1]):
-                n_help_1 = max(0, self.timesteps - len(Input_array[i,j]))
-                n_help_2 = max(0, len(Input_array[i,j]) - self.timesteps)
-                X[i, j, n_help_1:] = Input_array[i,j][n_help_2:]
+            _, _, _, X, _, class_names = self.get_classification_data(train)
+            P = None
         X = X.reshape(X.shape[0], -1)
         
         # Normalize data, so no input can be set to zero
@@ -24,13 +19,7 @@ class logit_theofilatos_general(logit_theofilatos):
         
         X = X - self.mean
         X[np.isnan(X)] = 0
-        return X
-
-    
-    def get_input_type(self = None):
-        input_info = {'past': 'general',
-                      'future': None}
-        return input_info
+        return X, P, class_names
     
     
     def get_name(self = None):
@@ -38,3 +27,8 @@ class logit_theofilatos_general(logit_theofilatos):
                  'file': 'log_reg_1D',
                  'latex': r'$\text{\emph{LR}}_{1D}$'}
         return names   
+    
+    def check_trainability_method(self):
+        if not self.general_input_available:
+            return " there is no generalized input data available."
+        return None

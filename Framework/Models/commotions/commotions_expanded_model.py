@@ -3128,63 +3128,64 @@ class commotions_template():
             The time steps for simulations, after which the current behavior of agents is reconsidered.
 
         '''
+        
+        
+        
         # Get the purpose specific names (train or test)
         if purpose == 'train':
-            num_samples         = self.num_samples_train
-            Input_prediction    = self.Input_prediction_train
-            Input_T             = self.Input_T_train
-            Output_T_pred       = self.Output_T_pred_train
-            Types               = self.Type_train
+            _, T, agent_names, D, dist_names, class_names, P, DT = self.get_classification_data(train = True)
+            Output_T_pred = self.data_set.Output_T_pred[self.Index_train]
         elif purpose == 'test':
-            num_samples         = self.num_samples_test
-            Input_prediction    = self.Input_prediction_test
-            Input_T             = self.Input_T_test
-            Output_T_pred       = self.Output_T_pred_test
-            Types               = self.Type_test
+            _, T, agent_names, D, dist_names, class_names = self.get_classification_data(train = False)
+            Output_T_pred = self.data_set.Output_T_pred
         else:
             raise KeyError('The purpose "' + purpose + '" is not an available split of the data')
         
-        # Allocate empty tensors for scenario specific initial information
-        T_in  = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
-        Dc    = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
-        Da    = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
-        Le    = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
-        Lt    = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
-        T_out = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
+        num_samples = len(D)
         
         # Get the timestep size (similar for all scenarios)
-        dt = torch.tensor(Output_T_pred[0][1] - Output_T_pred[0][0], 
-                          dtype = torch.float32, device = self.device)
+        dt = torch.tensor(self.dt, dtype = torch.float32, device = self.device)
         
+        # Allocate empty tensors for scenario specific initial information
+        T_in = torch.arange(-2, 1, dtype = torch.float32, device = self.device) * dt
+        T_in = torch.tile(T_in[None], (num_samples, 1))
+        
+        Dc = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
+        Da = torch.zeros((num_samples, 3), dtype = torch.float32, device = self.device)
+        Le = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
+        Lt = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
+        
+        T_out = torch.zeros(num_samples, dtype = torch.float32, device = self.device)
+        
+        
+        i_accepted = np.where(np.array(dist_names) == 'accepted')[0][0]
+        i_rejected = np.where(np.array(dist_names) == 'rejected')[0][0]
+        
+        i_Le = np.where(np.array(dist_names) == 'L_e')[0][0]
+        i_Lt = np.where(np.array(dist_names) == 'L_t')[0][0]
+        
+        t = np.arange()
+        
+        t = np.arange(- self.num_timesteps_in, 1) * dt
+        t_in = np.arange(-2, 1) * dt
         # Go through provided input data
         for ind in range(num_samples):
-            # extract the transfromed path data
-            path = Input_prediction.iloc[ind]
-            t = Input_T[ind]
             
             # Get the gap sizes
-            Le[ind] = path.L_e[-1]
-            Lt[ind] = path.L_t[-1]
+            Le[ind] = torch.tensor(D[ind, i_Le, -1]).to(device = self.device, dtype = torch.float32)
+            Lt[ind] = torch.tensor(D[ind, i_Lt, -1]).to(device = self.device, dtype = torch.float32)
             
-            if len(t) >= 3:
+            if self.num_timesteps_in >= 3:
                 # transform from numpy to torch the initial position data
-                Dc[ind] = torch.from_numpy(path.rejected[-3:]).to(device = self.device)
-                Da[ind] = torch.from_numpy(path.accepted[-3:]).to(device = self.device)
-                
-                # Get the time points associated with the intial position data
-                T_in[ind] = torch.from_numpy(t[-3:]).to(device = self.device)
+                Dc[ind] = torch.from_numpy(D[ind, i_rejected, -3:]).to(device = self.device)
+                Da[ind] = torch.from_numpy(D[ind, i_accepted, -3:]).to(device = self.device)
             else:
-                t_in = torch.arange(-2, 1, dtype = torch.float32, device = self.device) * dt
-                
                 # Extrapolate with zero acceleration
-                Dc_in = interp.interp1d(t, path.rejected, fill_value = 'extrapolate', assume_sorted = True)(t_in)
-                Da_in = interp.interp1d(t, path.accepted, fill_value = 'extrapolate', assume_sorted = True)(t_in) 
+                Dc_in = interp.interp1d(t, D[ind, i_rejected], fill_value = 'extrapolate', assume_sorted = True)(t_in)
+                Da_in = interp.interp1d(t, D[ind, i_accepted], fill_value = 'extrapolate', assume_sorted = True)(t_in) 
                 
                 Dc[ind] = torch.from_numpy(Dc_in).to(device = self.device)
                 Da[ind] = torch.from_numpy(Da_in).to(device = self.device)
-                
-                # Get the time points associated with the intial position data
-                T_in[ind] = t_in
             
             # Get the scenario specific end time
             T_out[ind] = Output_T_pred[ind][-1] 
@@ -3199,7 +3200,11 @@ class commotions_template():
                 names.append('tar')
                
         # Determine ctrl type of agent 
-        Types = Types[['ego', 'tar']].to_numpy().T
+        i_ego = np.where(np.array(agent_names) == 'ego')[0][0]
+        i_tar = np.where(np.array(agent_names) == 'ego')[0][0]
+        
+        Types = T[:, [i_ego, i_tar]].T
+        Ped_agents = torch.from_numpy(Types == 'P').to(dtype = torch.bool, device = self.device)
         
         ctrl_types = np.empty((self.commotions_model.N_AGENTS, num_samples), dtype = CtrlType)
         ctrl_types[:,:] = CtrlType.SPEED
@@ -3224,7 +3229,6 @@ class commotions_template():
         
         
         
-        Ped_agents = torch.from_numpy(Types == 'P').to(dtype = torch.bool, device = self.device)
         free_speeds[Ped_agents]  = self.fixed_params.FREE_SPEED_PED
         free_speeds[~Ped_agents] = self.fixed_params.FREE_SPEED_VEH
         
@@ -3294,14 +3298,12 @@ class commotions_template():
         names, ctrl_types, initial_positions, speeds, accs, coll_dist, free_speeds, T_out, dt = self.extract_data('train')
         
         # Allocate tensors for desired output data
-        A_true   = torch.zeros(self.num_samples_train, dtype = torch.bool, device = self.device)
-        t_E_true = torch.full((self.num_samples_train,), torch.nan, dtype = torch.float32, device = self.device)
+        _, _, _, _, _, class_names, P, DT = self.get_classification_data(train = True)
         
-        # Extract the desired outputs of the training scenarios
-        for ind in range(self.num_samples_train):
-            A_true[ind] = torch.tensor(self.Output_A_train.iloc[ind].accepted, device = self.device)
-            # Note: t_A is only give for accepted gaps
-            t_E_true[ind] = self.Output_T_E_train[ind]
+        i_accepted = np.where(np.array(class_names) == 'accepted')[0][0]
+        
+        A_true = torch.from_numpy(P[:,i_accepted].astype(bool)).to(device = self.device)
+        t_E_true = torch.from_numpy(DT).to(device = self.device)
         
         return [names, ctrl_types, initial_positions, speeds, accs, 
                 coll_dist, free_speeds, T_out, dt, A_true, t_E_true]
@@ -3393,12 +3395,8 @@ class commotions_template():
         
         # Transofrm the prediction to numpy arrays
         Output_A_pred = A_pred.cpu().detach().numpy().astype('float64')
-        Output_A_pred = pd.DataFrame(np.stack((Output_A_pred, 1 - Output_A_pred), axis = 1), 
-                                     columns = self.data_set.Behaviors)
-        
-        Output_T_E_pred = pd.DataFrame(np.empty(Output_A_pred.shape, object), columns = self.data_set.Behaviors)
-        for i in range(self.num_samples_test):
-            Output_T_E_pred.iloc[i].accepted = T_A_pred[i].cpu().detach().numpy().astype('float32')
-            Output_T_E_pred.iloc[i].rejected = T_C_pred[i].cpu().detach().numpy().astype('float32')
+        Output_A_pred = np.stack((Output_A_pred, 1 - Output_A_pred), axis = 1)
+        Output_T_E_pred = np.stack((T_A_pred.cpu().detach().numpy().astype('float32'),
+                                    T_C_pred.cpu().detach().numpy().astype('float32')), axis = 1)
         
         return [Output_A_pred, Output_T_E_pred]

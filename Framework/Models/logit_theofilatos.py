@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression as LR
 
 class logit_theofilatos(model_template):
     def setup_method(self, l2_regulization = 0.1):
-        self.timesteps = max([len(T) for T in self.Input_T_train])
+        self.timesteps = self.dt
     
         self.model = LR(C = 1/(l2_regulization+1e-7), 
                         max_iter = 100000, 
@@ -14,23 +14,10 @@ class logit_theofilatos(model_template):
     
     def get_data(self, train = True):
         if train:
-            Input_array = self.Input_path_train.to_numpy()
+            X, _, _, _, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            Input_array = self.Input_path_test.to_numpy()
-            
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in np.array(self.input_names_train)])
-        
-        X = np.ones([Input_array.shape[0], Input_array.shape[1], self.timesteps, 2]) * np.nan
-        for i_sample in range(len(X)):
-            for i_agent in range(Input_array.shape[1]):
-                if isinstance(Input_array[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:   
-                    len_given = len(Input_array[i_sample,i_agent])
-                    n_help_1 = max(0, self.timesteps - len_given)
-                    n_help_2 = max(0, len_given - self.timesteps)
-                    X[i_sample, i_agent, n_help_1:] = Input_array[i_sample,i_agent][n_help_2:]
+            X, _, _, _, _, class_names = self.get_classification_data(train)
+            P = None
         X = X.reshape(X.shape[0], -1)
         
         # Normalize data, so no input can be set to zero
@@ -40,14 +27,15 @@ class logit_theofilatos(model_template):
         
         X = X - self.mean
         X[np.isnan(X)] = 0
-        return X
+        return X, P, class_names
         
         
     def train_method(self):
         # Multiple timesteps have to be flattened
-        X = self.get_data(train = True)
+        X, P, class_names = self.get_data(train = True)
         # Train model
-        true_labels = self.data_set.Behaviors[self.Output_A_train.to_numpy().argmax(axis = 1)]
+        true_labels = np.array(class_names)[P.argmax(axis = 1)]
+        
         self.model.fit(X, true_labels)
         # Test if something else might be feasible
         self.weights_saved = [self.mean, self.model]
@@ -58,16 +46,15 @@ class logit_theofilatos(model_template):
         
         
     def predict_method(self):
-        X = self.get_data(train = False)
+        X, _, class_names = self.get_data(train = True)
         Probs = pd.DataFrame(self.model.predict_proba(X), columns = self.model.classes_)
         
         # Fill in required classes that have been missing in the training data
-        missing_classes = self.data_set.Behaviors[(self.data_set.Behaviors[:, np.newaxis] != 
-                                                   np.array(Probs.columns)[np.newaxis]).all(1)]
+        cn = np.array(class_names)
+        missing_classes = list(cn[(cn[:, np.newaxis] != np.array(Probs.columns)[np.newaxis]).all(1)])
         Probs[missing_classes] = 0.0
-        
-        Probs = Probs[self.data_set.Behaviors]
-        return [Probs]
+        Probs = Probs[class_names]
+        self.save_predicted_classifications(class_names, Probs.to_numpy())
     
     def check_trainability_method(self):
         return None
@@ -75,11 +62,6 @@ class logit_theofilatos(model_template):
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
         names = {'print': 'Logistic regression (2D inputs)',

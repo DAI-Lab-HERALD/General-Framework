@@ -70,47 +70,16 @@ class model_template():
         self.num_timesteps_out = data_set.num_timesteps_out_real
         
         self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
+        self.general_input_available = self.data_set.general_input_available
         
         self.input_names_train = data_set.Input_path.columns
-        # Only provide one kind of input (if model cheats and tries to use both)
-        if self.get_input_type()['past'] == 'general':
-            self.Input_prediction_train = data_set.Input_prediction.iloc[self.Index_train]
-            self.Input_path_train       = None
-            
-        elif self.get_input_type()['past'] == 'path':
-            self.Input_prediction_train = None
-            self.Input_path_train       = data_set.Input_path.iloc[self.Index_train]
-            
-        elif self.get_input_type()['past'] == 'both':
-            self.Input_prediction_train = data_set.Input_prediction.iloc[self.Index_train]
-            self.Input_path_train       = data_set.Input_path.iloc[self.Index_train]
-        else:
-            raise AttributeError("This kind of past input information is not implemented.")
-            
         
-        if self.get_input_type()['future']:
-            Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
-            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, Pov_ind]
-        else:
-            self.Input_future_train = data_set.Output_path.iloc[self.Index_train, np.zeros(len(self.input_names_train), bool)]
+        self.t_e_quantile = self.data_set.p_quantile
             
         # check if model is allowed
-        
-        self.Input_T_train           = data_set.Input_T[self.Index_train]
-        
-        self.Output_path_train       = data_set.Output_path.iloc[self.Index_train]
-        self.Output_T_train          = data_set.Output_T[self.Index_train]
-        self.Output_T_pred_train     = data_set.Output_T_pred[self.Index_train]
-        self.Output_A_train          = data_set.Output_A.iloc[self.Index_train]
-        self.Output_T_E_train        = data_set.Output_T_E[self.Index_train]
-        
-        self.Type_train              = data_set.Type.iloc[self.Index_train]
-        self.Recorded_train          = data_set.Recorded.iloc[self.Index_train]
         self.Domain_train            = data_set.Domain.iloc[self.Index_train]
         
         self.num_samples_path_pred = self.data_set.num_samples_path_pred
-        
-        self.num_samples_train = len(self.Index_train)
         
         self.setup_method()
         
@@ -185,42 +154,22 @@ class model_template():
         if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
             output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
         else:
-            if self.get_input_type()['past'] == 'general':
-                self.Input_prediction_test = self.data_set.Input_prediction
-                self.Input_path_test       = None
-                
-            elif self.get_input_type()['past'] == 'path':
-                self.Input_prediction_test = None
-                self.Input_path_test       = self.data_set.Input_path
-                
-            elif self.get_input_type()['past'] == 'both':
-                self.Input_prediction_test = self.data_set.Input_prediction
-                self.Input_path_test       = self.data_set.Input_path
-                
-            if self.get_input_type()['future']:
-                Pov_ind = self.data_set.pov_agent == np.array(self.input_names_train)
-                self.Input_future_test = self.data_set.Output_path.iloc[:, Pov_ind]
-                
-            
-            
-            # Make predictions on all samples, test and training samples
-            self.Input_T_test       = self.data_set.Input_T
-            self.Output_T_pred_test = self.data_set.Output_T_pred
-
-            self.Type_test          = self.data_set.Type
-            self.Recorded_test      = self.data_set.Recorded
-            self.Domain_test        = self.data_set.Domain     
-            
-            # save number of training samples
-            self.num_samples_test = len(self.Input_T_test)
-            
             # apply model to test samples
             if self.get_output_type()[:4] == 'path':
                 self.create_empty_output_path()
                 self.predict_method()
                 output = [self.Output_path_pred]
+            elif self.get_output_type() == 'class':
+                self.create_empty_output_A()
+                self.predict_method()
+                output = [self.Output_A_pred]
+            elif self.get_output_type() == 'class_and_time':
+                self.create_empty_output_A()
+                self.create_empty_output_T()
+                self.predict_method()
+                output = [self.Output_A_pred, self.Output_T_E_pred]
             else:
-                output = self.predict_method() # output needs to be a list of components
+                raise TypeError("This output type for models is not implemented.")
             
             save_data = np.array(output + [0], object) #0 is there to avoid some numpy load and save errros
             
@@ -559,7 +508,6 @@ class model_template():
 
         '''
         
-        assert self.get_output_type()[:4] == 'path'
         if not self.extracted_data:
             self.prepare_batch_generation()
         
@@ -665,36 +613,168 @@ class model_template():
             return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
             return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
+    
+    
+    def get_classification_data(self, train = True):
+        r'''
+        This function retuns inputs and outputs for classification models.
+
+        Parameters
+        ----------
+        train : bool, optional
+            This discribes whether one wants to generate training or testing data. The default is True.
+
+        Returns
+        -------
+        X : np.ndarray
+            This is the past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
+            float values. If an agent is fully or or some timesteps partially not observed, then this can 
+            include np.nan values.
+        T : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+            that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+            for available types). If an agent is not observed at all, the value will instead be np.nan.
+        agent_names : list
+            This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
+            agent.
+        D : np.ndarray
+            This is the generalized past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+            It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+            distances between vehicles.
+        dist_names : list
+            This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+            characteristic distance.
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        P : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+            class contains the probability that it was observed in the sample. As this are observed values, 
+            per row, there should be exactly one value 1 and the rest should be zeroes.
+            It is only retuned if **train** = *True*.
+        DT : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array, which for each 
+            class contains the time period after the prediction time at which the fullfilment of the 
+            classification crieria could be observed. It is only retuned if **train** = *True*.
         
+
+        '''
+        
+        X_help = self.data_set.Input_path.to_numpy()
+        D_help = self.data_set.Input_prediction.to_numpy()
+        
+        T = self.data_set.Type.to_numpy()
+        
+        # Determine needed agents
+        Agents = np.array(self.input_names_train)
+        
+        # Determine map use
+        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
+        if self.data_set.general_input_available:
+            D = np.ones(list(X_help.shape) + [self.timesteps], dtype = np.float32) * np.nan
+        else:
+            D = None
+        
+        # Extract data from original number a samples
+        for i_sample in range(X.shape[0]):
+            for i_agent, agent in enumerate(Agents):
+                if not isinstance(X_help[i_sample, i_agent], float):
+                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                if self.data_set.general_input_available:
+                    D[i_sample, i_agent] = D_help[i_sample, i_agent].astypt(np.float32)
+        
+        P = self.data_set.Output_A.to_numpy().astpye(np.float32)
+        DT = self.data_set.Output_T_E.astype(np.float32)
+        
+        class_names = self.data_set.Output_A.columns
+        agent_names = self.data_set.Input_paths.columns
+        dist_names = self.data_set.Input_prediction.columns
+        
+        if train:
+            Index = self.Index_train
+        else:
+            Index = np.arange(len(X))
+            
+        X = X[Index]
+        T = T[Index]
+        D = D[Index]
+        P = P[Index]
+        
+        if train:
+            return X, T, agent_names, D, dist_names, class_names, P, DT
+        else:
+            return X, T, agent_names, D, dist_names, class_names
+    
+    
+    def save_predicted_classifications(self, class_names, P, DT = None):
+        r'''
+        This function saves the predictions made by the classification model.
+
+        Parameters
+        ----------
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        P : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+            class contains the predicted probability that it was observed in the sample. As this are 
+            probability values, each row should sum up to 1. 
+        DT : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{classes} \times N_{q-values}\}` dimensional numpy array, 
+            which for each class contains the predicted time after the prediction time at which the 
+            fullfilment of the classification crieria for each value could be observed. Each such prediction 
+            consists out of the qunatile values (**self.t_e_quantile**) of the predicted distribution.
+            The default values is None. An entry is only expected for models which are designed to make 
+            these predictions.
+
+        Returns
+        -------
+        None.
+
+        '''
+        
+        
+        assert self.get_output_type()[:5] == 'class'
+        assert P.shape == self.Output_T_E_pred[class_names].to_numpy.shape
+        for i in range(len(P)):
+            for name, j in enumerate(class_names):
+                self.Output_A_pred.iloc[i][name] = P[i,j]
+        
+        
+        if self.get_output_type() == 'class_and_time':
+            assert DT.shape[:2] == self.Output_T_E_pred[class_names].to_numpy.shape
+            assert DT.shape[2] == len(self.t_e_quantile)
+            for i in range(len(DT)):
+                for name, j in enumerate(class_names):
+                    self.Output_T_E_pred.iloc[i][name] = DT[i,j]
+        
+    
+    
     def create_empty_output_path(self):
         Agents = np.array(self.Output_path_train.columns)
+        self.Output_path_pred = pd.DataFrame(np.empty((len(self.data_set.Output_T), len(Agents)), np.ndarray), columns = Agents)
         
-        self.Output_path_pred = pd.DataFrame(np.empty((len(self.Output_T_pred_test), len(Agents)), np.ndarray), columns = Agents)
+    
+    
+    def create_empty_output_A(self):
+        Behaviors = np.array(self.data_set.Behaviors)
+        self.Output_A_pred = pd.DataFrame(np.zeros((len(self.data_set.Output_T), len(Behaviors)), float), columns = Behaviors)
         
-        
+    
+    def create_empty_output_T(self):
+        Behaviors = np.array(self.data_set.Behaviors)
+        self.Output_T_E_pred = pd.DataFrame(np.empty((len(self.data_set.Output_T), len(Behaviors)), np.ndarray), columns = Behaviors)
+        for i in range(len(self.Output_T_E_pred)):
+            for j in range(self.Output_T_E_pred.shape[1]):
+                self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
         
         
     def check_trainability(self):
-        if self.get_input_type()['future']: 
-            if self.data_set.pov_agent is None:
-                return 'the needed pov agent is not included in this dataset.'
-            
-            if not self.data_set.future_input():
-                return 'the required future trajectory of the pov agent contains too many clues.'
-            
-            if self.get_output_type() == 'path_all_wi_pov':
-                return 'the trajectory of the poc agent that has to be predicted should be used as input.'
-        else:
-            if self.get_output_type() == 'path_all_wo_pov': 
-                return 'the trajectory of the poc agent is not predicted, although it is not know a priori.'
-        
         if self.get_output_type() == 'path_all_wo_pov':
             if len(self.data_set.needed_agents) == 1:
                 return 'there is no agent of which a trajectory can be predicted.'
-        
-        if self.get_input_type()['past'] in ['general', 'both']:
-            if not self.data_set.general_input_available:
-                return 'this dataset cannot provide the required 1D inputs.'
             
         if self.get_output_type() in ['class', 'class_and_time']:
             if not self.data_set.classification_useful:
@@ -730,18 +810,6 @@ class model_template():
         # Should return 'class', 'class_and_time', 'path_all_wo_pov', 'path_all_wi_pov'
         # the same as above, only this time callable from class
         raise AttributeError('Has to be overridden in actual model.')
-        
-        
-    def get_input_type(self = None):
-        # Should return a dictionary, with the first key being 'past', 
-        # where the value is either 'general' (using self.Input_prediction_train) 
-        # or 'path' (using self.Input_path_train) or 'both'
-        # The second key is 'future', which is either False or True, with pov being
-        # the role of the actor whose future input is used. If this is not None, than 
-        # the output type must not be 'path_all_wi_pov'
-        # the same as above, only this time callable from class
-        raise AttributeError('Has to be overridden in actual model.')
-        
         
     def save_params_in_csv(self = None):
         # Returns true or false, depending on if the params of the trained model should be saved as a .csv file or not

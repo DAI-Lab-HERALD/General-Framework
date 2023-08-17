@@ -508,11 +508,6 @@ class flomo_schoeller(model_template):
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
         names = {'print': 'FloMo',

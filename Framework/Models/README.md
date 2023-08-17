@@ -56,9 +56,51 @@ In the first step, it is necessary to define the type of model. One aspect might
 ```
 If this function returns true, then the corresponding model device will be named **self.device**.
 
-But equally important in the interactions with the rest of the framework is the type of input and output the model requires
+But equally important in the interactions with the rest of the framework is the type of output the model produces:
 
-*TODO Later: Decribe everythin here get_input_type(), get_output_type()*
+```    
+  def get_output(self = None):
+    r'''
+    This returns a string with the output type:
+    The possibilities are:
+    'path_all_wo_pov' : This returns the predicted trajectories of all agents except the pov agent (defined
+    in scenario), if this is for example assumed to be an AV.
+    'path_all_wi_pov' : This returns the predicted trajectories of all designated agents, including the
+    pov agent.
+    'class' : This returns the predicted probability that some class of behavior will be observable
+    in the future.
+    'class' : This predicted both the aforementioned probabilities, as well as the time at which the behavior
+    will become observable.
+        
+    Returns
+    -------
+    output_type : str
+        
+    '''
+    return output_type
+```
+Of the two trajectory prediction methods, *'path_all_wi_pov'* is generally to be preferred, as it does not rely on the existence of a distinguished pov agent, and even if such an agent exists, predicting its future behavior is most often no problem.
+
+
+Furthermore, it must also be checked if the model can be even applied to the selected dataset. For this, the method *check_trainability_method()* is needed.
+If the model can be applied, it should return None, while otherwise, it should return a string that completes the sentence: "*This model can not be trained, because...*".
+
+```    
+  def check_trainability_method(self):
+    r'''
+    This function potentiall returns reasons why the model is not applicable to the chosen scenario.
+        
+    Returns
+    -------
+    reason : str
+      This str gives the reason why the model cannot be used in this instance. If the model is usable,
+      return None instead.
+        
+    '''
+    return reason
+```
+Potential reason why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
+
 
 ## Training process data
 
@@ -99,15 +141,51 @@ For later analysis, saving a model's loss during training might be valuable. To 
 ```
 
 ## Model Setup
+The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
 
+```
+  def setup_method(self):
+    ... 
+```
+This function does not have any returns, so every variable required in the downstream task has to be saved by setting a class attribute (**self.<attribute_name>**).
 
 ## Training the model
+After setting up the model, the next step is to train certain parameters of the model. This is done in the function *train_method()*. This is a very varied process over different methods, but depending on the model type, the use of [helper functions](#useful-helper-functions) can ease this process, either for trajectory prediction models or for classification models. These functions are primarily designed to allow the quick extraction and saving of training data and predictions. 
+
+```
+  def train_method(self):
+    ...
+    self.saved_weights = []
+```
+
+While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
+
+If the data is somehow standardized based on data, those standardization parameters should also be saved similar to model weights, as the test dataset will not be identical to the training one.
 
 
 ## Saving and loading the model
+An important part of the framework is the ability to save trained models, so repeated training is not necessarily needed. Saving a model can be done in two ways.
+- First, model weights can be saved in the aforementioned list **self.weights_saved**. This can include any form such as lists, numpy arrays, pandas DataFrames, etc. It has to be stressed that even if this method is not used, **self.weights_saved** has to be defined as an empty list anyway.
+- Second, one can make use of [**self.model_file**](#model-attributes) to save the model in separate files (such as .h5 files for tensorflow models or .pkl ones for pytorch ones). If the model is especially large, so that a timeout during training on a high-performance cluster with a set computation time is likely, it might be advisable to use this method to save intermediate or partial versions of the model, so that training does not have to start from scratch.
 
+As one might not always train models and then make predictions in the same session, one has also to define the ability to load the model. This is done in the function *load_method()*.
+
+```
+  def load_method(self):
+    ...
+    [...] = self.saved_weights
+```
+
+In this function, one should be able to use **self.model_file** and **self.weights_saved** to set the model weights to the ones of the trained model. 
+This function does not return any results, but as it is an alternative to [*train_method()*](#training-the-model), it should leave the class with the same attributes, so that prediction can be performed afterward.
 
 ## Making predictions
+After training or loading a trained model, one then has to make predictions. Here, one first has to extract the input data using the [helper functions](#useful-helper-functions), before making predictions and then saving them with the use of the corresponding helper functions (this is necessary, as previously, the framework does not expect any return by the function).
+
+```
+  def predict_method(self):
+    ...
+```
 
 
 ## Useful helper functions
@@ -140,7 +218,7 @@ This is both possible for classification models as well as trajectory prediction
 ```
 def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
   r'''
-  This function provides trajectory data an associated metadata for the training of the model
+  This function provides trajectory data and associated metadata for the training of the model
   during prediction and training.
   
   Parameters
@@ -215,6 +293,8 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
 ```
 def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
   r'''
+  This function allows the saving of predicted trajectories to be later used for model evaluation. It should
+  only be used during the *predict_method()* part of a trajectory prediction model.
 
   Parameters
   ----------
@@ -254,8 +334,89 @@ To use those functions, the following attributes have to be set in [*setup_metho
 - **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
  
 ### Classification models
+```
+def get_classification_data(self, train = True):
+  r'''
+  This function retuns inputs and outputs for classification models.
 
+  Parameters
+  ----------
+  train : bool, optional
+    This discribes whether one wants to generate training or testing data. The default is True.
 
+  Returns
+  -------
+  X : np.ndarray
+    This is the past observed data of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
+    float values. If an agent is fully or or some timesteps partially not observed, then this can 
+    include np.nan values.
+  T : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+    that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+    for available types). If an agent is not observed at all, the value will instead be np.nan.
+  agent_names : list
+    This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
+    agent.
+  D : np.ndarray
+    This is the generalized past observed data of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+    It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+    distances between vehicles.
+  dist_names : list
+    This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+    characteristic distance.
+  class_names : list
+    This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+    class.
+  P : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+    class contains the probability that it was observed in the sample. As this are observed values, 
+    per row, there should be exactly one value 1 and the rest should be zeroes.
+    It is only retuned if **train** = *True*.
+  DT : np.ndarray, optional
+    This is a :math:`N_{samples}` dimensional numpy array, which for each 
+    class contains the time period after the prediction time at which the fullfilment of the 
+    classification crieria could be observed. It is only retuned if **train** = *True*.
+  
+
+  '''
+  
+  ...
+  
+  if train:
+    return X, T, agent_names, D, dist_names, class_names, P, DT
+  else:
+    return X, T, agent_names, D, dist_names, class_names
+```
+```
+def save_predicted_classifications(self, class_names, P, DT = None):
+  r'''
+  This function saves the predictions made by the classification model.
+
+  Parameters
+  ----------
+  class_names : list
+    This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+    class.
+  P : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+    class contains the predicted probability that it was observed in the sample. As this are 
+    probability values, each row should sum up to 1. 
+  DT : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{classes} \times N_{q-values}\}` dimensional numpy array, 
+    which for each class contains the predicted time after the prediction time at which the 
+    fullfilment of the classification crieria for each value could be observed. Each such prediction 
+    consists out of the qunatile values (**self.t_e_quantile**) of the predicted distribution.
+    The default values is None. An entry is only expected for models which are designed to make 
+    these predictions.
+
+  Returns
+  -------
+  None.
+
+  '''
+```
 ## Model attributes
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
@@ -277,5 +438,12 @@ Meanwhile, the following model attributes set by the framework are useful or giv
   This is the location at which the model should be saved. If one wants to save for example parts of
   the model separately, this should still happen in the same folder and the corresponding file should
   include the name in **self.model_file** with potential extensions, but must not be the same.
+
+**self.t_e_quantile** : np.ndarray
+  This is a one-dimensional array that says which quantile values of the predicted distribution for the
+  times at which classification criteria would be fulfilled are expected to be returned.
+
+**self.general_input_available** : bool
+  This is true if generalized distance values are available, if not, it is False.
 
 ```

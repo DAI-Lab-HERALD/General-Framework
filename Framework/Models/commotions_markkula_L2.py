@@ -26,7 +26,7 @@ class commotions_markkula_L2(model_template, commotions_template):
         
         # Initialize model
         self.commotions_model = Commotions_nn(self.device, self.num_samples_path_pred, 
-                                              self.fixed_params, self.data_set.p_quantile)
+                                              self.fixed_params, self.t_e_quantile)
     
     
     def train_method(self):
@@ -60,12 +60,16 @@ class commotions_markkula_L2(model_template, commotions_template):
         
         
     def predict_method(self):
-        return self.extract_predictions()
+        [Output_A_pred, Output_T_E_pred] = self.extract_predictions()
+        self.save_predicted_classifications(['accepted', 'rejected'], Output_A_pred, Output_T_E_pred)
     
         
     def check_trainability_method(self):
         if self.data_set.scenario.get_name() != 'Gap acceptance problem':
             return "this model is only valid for gap acceptance scenarios."
+        
+        if not self.general_input_available:
+            return " there is no generalized input data available."
         # If data is okay
         return None
      
@@ -73,12 +77,6 @@ class commotions_markkula_L2(model_template, commotions_template):
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class_and_time'
-        
-    
-    def get_input_type(self = None):
-        input_info = {'past': 'general',
-                      'future': False}
-        return input_info
     
     
     def get_name(self = None):

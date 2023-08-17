@@ -268,23 +268,10 @@ class DBN(model_template):
     
     def get_data(self, train = True):
         if train:
-            Input_array = self.Input_path_train.to_numpy()
+            X, _, _, _, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            Input_array = self.Input_path_test.to_numpy()
-            
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in np.array(self.input_names_train)])
-        
-        X = np.ones([Input_array.shape[0], Input_array.shape[1], self.timesteps, 2]) * np.nan
-        for i_sample in range(len(X)):
-            for i_agent in range(Input_array.shape[1]):
-                if isinstance(Input_array[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:   
-                    len_given = len(Input_array[i_sample,i_agent])
-                    n_help_1 = max(0, self.timesteps - len_given)
-                    n_help_2 = max(0, len_given - self.timesteps)
-                    X[i_sample, i_agent, n_help_1:] = Input_array[i_sample,i_agent][n_help_2:]
+            X, _, _, _, _, class_names = self.get_classification_data(train)
+            P = None
         X = X.reshape(X.shape[0], -1)
         
         # Normalize data, so no input can be set to zero
@@ -299,14 +286,12 @@ class DBN(model_template):
         X = X + self.mean
         
         X = (X - self.xmin) / (self.xmax - self.xmin + 1e-5)
-        return X
+        return X, P, class_names
         
         
     def train_method(self):
         # Multiple timesteps have to be flattened
-        X = self.get_data(train = True)
-        # Train model
-        Y = self.Output_A_train.to_numpy()
+        X, Y, class_names = self.get_data(train = True)
         
         input_dim = X.shape[1]
         output_dim = Y.shape[1]
@@ -316,7 +301,6 @@ class DBN(model_template):
         # Initialize error terms for number layers
         E_num_layers_old = 10001
         E_num_layers = 10000 
-        
 
         print('DBN')
         RBM_weights_old = []
@@ -405,30 +389,20 @@ class DBN(model_template):
         
         
     def predict_method(self):
-        X = self.get_data(train = False)
+        X, _, class_names = self.get_data(train = False)
         
         Probs = self.DBN.predict(X)
-        # Fill in required classes that have been missing in the training data
-        Probs = pd.DataFrame(Probs, columns = self.Output_A_train.columns)
-        missing_classes = self.data_set.Behaviors[(self.data_set.Behaviors[:, np.newaxis] != 
-                                                   np.array(Probs.columns)[np.newaxis]).all(1)]
         
-        Probs[missing_classes] = 0.0
-        return [Probs]
+        self.save_predicted_classifications(Probs, class_names)
     
     
     def check_trainability_method(self):
         return None
     
-        
+    
     def get_output_type(self = None):
         # Logit model only produces class outputs
         return 'class'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
         names = {'print': 'Deep belief network (2D inputs)',
