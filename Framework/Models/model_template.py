@@ -665,7 +665,99 @@ class model_template():
             return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
             return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
+    
+    
+    def get_classification_data(self, train = True):
+        '''
+        This function retuns inputs and outputs for classification models.
+
+        Parameters
+        ----------
+        train : bool, optional
+            This discribes whether one wants to generate training or testing data. The default is True.
+
+        Returns
+        -------
+        X : np.ndarray
+            This is the past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
+            float values. If an agent is fully or or some timesteps partially not observed, then this can 
+            include np.nan values.
+        T : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+            that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+            for available types). If an agent is not observed at all, the value will instead be np.nan.
+        agent_names : list
+            This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
+            agent.
+        D : np.ndarray
+            This is the generalized past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+            It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+            distances between vehicles.
+        dist_names : list
+            This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+            characteristic distance.
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        P : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+            class contains the probability that it was observed in the sample. As this are observed values, 
+            per row, there should be exactly one value 1 and the rest should be zeroes.
+            It is only retuned if **train** = *True*.
+        DT : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array, which for each 
+            class contains the time period after the prediction time at which the fullfilment of the 
+            classification crieria could be observed. It is only retuned if **train** = *True*.
         
+
+        '''
+        
+        assert self.get_output_type()[:5] == 'class'
+        
+        X_help = self.data_set.Input_path.to_numpy()
+        D_help = self.data_set.Input_prediction.to_numpy()
+        
+        T = self.data_set.Type.to_numpy()
+        
+        # Determine needed agents
+        Agents = np.array(self.input_names_train)
+        
+        # Determine map use
+        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
+        D = np.ones(list(X_help.shape) + [self.timesteps], dtype = np.float32) * np.nan
+        
+        # Extract data from original number a samples
+        for i_sample in range(X.shape[0]):
+            for i_agent, agent in enumerate(Agents):
+                if not isinstance(X_help[i_sample, i_agent], float):
+                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                D[i_sample, i_agent] = D_help[i_sample, i_agent].astypt(np.float32)
+        
+        P = self.data_set.Output_A.to_numpy().astpye(np.float32)
+        DT = self.data_set.Output_T_E.astype(np.float32)
+        
+        class_names = self.data_set.Output_A.columns
+        agent_names = self.data_set.Input_paths.columns
+        dist_names = self.data_set.Input_prediction.columns
+        
+        if train:
+            Index = self.Index_train
+        else:
+            Index = np.arange(len(X))
+            
+        X = X[Index]
+        T = T[Index]
+        D = D[Index]
+        P = P[Index]
+        
+        if train:
+            return X, T, agent_names, D, dist_names, class_names, P, DT
+        else:
+            return X, T, agent_names, D, dist_names, class_names
+    
+    
     def create_empty_output_path(self):
         Agents = np.array(self.Output_path_train.columns)
         
