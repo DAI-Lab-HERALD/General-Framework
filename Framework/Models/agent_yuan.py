@@ -84,8 +84,8 @@ class agent_yuan(model_template):
                 'fut_data': None,
                 'heading': None,
                 # Todo: Check what this exactly does
-                'valid_id': [1.0, 2.0, 3.0, 4.0, 5.0],
-                'pred_mask': None,
+                'valid_id': list(np.arange(len(Pred_agents[i]))),
+                'pred_mask': Pred_agents[i],
                 'scene_map': img_sample,
                 'traj_scale': img_scale,
                 'seq': 'Not_needed',

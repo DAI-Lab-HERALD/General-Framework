@@ -1006,20 +1006,21 @@ class data_set_template():
         return path + os.sep + file
     
     
-    def _interpolate_image(self, imgs_rot, pos_old, imgs_n):
-        useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= imgs_n.shape[2] - 1) &
-                  (0 <= pos_old[...,1]) & (pos_old[...,1] <= imgs_n.shape[1] - 1))
+    def _interpolate_image(self, imgs_rot, pos_old, unique_imgs_n, unique_locations):
+        useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= unique_imgs_n.shape[2] - 1) &
+                  (0 <= pos_old[...,1]) & (pos_old[...,1] <= unique_imgs_n.shape[1] - 1))
         
         useful_ind, useful_row, useful_col = torch.where(useful)
+        useful_loc = unique_locations[useful_ind]
         pos_old = pos_old[useful_ind, useful_row, useful_col,:]
         
         pos_up  = torch.ceil(pos_old).to(dtype = torch.int64)
         pos_low = torch.floor(pos_old).to(dtype = torch.int64)
         
-        imgs_rot_uu = imgs_n[useful_ind, pos_up[:,1],  pos_up[:,0]]
-        imgs_rot_ul = imgs_n[useful_ind, pos_up[:,1],  pos_low[:,0]]
-        imgs_rot_lu = imgs_n[useful_ind, pos_low[:,1], pos_up[:,0]]
-        imgs_rot_ll = imgs_n[useful_ind, pos_low[:,1], pos_low[:,0]]
+        imgs_rot_uu = unique_imgs_n[useful_loc, pos_up[:,1],  pos_up[:,0]]
+        imgs_rot_ul = unique_imgs_n[useful_loc, pos_up[:,1],  pos_low[:,0]]
+        imgs_rot_lu = unique_imgs_n[useful_loc, pos_low[:,1], pos_up[:,0]]
+        imgs_rot_ll = unique_imgs_n[useful_loc, pos_low[:,1], pos_low[:,0]]
         
         del pos_up, pos_low
         
@@ -1033,9 +1034,9 @@ class data_set_template():
         imgs_rot_v = imgs_rot_u * (pos_fac[:,[1]]) + imgs_rot_l * (1 - pos_fac[:,[1]])
         
         if imgs_rot.shape[-1] == 1:
-            imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = imgs_n.dtype)
+            imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = unique_imgs_n.dtype)
         else:
-            imgs_rot[useful] = imgs_rot_v.to(dtype = imgs_n.dtype)
+            imgs_rot[useful] = imgs_rot_v.to(dtype = unique_imgs_n.dtype)
             
         return imgs_rot
 
@@ -1143,10 +1144,10 @@ class data_set_template():
                 print('rotating images ' + str(i) + ' to ' + str(min(i + n, len(domain)))+ ' of ' + str(len(domain)) + ' total', flush = True)
     
                 Index = np.arange(i, min(i + n, len(domain)))
+                locations = Locations[Index]
                 Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
                 
-                imgs_n = torch.from_numpy(np.stack(self.Images.Image.loc[Locations[Index]].to_list(), 0)).to(device = device)
-                M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[Locations[Index]].to_numpy()).to(device = device)
+                M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[locations].to_numpy()).to(device = device)
                 M2px_n = M2px_n.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(dtype = torch.float32)
                 
                 pos_old = Pos_old * M2px_n
@@ -1166,12 +1167,16 @@ class data_set_template():
                 torch.cuda.empty_cache()
                 
                 # Enforce grayscale here using the gpu
+                unique_locations, location_ind = np.unique(locations)
+                unique_Images = np.stack(self.Images.Image.loc[unique_locations].to_list(), 0)
+                unique_imgs_n = torch.from_numpy(unique_Images).to(device = device)
+                
                 if grayscale:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 1), dtype = imgs_n.dtype, device = device)
+                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 1), dtype = unique_imgs_n.dtype, device = device)
                 else:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 3), dtype = imgs_n.dtype, device = device)
+                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 3), dtype = unique_imgs_n.dtype, device = device)
                     
-                imgs_rot = self._interpolate_image(imgs_rot, pos_old, imgs_n)
+                imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, unique_locations)
                 
                 torch.cuda.empty_cache()
                 col_pad = (max_size - target_width) * 0.5
