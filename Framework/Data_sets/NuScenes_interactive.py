@@ -3,6 +3,7 @@ import pandas as pd
 from data_set_template import data_set_template
 from scenario_none import scenario_none
 import os
+import json
 from scipy import interpolate as interp
 from pyquaternion import Quaternion
 
@@ -36,8 +37,8 @@ class NuScenes_interactive(data_set_template):
         self.Domain_old = []
 
         # prepare images
-        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
-        image_path_full = image_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
+        file_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
+        image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
         self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
         map_files = os.listdir(image_path_full)
@@ -48,7 +49,7 @@ class NuScenes_interactive(data_set_template):
         for map_file in map_files:
             if map_file.endswith('.json'):
                 map_name = map_file[:-5]
-                map_image = NuScenesMap(dataroot = image_path, map_name = map_name)
+                map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
                 vector_map = VectorMap('placeholder:' + map_name)
                 populate_vector_map(vector_map, map_image)
                 bit_map = vector_map.rasterize(resolution = px_per_meter)
@@ -65,9 +66,12 @@ class NuScenes_interactive(data_set_template):
             self.Images.Image.loc[loc_id] = img_pad 
 
         nuscenes_dt = 0.5
-        file_path  = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
 
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
+
+        pred_file = file_path + os.sep + 'maps' + os.sep + 'prediction' + os.sep + 'prediction_scenes.json'
+        with open(pred_file, 'r') as f:
+            pred_data = json.load(f)
 
         for data_idx, scene_record in enumerate(data_obj.scene):
             scene_name = scene_record['name']
@@ -78,6 +82,11 @@ class NuScenes_interactive(data_set_template):
             print('Scene ' + str(data_idx + 1) + ' of ' + str(len(data_obj.scene)) +
                   ': ' + scene_name + ' (' + scene_desc + ')')
             
+            try:
+                scene_preds = pred_data[scene_name]
+            except:
+                scene_preds = []
+
             all_frames = []
             frame_idx_dict = {}
             curr_scene_token = scene_record["first_sample_token"]
@@ -94,6 +103,7 @@ class NuScenes_interactive(data_set_template):
 
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
             agent_types = pd.Series(np.zeros(0, str), index = [])
+            pred_points = pd.Series(np.zeros(0, np.ndarray), index = [])
 
             t = np.arange(scene_length) * nuscenes_dt
 
@@ -101,13 +111,17 @@ class NuScenes_interactive(data_set_template):
             agent_id = 1
 
             ego_translation_list = []
+            ego_prediction_list = []
             for frame_idx, frame in enumerate(all_frames):
                 # get the ego agent
                 cam_front_data = data_obj.get('sample_data', frame['data']['CAM_FRONT'])
                 ego_pose = data_obj.get('ego_pose', cam_front_data['ego_pose_token']) 
                 ego_translation_list.append(np.array([ego_pose['translation']]))
-
+                ego_pred_token = ego_pose['token'] + frame['token']
+                ego_prediction_list.append(ego_pred_token in scene_preds)
                 # go through all other agents in the scene
+
+                
                 for agent_token in frame['anns']:
                     agent_data = data_obj.get('sample_annotation', agent_token)
 
@@ -120,14 +134,20 @@ class NuScenes_interactive(data_set_template):
                     if agent_data['instance_token'] in all_agents_token:
                         continue
 
-                    translation_list = [np.array(agent_data["translation"][:3])[np.newaxis]]
+                    all_agents_token.append(agent_data['instance_token'])
+                    assert frame['token'] == agent_data['sample_token']
 
+                    translation_list = [np.array(agent_data["translation"][:3])[np.newaxis]]
                     prev_idx = frame_idx 
                     curr_sample_ann_token = agent_data["next"]
+                    pred_token = agent_data['instance_token'] + '_' + agent_data['sample_token'] 
+                    Prediction = [pred_token in scene_preds]
                     while curr_sample_ann_token:
                         agent_data_new = data_obj.get('sample_annotation', curr_sample_ann_token)
                         translation = np.array(agent_data_new["translation"][:3])
                         
+                        pred_token_new = agent_data_new['instance_token'] + '_' + agent_data_new['sample_token']
+
                         curr_idx = frame_idx_dict[agent_data_new["sample_token"]]
                         # check for missing frames
                         if curr_idx > prev_idx + 1:
@@ -136,13 +156,16 @@ class NuScenes_interactive(data_set_template):
                             ys = np.interp(fill_time, [prev_idx, curr_idx], [translation_list[-1][0,1], translation[1]])
                             zs = np.interp(fill_time, [prev_idx, curr_idx], [translation_list[-1][0,2], translation[2]])
                             translation_list.append(np.stack((xs, ys, zs), axis = 1))
+                            Prediction.extend([False] * len(fill_time))
 
                         translation_list.append(translation[np.newaxis])
+                        Prediction.append(pred_token_new in scene_preds)
                         
                         prev_idx = curr_idx
                         curr_sample_ann_token = agent_data_new["next"]
 
                     translations = np.concatenate(translation_list, axis = 0)
+                    Prediction = np.array(Prediction)
 
                     agent_name = 'v_' + str(agent_id)
                     if agent_category.startswith('vehicle'):
@@ -158,18 +181,28 @@ class NuScenes_interactive(data_set_template):
                     agent_traj = np.ones((scene_length, 2)) * np.nan
                     agent_traj[frame_idx:frame_idx + len(translations),:] = translations[:,:2]
 
+                    agent_pred = np.zeros((scene_length,), bool)
+                    agent_pred[frame_idx:frame_idx + len(Prediction)] = Prediction
+
                     path[agent_name] = agent_traj * np.array([[1, -1]]) # Align with Images
+                    pred_points[agent_name] = agent_pred
                     agent_id += 1
 
             ego_translations = np.concatenate(ego_translation_list, axis = 0)
+            ego_predictions = np.array(ego_prediction_list)
             path['tar'] = ego_translations[:,:2] * np.array([[1, -1]]) # Align with Images
+            pred_points['tar'] = ego_predictions
             agent_types['tar'] = 'V'
 
-            domain = pd.Series(np.zeros(3, object), index = ['location', 'scene', 'image_id'])
+            domain = pd.Series(np.zeros(5, object), index = ['location', 'scene', 'image_id', 'pred_agents', 'pred_timepoints'])
             domain.location = scene_location
             domain.scene = scene_name 
             domain.image_id = scene_location
-
+            domain.pred_agents = pred_points
+            domain.pred_timepoints = t
+            print('Number of agents: ' + str(len(path)))
+            print('Number of frames: ' + str(len(t)))
+            print('Number of predictions: ' + str(np.stack(pred_points.to_numpy()).sum()) + '/' + str(len(scene_preds)))
             self.num_samples += 1
             self.Path.append(path)
             self.Type_old.append(agent_types)
