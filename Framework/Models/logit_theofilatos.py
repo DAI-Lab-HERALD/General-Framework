@@ -54,7 +54,7 @@ class logit_theofilatos(model_template):
         missing_classes = list(cn[(cn[:, np.newaxis] != np.array(Probs.columns)[np.newaxis]).all(1)])
         Probs[missing_classes] = 0.0
         Probs = Probs[class_names]
-        return [Probs]
+        self.save_predicted_classifications(class_names, Probs.to_numpy())
     
     def check_trainability_method(self):
         return None

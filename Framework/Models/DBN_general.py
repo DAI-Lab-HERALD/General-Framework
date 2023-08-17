@@ -5,9 +5,9 @@ from DBN import DBN
 class DBN_general(DBN):
     def get_data(self, train = True):
         if train:
-            _, _, _, X, _, _, P, _ = self.get_classification_data(train)
+            _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            _, _, _, X, _, _ = self.get_classification_data(train)
+            _, _, _, X, _, class_names = self.get_classification_data(train)
             P = None
         X = X.reshape(X.shape[0], -1)
         
@@ -23,7 +23,7 @@ class DBN_general(DBN):
         X = X + self.mean
         
         X = (X - self.xmin) / (self.xmax - self.xmin + 1e-5)
-        return X, P
+        return X, P, class_names
 
     
     def get_input_type(self = None):

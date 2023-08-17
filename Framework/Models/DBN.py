@@ -268,9 +268,9 @@ class DBN(model_template):
     
     def get_data(self, train = True):
         if train:
-            X, _, _, _, _, _, P, _ = self.get_classification_data(train)
+            X, _, _, _, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            X, _, _, _, _, _ = self.get_classification_data(train)
+            X, _, _, _, _, class_names = self.get_classification_data(train)
             P = None
         X = X.reshape(X.shape[0], -1)
         
@@ -286,12 +286,12 @@ class DBN(model_template):
         X = X + self.mean
         
         X = (X - self.xmin) / (self.xmax - self.xmin + 1e-5)
-        return X, P
+        return X, P, class_names
         
         
     def train_method(self):
         # Multiple timesteps have to be flattened
-        X, Y = self.get_data(train = True)
+        X, Y, class_names = self.get_data(train = True)
         
         input_dim = X.shape[1]
         output_dim = Y.shape[1]
@@ -301,7 +301,6 @@ class DBN(model_template):
         # Initialize error terms for number layers
         E_num_layers_old = 10001
         E_num_layers = 10000 
-        
 
         print('DBN')
         RBM_weights_old = []
@@ -390,16 +389,11 @@ class DBN(model_template):
         
         
     def predict_method(self):
-        X, _ = self.get_data(train = False)
+        X, _, class_names = self.get_data(train = False)
         
         Probs = self.DBN.predict(X)
-        # Fill in required classes that have been missing in the training data
-        Probs = pd.DataFrame(Probs, columns = self.Output_A_train.columns)
-        missing_classes = self.data_set.Behaviors[(self.data_set.Behaviors[:, np.newaxis] != 
-                                                   np.array(Probs.columns)[np.newaxis]).all(1)]
         
-        Probs[missing_classes] = 0.0
-        return [Probs]
+        self.save_predicted_classifications(Probs, class_names)
     
     
     def check_trainability_method(self):

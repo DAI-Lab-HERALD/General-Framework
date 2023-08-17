@@ -3395,12 +3395,8 @@ class commotions_template():
         
         # Transofrm the prediction to numpy arrays
         Output_A_pred = A_pred.cpu().detach().numpy().astype('float64')
-        Output_A_pred = pd.DataFrame(np.stack((Output_A_pred, 1 - Output_A_pred), axis = 1), 
-                                     columns = self.data_set.Behaviors)
-        
-        Output_T_E_pred = pd.DataFrame(np.empty(Output_A_pred.shape, object), columns = self.data_set.Behaviors)
-        for i in range(self.num_samples_test):
-            Output_T_E_pred.iloc[i].accepted = T_A_pred[i].cpu().detach().numpy().astype('float32')
-            Output_T_E_pred.iloc[i].rejected = T_C_pred[i].cpu().detach().numpy().astype('float32')
+        Output_A_pred = np.stack((Output_A_pred, 1 - Output_A_pred), axis = 1)
+        Output_T_E_pred = np.stack((T_A_pred.cpu().detach().numpy().astype('float32'),
+                                    T_C_pred.cpu().detach().numpy().astype('float32')), axis = 1)
         
         return [Output_A_pred, Output_T_E_pred]

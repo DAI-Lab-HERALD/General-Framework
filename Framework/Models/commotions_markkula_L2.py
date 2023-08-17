@@ -26,7 +26,7 @@ class commotions_markkula_L2(model_template, commotions_template):
         
         # Initialize model
         self.commotions_model = Commotions_nn(self.device, self.num_samples_path_pred, 
-                                              self.fixed_params, self.data_set.p_quantile)
+                                              self.fixed_params, self.t_e_quantile)
     
     
     def train_method(self):
@@ -60,7 +60,8 @@ class commotions_markkula_L2(model_template, commotions_template):
         
         
     def predict_method(self):
-        return self.extract_predictions()
+        [Output_A_pred, Output_T_E_pred] = self.extract_predictions()
+        self.save_predicted_classifications(['accepted', 'rejected'], Output_A_pred, Output_T_E_pred)
     
         
     def check_trainability_method(self):
