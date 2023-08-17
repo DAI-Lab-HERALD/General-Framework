@@ -294,7 +294,7 @@ To use those functions, the following attributes have to be set in [*setup_metho
 ### Classification models
 ```
 def get_classification_data(self, train = True):
-  '''
+  r'''
   This function retuns inputs and outputs for classification models.
 
   Parameters
@@ -347,7 +347,34 @@ def get_classification_data(self, train = True):
   else:
     return X, T, agent_names, D, dist_names, class_names
 ```
+```
+def save_predicted_classifications(self, class_names, P, DT = None):
+  r'''
+  This function saves the predictions made by the classification model.
 
+  Parameters
+  ----------
+  class_names : list
+    This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+    class.
+  P : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+    class contains the predicted probability that it was observed in the sample. As this are 
+    probability values, each row should sum up to 1. 
+  DT : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{classes} \times N_{q-values}\}` dimensional numpy array, 
+    which for each class contains the predicted time after the prediction time at which the 
+    fullfilment of the classification crieria for each value could be observed. Each such prediction 
+    consists out of the qunatile values (**self.t_e_quantile**) of the predicted distribution.
+    The default values is None. An entry is only expected for models which are designed to make 
+    these predictions.
+
+  Returns
+  -------
+  None.
+
+  '''
+```
 ## Model attributes
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
@@ -369,5 +396,9 @@ Meanwhile, the following model attributes set by the framework are useful or giv
   This is the location at which the model should be saved. If one wants to save for example parts of
   the model separately, this should still happen in the same folder and the corresponding file should
   include the name in **self.model_file** with potential extensions, but must not be the same.
+
+**self.t_e_quantile** : np.ndarray
+  This is a one-dimensional array that says which quantile values of the predicted distribution for the
+  times at which classification criteria would be fulfilled are expected to be returned.
 
 ```
