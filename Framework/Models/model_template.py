@@ -97,9 +97,10 @@ class model_template():
         
         if dynamic:
             for i_sample in range(len(Recorded)):
+                R = Recorded.iloc[i_sample]
                 for i_agent, agent in enumerate(Agents):
-                    recorded = Recorded.iloc[i_sample][agent]
-                    Pred_agents[i_sample, i_agent] = np.all(recorded)
+                    if isinstance(R[agent], np.ndarray):
+                        Pred_agents[i_sample, i_agent] = np.all(R[agent])
         
         # NuScenes exemption:
         if self.data_set.get_name()['print'] == 'NuScenes':
@@ -113,10 +114,9 @@ class model_template():
                         pt = PT.iloc[i_sample]
                         t0 = T0.iloc[i_sample]
                         i_time = np.argmin(np.abs(t0 - pt))
-                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)[i_time]
+                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)
                         
-                        Pred_agents_N[i_sample, :len(pa)] = pa
-        
+                        Pred_agents_N[i_sample, :pa.shape[1]] = pa[i_time]
         return Pred_agents
     
     
@@ -268,9 +268,6 @@ class model_template():
             X = X[Sample_id, Agent_id]
             T = T[Sample_id, Agent_id]
             
-            # Set agents to nan that are to far away from the predicted agent
-            num_agent = self.data_set.max_num_agents
-            
             # Find closest distance between agents during past observation
             D = np.nanmin(((X[:,[0]] - X) ** 2).sum(-1), axis = -1)
             Agents_sorted_id = np.argsort(D, axis = 1)
@@ -280,8 +277,11 @@ class model_template():
             X = X[Sample_id_sorted, Agents_sorted_id] 
             T = T[Sample_id_sorted, Agents_sorted_id] 
             
-            X[:, num_agent:] = np.nan
-            T[:, num_agent:] = np.nan
+            # Set agents to nan that are to far away from the predicted agent
+            num_agent = self.data_set.max_num_agents
+            if num_agent is not None:
+                X[:, num_agent:] = np.nan
+                T[:, num_agent:] = np.nan
             
             Agent_id = Agent_id[Sample_id_sorted, Agents_sorted_id] 
             
@@ -295,7 +295,7 @@ class model_template():
                 rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
 
                 domain_repeat = domain_old.loc[domain_old.index.repeat(Pred_agents.sum(axis = 1))]
-            
+                
                 img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
                                                                       target_height = self.target_height, 
                                                                       target_width = self.target_width, 
