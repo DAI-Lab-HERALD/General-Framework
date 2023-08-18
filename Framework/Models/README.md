@@ -59,7 +59,7 @@ If this function returns true, then the corresponding model device will be named
 But equally important in the interactions with the rest of the framework is the type of output the model produces:
 
 ```    
-  def get_output(self = None):
+  def get_output_type(self = None):
     r'''
     This returns a string with the output type:
     The possibilities are:
@@ -69,8 +69,8 @@ But equally important in the interactions with the rest of the framework is the 
     pov agent.
     'class' : This returns the predicted probability that some class of behavior will be observable
     in the future.
-    'class' : This predicted both the aforementioned probabilities, as well as the time at which the behavior
-    will become observable.
+    'class_and_time' : This predicted both the aforementioned probabilities, as well as the time at which
+    the behavior will become observable.
         
     Returns
     -------
