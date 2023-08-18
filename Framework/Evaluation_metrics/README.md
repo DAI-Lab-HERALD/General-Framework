@@ -20,7 +20,8 @@ class <eval_metric_name>(evaluation_template):
       The first key of names ('print')  will be primarily used to refer to the evaluation metric in console outputs. 
             
       The 'file' key has to be a string that does not include any folder separators 
-      (for any operating system), as it is mostly used to indicate that certain result files belong to this evaluation metric. 
+      (for any operating system), as it is mostly used to indicate that certain result files belong to this
+      evaluation metric. 
             
       The 'latex' key string is used in automatically generated tables and figures for latex, and can there include 
       latex commands - such as using '$$' for math notation.
