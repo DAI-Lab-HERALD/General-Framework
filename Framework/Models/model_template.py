@@ -87,37 +87,6 @@ class model_template():
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False
         self.extracted_data = False
-        
-    
-        
-    def _determine_pred_agents(self, data_set, Recorded, dynamic):
-        Agents = np.array(data_set.Input_path.columns)
-        Pred_agents = np.array([agent in data_set.needed_agents for agent in Agents])
-        Pred_agents = np.tile(Pred_agents[np.newaxis], (len(Recorded), 1))
-        
-        if dynamic:
-            for i_sample in range(len(Recorded)):
-                R = Recorded.iloc[i_sample]
-                for i_agent, agent in enumerate(Agents):
-                    if isinstance(R[agent], np.ndarray):
-                        Pred_agents[i_sample, i_agent] = np.all(R[agent])
-        
-        # NuScenes exemption:
-        if self.data_set.get_name()['print'] == 'NuScenes':
-            if self.num_timesteps_in == 4 and self.num_timesteps_out == 12:
-                if self.dt == 0.5 and self.data_set.t0_type == 'all':
-                    Pred_agents_N = np.zeros(Pred_agents.shape, bool)
-                    PA = self.data_set.Domain.pred_agents
-                    PT = self.data_set.Domain.pred_timepoints
-                    T0 = self.data_set.Domain.t_0
-                    for i_sample in range(len(Recorded)):
-                        pt = PT.iloc[i_sample]
-                        t0 = T0.iloc[i_sample]
-                        i_time = np.argmin(np.abs(t0 - pt))
-                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)
-                        
-                        Pred_agents_N[i_sample, :pa.shape[1]] = pa[i_time]
-        return Pred_agents
     
     
     def train(self):
@@ -200,6 +169,37 @@ class model_template():
         return output
     
     #%% 
+    def _determine_pred_agents(self, data_set, Recorded, dynamic):
+        Agents = np.array(Recorded.columns)
+        Pred_agents = np.array([agent in data_set.needed_agents for agent in Agents])
+        Pred_agents = np.tile(Pred_agents[np.newaxis], (len(Recorded), 1))
+        
+        if dynamic:
+            for i_sample in range(len(Recorded)):
+                R = Recorded.iloc[i_sample]
+                for i_agent, agent in enumerate(Agents):
+                    if isinstance(R[agent], np.ndarray):
+                        Pred_agents[i_sample, i_agent] = np.all(R[agent])
+        
+        # NuScenes exemption:
+        if self.data_set.get_name()['print'] == 'NuScenes':
+            if self.num_timesteps_in == 4 and self.num_timesteps_out == 12:
+                if self.dt == 0.5 and self.data_set.t0_type == 'all':
+                    Pred_agents_N = np.zeros(Pred_agents.shape, bool)
+                    PA = self.data_set.Domain.pred_agents
+                    PT = self.data_set.Domain.pred_timepoints
+                    T0 = self.data_set.Domain.t_0
+                    for i_sample in range(len(Recorded)):
+                        pt = PT.iloc[i_sample]
+                        t0 = T0.iloc[i_sample]
+                        i_time = np.argmin(np.abs(t0 - pt))
+                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)
+                        
+                        Pred_agents_N[i_sample, :pa.shape[1]] = pa[i_time]
+                    
+                    return Pred_agents_N
+        return Pred_agents
+    
     
     def prepare_batch_generation(self):
         # Required attributes of the model
@@ -867,8 +867,4 @@ class model_template():
     def predict_method(self):
         # takes test input and uses that to predict the output
         raise AttributeError('Has to be overridden in actual model.')
-        # return output
-
-    
-        
         

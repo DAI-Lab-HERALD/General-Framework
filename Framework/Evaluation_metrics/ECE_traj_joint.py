@@ -93,8 +93,7 @@ class ECE_traj_joint(evaluation_template):
             fig.set_figheight(3.5)
             ax.legend(loc='lower left')
             fig.show()
-            num = 16 + len(self.get_name()['file'])
-            fig.savefig(test_file[:-num] + 'ECE_traj_test.pdf', bbox_inches='tight')
+            fig.savefig(test_file, bbox_inches='tight')
             
     
     def get_output_type(self = None):
