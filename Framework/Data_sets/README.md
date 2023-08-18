@@ -143,8 +143,13 @@ The most important part of the dataset module is to provide access to training a
     **self.Type_old** : pandas.DataFrame  
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are
       identical to the column names of **self.Path**. Each corresponding entry contains the type of the agent
-      whose path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
-      while a "P" stands for a pedestrian.
+      whose path is recorded at the same location in *self.Path**.
+  
+      Currently, four types of agents are implemented:
+        - 'V': Vehicles like cars and trucks
+        - 'M': Motorcycles
+        - 'B': Bicycles
+        - 'P': Pedestrians
             
     **self.T** : np.ndarray
       A numpy array (dtype = object) of length :math:`N_{samples}`. Each row :math:`i` contains the timepoints 
