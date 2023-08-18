@@ -98,7 +98,7 @@ class Forking_Paths_augmented(data_set_template):
                 path_other = Paths_other_df.iloc[j]
                 num_T_other = path_other.tar.shape[0]
                 num_t = min(num_T, num_T_other)
-                Paths_other[i, :num_t] = path_other.tar[:num_t]
+                Paths_other[j, :num_t] = path_other.tar[:num_t]
     
             Check = Paths_other == path_init[np.newaxis]
             if Check.any():
@@ -113,7 +113,7 @@ class Forking_Paths_augmented(data_set_template):
                 path = pd.Series(np.zeros(0, np.ndarray), index = [])
                 agent_types = pd.Series(np.zeros(0, str), index = [])
                 
-                traj = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+                traj = path_init.copy()
                 
                 traj[ind_split + 1:] = (traj[ind_split + 1:] - traj[[ind_split]]) * factor + traj[[ind_split]] 
                 
