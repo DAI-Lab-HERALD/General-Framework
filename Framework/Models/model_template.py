@@ -301,7 +301,7 @@ class model_template():
                                                                       target_width = self.target_width, 
                                                                       grayscale = self.grayscale, 
                                                                       return_resolution = True)
-                
+
                 img          = img[:,np.newaxis]
                 img_m_per_px = img_m_per_px[:,np.newaxis]
             

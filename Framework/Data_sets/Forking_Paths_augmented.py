@@ -62,7 +62,6 @@ class Forking_Paths_augmented(data_set_template):
             
             # find crossing point
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])
             
             track_all = data_i.path.copy(deep = True)
             path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
