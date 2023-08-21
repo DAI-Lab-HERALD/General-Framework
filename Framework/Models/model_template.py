@@ -219,6 +219,8 @@ class model_template():
         for i_sample in range(self.data_set.Output_T.shape[0]):
             N_O_data[i_sample] = len(self.data_set.Output_T[i_sample])
             N_O_pred[i_sample] = len(self.data_set.Output_T_pred[i_sample])
+            
+        N_O_data = np.minimum(N_O_data, self.max_t_O_train)
         
         X_help = self.data_set.Input_path.to_numpy()
         Y_help = self.data_set.Output_path.to_numpy()
@@ -405,9 +407,8 @@ class model_template():
     
     def _extract_useful_training_samples(self):
         I_train = self.Index_train
-        N_O = np.minimum(self.N_O_data, self.max_t_O_train)
         
-        remain_samples = N_O[I_train] >= self.min_t_O_train
+        remain_samples = self.N_O_data[I_train] >= self.min_t_O_train
         
         # Only use samples with enough timesteps for training
         I_train = I_train[remain_samples]
@@ -459,13 +460,14 @@ class model_template():
             assert Pred_agents.shape == Agent_id.shape
         
         assert Sample_id.shape == Agent_id.shape[:1]
-        assert Pred.shape[[2,4]] == [self.num_samples_path_pred, 2]
+        assert Pred.shape[2] == self.num_samples_path_pred
+        assert Pred.shape[4] == 2
         
         for i, i_sample in enumerate(Sample_id):
-            for j, j_agent in enumerate(Agent_id[i]):
+            for j, agent in enumerate(Agent_id[i]):
                 if not Pred_agents[i,j]:
                     continue
-                self.Output_path_pred.iloc[i_sample, j_agent] = Pred[i, j,:, :, :].astype('float32')
+                self.Output_path_pred.iloc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
                 
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
@@ -779,7 +781,7 @@ class model_template():
     
     
     def create_empty_output_path(self):
-        Agents = np.array(self.Output_path_train.columns)
+        Agents = np.array(self.data_set.Output_path.columns)
         self.Output_path_pred = pd.DataFrame(np.empty((len(self.data_set.Output_T), len(Agents)), np.ndarray), columns = Agents)
         
     

@@ -340,7 +340,7 @@ class trajectron_salzmann_unicycle(model_template):
                 Weights[i][:] = torch.from_numpy(weights)[:]
         
     def predict_method(self):
-        batch_size = self.trajectron.hyperparams['batch_size']
+        batch_size = max(1, int(self.trajectron.hyperparams['batch_size'] / 10))
         
         prediction_done = False
         
@@ -351,6 +351,8 @@ class trajectron_salzmann_unicycle(model_template):
             X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
             batch, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, img_m_per_px, num_steps)
         
+            
+            torch.cuda.empty_cache()
             batch.to(self.trajectron.device)
             # Run prediction pass
             model = self.trajectron.node_models_dict[node_type.name]
@@ -370,8 +372,6 @@ class trajectron_salzmann_unicycle(model_template):
                 raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
                 
             
-            
-            torch.cuda.empty_cache()
             
             # set batchsize first
             Pred = Pred.transpose(1,0,2,3)

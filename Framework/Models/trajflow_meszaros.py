@@ -206,6 +206,7 @@ class trajflow_meszaros(model_template):
                     while not val_epoch_done:
                         X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
+                        
                         X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
                         past_data = X[:,0]

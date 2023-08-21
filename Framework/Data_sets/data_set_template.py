@@ -493,10 +493,8 @@ class data_set_template():
                                     self.get_name()['file'] + '--all_fixed_size.npy')
 
         if os.path.isfile(self.data_dtc_bound_file):
-            self.dtc_boundary = np.load(
-                self.data_dtc_bound_file, allow_pickle=True)
+            self.dtc_boundary = np.load( self.data_dtc_bound_file, allow_pickle=True)
         else:
-
             if self.classification_useful:
                 initial_size = np.zeros((1, len(self.id)), float)
                 final_size = np.zeros((1, len(self.id)), float)
