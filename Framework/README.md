@@ -28,7 +28,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'all': Every timestep where enough past and future observations are available (and agents aren't in wrong positions) is taken as on prediction time.
   - 'start': The first timestep at which all agents are in correct positions (see [*evaluate_scenario()*](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/README.md#extracting-classifiable-behavior)) is taken as the prediction time
   
-  For datasets, where the classification of trajectories into certain behaviors are possible, three more options are available.
+  For datasets, where the classification of trajectories into certain behaviors is possible, three more options are available.
   - 'col_set': The prediction is made at the point where the predicted time until the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) is fulfilled has the following size $\Delta t = \delta t \cdot n_I$ (see below at Data_params where $\delta t$ and $n_I$ are set.).
   - 'col_equal': Similar to 'col_set', only here $\Delta t$ is set so that over all possible behaviors the smallest number of samples that are included (i.e., at the prediction time the trajectory can not yet be classified) is maximized.
   - 'crit': The prediction is made at the last point in time where a prediction is still useful (for example, if one wants to predict in which direction a vehicle will turn at the intersection, this should be done before the vehicle enters the intersection). This can be defined via [*scenario.calculate_safe_action()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions).
@@ -44,9 +44,9 @@ Data_params = [{'dt': 0.2, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12,
 Here, the following keys have to be set:
 - 'dt': This is the timestep size $\delta t$ given in seconds, i.e., the time that passes between observed trajectory positions.
 - 'num_timesteps_in': These are the values for the number of input timesteps $n_I$. The first number in the tuple sets the number of actual timesteps given to the models. The second number meanwhile determines how many timesteps of data have to be available before the prediction time. This can be used to easier compare the influence of the number of input timesteps on the model performance, by keeping the dataset otherwise identical.
-- 'num_timesteps_out': These are the values for the number of output timesteps $n_O$. Again, the second value can be used to tell the framework to only allow samples to be in the dataset if they would also be eligible for a dataset with a higher $n_O$.
+- 'num_timesteps_out': These are the values for the number of output timesteps $n_O$. Again, the second value can be used to tell the framework only to allow samples to be in the dataset if they would also be eligible for a dataset with a higher $n_O$.
 
-After setting up the dataset and its parameters, on then has to select the splitting method.
+After setting up the dataset and its parameters, one then has to select the splitting method.
 ```
 Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
              {'Type': '<Split_method_2>', 'repetition': [0,1,2], 'test_part': 0.2}]
@@ -73,3 +73,42 @@ Finally, one has to pass the selected modules to the experiment.
 ```
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 ```
+
+## Set the experiment hyperparameters
+Besides selecting the modules, one must also set some hyperparameters for the overall framework.
+```
+num_samples_path_pred = 100
+```
+This sets the number $N_{preds}$ of different predictions that are expected from each trajectory prediction model to represent the inherent stochasticity of their predictions. While this number can be set to any liking, setting it to at least 20 is advisable to be comparable with most standard metrics, which are normally set on 20 such parameters.
+
+```
+enforce_prediction_times = True
+```
+When extracting the prediction time, it might be possible that there is not enough previously observed data available for a chosen prediction time to get positions for all required input time steps. In such cases, if **enforce_prediction_times** is set to *True*, then such a sample would be discarded, while otherwise the prediction time is moved back until sufficient observations are available.
+
+```
+enforce_num_timesteps_out = False
+```
+When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps, the setting **enforce_num_timesteps_out** to *True* would result in dismissing the sample, while setting it to *False* would mean retaining it.
+
+```
+exclude_post_crit = True
+```
+If the dataset allows for classification, and a method for defining the [last useful prediction time](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions) is available, the setting *exclude_post_crit** to *True* would result in all samples, where the prediction time is after this last useful time, to be discarded. If one chooses to set *False* instead, then only samples where the behavior can already be classified during past observations are discarded.
+
+```
+allow_extrapolation = True
+```
+In the framework, it is possible to extrapolate missing position data of certain agents during past and future observations, as some models might not be able to deal with such missing information. However, such extrapolated data might obfuscate the true human behavior. Therefore, this extrapolation can be prevented by setting **allow_extrapolation** to *False*, which might however lead to problems with some models.
+
+```
+dynamic_prediction_agents = False
+```
+In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model. In this case, it might be possible to include also any other agent in the scene, for which sufficient original past and future observations have been made, in the list of predicted and evaluated agents.
+
+
+
+
+
+
+
