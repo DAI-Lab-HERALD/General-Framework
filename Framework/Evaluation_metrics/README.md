@@ -56,7 +56,7 @@ Connected to this, one must also define whether this pre-processing type is even
 ```
   def requires_preprocessing(self):
     r''' 
-    If True, then the model will use pytorch on the gpu.
+    If True, then the function *setup_method* will be called and therefore has to be defined.
         
     Returns
     -------
