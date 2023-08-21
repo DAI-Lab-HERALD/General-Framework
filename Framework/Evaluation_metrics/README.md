@@ -92,7 +92,7 @@ Of the two trajectory prediction methods, *'path_all_wi_pov'* is generally to be
 
 
 Furthermore, it must also be checked if the metric can be even applied to the selected dataset. For this, the method *check_applicability()* is needed.
-If the model can be applied, it should return None, while otherwise, it should return a string that completes the sentence: "*This metric can not be applied, because...*".
+If the metric can be applied, it should return None, while otherwise, it should return a string that completes the sentence: "*This metric cannot be applied, because...*".
 
 ```    
   def check_applicability(self):
@@ -102,13 +102,13 @@ If the model can be applied, it should return None, while otherwise, it should r
     Returns
     -------
     reason : str
-      This str gives the reason why the model cannot be used in this instance. If the model is usable,
+      This str gives the reason why the metric cannot be used in this instance. If the metric is usable,
       return None instead.
         
     '''
     return reason
 ```
-A potential reason why the metric might not be applicable could be the restriction to a certain scenario (see *self.data_set.scenario.get_name()*) or dataset (see *self.data_set.get_name()*).
+A potential reason why the metric might not be applicable could be the restriction to a certain scenario (see [*self.data_set.scenario.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)) or dataset (see [*self.data_set.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#setting-up-the-class)).
 
 
 Finally, when comparing metrics, it is important to know if a superior model would minimize or maximize them. For this, the method *get_opt_goal()* is used:
@@ -120,8 +120,8 @@ Finally, when comparing metrics, it is important to know if a superior model wou
     Returns
     -------
     metric_goal : str
-      This str gives the goal of comparisions. If **metric_goal** = 'minimze', than a lower metric
-      value indicates a better value, why 'maximize' is the other way around. As the framework
+      This str gives the goal of comparisions. If **metric_goal** = 'minimze', then a lower metric
+      value indicates a better value, while 'maximize' is the other way around. As the framework
       only checks if the return here is 'minimize', any other string would be treated as if it
       was set to 'maximize'.
         
