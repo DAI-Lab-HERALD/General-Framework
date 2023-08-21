@@ -68,6 +68,18 @@ class trajectron_salzmann_unicycle(model_template):
         self.trajectron = Trajectron(model_registrar, hyperparams, None, self.device)
         self.trajectron.set_environment()
         self.trajectron.set_annealing_params()
+        
+    def rotate_pos_matrix(self, M, rot_angle):
+        assert M.shape[-1] == 2
+        assert M.shape[0] == len(rot_angle)
+        
+        R = np.array([[np.cos(rot_angle), -np.sin(rot_angle)],
+                      [np.sin(rot_angle),  np.cos(rot_angle)]]).transpose(2,0,1)
+        R = R[:,np.newaxis]
+        
+        M_r = np.matmul(M, R)
+        return M_r
+        
     
     def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):
         attention_radius = dict()
@@ -98,7 +110,16 @@ class trajectron_salzmann_unicycle(model_template):
         Types[T == 'B'] = AgentType.BICYCLE
         Types[T == 'M'] = AgentType.MOTORCYCLE
         
-        V = (X[...,1:,:] - X[...,:-1,:]) / self.dt
+        # TODO: Rotate and translate all samples
+        center_pos = X[:,0,-1]
+        delta_x = center_pos - X[:,0,-2]
+        rot_angle = np.angle(delta_x[:,0] + 1j * delta_x[:,1])
+
+        center_pos = center_pos[:,np.newaxis,np.newaxis]        
+        X_r = self.rotate_pos_matrix(X - center_pos, rot_angle)
+        
+        
+        V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
         V = np.concatenate((V[...,[0],:], V), axis = -2)
        
         # get accelaration
@@ -111,7 +132,7 @@ class trajectron_salzmann_unicycle(model_template):
         Cos = np.cos(H)
        
         #final state S
-        S = np.concatenate((X, V, A, Sin, Cos), axis = -1).astype(np.float32)
+        S = np.concatenate((X_r, V, A, Sin, Cos), axis = -1).astype(np.float32)
         
         Ped_agents = Types == AgentType.PEDESTRIAN
         
@@ -123,7 +144,7 @@ class trajectron_salzmann_unicycle(model_template):
         S_st[Ped_agents,:,4:6]  /= self.std_acc_ped
         S_st[~Ped_agents,:,4:6] /= self.std_acc_veh
         
-        D = np.min(np.sqrt(np.sum((X[:,0] - X) ** 2, axis = -1)), axis = - 1)
+        D = np.min(np.sqrt(np.sum((X[:,[0]] - X) ** 2, axis = -1)), axis = - 1)
         D_max = np.zeros_like(D)
         for i_sample in range(len(D)):
             for i_v in range(X.shape[1]):
@@ -169,14 +190,14 @@ class trajectron_salzmann_unicycle(model_template):
             pos_to_vel_fac = self.std_vel_veh / self.std_pos_veh 
             
         # Only take out prediction agent
-        S_st = S_st[:,0]
+        S_st_tar = S_st[:,0]
         
         if Y is None:
             batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
                                agent_type      = node_type,
                                pos_to_vel_fac  = pos_to_vel_fac,
-                               agent_hist      = torch.from_numpy(S_st).to(dtype = torch.float32), 
-                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st.shape[2], 
+                               agent_hist      = torch.from_numpy(S_st_tar).to(dtype = torch.float32), 
+                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st_tar.shape[2], 
                                agent_fut       = None,
                                agent_fut_len   = None, 
                                robot_fut       = None,
@@ -188,7 +209,7 @@ class trajectron_salzmann_unicycle(model_template):
                                maps            = img_batch, 
                                maps_resolution = res_batch)
         else:
-            Y_st = Y.copy()
+            Y_st = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
             Y_st[Ped_agents[:,0]]  /= self.std_pos_ped
             Y_st[~Ped_agents[:,0]] /= self.std_pos_veh
         
@@ -198,10 +219,10 @@ class trajectron_salzmann_unicycle(model_template):
             batch = AgentBatch(dt              = torch.ones(num_batch_samples, dtype = torch.float32) * self.dt, 
                                agent_type      = node_type,
                                pos_to_vel_fac  = pos_to_vel_fac,
-                               agent_hist      = torch.from_numpy(S_st).to(dtype = torch.float32), 
+                               agent_hist      = torch.from_numpy(S_st_tar).to(dtype = torch.float32), 
                                agent_fut       = torch.from_numpy(Y_st).to(dtype = torch.float32),
                                # Todo: Generate better occupancy maps
-                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st.shape[2], 
+                               agent_hist_len  = torch.ones(num_batch_samples).to(dtype = torch.int64) * S_st_tar.shape[2], 
                                agent_fut_len   = torch.ones(num_batch_samples).to(dtype = torch.int64) * num_steps, 
                                robot_fut       = None,
                                robot_fut_len   = None,
@@ -211,7 +232,7 @@ class trajectron_salzmann_unicycle(model_template):
                                neigh_hist_len  = torch.from_numpy(Neigh_len).to(dtype = torch.int64), 
                                maps            = img_batch, 
                                maps_resolution = res_batch)
-        return batch, node_type
+        return batch, node_type, center_pos, rot_angle
     
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
@@ -270,7 +291,7 @@ class trajectron_salzmann_unicycle(model_template):
                 batch += 1
                 print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch))
                 X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', batch_size)
-                batch, node_type = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
+                batch, node_type, _, _ = self.extract_data_batch(X, T, Y, img, img_m_per_px, num_steps)
                 
                 batch.to(device = self.trajectron.device)
                 
@@ -323,7 +344,7 @@ class trajectron_salzmann_unicycle(model_template):
             batch += 1
             print('Predict trajectron: Batch {}'.format( batch))
             X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
-            batch, node_type = self.extract_data_batch(X, T, None, img, img_m_per_px, num_steps)
+            batch, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, img_m_per_px, num_steps)
         
             batch.to(self.trajectron.device)
             # Run prediction pass
@@ -342,12 +363,21 @@ class trajectron_salzmann_unicycle(model_template):
                 Pred *= self.std_pos_veh
             else:
                 raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
+                
+            
             
             torch.cuda.empty_cache()
             
             # set batchsize first
             Pred = Pred.transpose(1,0,2,3)
-            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
+            
+            # reverse rotation
+            Pred_r = self.rotate_pos_matrix(Pred, -rot_angle)
+            
+            # reverse translation
+            Pred_t = Pred_r + center_pos
+            
+            self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
     
     
     def check_trainability_method(self):

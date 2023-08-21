@@ -659,7 +659,7 @@ class data_set_template():
             t0_type_name = t0_type_file_name[self.t0_type] + '_s'
         else:
             t0_type_name = t0_type_file_name[self.t0_type] + '_l'
-
+            
         self.data_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                           'Data' + os.sep +
@@ -671,6 +671,7 @@ class data_set_template():
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
+                          '--max_' + str(self.max_num_agents) + '_agents'
                           '.npy')
 
         # check if same data set has already been done in the same way
@@ -735,7 +736,7 @@ class data_set_template():
             num_samples = len(self.id)
             for i in range(num_samples):
                 # print progress
-                if np.mod(i, 1) == 0:
+                if np.mod(i, 10) == 0:
                     print('path ' + str(i).rjust(len(str(num_samples))) +
                           '/{} divided'.format(num_samples))
 

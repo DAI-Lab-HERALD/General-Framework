@@ -104,7 +104,14 @@ class data_interface(object):
             
         self.p_quantile = list(self.Datasets.values())[0].p_quantile
         
-        self.max_num_agents = max([data_set.max_num_agents for data_set in list(self.Datasets.values())])
+        
+        max_num_agents = np.array([data_set.max_num_agents for data_set in list(self.Datasets.values())])
+        if np.all(max_num_agents == None):
+            self.max_num_agents = None
+        else:        
+            max_num_agents = max_num_agents[max_num_agents != None]
+            self.max_num_agents = max_num_agents.min()
+        
         self.data_loaded = False
         
     
@@ -145,6 +152,7 @@ class data_interface(object):
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
+                          '--max_' + str(self.max_num_agents) + '_agents'
                           '.npy')
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
