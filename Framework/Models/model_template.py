@@ -224,6 +224,9 @@ class model_template():
         Y_help = self.data_set.Output_path.to_numpy()
         
         T = self.data_set.Type.to_numpy()
+        T = T.astype(str)
+        T[T == 'nan'] = '0'
+        
         Recorded_old = self.data_set.Recorded
         domain_old = self.data_set.Domain
         
@@ -391,10 +394,13 @@ class model_template():
           This is a one-dimensional numpy array that includes all agent types that can be found in the given dataset.
     
         '''
+        # get all agent types
         T = self.data_set.Type.to_numpy()
-        T[T == np.nan] = '0'
-        T_all = np.unique(T.astype(str))
-        T_all = T_all[T_all != 'nan']
+        T = T.astype(str)
+        T[T == 'nan'] = '0'
+        
+        T_all = np.unique(T)
+        T_all = T_all[T_all != '0']
         return T_all
     
     def _extract_useful_training_samples(self):
@@ -495,7 +501,7 @@ class model_template():
         T : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
-            If an agent is not observed at all, the value will instead be np.nan.
+            If an agent is not observed at all, the value will instead be '0'.
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -652,7 +658,7 @@ class model_template():
         T : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
-            for available types). If an agent is not observed at all, the value will instead be np.nan.
+            for available types). If an agent is not observed at all, the value will instead be '0'.
         agent_names : list
             This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
             agent.
@@ -684,6 +690,8 @@ class model_template():
         D_help = self.data_set.Input_prediction.to_numpy()
         
         T = self.data_set.Type.to_numpy()
+        T = T.astype(str)
+        T[T == 'nan'] = '0'
         
         # Determine needed agents
         Agents = np.array(self.input_names_train)
