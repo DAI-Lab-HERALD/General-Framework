@@ -23,7 +23,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.parametrize as P
 import torch.optim as optim
-import wandb
 from torch.nn.utils.rnn import pack_padded_sequence
 
 import Trajectron.trajec_model.dynamics as dynamic_module
@@ -725,10 +724,7 @@ class MultimodalGenerativeCVAE(nn.Module):
                 and self.log_writer
                 and (self.curr_iter + 1) % 500 == 0
             ):
-                image = wandb.Image(batch.maps[0], caption=f"Batch Map 0")
-                self.log_writer.log(
-                    {f"{self.node_type}/maps": image}, step=self.curr_iter, commit=False
-                )
+                pass
 
             encoded_map = self.node_modules[self.node_type + "/map_encoder"](
                 batch.maps * 2.0 - 1.0, (mode == ModeKeys.TRAIN)
@@ -1896,15 +1892,7 @@ class MultimodalGenerativeCVAE(nn.Module):
             and self.log_writer
             and (self.curr_iter + 1) % 500 == 0
         ):
-            self.log_writer.log(
-                {
-                    f"{str(self.node_type)}/log_p_yt_xz": wandb.Histogram(
-                        log_p_yt_xz.detach().cpu().numpy()
-                    )
-                },
-                step=self.curr_iter,
-                commit=False,
-            )
+            pass
         if self.log_writer and self.hyperparams["adaptive"]:
             blr_layer: BayesianLastLayer = self.node_modules[
                 self.node_type + "/decoder/last_layer"

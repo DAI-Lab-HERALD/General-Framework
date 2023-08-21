@@ -700,7 +700,7 @@ class model_template():
         
         # Determine map use
         X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        if self.data_set.general_input_available:
+        if self.general_input_available:
             D = np.ones(list(X_help.shape) + [self.timesteps], dtype = np.float32) * np.nan
         else:
             D = None

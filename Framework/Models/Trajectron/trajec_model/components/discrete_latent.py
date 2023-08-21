@@ -16,7 +16,6 @@
 import numpy as np
 import torch
 import torch.distributions as td
-import wandb
 
 from Trajectron.trajec_model.model_utils import ModeKeys
 
@@ -159,40 +158,4 @@ class DiscreteLatent(object):
         )  # [K**N, N*K]
 
     def summarize_for_tensorboard(self, log_writer, prefix, curr_iter):
-        log_writer.log(
-            {
-                prefix
-                + "/latent/p_z_x": wandb.Histogram(
-                    self.p_dist.probs.detach().cpu().numpy()
-                ),
-                prefix
-                + "/latent/q_z_xy": wandb.Histogram(
-                    self.q_dist.probs.detach().cpu().numpy()
-                ),
-                prefix
-                + "/latent/p_z_x_logits": wandb.Histogram(
-                    self.p_dist.logits.detach().cpu().numpy()
-                ),
-                prefix
-                + "/latent/q_z_xy_logits": wandb.Histogram(
-                    self.q_dist.logits.detach().cpu().numpy()
-                ),
-            },
-            step=curr_iter,
-            commit=False,
-        )
-        if self.z_dim <= 9:
-            for i in range(self.N):
-                for j in range(self.K):
-                    log_writer.log(
-                        {
-                            prefix
-                            + "/latent/q_z_xy_logit{0}{1}".format(
-                                i, j
-                            ): wandb.Histogram(
-                                self.q_dist.logits[:, i, j].detach().cpu().numpy()
-                            )
-                        },
-                        step=curr_iter,
-                        commit=False,
-                    )
+        pass
