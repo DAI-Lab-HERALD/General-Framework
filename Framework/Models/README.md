@@ -101,8 +101,46 @@ If the model can be applied, it should return None, while otherwise, it should r
 ```
 Potential reasons why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
 
+```
 
-## Training process data
+## Model Setup
+The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
+
+```
+  def setup_method(self):
+    ... 
+```
+This function does not have any returns, so every variable required in the downstream task has to be saved by setting a class attribute (**self.<attribute_name>**).
+
+## Training the model
+After setting up the model, the next step is to train certain parameters of the model. This is done in the function *train_method()*. This is a very varied process over different methods, but depending on the model type, the use of [helper functions](#useful-helper-functions) can ease this process, either for trajectory prediction models or for classification models. These functions are primarily designed to allow the quick extraction and saving of training data and predictions. 
+
+```
+  def train_method(self):
+    ...
+    self.saved_weights = []
+```
+
+While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
+
+If the data is somehow standardized based on data, those standardization parameters should also be saved similar to model weights, as the test dataset will not be identical to the training one.
+  
+
+## Saving and loading the model
+An important part of the framework is the ability to save trained models, so repeated training is not necessarily needed. Saving a model can be done in two ways.
+- First, model weights can be saved in the aforementioned list **self.weights_saved**. This can include any form such as lists, numpy arrays, pandas DataFrames, etc. It has to be stressed that even if this method is not used, **self.weights_saved** has to be defined as an empty list anyway.
+- Second, one can make use of [**self.model_file**](#model-attributes) to save the model in separate files (such as .h5 files for tensorflow models or .pkl ones for pytorch ones). If the model is especially large, so that a timeout during training on a high-performance cluster with a set computation time is likely, it might be advisable to use this method to save intermediate or partial versions of the model, so that training does not have to start from scratch.
+
+As one might not always train models and then make predictions in the same session, one has also to define the ability to load the model. This is done in the function *load_method()*.
+
+```
+  def load_method(self):
+    ...
+    [...] = self.saved_weights
+```
+
+In this function, one should be able to use **self.model_file** and **self.weights_saved** to set the model weights to the ones of the trained model. 
+This function does not return any results, but as it is an alternative to [*train_method()*](#training-the-model), it should leave the class with the same attributes, so that prediction can be performed afterward.
 
 One can also use the framework to save training process data, such as epoch losses or final model parameters. Here, two functions are important to define:
 
@@ -138,46 +176,7 @@ For later analysis, saving a model's loss during training might be valuable. To 
   This is a two-dimensional array. While one dimension is likely reserved for the different epochs,
   the second dimension allows the saving of loss data for multiple training steps (such as when training
   multiple model parts separately).
-```
-
-## Model Setup
-The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
-
-```
-  def setup_method(self):
-    ... 
-```
-This function does not have any returns, so every variable required in the downstream task has to be saved by setting a class attribute (**self.<attribute_name>**).
-
-## Training the model
-After setting up the model, the next step is to train certain parameters of the model. This is done in the function *train_method()*. This is a very varied process over different methods, but depending on the model type, the use of [helper functions](#useful-helper-functions) can ease this process, either for trajectory prediction models or for classification models. These functions are primarily designed to allow the quick extraction and saving of training data and predictions. 
-
-```
-  def train_method(self):
-    ...
-    self.saved_weights = []
-```
-
-While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
-
-If the data is somehow standardized based on data, those standardization parameters should also be saved similar to model weights, as the test dataset will not be identical to the training one.
-
-
-## Saving and loading the model
-An important part of the framework is the ability to save trained models, so repeated training is not necessarily needed. Saving a model can be done in two ways.
-- First, model weights can be saved in the aforementioned list **self.weights_saved**. This can include any form such as lists, numpy arrays, pandas DataFrames, etc. It has to be stressed that even if this method is not used, **self.weights_saved** has to be defined as an empty list anyway.
-- Second, one can make use of [**self.model_file**](#model-attributes) to save the model in separate files (such as .h5 files for tensorflow models or .pkl ones for pytorch ones). If the model is especially large, so that a timeout during training on a high-performance cluster with a set computation time is likely, it might be advisable to use this method to save intermediate or partial versions of the model, so that training does not have to start from scratch.
-
-As one might not always train models and then make predictions in the same session, one has also to define the ability to load the model. This is done in the function *load_method()*.
-
-```
-  def load_method(self):
-    ...
-    [...] = self.saved_weights
-```
-
-In this function, one should be able to use **self.model_file** and **self.weights_saved** to set the model weights to the ones of the trained model. 
-This function does not return any results, but as it is an alternative to [*train_method()*](#training-the-model), it should leave the class with the same attributes, so that prediction can be performed afterward.
+  
 
 ## Making predictions
 After training or loading a trained model, one then has to make predictions. Here, one first has to extract the input data using the [helper functions](#useful-helper-functions), before making predictions and then saving them with the use of the corresponding helper functions (this is necessary, as previously, the framework does not expect any return by the function).
