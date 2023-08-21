@@ -29,8 +29,10 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'start': The first timestep at which all agents are in correct positions (see [*evaluate_scenario()*](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/README.md#extracting-classifiable-behavior)) is taken as the prediction time
   
   For datasets, where the classification of trajectories into certain behaviors are possible, three more options are available.
-  - 'col_set': The prediction is made at the point where the predicted time until the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) is fulfilled has the following size $\Delta t = \delta t \cdot n_I$ (see below at Data_params).
-  - 'col_equal': 
+  - 'col_set': The prediction is made at the point where the predicted time until the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) is fulfilled has the following size $\Delta t = \delta t \cdot n_I$ (see below at Data_params where $\delta t$ and $n_I$ are set.).
+  - 'col_equal': Similar to 'col_set', only here $\Delta t$ is set so that over all possible behaviors the smallest number of samples that are included (i.e., at the prediction time the trajectory can not yet be classified) is maximized.
+  - 'crit': The prediction is made at the last point in time where a prediction is still useful (for example, if one wants to predict in which direction a vehicle will turn at the intersection, this should be done before the vehicle enters the intersection). This can be defined via [*scenario.calculate_safe_action()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions).
+- 'conforming_t0_types': If **t0_type** is not set to 'all', then one can set one of the other three choices for t0_types that is not 'all'. If this is done, then a sample is only included in the overall dataset, if it would have been included under those conforming t0_types as well. This allows one to compare the influence of different t0_types on model performance while guaranteeing that the datasets are otherwise identical. 
 
 
 
