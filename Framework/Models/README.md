@@ -367,7 +367,7 @@ def get_classification_data(self, train = True):
     This is the generalized past observed data of the agents, in the form of a
     :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
     It is dependent on the scenario and represenst characteristic attributes of a scene such as 
-    distances between vehicles.
+    distances between vehicles. If general_input_available is False, this variable will be set to None.
   dist_names : list
     This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
     characteristic distance.
