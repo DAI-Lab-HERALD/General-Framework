@@ -266,7 +266,7 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
   T : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
-    for available types). If an agent is not observed at all, the value will instead be np.nan.
+    for available types). If an agent is not observed at all, the value will instead be '0'.
     It is only returned if **return_types** is *True*.
   
   '''
