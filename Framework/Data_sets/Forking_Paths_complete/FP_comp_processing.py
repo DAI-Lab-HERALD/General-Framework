@@ -13,7 +13,7 @@ dataset_paths.sort()
 ## TODO check
 framerate = 2.5
 
-Final_data = pd.DataFrame(np.zeros((1,5), object), columns = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
+Final_data = pd.DataFrame(np.zeros((1,6), object), columns = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
 overall_id = 0
 # Load each dataset separately; these will be concatenated later into one dataset
 for dataset_path in dataset_paths:
@@ -39,13 +39,14 @@ for dataset_path in dataset_paths:
             if len(Index) == 0:
                 track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
                 track.frame = frame
-                track.t = (frame - 1) / framerate
+                track.t = frame / fps #(frame - 1) / framerate
                 track.x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
                 track.y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
                 track = track.set_index('frame')
 
-                data = pd.Series(np.zeros((5), object), index = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
+                data = pd.Series(np.zeros((6), object), index = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
                 data.Id             = detection[i]['track_id']
+                data.type           = detection[i]['class_name'][0]
                 data['First frame'] = frame
                 data['Last frame']  = frame
                 data.scenario       = dataset_path[:-5]
@@ -62,7 +63,7 @@ for dataset_path in dataset_paths:
                 data['Last frame']  = max(frame, data['Last frame'])
                 
                 data.path.loc[frame] = pd.Series(np.zeros(3), index = ['t', 'x', 'y'])
-                data.path.loc[frame].t = (frame - 1) / framerate
+                data.path.loc[frame].t = frame / fps #(frame - 1) / framerate
                 data.path.loc[frame].x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
                 data.path.loc[frame].y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
 
@@ -75,4 +76,4 @@ for dataset_path in dataset_paths:
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
         
 #%%
-Final_data.to_pickle(path + os.sep + "FP_processed.pkl")   
+Final_data.to_pickle(path + os.sep + "FP_comp_processed.pkl")   

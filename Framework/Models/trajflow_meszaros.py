@@ -72,7 +72,7 @@ class trajflow_meszaros(model_template):
         self.flow_wd = 1e-5
 
         self.std_pos_ped = 1
-        self.std_pos_veh = 80
+        self.std_pos_veh = 1 #80
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -100,6 +100,13 @@ class trajflow_meszaros(model_template):
         
         if img is not None:
             img = torch.from_numpy(img).float().to(device = self.device) / 255
+
+        if self.data_set.name == 'Fork_P_Aug':
+            traj_tmp = torch.concat((X[:,0], Y[:,0]), dim = 1)
+            self.max_pos = torch.max(traj_tmp)
+            self.min_pos = torch.min(traj_tmp)
+            X = (X - self.min_pos) / (self.max_pos - self.min_pos)
+            Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
             
         return X, T_out, Y, img
     
@@ -489,6 +496,9 @@ class trajflow_meszaros(model_template):
             
             Pred[Ped_agent[:,0]]  *= self.std_pos_ped
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
+
+            if self.data_set.name == 'Fork_P_Aug':
+                Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
             
             torch.cuda.empty_cache()
             
