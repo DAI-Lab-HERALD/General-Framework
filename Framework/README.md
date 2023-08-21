@@ -124,8 +124,23 @@ new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred,
                               dynamic_prediction_agents, overwrite_results)
 ```
 
+## Getting results
+After preparing everything, the experiment can then be run with the following line:
+```
+new_experiment.run()     
+```
 
+After running the experiment, one then can get the results with the following command:
+```
+Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = True,
+                                                           return_train_results = True,
+                                                           return_train_loss = True)
+```
+Here, **Results** is the results of the model on the testing set, while **Train_results** is similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data_sets), len(Data_params), num_splits, len(Models), len(Metrics)\}$. It must be noted that len(Splitters) is not necessarily identical to num_splits, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
 
+Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
+The arguments *return_train_results* and *return_train_loss* respectively indicate if **Train_results** and **Loss** should be returned. Meanwhile, if *plot_is_possible = True*, then [plots](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#metric-visualization) such as calibration curves for the ECE metrics are plotted as well. 
 
+## Visualizing results
 
