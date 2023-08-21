@@ -7,10 +7,12 @@ from splitting_template import splitting_template
 
 class no_split(splitting_template):
     def split_data_method(self):
-        Index = np.arange(len(self.data_set.Output_A))
+        Index = np.arange(len(self.Domain))
         
-        self.Train_index = Index
-        self.Test_index  = Index
+        Train_index = Index
+        Test_index  = Index
+        
+        return Train_index, Test_index
         
     def get_name(self):
         names = {'print': 'No splitting',

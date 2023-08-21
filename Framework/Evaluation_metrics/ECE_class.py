@@ -147,8 +147,7 @@ class ECE_class(evaluation_template):
         if save:
             ax.legend()
             fig.show()
-            num = 16 + len(self.get_name()['file'])
-            fig.savefig(test_file[:-num] + 'ECE_test.pdf', bbox_inches='tight')
+            fig.savefig(test_file, bbox_inches='tight')
         
     
     def get_output_type(self = None):

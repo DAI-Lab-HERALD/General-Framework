@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 import os
-import scipy as sp
-
-
 
 
 class splitting_template():
@@ -12,10 +9,12 @@ class splitting_template():
         self.data_set = data_set
         
         # Set the part of datasets sorted into test sets
-        self.test_part = test_partition
+        self.test_part = min(1.0, max(0.0, test_partition))
         
         assert repetition < 10, "No more than 10 repetitions of the same splitting type are possible."
         self.repetition = int(max(0,repetition))
+        
+        self.Domain = self.data_set.Domain
        
     def split_data(self):
         self.split_file = self.data_set.change_result_directory(self.data_set.data_file, 'Splitting', 
@@ -24,7 +23,7 @@ class splitting_template():
             [self.Train_index, 
              self.Test_index, _] = np.load(self.split_file, allow_pickle = True)
         else:
-            self.split_data_method()
+            self.Train_index, self.Test_index = self.split_data_method()
              
             # check if split was successful
             if not all([hasattr(self, attr) for attr in ['Train_index', 'Test_index']]):
@@ -44,9 +43,13 @@ class splitting_template():
 
     def check_splitability(self):
         max_rep = self.repetition_number()
-        if max_rep is not None:
-            if self.repetition >= max_rep:
-                return 'this splitting method only allows for {} repetitions.'.format(max_rep)
+        if max_rep is None:
+            max_rep = 10
+        else:
+            max_rep = min(10, max_rep)
+            
+        if self.repetition >= max_rep:
+            return 'this splitting method only allows for {} repetitions.'.format(max_rep)
         
         return self.check_splitability_method()  
     
@@ -91,7 +94,7 @@ class splitting_template():
         raise AttributeError('Has to be overridden in actual method.') 
         
     def repetition_number(self):
-        # Provides the umber of repetitions that the model requires
+        # Provides the number of repetitions that the model requires
         raise AttributeError('Has to be overridden in actual method.') 
         
         

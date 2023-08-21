@@ -59,7 +59,7 @@ If this function returns true, then the corresponding model device will be named
 But equally important in the interactions with the rest of the framework is the type of output the model produces:
 
 ```    
-  def get_output(self = None):
+  def get_output_type(self = None):
     r'''
     This returns a string with the output type:
     The possibilities are:
@@ -69,8 +69,8 @@ But equally important in the interactions with the rest of the framework is the 
     pov agent.
     'class' : This returns the predicted probability that some class of behavior will be observable
     in the future.
-    'class' : This predicted both the aforementioned probabilities, as well as the time at which the behavior
-    will become observable.
+    'class_and_time' : This predicted both the aforementioned probabilities, as well as the time at which
+    the behavior will become observable.
         
     Returns
     -------
@@ -88,7 +88,7 @@ If the model can be applied, it should return None, while otherwise, it should r
 ```    
   def check_trainability_method(self):
     r'''
-    This function potentiall returns reasons why the model is not applicable to the chosen scenario.
+    This function potentially returns reasons why the model is not applicable to the chosen scenario.
         
     Returns
     -------
@@ -99,7 +99,7 @@ If the model can be applied, it should return None, while otherwise, it should r
     '''
     return reason
 ```
-Potential reason why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
+Potential reasons why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
 
 
 ## Training process data

@@ -77,8 +77,7 @@ class Oracle_indep(evaluation_template):
         if save:
             # ax.legend()
             fig.show()
-            num = 16 + len(self.get_name()['file'])
-            fig.savefig(test_file[:-num] + 'Oracle_test.pdf', bbox_inches='tight')  
+            fig.savefig(test_file, bbox_inches='tight')  
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

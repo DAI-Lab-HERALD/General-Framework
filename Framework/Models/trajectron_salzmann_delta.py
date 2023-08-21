@@ -235,7 +235,12 @@ class trajectron_salzmann_delta(model_template):
         return optimizer, lr_scheduler
 
     def train_method(self, epochs = 100): 
-        Pred_types = np.array([AgentType.PEDESTRIAN, AgentType.VEHICLE])
+        T_all = self.provide_all_included_agent_types()
+        Pred_types = np.empty(T_all.shape, dtype = AgentType)
+        Pred_types[T_all == 'P'] = AgentType.PEDESTRIAN
+        Pred_types[T_all == 'V'] = AgentType.VEHICLE
+        Pred_types[T_all == 'B'] = AgentType.BICYCLE
+        Pred_types[T_all == 'M'] = AgentType.MOTORCYCLE
         
         # Get gradient clipping values              
         clip_value_final = self.trajectron.hyperparams['grad_clip']

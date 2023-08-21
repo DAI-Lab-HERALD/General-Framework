@@ -1006,12 +1006,13 @@ class data_set_template():
         return path + os.sep + file
     
     
-    def _interpolate_image(self, imgs_rot, pos_old, unique_imgs_n, unique_locations):
+    def _interpolate_image(self, imgs_rot, pos_old, unique_imgs_n, location_ind):
+        
         useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= unique_imgs_n.shape[2] - 1) &
                   (0 <= pos_old[...,1]) & (pos_old[...,1] <= unique_imgs_n.shape[1] - 1))
         
         useful_ind, useful_row, useful_col = torch.where(useful)
-        useful_loc = unique_locations[useful_ind]
+        useful_loc = location_ind[useful_ind]
         pos_old = pos_old[useful_ind, useful_row, useful_col,:]
         
         pos_up  = torch.ceil(pos_old).to(dtype = torch.int64)
@@ -1037,10 +1038,12 @@ class data_set_template():
             imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = unique_imgs_n.dtype)
         else:
             imgs_rot[useful] = imgs_rot_v.to(dtype = unique_imgs_n.dtype)
-            
+        
         return imgs_rot
-
-    def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale = False):
+    
+    
+    def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale,
+                            Imgs_rot, Imgs_index):
         if self.includes_images():
             print('')
             print('Load needed images:', flush = True)
@@ -1063,10 +1066,16 @@ class data_set_template():
             print('')
             print('Get locations:', flush = True)
             Locations = domain.image_id.to_numpy()
-            Imgs_shape = np.stack(self.Images.Image.to_list(), 0).shape
             
             print('Extract rotation matrix', flush = True)
-            max_size = 2 * max(Imgs_shape[1:3]) + 1
+            max_size = 2 * max(self.Images.Image.iloc[0].shape[:2]) + 1
+            
+            # check if images are float
+            if self.Images.Image.iloc[0].max() > 1:
+                rgb = True
+                assert self.Images.Image.iloc[0].max() < 256
+            else:
+                rgb = False
             
             if target_width is None:
                 target_width = max_size
@@ -1104,24 +1113,16 @@ class data_set_template():
                 center_old     = torch.from_numpy(center_old).float().to(device = device)
             # setup meshgrid
             
-            Ypx, Xpx = torch.meshgrid(torch.arange(max_size, device = device), 
-                                      torch.arange(max_size, device = device),
+            height_fac = (target_height - 1) / 2 
+            width_fac = (target_width - 1) / 2           
+            Ypx, Xpx = torch.meshgrid(torch.arange(-height_fac, height_fac + 0.5, device = device), 
+                                      torch.arange(-width_fac, width_fac + 0.5, device = device),
                                       indexing = 'ij')
             
             Pos_old = torch.stack([Xpx, Ypx], -1).unsqueeze(0)
             
-            Pos_old = Pos_old - (max_size - 1) / 2
             Pos_old[...,1] *= -1
-            
-            print('')
-            print('Reserve memory for rotated images:', flush = True)
-            
-            if grayscale:
-                Imgs_rot = np.zeros((len(domain), target_height, target_width, 1), dtype = 'uint8')
-            else:
-                Imgs_rot = np.zeros((len(domain), target_height, target_width, 3), dtype = 'uint8')
                 
-            Imgs_rot.fill(0.0)
             # CPU
             print('Reserved memory for rotated images.', flush = True)
             CPU_mem = psutil.virtual_memory()
@@ -1138,7 +1139,7 @@ class data_set_template():
             print('GPU previous min available: {:0.2f}'.format(gpu_total - gpu_max_reserved), flush = True)
             print('', flush = True)
             print('start rotating', flush = True)
-            n = 50
+            n = 250
             for i in range(0,len(domain), n):
                 torch.cuda.empty_cache()
                 print('rotating images ' + str(i) + ' to ' + str(min(i + n, len(domain)))+ ' of ' + str(len(domain)) + ' total', flush = True)
@@ -1167,32 +1168,24 @@ class data_set_template():
                 torch.cuda.empty_cache()
                 
                 # Enforce grayscale here using the gpu
-                unique_locations, location_ind = np.unique(locations)
+                unique_locations, location_ind = np.unique(locations, return_inverse = True)
                 unique_Images = np.stack(self.Images.Image.loc[unique_locations].to_list(), 0)
                 unique_imgs_n = torch.from_numpy(unique_Images).to(device = device)
                 
                 if grayscale:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 1), dtype = unique_imgs_n.dtype, device = device)
+                    imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = unique_imgs_n.dtype, device = device)
                 else:
-                    imgs_rot = torch.zeros((len(Index), max_size, max_size, 3), dtype = unique_imgs_n.dtype, device = device)
+                    imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = unique_imgs_n.dtype, device = device)
+                
+                location_ind = torch.from_numpy(location_ind).to(device = device)
+                
+                imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, location_ind)
+                
+                if not rgb:
+                    imgs_rot = 255 * imgs_rot
                     
-                imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, unique_locations)
-                
                 torch.cuda.empty_cache()
-                col_pad = (max_size - target_width) * 0.5
-                row_pad = (max_size - target_height) * 0.5
-            
-                if col_pad > 0 and row_pad > 0:
-                    Imgs_rot[Index] = imgs_rot[:,int(np.floor(row_pad)):-int(np.ceil(row_pad)), 
-                                               int(np.floor(col_pad)):-int(np.ceil(col_pad))].detach().cpu().numpy().astype('uint8')
-                
-                elif col_pad > 0 and row_pad == 0:
-                    Imgs_rot[Index] = imgs_rot[:,:,int(np.floor(col_pad)):-int(np.ceil(col_pad))].detach().cpu().numpy().astype('uint8')
-                
-                elif col_pad == 0 and row_pad > 0:
-                    Imgs_rot[Index] = imgs_rot[:,int(np.floor(row_pad)):-int(np.ceil(row_pad)),:].detach().cpu().numpy().astype('uint8')
-                else:
-                    Imgs_rot[Index] = imgs_rot.detach().cpu().numpy().astype('uint8')
+                Imgs_rot[Imgs_index[Index]] = imgs_rot.detach().cpu().numpy().astype('uint8')
         
             return Imgs_rot
         else:

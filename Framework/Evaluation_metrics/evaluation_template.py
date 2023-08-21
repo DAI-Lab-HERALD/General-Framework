@@ -41,6 +41,8 @@ class evaluation_template():
             self.splitter = splitter
             self.model = model
             
+            self.t_e_quantile = self.data_set.p_quantile
+            
     
             if self.requires_preprocessing():
                 test_file = data_set.change_result_directory(splitter.split_filse,
@@ -86,6 +88,25 @@ class evaluation_template():
     
     
     def get_true_and_predicted_class_probabilities(self):
+        '''
+        This returns the true and predicted classification probabilities.
+
+        Returns
+        -------
+        P_true : np.ndarray
+            This is the true probabilities with which one will observe a class, in the form of a
+            :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
+            One value per row will be one, whil ethe others will be zero.
+        P_pred : np.ndarray
+            This is the predicted probabilities with which one will observe a class, in the form of 
+            a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
+            The sum in each row will be 1.
+        Class_names : list
+            The list with :math:`N_{classes}` entries contains the names of the aforementioned
+            behaviors.
+
+        '''
+        assert self.get_output_type()[:5] == 'class', 'This is not a classification metric.'
         P_true = self.Output_A.to_numpy()
         P_pred = self.Output_A_pred.to_numpy()
         Class_names = self.Output_A.columns
@@ -93,7 +114,78 @@ class evaluation_template():
         return P_true, P_pred, Class_names
     
     
+    def get_true_and_predicted_class_times(self):
+        '''
+        This returns the true and predicted classification timepoints, at which a certain
+        behavior can be first classified.
+
+        Returns
+        -------
+        T_true : np.ndarray
+            This is the true time points at which one will observe a class, in the form of a
+            :math:`\{N_{samples} \times N_{classes} \times 1\}` dimensional numpy array with float 
+            values. One value per row will be given (actual observed class), while the others 
+            will be np.nan.
+        T_pred : np.ndarray
+            This is the predicted time points at which one will observe a class, in the form of a
+            :math:`\{N_{samples} \times N_{classes} \times N_{quantiles}\}` dimensional numpy array 
+            with float values. Along the last dimesnion, the time values corresponf to the quantile 
+            values of the predicted distribution of the time points. The quantile values can be found
+            in **self.t_e_quantile**.
+        Class_names : list
+            The list with :math:`N_{classes}` entries contains the names of the aforementioned
+            behaviors.
+
+        '''
+        assert self.get_output_type() == 'class_and_time', 'This is not a classification metric.'
+        Class_names = self.Output_A.columns
+        T_true = np.ones((*self.Output_A.shape, 1)) * np.nan
+        T_pred = np.ones((*self.Output_A.shape, self.t_e_quantile)) * np.nan
+        
+        T_true[np.arange(len(T_true)), np.argmax(self.Output_A.to_numpy(), 1)] = self.Output_T_E.to_numpy()
+        
+        for i in range(T_pred.shape[0]):
+            for j in range(T_pred.shape[1]):
+                T_pred[i,j] = self.Output_T_E_pred.iloc[i,j]
+        
+        return T_true, T_pred, Class_names
+    
+    
     def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
+        '''
+        This returns the true and predicted trajectories.
+
+        Parameters
+        ----------
+        num_preds : int, optional
+            The number :math:`N_{preds}` of different predictions used. The default is None,
+            in which case all available predictions are used.
+        return_types : bool, optional
+            Decides if agent types are returned as well. The default is False.
+
+        Returns
+        -------
+        Path_true : np.ndarray
+            This is the true observed trajectory of the agents, in the form of a
+            :math:`\{N_{samples} \times 1 \times N_{agents} \times N_{O} \times 2\}` dimensional numpy 
+            array with float values. If an agent is fully or or some timesteps partially not observed, 
+            then this can include np.nan values.
+        Path_pred : np.ndarray
+            This is the predicted furure trajectories of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{preds} \times N_{agents} \times N_{O} \times 2\}` dimensional 
+            numpy array with float values. If an agent is fully or or some timesteps partially not observed, 
+            then this can include np.nan values.
+        Pred_steps : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times N_{O}\}` dimensional numpy array with 
+            boolean values. It indicates for each agent and timestep if the prediction should influence
+            the final metric result.
+        T : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+            that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+            for available types). If an agent is not observed at all, the value will instead be np.nan.
+            It is only returned if **return_types** is *True*.
+
+        '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
         nto = self.data_set.num_timesteps_out_real
         
@@ -213,13 +305,7 @@ class evaluation_template():
  
         return Results
         
-    
-    def create_plot(self, results, test_file):
-        # Function that visualizes result if possible
-        if self.allows_plot():
-            raise AttributeError('Has to be overridden in actual metric class.')
-        else:
-            pass
+
         
     #########################################################################################
     #########################################################################################
@@ -229,36 +315,6 @@ class evaluation_template():
     #########################################################################################
     #########################################################################################
     
-    def setup_method(self):
-        # Will do any preparation the method might require, like calculating
-        # weights.
-        # creates:
-            # self.weights_saved -  The weights that were created for this metric,
-            #                       will be in the form of a list
-        raise AttributeError('Has to be overridden in actual metric class.')
-    
-    
-    def evaluate_prediction_method(self):
-        # Takes true outputs and corresponding predictions to calculate some
-        # metric to evaluate a model
-        raise AttributeError('Has to be overridden in actual metric class.')
-        # return results # results is a list
-        
-    
-    def get_output_type(self = None):
-        # Should return 'class', 'class_and_time', 'path_tar', 'path_all'
-        raise AttributeError('Has to be overridden in actual metric class')
-        
-    
-    def is_log_scale(self = None):
-        # Should return 'False' or 'True'
-        raise AttributeError('Has to be overridden in actual metric class')
-        
-    
-    def get_opt_goal(self = None):
-        # Should return 'minimize' or 'maximize'
-        raise AttributeError('Has to be overridden in actual metric class')
-        
 
     def get_name(self = None):
         r'''
@@ -278,15 +334,25 @@ class evaluation_template():
         '''
         raise AttributeError('Has to be overridden in actual metric class')
         
+    def setup_method(self):
+        # Will do any preparation the method might require, like calculating
+        # weights.
+        # creates:
+            # self.weights_saved -  The weights that were created for this metric,
+            #                       will be in the form of a list
+        raise AttributeError('Has to be overridden in actual metric class.')
+        
     def requires_preprocessing(self):
         # Returns a boolean output, True if preprocesing of true output
         # data for the calculation of weights is required, which might be 
         # avoided in repeated cases
         raise AttributeError('Has to be overridden in actual metric class.')
         
-    def allows_plot(self):
-        # Returns a boolean output, True if a plot can be created, False if not.
-        raise AttributeError('Has to be overridden in actual metric class.')
+    
+    def get_output_type(self = None):
+        # Should return 'class', 'class_and_time', 'path_tar', 'path_all'
+        raise AttributeError('Has to be overridden in actual metric class')
+        
         
     def check_applicability(self):
         # Provides feedback on if a metric can be used, as it might be
@@ -294,4 +360,71 @@ class evaluation_template():
         # Returns None if metric is unrestricedly applicable.
         raise AttributeError('Has to be overridden in actual metric class.')
         
+    
+    def get_opt_goal(self = None):
+        # Should return 'minimize' or 'maximize'
+        raise AttributeError('Has to be overridden in actual metric class')
         
+        
+    def evaluate_prediction_method(self):
+        # Takes true outputs and corresponding predictions to calculate some
+        # metric to evaluate a model
+        raise AttributeError('Has to be overridden in actual metric class.')
+        # return results # results is a list
+    
+    
+    def is_log_scale(self = None):
+        # Should return 'False' or 'True'
+        raise AttributeError('Has to be overridden in actual metric class')
+        
+        
+    def allows_plot(self):
+        # Returns a boolean output, True if a plot can be created, False if not.
+        raise AttributeError('Has to be overridden in actual metric class.')
+        
+        
+    def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
+        '''
+        This function creates the final plot.
+        
+        This function is cycled over all included models, so they can be combined
+        in one figure. However, it is also possible to save a figure for each model,
+        if so desired. In that case, a new instanc of fig and ax should be created and
+        filled instead of the ones passed as parameters of this functions, as they are
+        shared between all models.
+        
+        If only one figure is created over all models, this function should end with:
+            
+        if save:
+            ax.legend() # Depending on if this is desired or not
+            fig.show()
+            fig.savefig(test_file, bbox_inches='tight')  
+
+        Parameters
+        ----------
+        results : list
+            This is the list produced by self.evaluate_prediction_method().
+        test_file : str
+            This is the location at which the combined figure of all models can be
+            saved (it ends with '.pdf'). If one saves a result for each separate model, 
+            one should adjust the filename to indicate the actual model.
+        fig : matplotlib.pyplot.Figure
+            This is the overall figure that is shared between all models.
+        ax : matplotlib.pyplot.Axes
+            This is the overall axes that is shared between all models.
+        save : bool, optional
+            This is the trigger that indicates if one currently is plotting the last
+            model, which should indicate that the figure should now be saved. The default is False.
+        model_class : Framework_Model, optional
+            The model for which the current results were calculated. The default is None.
+
+        Returns
+        -------
+        None.
+
+        '''
+        # Function that visualizes result if possible
+        if self.allows_plot():
+            raise AttributeError('Has to be overridden in actual metric class.')
+        else:
+            pass
