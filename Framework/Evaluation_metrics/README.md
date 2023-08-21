@@ -175,7 +175,7 @@ Additionally, some metrics such as the various ECE metrics have additional infor
 ```
   def allows_plot(self):
     r''' 
-    If True, then the metric values will be plotted on a logarithmic y-axis.
+    If True, then plots such as calibration curves will be created.
         
     Returns
     -------
@@ -194,7 +194,7 @@ If this function *allow_plots()* returns *True*, then one also needs to define a
     
     This function is cycled over all included models, so they can be combined
     in one figure. However, it is also possible to save a figure for each model,
-    if so desired. In that case, a new instanc of fig and ax should be created and
+    if so desired. In that case, a new instance of fig and ax should be created and
     filled instead of the ones passed as parameters of this functions, as they are
     shared between all models.
     
@@ -257,7 +257,7 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
   Path_pred : np.ndarray
     This is the predicted furure trajectories of the agents, in the form of a
     :math:`\{N_{samples} \times N_{preds} \times N_{agents} \times N_{O} \times 2\}` dimensional 
-    numpy array with float values. If an agent is fully or some timesteps partially not observed, 
+    numpy array with float values. If an agent is fully or for some timesteps partially not predicted, 
     then this can include np.nan values.
   Pred_steps : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents} \times N_{O}\}` dimensional numpy array with 
@@ -289,7 +289,7 @@ def get_true_and_predicted_class_probabilities(self):
   P_true : np.ndarray
     This is the true probabilities with which one will observe a class, in the form of a
     :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
-    One value per row will be one, whil ethe others will be zero.
+    One value per row will be one, while the others will be zero.
   P_pred : np.ndarray
     This is the predicted probabilities with which one will observe a class, in the form of 
     a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
