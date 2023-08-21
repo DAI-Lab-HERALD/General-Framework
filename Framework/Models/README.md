@@ -249,7 +249,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
     the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
-    If an agent is not observed at all, the value will instead be np.nan.
+    If an agent is not observed at all, the value will instead be '0'.
   img : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
     It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
@@ -354,7 +354,7 @@ def get_classification_data(self, train = True):
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
-    for available types). If an agent is not observed at all, the value will instead be np.nan.
+    for available types). If an agent is not observed at all, the value will instead be '0'.
   agent_names : list
     This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
     agent.
