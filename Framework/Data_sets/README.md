@@ -72,7 +72,7 @@ clues about the actual future events about to happen.
     r'''
     If True, then image data can be returned (if true, .image_id has to be a column of 
     **self.Domain_old** to indicate which of the saved images is linked to which sample).
-    If False, then no image data is provided, and models have to content without them.
+    If False, then no image data is provided.
         
     Returns
     -------
@@ -111,7 +111,7 @@ class <dataset_name>(data_set_template):
 
 Here, the <scenario_class> has to be selected from those available in the [Scenario folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios), where its required properties are discussed in more detail. 
 
-It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires for example any additional attributes (for example such as the radius of roundabouts at each possible location), those should be set here.
+It has to be noted that this function is the only one that is called always at the initialization of the dataset class, so if your dataset requires any additional attributes (for example the radius of roundabouts at each possible location), those should be set here.
 
 ## Importing the raw data
 The most important part of the dataset module is to provide access to training and testing data for models in a unified format. Consequently, transforming the raw data into this unified format is of paramount importance, which is done by the function self.create_path_samples().
@@ -119,7 +119,7 @@ The most important part of the dataset module is to provide access to training a
 ```
   def create_path_samples(self):
     r'''
-    Loads the original path data in its recorded form from wherever it is saved.
+    Loads the original trajectory data from wherever it is saved.
     Then, this function has to extract for each potential test case in the data set 
     some required information. This information has to be collected in the following attributes, 
     which do not have to be returned, but only defined in this function:
@@ -129,7 +129,7 @@ The most important part of the dataset module is to provide access to training a
       Here, each row :math:`i` represents one recorded sample, while each column includes the 
       trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
       It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
-      sample overall recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
+      sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
       the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
       aforementioned numpy array. It is also possible that positional data for an agent is only available
       at parts of the required time points, in which cases, the missing positions should be filled up with
@@ -168,8 +168,8 @@ The most important part of the dataset module is to provide access to training a
       that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
         
     It might be possible that the selected dataset can provide images. In this case, it is
-    paramount that **self.Domain_old** entails a column named 'image_id', so that images can
-    be assigned to each sample with only having ot save on image for each location instead for
+    paramount that **self.Domain_old** contains a column named 'image_id', so that images can
+    be assigned to each sample with only having to save one image for each location instead for
     each sample:
 
     **self.Images** : pandas.DataFrame  
