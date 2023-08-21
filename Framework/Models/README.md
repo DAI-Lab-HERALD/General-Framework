@@ -88,7 +88,7 @@ If the model can be applied, it should return None, while otherwise, it should r
 ```    
   def check_trainability_method(self):
     r'''
-    This function potentiall returns reasons why the model is not applicable to the chosen scenario.
+    This function potentially returns reasons why the model is not applicable to the chosen scenario.
         
     Returns
     -------
@@ -99,7 +99,7 @@ If the model can be applied, it should return None, while otherwise, it should r
     '''
     return reason
 ```
-Potential reason why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
+Potential reasons why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*.
 
 
 ## Training process data
