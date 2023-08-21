@@ -185,7 +185,7 @@ This function does not return any results, but as it is an alternative to [*trai
   
 
 ## Making predictions
-After training or loading a trained model, one then has to make predictions. Here, one first has to extract the input data using the [helper functions](#useful-helper-functions), before making predictions and then saving them with the use of the corresponding helper functions (this is necessary, as previously, the framework does not expect any return by the function).
+After training or loading a trained model, one then has to make predictions. Here, one first has to extract the input data using the [helper functions](#useful-helper-functions), before making predictions and then saving them with the use of the corresponding helper functions (this is necessary as the framework does not expect any return by the function).
 
 ```
   def predict_method(self):
