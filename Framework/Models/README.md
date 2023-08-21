@@ -203,7 +203,7 @@ This is both possible for classification models as well as trajectory prediction
 ```
   def provide_all_included_agent_types(self):
     '''
-    This function allows a quick generation of all the available agent types. Right now, the following are implemented:
+    This function allows a quick extraction of all the available agent types. Right now, the following are implemented:
     - 'P':    Pedestrian
     - 'B':    Bicycle
     - 'M':    Motorcycle
@@ -249,7 +249,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   Y : np.ndarray, optional
     This is the future observed data of the agents, in the form of a
     :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-    If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
+    If an agent is fully or for some timesteps partially not observed, then this can include np.nan values. 
     This value is not returned for **mode** = *'pred'*.
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
@@ -280,7 +280,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     sample in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
   Agent_id : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate
-    from which original agent in the dataset this agent was extracted. This value is only returned for
+    from which original position in the dataset this agent was extracted. This value is only returned for
     **mode** = *'pred'*.
   epoch_done : bool
     This indicates whether one has just sampled all batches from an epoch and has to go to the next one.
@@ -306,8 +306,8 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
   Pred : np.ndarray
     This is the predicted future observed data of the agents, in the form of a
     :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array
-    with float values. If an agent is fully or on some timesteps partially not observed, then this can include
-    np.nan values. The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+    with float values. If an agent is not to be predicted, then this can include np.nan values.
+    The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
   Sample_id : np.ndarray, optional
     This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which
     original sample in the dataset this sample was extracted.
@@ -319,7 +319,7 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
     is true if it is expected by the framework that a prediction will be made for the specific agent.
     
     This input does not have to be provided if the model can only predict one single agent at the same time and
-    is therefore incaable of joint predictions. In this case, None is assumed as the value.
+    is therefore incapable of joint predictions. In this case, None is assumed as the value.
 
   Returns
   -------
@@ -332,7 +332,7 @@ To use those functions, the following attributes have to be set in [*setup_metho
 
 - **self.min_T_O_train** (int): This is the number of future timesteps that have to be observed so that a sample can be used for training.
 - **self.max_T_O_train** (int): This is the maximum number of future timesteps to be processed during training. This can lead to the discarding of some observations.
-- **self.predict_single_agent** (bool): This is true if the model is unable to make joint predictions and it is only possible to predict the future trajectory of one agent at a time.
+- **self.predict_single_agent** (bool): This is true if the model is unable to make joint predictions and it is only able to predict the future trajectory of one agent at a time.
 - **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
 - **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
 - **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
@@ -347,14 +347,14 @@ def get_classification_data(self, train = True):
   Parameters
   ----------
   train : bool, optional
-    This discribes whether one wants to generate training or testing data. The default is True.
+    This describes whether one wants to generate training or testing data. The default is True.
 
   Returns
   -------
   X : np.ndarray
     This is the past observed data of the agents, in the form of a
     :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
-    float values. If an agent is fully or or some timesteps partially not observed, then this can 
+    float values. If an agent is fully or for some timesteps partially not observed, then this can 
     include np.nan values.
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
@@ -376,8 +376,8 @@ def get_classification_data(self, train = True):
     class.
   P : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
-    class contains the probability that it was observed in the sample. As this are observed values, 
-    per row, there should be exactly one value 1 and the rest should be zeroes.
+    class contains the probability that it was observed in the sample. As these are observed values,
+    there should be exactly one value per row that is equal to 1 and the rest should be zeroes.
     It is only retuned if **train** = *True*.
   DT : np.ndarray, optional
     This is a :math:`N_{samples}` dimensional numpy array, which for each 
@@ -406,14 +406,14 @@ def save_predicted_classifications(self, class_names, P, DT = None):
     class.
   P : np.ndarray
     This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
-    class contains the predicted probability that it was observed in the sample. As this are 
+    class contains the predicted probability that it was observed in the sample. As these are 
     probability values, each row should sum up to 1. 
   DT : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{classes} \times N_{q-values}\}` dimensional numpy array, 
     which for each class contains the predicted time after the prediction time at which the 
     fullfilment of the classification crieria for each value could be observed. Each such prediction 
-    consists out of the qunatile values (**self.t_e_quantile**) of the predicted distribution.
-    The default values is None. An entry is only expected for models which are designed to make 
+    consists out of the quantile values (**self.t_e_quantile**) of the predicted distribution.
+    The default value is None. An entry is only expected for models which are designed to make 
     these predictions.
 
   Returns
@@ -427,12 +427,12 @@ def save_predicted_classifications(self, class_names, P, DT = None):
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
 ```
 **self.dt** : float
-  This value gives the current size of the time steps in the model.
+  This value gives the size of the time steps in the selected dataset.
 
 **self.num_timesteps_in** : int
   The number of input timesteps that the model is given.
 
-**self.num_timesteps_put** : int
+**self.num_timesteps_out** : int
   The number of output timesteps desired. It must be however noted, that depending on other
   framework settings, fewer or more timesteps can appear in the dataset.
 
@@ -443,7 +443,7 @@ Meanwhile, the following model attributes set by the framework are useful or giv
   True if the chosen dataset can provide map images, False if not.
 
 **self.num_samples_path_pred** : int
-  This gives the number of predictions the model must make to adequately simulate stochasticity.
+  This gives the number of predictions the model should make.
 
 **self.model_file** : str
   This is the location at which the model should be saved. If one wants to save for example parts of
