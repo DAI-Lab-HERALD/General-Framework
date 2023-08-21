@@ -101,7 +101,7 @@ If the model can be applied, it should return None, while otherwise, it should r
 ```
 Potential reasons why models might not be applicable include the availability of generalized position data (see [**self.general_input_available**](https://github.com/julianschumann/General-Framework/blob/main/Framework/Models/README.md#model-attributes)) or because it is restricted to a certain scenario (see [*self.data_set.scenario.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)).
 
-```
+
 
 ## Model Setup
 The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
