@@ -82,7 +82,7 @@ class trajflow_meszaros(model_template):
         
         # Transform types to numbers
         T_out[T_out == 'nan'] = '0'
-        T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, 3).astype(np.uint8)[:,:,0]
+        T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, int(str(T_out.astype(str).dtype)[2:])).astype(np.uint8)[:,:,0]
         T_out = torch.from_numpy(T_out).to(device = self.device)
         
         # TODO: Think about moving the application of the standardization to somewhat later
@@ -101,7 +101,7 @@ class trajflow_meszaros(model_template):
         if img is not None:
             img = torch.from_numpy(img).float().to(device = self.device) / 255
 
-        if self.data_set.name == 'Fork_P_Aug':
+        if self.data_set.get_name()['file'] == 'Fork_P_Aug':
             traj_tmp = torch.concat((X[:,0], Y[:,0]), dim = 1)
             self.max_pos = torch.max(traj_tmp)
             self.min_pos = torch.min(traj_tmp)
@@ -408,7 +408,7 @@ class trajflow_meszaros(model_template):
         
         # Get needed agent types
         T_all = self.provide_all_included_agent_types().astype(str)
-        T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), 3).astype(np.uint8)[:,0]
+        T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
         
         # Train model components        
         self.fut_model = self.train_futureAE()
