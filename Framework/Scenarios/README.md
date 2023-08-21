@@ -114,11 +114,11 @@ Here, $\Delta t_{default}(t)$ (included as an input of this function in the corr
 
 The output of this function is then the value of $\Delta t_{useful}(t)$ at each point $t$ included in the array t.
 
-It has to be pointed out that it is possible, that $t_{crit}$ is instead defined by a different condition like $f(t_{crit}) = 0$. 
-There, $f(t)$ might depend on other inputs like **path** or **D_class**. In such cases, one can define $\Delta t_{useful}(t)$ in a 
+It has to be pointed out that it is possible, that $t_{crit}$ is instead defined by a different condition, e.g. $f(t_{crit}) = 0$, where
+$f(t)$ might depend on other inputs like **path** or **D_class**. In such cases, one can define $\Delta t_{useful}(t)$ in a 
 different way:
 
-$$ \Delta t_{useful}(t)$ = \Delta t_{default}(t) - f(t) $$
+$$ \Delta t_{useful}(t) = \Delta t_{default}(t) - f(t) $$
 
 
 
