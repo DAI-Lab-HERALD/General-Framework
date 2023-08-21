@@ -99,7 +99,7 @@ If the model can be applied, it should return None, while otherwise, it should r
     '''
     return reason
 ```
-Potential reasons why models might not be applicable include the availability of generalized position data (see **self.general_input_available**) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*).
+Potential reasons why models might not be applicable include the availability of generalized position data (see [**self.general_input_available**](https://github.com/julianschumann/General-Framework/edit/main/Framework/Models/README.md#model_attributes)) or because it is restricted to a certain scenario (see *self.data_set.scenario.get_name()*).
 
 ```
 
