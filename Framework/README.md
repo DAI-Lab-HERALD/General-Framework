@@ -1,4 +1,4 @@
-# Running up a new experiment
+# Running a new experiment
 To set up an experiment with the modules in the framework, one has to create or change a *simulations.py* file. This Python script consists of a number of steps, which will be explained in more detail in the following sections.
 
 ## Set up an experiment
@@ -106,6 +106,23 @@ dynamic_prediction_agents = False
 ```
 In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model. In this case, it might be possible to include also any other agent in the scene, for which sufficient original past and future observations have been made, in the list of predicted and evaluated agents.
 
+```
+overwrite_results = False
+```
+It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noticed that this does not redo the extraction of the training and testing set.
+
+```
+model_for_path_transform = '<Trajecotry Prediction Model>'
+```
+One part of the framework allows one to transform the predictions made by classification models into trajectories. This is based on a number of conditional trajectory prediction models trained only in the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
+
+Finally, one has to pass these parameters to the experiment.
+```
+new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
+                              enforce_num_timesteps_out, enforce_prediction_times, 
+                              exclude_post_crit, allow_extrapolation, 
+                              dynamic_prediction_agents, overwrite_results)
+```
 
 
 
