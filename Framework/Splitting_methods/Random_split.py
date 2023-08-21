@@ -19,8 +19,11 @@ class Random_split(splitting_template):
             Index_train.append(Index_beh[:num_train_beh])
             Index_test.append(Index_beh[num_train_beh:])
         
-        self.Train_index = np.concatenate(Index_train, axis = 0)
-        self.Test_index  = np.concatenate(Index_test, axis = 0)
+        Train_index = np.concatenate(Index_train, axis = 0)
+        Test_index  = np.concatenate(Index_test, axis = 0)
+        
+        return Train_index, Test_index
+        
     
     def get_name(self):
         names = {'print': 'Random splitting (random seed = {})'.format(self.repetition + 1),

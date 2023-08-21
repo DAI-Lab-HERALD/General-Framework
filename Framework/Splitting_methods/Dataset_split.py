@@ -7,17 +7,19 @@ from splitting_template import splitting_template
 
 class Dataset_split(splitting_template):
     def split_data_method(self):
-        Situations = self.data_set.Domain['Scenario']
+        Situations = self.Domain['Scenario']
         Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
         
         Situations_test = Situation_type == self.repetition
         
         Index = np.arange(len(Situations))
-        self.Train_index = Index[~Situations_test]
-        self.Test_index  = Index[Situations_test]
+        Train_index = Index[~Situations_test]
+        Test_index  = Index[Situations_test]
+        
+        return Train_index, Test_index
         
     def get_name(self):
-        Situations = self.data_set.Domain['Scenario']
+        Situations = self.Domain['Scenario']
         Situation = np.unique(Situations.to_numpy().astype('str'), axis = 0)
         scene = Situation[self.repetition]
         
@@ -30,7 +32,7 @@ class Dataset_split(splitting_template):
         return None
     
     def repetition_number(self):
-        Situations = self.data_set.Domain['Scenario']
+        Situations = self.Domain['Scenario']
         Situation = np.unique(Situations.to_numpy().astype('str'), axis = 0)
         num_rep = len(Situation) 
         if num_rep == 1:
