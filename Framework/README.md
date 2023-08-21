@@ -34,22 +34,39 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'crit': The prediction is made at the last point in time where a prediction is still useful (for example, if one wants to predict in which direction a vehicle will turn at the intersection, this should be done before the vehicle enters the intersection). This can be defined via [*scenario.calculate_safe_action()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions).
 - 'conforming_t0_types': If **t0_type** is not set to 'all', then one can set one of the other three choices for t0_types that is not 'all'. If this is done, then a sample is only included in the overall dataset, if it would have been included under those conforming t0_types as well. This allows one to compare the influence of different t0_types on model performance while guaranteeing that the datasets are otherwise identical. 
 
+It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**.
 
+In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** above, this will be a number of dictionaries:
+```
+Data_params = [{'dt': 0.2, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)},
+               {'dt': 0.2, 'num_timesteps_in': (4, 8), 'num_timesteps_out': (12, 12)}] 
+```
+Here, the following keys have to be set:
+- 'dt': This is the timestep size $\delta t$ given in seconds, i.e., the time that passes between observed trajectory positions.
+- 'num_timesteps_in': These are the values for the number of input timesteps $n_I$. The first number in the tuple sets the number of actual timesteps given to the models. The second number meanwhile determines how many timesteps of data have to be available before the prediction time. This can be used to easier compare the influence of the number of input timesteps on the model performance, by keeping the dataset otherwise identical.
+- 'num_timesteps_out': These are the values for the number of output timesteps $n_O$. Again, the second value can be used to tell the framework to only allow samples to be in the dataset if they would also be eligible for a dataset with a higher $n_O$.
 
-
+After setting up the dataset and its parameters, on then has to select the splitting method.
 ```
-Data_params = [{'dt': 0.5, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (12, 12)}] 
-```
-```
-Splitters = [{'Type': '<Split_method_1>', 'repetition': [0,1], 'test_part': 0.2},
+Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
              {'Type': '<Split_method_2>', 'repetition': [0,1,2], 'test_part': 0.2}]
 ```
+Again, this is passed as a dictionary with three keys:
+- 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods).
+- 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations).
+- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
+
+Second to last, one has to select the models that are to be evaluated in this experiment.
 ```
 Models = ['trajectron_salzmann_unicycle']
 ```
+Different from the previous list, **Models** contains only the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models).
+
+Lastly, one has to select the metrics by which the models are to be evaluated. 
 ```
-Metrics = ['ADE_joint']
+Metrics = ['<Metric name 1>', '<Metric name 2>']
 ```
+Like with the models, one includes metrics by giving the name of the respective **.py* file in the [Metrics Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics).
 
 
 Finally, one has to pass the selected modules to the experiment.
