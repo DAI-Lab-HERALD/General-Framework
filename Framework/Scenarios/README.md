@@ -86,7 +86,7 @@ Here, $\Delta t_{default}(t)$ (included as an input of this function in the corr
       How those distances are defined depends on the scenario and behavior.
     t_D_class : pandas.Series
       A pandas series with :math:`N_{classes}` entries, whose columns, like **D_class**, correspond to the possible behaviors
-      in the scenario. Here, each entry is itself a numpy array of lenght :math:`|t|`, which contains the projected time until
+      in the scenario. Here, each entry is itself a numpy array of length :math:`|t|`, which contains the projected time until
       the trajectories of the agents can be classified as that behavior.
     data_set : Dataset class
       This is the instance of the <dataset_name> class that called this function.
@@ -99,7 +99,7 @@ Here, $\Delta t_{default}(t)$ (included as an input of this function in the corr
       A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
       at which the positions in **path** were recorded.
     domain : pandas.Series
-      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      A pandas series of length :math:`N_{info}`, that records the metadata for the considered
       sample. Its entries contain at least all the columns of **self.Domain_old**. 
 
     Returns
