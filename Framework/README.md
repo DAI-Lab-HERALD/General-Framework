@@ -29,7 +29,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'start': The first timestep at which all agents are in correct positions (see [*evaluate_scenario()*](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/README.md#extracting-classifiable-behavior)) is taken as the prediction time
   
   For datasets, where the classification of trajectories into certain behaviors are possible, three more options are available.
-  - 'col_set': The prediction is made at the point where the predicted time until the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) is fulfilled has the following size $\Delta t$ = <dt> * <num_timesteps_in> (see below at Data_params).
+  - 'col_set': The prediction is made at the point where the predicted time until the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) is fulfilled has the following size $\Delta t = \text{\<dt\>} \dot \text{\<num_timesteps_in\>}$ (see below at Data_params).
   - 'col_equal': 
 
 
