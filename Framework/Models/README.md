@@ -121,7 +121,7 @@ After setting up the model, the next step is to train certain parameters of the 
     self.weights_saved = []
 ```
 
-While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
+While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the following section.
 
 If the data is somehow standardized based on data, those standardization parameters should also be saved similar to model weights, as the test dataset will not be identical to the training one.
   
