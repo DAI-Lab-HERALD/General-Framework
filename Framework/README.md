@@ -27,6 +27,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
 - 't0_type':This is a string that controls how the prediction timepoints are determined from a given trajectory, used to divide the trajectory into past and future observations. The following choices are available:
   - 'all'
   - 'start'
+  
   For datasets, where classification trajectories into certain behaviors are possible, three more options are available.
   - 'crit'
   - 'col_set'
