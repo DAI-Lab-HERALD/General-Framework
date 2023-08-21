@@ -118,7 +118,7 @@ After setting up the model, the next step is to train certain parameters of the 
 ```
   def train_method(self):
     ...
-    self.saved_weights = []
+    self.weights_saved = []
 ```
 
 While this function again does not have any returns, it must be noted that the framework expects one to set the attribute **self.weights_saved** (list). While this theoretically might be empty, its importance is nonetheless discussed in the previous section.
@@ -128,21 +128,11 @@ If the data is somehow standardized based on data, those standardization paramet
 
 ## Saving and loading the model
 An important part of the framework is the ability to save trained models, so repeated training is not necessarily needed. Saving a model can be done in two ways.
-- First, model weights can be saved in the aforementioned list **self.weights_saved**. This can include any form such as lists, numpy arrays, pandas DataFrames, etc. It has to be stressed that even if this method is not used, **self.weights_saved** has to be defined as an empty list anyway.
+- First, model weights can be saved in the aforementioned list **self.weights_saved**. The model weights can be saved into the list in any form such as lists, numpy arrays, pandas DataFrames, etc. It has to be stressed that even if this method is not used, **self.weights_saved** has to be defined as an empty list anyway.
 - Second, one can make use of [**self.model_file**](#model-attributes) to save the model in separate files (such as .h5 files for tensorflow models or .pkl ones for pytorch ones). If the model is especially large, so that a timeout during training on a high-performance cluster with a set computation time is likely, it might be advisable to use this method to save intermediate or partial versions of the model, so that training does not have to start from scratch.
 
-As one might not always train models and then make predictions in the same session, one has also to define the ability to load the model. This is done in the function *load_method()*.
 
-```
-  def load_method(self):
-    ...
-    [...] = self.saved_weights
-```
-
-In this function, one should be able to use **self.model_file** and **self.weights_saved** to set the model weights to the ones of the trained model. 
-This function does not return any results, but as it is an alternative to [*train_method()*](#training-the-model), it should leave the class with the same attributes, so that prediction can be performed afterward.
-
-One can also use the framework to save training process data, such as epoch losses or final model parameters. Here, two functions are important to define:
+While all model parameters in **self.weights_saved** are saved in a *.npy* file, this is a binary format and therefore not easily readable. Consequently, it is also possible to save these results in a *.csv* file. In order to do this, it is important to define the following function:
 
 ```    
   def save_params_in_csv(self = None):
@@ -156,8 +146,10 @@ One can also use the framework to save training process data, such as epoch loss
     '''
     return csv_decision
 ```
-While all model parameters, if so chosen, are saved in a *.npy* file, this is a binary format and therefore not easily readable. Consequently, it is possible to also possible to save these results in a *.csv* file. However, this is likely only useful for models with few trainable parameters that are also well-named. 
 
+However, this is likely only useful for models with few trainable parameters that are also well-named. 
+
+One can also use the framework to save training process data, such as epoch losses. In order to do this, the following function has to be defined:
 ```    
   def provides_epoch_loss(self = None):
     r'''
@@ -176,6 +168,20 @@ For later analysis, saving a model's loss during training might be valuable. To 
   This is a two-dimensional array. While one dimension is likely reserved for the different epochs,
   the second dimension allows the saving of loss data for multiple training steps (such as when training
   multiple model parts separately).
+```
+
+As one might not always train models and then make predictions in the same session, one has to also define the ability to load the model. This is done in the function *load_method()*.
+
+```
+  def load_method(self):
+    ...
+    [...] = self.saved_weights
+```
+
+In this function, one should be able to use **self.model_file** and **self.weights_saved** to set the model weights to the ones of the trained model. 
+This function does not return any results, but as it is an alternative to [*train_method()*](#training-the-model), it should leave the class with the same attributes, so that prediction can be performed afterward.
+
+
   
 
 ## Making predictions
