@@ -112,9 +112,9 @@ The splitting template provides a number of attributes that might be useful in t
   the shape :math:`\{N_{samples} {\times} (N_{info})\}`. The following keys can be used.
   - 'Scenario' : This is the name of the current possible datasets, such as *highD*, *rounD*, or *NuScenes*.
   - 'Path_id' : This is the id (from 0 to len(**Path_old**) - 1) of the original path data in
-                **self.data_set.Datasets['Scenario'].Path_old** this current sample is coming from.
+                **self.data_set.Datasets['Scenario'].Path_old** that this current sample is coming from.
   - 'Scenario_type' : This is the name of the Scenario, such as gap acceptance.
-  Further key might be included, but do not necessarily exist:
+  Further keys that might be included, but do not necessarily have to exist:
   - 'location' : This is the location at which the current data was recorded.
   
 ```
