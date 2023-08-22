@@ -56,7 +56,7 @@ Again, this is passed as a dictionary with three keys:
 - 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations).
 - 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
 
-Second to last, one has to select the models that are to be evaluated in this experiment.
+Next, one has to select the models that are to be evaluated in this experiment.
 ```
 Models = ['trajectron_salzmann_unicycle']
 ```
