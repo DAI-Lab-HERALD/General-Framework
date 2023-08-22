@@ -109,7 +109,7 @@ In most situations, only a handful of agents in each scene are [set as predictio
 ```
 overwrite_results = False
 ```
-It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noticed that this does not redo the extraction of the training and testing set.
+It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noted that this does not redo the extraction of the training and testing set.
 
 ```
 model_for_path_transform = '<Trajecotry Prediction Model>'
