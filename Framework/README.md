@@ -79,7 +79,7 @@ Besides selecting the modules, one must also set some hyperparameters for the ov
 ```
 num_samples_path_pred = 100
 ```
-This sets the number $N_{preds}$ of different predictions that are expected from each trajectory prediction model to represent the inherent stochasticity of their predictions. While this number can be set to any liking, setting it to at least 20 is advisable to be comparable with most standard metrics, which are normally set on 20 such parameters.
+This sets the number $N_{preds}$ of different predictions that are expected from each trajectory prediction model to represent the inherent stochasticity of their predictions. While this number can be set to any liking, setting it to at least 20 is advisable to be comparable with most standard metrics, which are normally evaluated on 20 predictions.
 
 ```
 enforce_prediction_times = True
