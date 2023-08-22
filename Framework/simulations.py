@@ -65,5 +65,3 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_results = True,
                                                            return_train_loss = True)
 
-# new_experiment.draw_figure(include_only_mean = False)
-# new_experiment.write_ta
