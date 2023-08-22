@@ -152,7 +152,7 @@ new_experiment.draw_figure(include_only_mean = False, produce_single = False, pl
 ```
 TODO: Argument explanation
 
-Those plots are then saved as *\*.tex* files in the folder *../Framework/Latex_files/*. While those could be compiled inside a larger document, it is advisable to compile them in a standalone format and import only the resulting *\*.pfd* document, as the compilation time might be quite long.
+Those plots are then saved as *\*.tex* files in the folder *../Framework/Latex_files/*. While those could be compiled inside a larger document, it is advisable to compile them in a standalone format and import only the resulting *\*.pdf* document, as the compilation time might be quite long.
 
 ### Creating tables
 One can also generate result tables, which present for each model, metric, dataset, and splitting method the mean value of all results of the repetitions of the splitting method.
@@ -161,7 +161,7 @@ write_tables(self, dataset_column = True, use_scriptsize = False, depict_std = T
 ```
 TODO: Argument explanation
 
-Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/**.
+Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/*.
 
 ### Plotting trajectories
 Lastly, one can also try to plot trajectories, true and predicted alike:
@@ -172,6 +172,6 @@ Here, the first step will be to select for all the given modules one instance us
 
 TODO: Argument explanation
 
-The resulting **.pdf* images are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
+The resulting *\*.pdf* images are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
 
 
