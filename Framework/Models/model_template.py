@@ -468,7 +468,82 @@ class model_template():
                 if not Pred_agents[i,j]:
                     continue
                 self.Output_path_pred.iloc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
-                
+    
+    def provide_all_training_trajectories(self):
+        r'''
+        This function provides trajectroy data an associated metadata for the training of model
+        during prediction and training. It returns the whole training set (including validation set)
+        in one go
+
+
+        Returns
+        -------
+        X : np.ndarray
+            This is the past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
+        Y : np.ndarray, optional
+            This is the future observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
+            This value is not returned for **mode** = *'pred'*.
+        T : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+            the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
+            If an agent is not observed at all, the value will instead be '0'.
+        img : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+            It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
+            of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
+            at its current position, and are rotated so that the agent is right now driving to the right. 
+            If an agent is not observed at prediction time, 0 values are returned.
+        img_m_per_px : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
+            the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+            Both for **Y**, **img** and 
+        Pred_agents : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+            if it expected by the framework that a prediction will be made for the specific agent.
+            
+            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
+        Sample_id : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+            in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+        Agent_id : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+            original agent in the dataset this agent was extracted.. This value is only returned for **mode** = *'pred'*.
+
+        '''
+        
+        assert self.get_output_type()[:4] == 'path'
+        if not self.extracted_data:
+            self.prepare_batch_generation()
+        
+        I_train = self._extract_useful_training_samples()
+        
+        X_train = self.X[I_train]
+        Y_train = self.Y[I_train]
+        T_train = self.T[I_train]
+        Pred_agents_train = self.Pred_agents[I_train]
+        
+        if self.img is not None:
+            img_train = self.img[I_train]
+            img_m_per_px_train = self.img_m_per_px[I_train]
+        else:
+            img_train = None
+            img_m_per_px_train = None
+        
+        Sample_id_train = self.ID[I_train,0,0]
+        Agents = np.array(self.input_names_train)
+        Agent_id_train = Agents[self.ID[I_train,:,1]]
+        
+        
+        return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
+                Pred_agents_train, Sample_id_train, Agent_id_train]
+        
+        
+    
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
         r'''
