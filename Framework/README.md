@@ -34,7 +34,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'crit': The prediction is made at the last point in time where a prediction is still useful (for example, if one wants to predict in which direction a vehicle will turn at the intersection, this should be done before the vehicle enters the intersection). This can be defined via [*scenario.calculate_safe_action()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions).
 - 'conforming_t0_types': If **t0_type** is not set to 'all', then one can set one of the other three choices for t0_types that is not 'all'. If this is done, then a sample is only included in the overall dataset, if it would have been included under those conforming t0_types as well. This allows one to compare the influence of different t0_types on model performance while guaranteeing that the datasets are otherwise identical. 
 
-It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**.
+It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**, as was done with '<Dataset 2>' and '<Dataset 3>' in the example above.
 
 In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** above, this will be a number of dictionaries:
 ```
