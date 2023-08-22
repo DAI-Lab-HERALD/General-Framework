@@ -23,7 +23,7 @@ Data_sets = [{'scenario': '<Dataset 1>', 'max_num_agents': 6, 't0_type': 'all', 
 ```
 As can be seen above, each dataset is passed as a dictionary to the list of datasets. In such a dictionary, four entries are expected.
 - 'scenario': This is the actual dataset. The string here given should correspond to the name of a respective **.py* file in the [Dataset folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets).
-- 'max_num_agents': This is the maximum number of agents one wants to consider in a single scene (The farthest away agents are neglected). If None is passed, all possible agents are included in each sample. If multiple datasets are combined, then the smallest number is chosen for the combined dataset.
+- 'max_num_agents': This is the maximum number of agents one wants to consider in a single scene (the farthest away agents are neglected). If None is passed, all possible agents are included in each sample. If multiple datasets are combined, then the smallest number is chosen for the combined dataset. How to combine datasets will be explained later on in this section.
 - 't0_type':This is a string that controls how the prediction timepoints are determined from a given trajectory, used to divide the trajectory into past and future observations. The following choices are available:
   - 'all': Every timestep where enough past and future observations are available (and agents are in correct positions) is taken as on prediction time.
   - 'start': The first timestep at which all agents are in correct positions (see [*evaluate_scenario()*](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/README.md#extracting-classifiable-behavior)) is taken as the prediction time
