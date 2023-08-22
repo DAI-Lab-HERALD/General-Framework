@@ -148,7 +148,7 @@ For those to not throw an error upon running, it is paramount to run at least *l
 ### Plotting metrics
 Firstly, one can generate plots with the metrics using the following command:
 ```
-new_experiment.draw_figure(include_only_mean = False, produce_single = False, plot_height = 2, plot_width = None, plot_x_labels = True):
+new_experiment.draw_figure(include_only_mean = False, produce_single = False, plot_height = 2, plot_width = None, plot_x_labels = True)
 ```
 TODO: Argument explanation
 
