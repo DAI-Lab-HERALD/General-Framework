@@ -114,7 +114,7 @@ It might be possible that one wants to retrain and reevaluate models, without ha
 ```
 model_for_path_transform = '<Trajecotry Prediction Model>'
 ```
-One part of the framework allows one to transform the predictions made by classification models into trajectories. This is based on a number of conditional trajectory prediction models trained only in the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
+One part of the framework allows one to transform the predictions made by classification models into trajectories. This is based on a number of conditional trajectory prediction models trained only on the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
 
 Finally, one has to pass these parameters to the experiment.
 ```
