@@ -498,7 +498,7 @@ class trajflow_meszaros(model_template):
             Pred[Ped_agent[:,0]]  *= self.std_pos_ped
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
 
-            if self.data_set.name == 'Fork_P_Aug':
+            if self.data_set.get_name()['file'] == 'Fork_P_Aug':
                 Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
             
             torch.cuda.empty_cache()

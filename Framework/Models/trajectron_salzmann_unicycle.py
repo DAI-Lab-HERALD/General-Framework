@@ -68,6 +68,7 @@ class trajectron_salzmann_unicycle(model_template):
         self.trajectron = Trajectron(model_registrar, hyperparams, None, self.device)
         self.trajectron.set_environment()
         self.trajectron.set_annealing_params()
+      
         
     def rotate_pos_matrix(self, M, rot_angle):
         assert M.shape[-1] == 2
@@ -110,7 +111,6 @@ class trajectron_salzmann_unicycle(model_template):
         Types[T == 'B'] = AgentType.BICYCLE
         Types[T == 'M'] = AgentType.MOTORCYCLE
         
-        # TODO: Rotate and translate all samples
         center_pos = X[:,0,-1]
         delta_x = center_pos - X[:,0,-2]
         rot_angle = np.angle(delta_x[:,0] + 1j * delta_x[:,1])
