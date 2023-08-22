@@ -101,9 +101,9 @@ The main part of the splitting is then the function *split_data_method()*, where
 The splitting template provides a number of attributes that might be useful in this part.
 ```
 **self.repetition** : int
-  This is the number of the current split, which can be used to differentiate between different splitting methods.
-  It has to be noted that only up to ten repetitions per method are feasible, which means that this attribute
-  can only assume values between 0 and 9.
+  This is the number of the current split, which can be used to differentiate between different splits of the
+  same splitting method. It has to be noted that only up to ten repetitions per method are feasible, which means
+  that this attribute can only assume values between 0 and 9.
 **self.test_split** : float
   This is a value between 0 and 1 which denotes the portion of the whole dataset that is used for the evaluation
   of the trained method.
