@@ -136,7 +136,7 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_results = True,
                                                            return_train_loss = True)
 ```
-Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\_asets), len(Data\_), num\_splits, len(Models), len(Metrics)\}$. It must be noted that len(Splitters) is not necessarily identical to num_splits, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
+Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\textunderscore sets), len(Data\_params), num\_splits, len(Models), len(Metrics)\}$. It must be noted that len(Splitters) is not necessarily identical to num_splits, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
