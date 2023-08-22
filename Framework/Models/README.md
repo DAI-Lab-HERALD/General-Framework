@@ -201,6 +201,61 @@ This is both possible for classification models as well as trajectory prediction
 
 ### Trajectory prediction models.
 ```
+  def provide_all_training_trajectories(self):
+    r'''
+    This function provides trajectroy data an associated metadata for the training of model
+    during prediction and training. It returns the whole training set (including validation set)
+    in one go
+  
+  
+    Returns
+    -------
+    X_train : np.ndarray
+      This is the past observed data of the agents, in the form of a
+      :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+      If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
+    Y_train : np.ndarray, optional
+      This is the future observed data of the agents, in the form of a
+      :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+      If an agent is fully or for some timesteps partially not observed, then this can include np.nan values. 
+      This value is not returned for **mode** = *'pred'*.
+    T_train : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+      the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
+      If an agent is not observed at all, the value will instead be '0'.
+    img_train : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+      It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
+      (:math:`C = 1`) of the map image with height :math:`H` and width :math:`W`. These images are centered around
+      the agent at its current position and are rotated so that the agent is driving to the right. 
+      If an agent is not observed at prediction time, 0 values are returned.
+    img_m_per_px_train : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that
+      indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
+      np.nan.
+    Pred_agents_train : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
+      true if it is expected by the framework that a prediction will be made for the specific agent.
+      
+      If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**,
+      :math:`N_{agents} = 1` will be returned instead, and the agent to be predicted will be the one mentioned
+      first in **X** and **T**.
+    Sample_id_train : np.ndarray, optional
+      This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original
+      sample in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+    Agent_id_train : np.ndarray, optional
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate
+      from which original position in the dataset this agent was extracted. This value is only returned for
+      **mode** = *'pred'*.
+  
+    '''
+    
+    ...
+    
+    return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
+            Pred_agents_train, Sample_id_train, Agent_id_train]
+```
+```
   def provide_all_included_agent_types(self):
     '''
     This function allows a quick extraction of all the available agent types. Right now, the following are implemented:
