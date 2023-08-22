@@ -104,7 +104,7 @@ In the framework, it is possible to extrapolate missing position data of certain
 ```
 dynamic_prediction_agents = False
 ```
-In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model. In this case, it might be possible to include also any other agent in the scene, for which sufficient original past and future observations have been made, in the list of predicted and evaluated agents.
+In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model. In this case, it might be possible to include also any other agent in the scene, for which sufficient original past and future observations have been made, in the list of predicted and evaluated agents by setting **dynamic_prediction_agents** to *True*.
 
 ```
 overwrite_results = False
