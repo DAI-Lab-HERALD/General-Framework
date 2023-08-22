@@ -42,13 +42,13 @@ Given the settings, it might be possible that only a certain number of unique re
         
     Returns
     -------
-    max_repetition_nunmber : bool
+    max_repetition_nunmber : int
         
     '''
     return max_repetition_nunmber
 ```
 
-However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see *self.data_set.scenario.get_name()*), or a split by location would require at least two locations to be findable in the dataset (see *self.Domain.location*). Such requirements can then be set in the *check_splitability_method()*:
+However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#importing-the-raw-data)). Such requirements can then be set in the *check_splitability_method()*:
 
 ```    
   def check_splitability_method(self):
