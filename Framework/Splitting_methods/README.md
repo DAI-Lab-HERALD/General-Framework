@@ -109,7 +109,7 @@ The splitting template provides a number of attributes that might be useful in t
   of the trained method.
 **self.Domain** : pandas.DataFrame
   This is a pandas dataset, that is mainly used to include the metadata of each sample in the dataset, and has
-  the shape :math:`\{N_{samples} {\times} (N_{info})\}`. The following keys can be used here included.
+  the shape :math:`\{N_{samples} {\times} (N_{info})\}`. The following keys can be used.
   - 'Scenario' : This is the name of the current possible datasets, such as *highD*, *rounD*, or *NuScenes*.
   - 'Path_id' : This is the id (from 0 to len(**Path_old**) - 1) of the original path data in
                 **self.data_set.Datasets['Scenario'].Path_old** this current sample is coming from.
