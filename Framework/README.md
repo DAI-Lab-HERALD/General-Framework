@@ -39,14 +39,15 @@ It is also possible to combine multiple datasets into one. In this case, one has
 In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** above, this will be a number of dictionaries:
 ```
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)},
-               {'dt': 0.2, 'num_timesteps_in': (4, 8), 'num_timesteps_out': (12, 12)}] 
+               {'dt': 0.2, 'num_timesteps_in': (4, 8), 'num_timesteps_out': 12}] 
 ```
 Here, the following keys have to be set:
 - 'dt': This is the timestep size $\delta t$ given in seconds, i.e., the time that passes between observed trajectory positions.
 - 'num_timesteps_in': These are the values for the number of input timesteps. The first number in the tuple sets the number of actual numbers of input timesteps $n_I$ given to the models. The second number meanwhile determines how many timesteps $n_{I, need}$ of data have to be available before the prediction time so that the sample is included in the dataset. This can be used to easier compare the influence of the number of input timesteps on the model performance, by keeping the dataset otherwise identical (see in the code example).
 - 'num_timesteps_out': These are the values for the number of output timesteps. The first number is the maximum number of output timesteps $n_O$ that trajectory metrics are applied to. However, in datasets where behavior classifications are possible, more timesteps might be provided, as it would be ideal if the actual observed behavior were included here. The second number in the tuple meanwhile is the number of future observed timesteps $n_{O, need}$ that have to be available in the dataset so that the sample is included in the final dataset. It must be noted that this condition is only enforced if one sets the parameter 'enforce_num_timesteps_out' to *True*. Otherwise, it might happen that samples are included where the actual number of observed time steps is not only smaller than $n_{O, need}$ but also smaller than $n_{O}$.
 
-It must be noted that both $n_{I, need}$ and $n_{O, need}$ are automatically set by the framework to be at least as large as $n_I$ and $n_O$ respectively.  
+It must be noted that both $n_{I, need}$ and $n_{O, need}$ are automatically set by the framework to be at least as large as $n_I$ and $n_O$ respectively, while values larger than 99 are set to 99.
+It must be noted that if both values in the tuple are identical, setting one integer instead of a tuple with two integers is also permissible, as seen in the second line in the above code snippet, where setting *'num_timesteps_out': 12* is identical to setting *'num_timesteps_out': (12, 12)*.
 
 After setting up the dataset and its parameters, one then has to select the splitting method.
 ```
