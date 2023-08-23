@@ -87,7 +87,7 @@ This sets the number $N_{preds}$ of different predictions that are expected from
 ```
 enforce_prediction_times = True
 ```
-"When extracting samples, it might be possible that there is not enough data available to enforce the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_times** is set to *True*, then such a sample would be discarded, while otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
+When extracting samples, it might be possible that there is not enough data available to enforce the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_times** is set to *True*, then such a sample would be discarded. Otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
 
 ```
 enforce_num_timesteps_out = False
