@@ -9,7 +9,7 @@ from Trajectron_old.trajec_model.model_registrar import ModelRegistrar
 from Trajectron_old.environment.environment import Environment
 from attrdict import AttrDict
 
-class trajectron_salzmann(model_template):
+class trajectron_salzmann_old(model_template):
     
     def setup_method(self, seed = 0):
         # set random seeds
@@ -30,6 +30,7 @@ class trajectron_salzmann(model_template):
         self.target_height = 100
         self.grayscale = False
         
+        self.use_map = self.can_use_map and self.has_map
         
         if (self.provide_all_included_agent_types() == 'P').all():
             hyperparams = {'batch_size': batch_size,
@@ -38,7 +39,7 @@ class trajectron_salzmann(model_template):
                            'learning_rate': 0.001, # for ETH: 0.001 for inD/rounD: 0.003,
                            'min_learning_rate': 1e-05,
                            'learning_decay_rate': 0.9999,
-                           'prediction_horizon': self.num_timesteps_out.max(),
+                           'prediction_horizon': self.num_timesteps_out,
                            'minimum_history_length': 2,
                            'maximum_history_length': self.num_timesteps_in - 1,
                            'map_encoder': {'PEDESTRIAN': {'heading_state_index': 6,
@@ -109,7 +110,7 @@ class trajectron_salzmann(model_template):
                            'learning_rate': 0.003,
                            'min_learning_rate': 1e-05,
                            'learning_decay_rate': 0.9999,
-                           'prediction_horizon': self.num_timesteps_out.max(),
+                           'prediction_horizon': self.num_timesteps_out,
                            'minimum_history_length': 2,
                            'maximum_history_length': self.num_timesteps_in - 1,
                            'map_encoder': {'VEHICLE': {'heading_state_index': 6,
@@ -206,7 +207,7 @@ class trajectron_salzmann(model_template):
         scenes = [AttrDict({'dt': self.dt})]
         
         
-        if self.data_set.get_name()['file'][:3] == 'ETH':
+        if (self.provide_all_included_agent_types() == 'P').all():
             node_type_list = ['PEDESTRIAN']
         else:
             node_type_list = ['PEDESTRIAN', 'VEHICLE']
@@ -246,11 +247,12 @@ class trajectron_salzmann(model_template):
             attention_radius[('VEHICLE',    'PEDESTRIAN')] = 25.0
             attention_radius[('VEHICLE',    'VEHICLE')]    = 150.0
             
-        Types = np.empty(T.shape, dtype = str)
+        Types = np.empty(T.shape, dtype = object)
         Types[T == 'P'] = 'PEDESTRIAN'
         Types[T == 'V'] = 'VEHICLE'
         Types[T == 'B'] = 'VEHICLE'
         Types[T == 'M'] = 'VEHICLE'
+        Types = Types.astype(str)
         
         center_pos = X[:,0,-1]
         delta_x = center_pos - X[:,0,-2]
@@ -267,14 +269,14 @@ class trajectron_salzmann(model_template):
         A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
         A = np.concatenate((A[...,[0],:], A), axis = -2)
        
-        H = np.arctan2(V[:,:,1,:], V[:,:,0,:])
+        H = np.arctan2(V[:,:,:,1], V[:,:,:,0])
         
         DH = np.unwrap(H, axis = -1) 
         DH = (DH[:,:,1:] - DH[:,:,:-1]) / self.dt
+        DH = np.concatenate((DH[...,[0]], DH), axis = -1)
        
-       
-        #final state S
-        S = np.concatenate((X_r, V, A, H, DH), axis = -1).astype(np.float32)
+        # final state S
+        S = np.concatenate((X_r, V, A, H[...,np.newaxis], DH[...,np.newaxis]), axis = -1).astype(np.float32)
         
         Ped_agents = Types == 'PEDESTRIAN'
         
@@ -285,16 +287,18 @@ class trajectron_salzmann(model_template):
         S_st[~Ped_agents,:,2:4] /= self.std_vel_veh
         S_st[Ped_agents,:,4:6]  /= self.std_acc_ped
         S_st[~Ped_agents,:,4:6] /= self.std_acc_veh
-        S_st[:,~Ped_agents,:,6] /= self.std_hea_veh
-        S_st[:,~Ped_agents,:,7] /= self.std_d_h_veh
+        S_st[~Ped_agents,:,6] /= self.std_hea_veh
+        S_st[~Ped_agents,:,7] /= self.std_d_h_veh
         
         D = np.min(np.sqrt(np.sum((X[:,[0]] - X) ** 2, axis = -1)), axis = - 1)
         D_max = np.zeros_like(D)
         for i_sample in range(len(D)):
             for i_v in range(X.shape[1]):
-                if Types[i_sample, i_v] is None:
-                    continue
-                D_max[i_sample, i_v] = attention_radius[(Types[i_sample, 0], Types[i_sample, i_v])]
+                if not Types[i_sample, i_v] == 'None':
+                    D_max[i_sample, i_v] = attention_radius[(Types[i_sample, 0], Types[i_sample, i_v])]
+        
+        # Oneself cannot be own neighbor
+        D_max[:,0] = -10
         
         Neighbor_bool = D < D_max
         
@@ -302,27 +306,24 @@ class trajectron_salzmann(model_template):
         Neighbor = {}
         Neighbor_edge = {}
         
-        node_type = Types[0, 0] 
+        node_type = str(Types[0, 0])
         for node_goal in DIM.keys():
             Dim = DIM[node_goal]
             
-            key = (node_type, node_goal)
+            key = (node_type, str(node_goal))
             Neighbor[key] = []
             Neighbor_edge[key] = []
             
             for i_sample in range(S.shape[0]):
                 I_agent_goal = np.where(Neighbor_bool[i_sample] & 
-                                        (Types[i_sample] == node_goal) & 
-                                        (np.arange(S.shape[1]) != 0))[0]
+                                        (Types[i_sample] == node_goal))[0]
                 
                 Neighbor[key].append([])
                 Neighbor_edge[key].append(torch.from_numpy(np.ones(len(I_agent_goal), np.float32))) 
                 for i_agent_goal in I_agent_goal:
                     Neighbor[key][i_sample].append(torch.from_numpy(S[i_sample, i_agent_goal, :, :Dim]))
         
-        
-        node_type = Types[0,0]
-        
+
         if img is not None:
             img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
             img_batch = img_batch.transpose(0,3,1,2) # put channels first
@@ -332,11 +333,12 @@ class trajectron_salzmann(model_template):
             
         first_h = torch.from_numpy(np.zeros(len(X), np.int32))
         
-        S = torch.from_numpy(S).to(dtype = torch.float32)
-        S_st = torch.from_numpy(S_st).to(dtype = torch.float32)
+        dim = DIM[node_type]
+        S = torch.from_numpy(S[...,:dim]).to(dtype = torch.float32)
+        S_st = torch.from_numpy(S_st[...,:dim]).to(dtype = torch.float32)
         
         if Y is None:
-            return S, S_st, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle
+            return S, S_st, first_h, Neighbor, Neighbor_edge, img_batch, node_type, center_pos, rot_angle
         else:
             Y = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
             
@@ -346,7 +348,7 @@ class trajectron_salzmann(model_template):
         
             Y = torch.from_numpy(Y).to(dtype = torch.float32)
             Y_st = torch.from_numpy(Y_st).to(dtype = torch.float32)
-            return S, S_st, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type
+            return S, S_st, first_h, Y, Y_st, Neighbor, Neighbor_edge, img_batch, node_type
     
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
@@ -375,12 +377,12 @@ class trajectron_salzmann(model_template):
         
         
         T_all = self.provide_all_included_agent_types()
-        Pred_types = np.empty(T_all.shape, dtype = str)
+        Pred_types = np.empty(T_all.shape, dtype = object)
         Pred_types[T_all == 'P'] = 'PEDESTRIAN'
         Pred_types[T_all == 'V'] = 'VEHICLE'
         Pred_types[T_all == 'B'] = 'VEHICLE'
         Pred_types[T_all == 'M'] = 'VEHICLE'
-        Pred_types = np.unique(Pred_types)
+        Pred_types = np.unique(Pred_types.astype(str))
         
         # Get gradient clipping values              
         clip_value_final = self.trajectron.hyperparams['grad_clip']
@@ -419,7 +421,7 @@ class trajectron_salzmann(model_template):
                 optimizer[node_type].zero_grad()
                 
                 # Run forward pass
-                model = self.trajectron.node_models_dict[node_type.name]
+                model = self.trajectron.node_models_dict[node_type]
                 train_loss = model.train_loss(inputs                = S[:,0].to(self.trajectron.device),
                                               inputs_st             = S_St[:,0].to(self.trajectron.device),
                                               first_history_indices = first_h.to(self.trajectron.device),
@@ -473,7 +475,7 @@ class trajectron_salzmann(model_template):
             
             torch.cuda.empty_cache()
             # Run prediction pass
-            model = self.trajectron.node_models_dict[node_type.name]
+            model = self.trajectron.node_models_dict[node_type]
             self.trajectron.model_registrar.to(self.trajectron.device)
             
             with torch.no_grad():
@@ -488,14 +490,7 @@ class trajectron_salzmann(model_template):
                                             num_samples           = self.num_samples_path_pred)
             
             Pred = predictions.detach().cpu().numpy()
-            if node_type == 'PEDESTRIAN':
-                Pred *= self.std_pos_ped
-            elif node_type == 'VEHICLE':
-                Pred *= self.std_pos_veh
-            else:
-                raise TypeError('The agent type ' + str(node_type.name) + ' is currently not implemented.')
                 
-            
             # set batchsize first
             Pred = Pred.transpose(1,0,2,3)
             
@@ -513,15 +508,10 @@ class trajectron_salzmann(model_template):
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
-        
-    def get_input_type(self = None):
-        input_info = {'past': 'path',
-                      'future': False}
-        return input_info
     
     def get_name(self = None):
-        names = {'print': 'Trajectron ++',
-                 'file': 'trajectron',
+        names = {'print': 'Trajectron ++ (Old_version)',
+                 'file': 't_pp_old_v',
                  'latex': r'\emph{T++}'}
         return names
         
@@ -529,4 +519,7 @@ class trajectron_salzmann(model_template):
         return False
     
     def requires_torch_gpu(self = None):
+        return True 
+        
+    def provides_epoch_loss(self = None):
         return True

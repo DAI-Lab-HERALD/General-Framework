@@ -485,8 +485,8 @@ class Experiment():
                                     figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
                                     
                                     # remove model name from figure file
-                                    num = 16 + len(self.get_name()['file'])
-                                    figure_file = figure_file[:-num] + self.get_name()['file'] + '.pdf'
+                                    num = 16 + len(metric_class.get_name()['file'])
+                                    figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
                                     
                                     os.makedirs(os.path.dirname(figure_file), exist_ok = True)
                                     saving_figure = l == (self.num_models - 1)

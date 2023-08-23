@@ -107,8 +107,8 @@ class evaluation_template():
 
         '''
         assert self.get_output_type()[:5] == 'class', 'This is not a classification metric.'
-        P_true = self.Output_A.to_numpy()
-        P_pred = self.Output_A_pred.to_numpy()
+        P_true = self.Output_A.to_numpy().astype(float)
+        P_pred = self.Output_A_pred.to_numpy().astype(float)
         Class_names = self.Output_A.columns
         
         return P_true, P_pred, Class_names
