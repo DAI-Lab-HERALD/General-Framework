@@ -32,9 +32,9 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
   - 'col_set': At each point in time $t$, we can approximate based on constant velocities that the [default classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors) will be fulfilled at point $\widehat{t}_D(t)$. We then define the prediction time $t_0$ to be the first point in time where the condition $\widehat{t}_D(t_0) = t_0 + \Delta t$ is met. Here, we set $\Delta t = \delta t \cdot n_O$ (see below at Data_params where $\delta t$ and $n_O$ are set.).
   - 'col_equal': We select the prediction times similar to 'col_set', except for a different value of $\Delta t$. Here, we select $\Delta t$ in such a way, that the number $N_{min} (\Delta t)$ is maximized. For a dataset with multiple possible classifiable behaviors, each behavior $b$ is represented by $N_b$ samples. Then, we set $N_{min} = \underset{b\in B}{\min} N_b$. These numbers vary with $\Delta t$, as there might not be enough input timesteps available before a selected prediction time $t_0$, or another classifiable behavior was already observed before $t_0$.
   - 'crit': The prediction is made at the last point in time where a prediction is still useful (for example, if one wants to predict in which direction a vehicle will turn at the intersection, this should be done before the vehicle enters the intersection). This can be defined via [*scenario.calculate_safe_action()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions).
-- 'conforming_t0_types': If 't0_type' is not set to 'all', then it is possible to enforce additional constraints on the selection of samples for the final dataset (for 'all', one can still write stuff here, but it will be ignored). I.e., that a sample is only included in the final dataset if it also would have been included in the final dataset if a different choice for 't0_type' had been made. This allows one to compare the influence of the selection of 't0_type' on model performance while guaranteeing that the datasets still consist of the exact same scenes, with the only difference being the prediction time. Consequently, one can write from 0 up to and including 3 such different choices into the list 'conforming_t0_types' (3 possible choices: 5 overall possibilities without 'all' and the current choice for 't0_type'). For example, this was used to investigate the influence of choosing either 'crit' or 'start' for 't0_type' on *<Dataset 4>*.
+- 'conforming_t0_types': If 't0_type' is not set to 'all', then it is possible to enforce additional constraints on the selection of samples for the final dataset (for 'all', one can still add entries here, but they will be ignored). I.e., a sample is only included in the final dataset if it would have also been included in the final dataset if a different choice for 't0_type' had been made. This allows one to compare the influence of the selection of 't0_type' on model performance while guaranteeing that the datasets still consist of the exact same scenes, with the only difference being the prediction time. Consequently, one can write from 0 up to and including 3 such different choices into the list 'conforming_t0_types' (3 possible choices: 5 overall possibilities without 'all' and the current choice for 't0_type'). For example, this was used to investigate the influence of choosing either 'crit' or 'start' for 't0_type' on *<Dataset 4>*.
 
-It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**, as was done with '<Dataset 2>' and '<Dataset 3>' in the example above. If multiple datasets are combined, then the 'max_num_agents' of the combined dataset will be the smallest number that is seen in all of the combined datasets (in this selection, 'None' would count as infinity). Meanwhile, 't0_type' and 'conforming_t0_types' are only applicable to one respective dataset, and are allowed to differ.
+It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**, as was done with '<Dataset 2>' and '<Dataset 3>' in the example above. If multiple datasets are combined, then the 'max_num_agents' of the combined dataset will be the smallest number that is seen in all of the combined datasets (in this selection, 'None' would count as infinity).
 
 In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** above, this will be a number of dictionaries:
 ```
@@ -56,7 +56,7 @@ Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
 ```
 Again, this is passed as a dictionary with three keys:
 - 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods).
-- 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations).
+- 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations). That means that in this case, four different splits are possible, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
 - 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
 
 Next, one has to select the models that are to be evaluated in this experiment.
@@ -77,6 +77,8 @@ Finally, one has to pass the selected modules to the experiment.
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 ```
 
+As each module is applied to each other module, this will then result in up to $len(Data\_sets) \cdot len(Data\_params) \cdot num_{splits} \cdot len(Models) \cdot len(Metrics) = 4 \cdot 2 \cdot 4 \cdot 3 \cdot 2$ calculated metrics. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits. However, the actual value might be slightly lower, as some combinations might not be applicable (for example, splitting by location is not possible for datasets with only one recorded location).
+
 ## Set the experiment hyperparameters
 Besides selecting the modules, one must also set some hyperparameters for the overall framework.
 ```
@@ -85,9 +87,9 @@ num_samples_path_pred = 100
 This sets the number $N_{preds}$ of different predictions that are expected from each trajectory prediction model to represent the inherent stochasticity of their predictions. While this number can be set to any liking, setting it to at least 20 is advisable to be comparable with most standard metrics, which are normally evaluated on 20 predictions.
 
 ```
-enforce_prediction_times = True
+enforce_prediction_time = True
 ```
-"When extracting samples, it might be possible that there is not enough data available to enforce the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_times** is set to *True*, then such a sample would be discarded, while otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
+When extracting samples, it might be possible that there is not enough data available to extract the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_time** is set to *True*, then such a sample would be discarded. Otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
 
 ```
 enforce_num_timesteps_out = False
@@ -139,7 +141,7 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_results = True,
                                                            return_train_loss = True)
 ```
-Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\textunderscore sets), len(Data\textunderscore params), num\textunderscore splits, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to num_splits, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
+Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\_sets), len(Data\_params), num_{splits}, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
