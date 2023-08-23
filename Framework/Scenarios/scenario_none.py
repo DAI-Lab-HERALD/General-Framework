@@ -1,5 +1,10 @@
 
 class scenario_none():
+    '''
+    This is a scenario distinguished by a lack of any noteworthy features. It therefore
+    is generally advisable to use this scenario for large, general datasets without any
+    classifiable behavior.
+    '''
     def __init__(self):
         pass
             
