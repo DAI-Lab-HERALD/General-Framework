@@ -92,7 +92,7 @@ When extracting the prediction time, it might be possible that there is not enou
 ```
 enforce_num_timesteps_out = False
 ```
-When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/edit/main/Framework/README.md#L47).
+When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/edit/main/Framework#L47).
 
 ```
 exclude_post_crit = True
