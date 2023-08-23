@@ -173,10 +173,6 @@ Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False)
 ```
-Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model).
-
-TODO: Argument explanation
-
-The resulting *\*.pdf* images are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
+Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, on can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
 
 
