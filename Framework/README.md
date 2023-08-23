@@ -56,7 +56,7 @@ Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
 ```
 Again, this is passed as a dictionary with three keys:
 - 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods).
-- 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations).
+- 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations). That means that in this case, four different splits are possible, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
 - 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
 
 Next, one has to select the models that are to be evaluated in this experiment.
@@ -76,6 +76,8 @@ Finally, one has to pass the selected modules to the experiment.
 ```
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 ```
+
+As each module is applied to each other module, this will then result in up to $len(Data\_sets) \cdot len(Data\_params) \cdot num_{splits} \cdot len(Models) \cdot len(Metrics) = 4 \cdot 2 \cdot 4 \cdot 3 \cdot 2$ calculated metrics. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits. However, the actual value might be slightly lower, as some combinations might not be applicable (for example, splitting by location is not possible for datasets with only one recorded location).
 
 ## Set the experiment hyperparameters
 Besides selecting the modules, one must also set some hyperparameters for the overall framework.
@@ -139,7 +141,7 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_results = True,
                                                            return_train_loss = True)
 ```
-Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\textunderscore sets), len(Data\textunderscore params), num\textunderscore splits, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to num_splits, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
+Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\_sets), len(Data\_params), num_{splits}, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
