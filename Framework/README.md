@@ -87,12 +87,12 @@ This sets the number $N_{preds}$ of different predictions that are expected from
 ```
 enforce_prediction_times = True
 ```
-When extracting the prediction time, it might be possible that there is not enough previously observed data available for a chosen prediction time to get positions for all required input time steps. In such cases, if **enforce_prediction_times** is set to *True*, then such a sample would be discarded, while otherwise the prediction time is moved back until sufficient observations are available.
+"When extracting samples, it might be possible that there is not enough data available to enforce the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_times** is set to *True*, then such a sample would be discarded, while otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
 
 ```
 enforce_num_timesteps_out = False
 ```
-When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/edit/main/Framework#L47).
+When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/tree/main/Framework#select-modules).
 
 ```
 exclude_post_crit = True
@@ -167,7 +167,7 @@ TODO: Argument explanation
 Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/*.
 
 ### Plotting trajectories
-Lastly, one can also try to plot trajectories, true and predicted alike:
+Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False)
 ```
