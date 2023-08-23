@@ -77,7 +77,7 @@ Finally, one has to pass the selected modules to the experiment.
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 ```
 
-As each module is applied to each other module, this will then result in up to $len(Data\_sets) \cdot len(Data\_params) \cdot num_{splits} \cdot len(Models) \cdot len(Metrics) = 4 \cdot 2 \cdot 4 \cdot 3 \cdot 2$ calculated metrics. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits. However, the actual value might be slightly lower, as some combinations might not be applicable (for example, splitting by location is not possible for datasets with only one recorded location).
+As each module is applied to each other module, this will then result in up to $len(Data\_ sets) \cdot len(Data\_ params) \cdot num_{splits} \cdot len(Models) \cdot len(Metrics) = 4 \cdot 2 \cdot 4 \cdot 3 \cdot 2$ calculated metrics. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits. However, the actual value might be slightly lower, as some combinations might not be applicable (for example, splitting by location is not possible for datasets with only one recorded location).
 
 ## Set the experiment hyperparameters
 Besides selecting the modules, one must also set some hyperparameters for the overall framework.
@@ -141,7 +141,7 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Tr
                                                            return_train_results = True,
                                                            return_train_loss = True)
 ```
-Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\_sets), len(Data\_params), num_{splits}, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
+Here, **Results** are the results of the model on the testing set, while **Train_results** are similar, but with the results on the training set. Both are numpy arrays of the shape $\{len(Data\_ sets), len(Data\_ params), num_{splits}, len(Models), len(Metrics)\}$. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits.
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
