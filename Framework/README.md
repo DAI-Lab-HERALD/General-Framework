@@ -104,12 +104,12 @@ If the dataset allows for classification, and a method for defining the [last us
 ```
 allow_extrapolation = True
 ```
-In the framework, it is possible to extrapolate missing position data of certain agents during past and future observations, as some models might not be able to deal with such missing information. However, such extrapolated data might obfuscate the true human behavior. Therefore, this extrapolation can be prevented by setting **allow_extrapolation** to *False*, which might however lead to problems with some models.
+In the framework, it is possible that the past and future trajectories of agents that are not [distinguished in the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are only partially observed. If one sets **allow_extrapolation** to be *False*, then those missing values are filled up with *np.nan*. However, if **allow_extrapolation** is instead set to *True*, the missing values are filled in using linear inter- and extrapolation. This might be beneficial for some models that might not be able to deal with such missing information but might obfuscate the true human behavior.
 
 ```
 dynamic_prediction_agents = False
 ```
-In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model. In this case, it might be possible to include also any other agent in the scene, for which sufficient original past and future observations have been made, in the list of predicted and evaluated agents by setting **dynamic_prediction_agents** to *True*.
+In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model, in which case one could set **dynamic_prediction_agents** to *True*. In this case, all other agents in the scene, for which the past and future trajectories have been fully observed and are not extrapolated, are also designated to be predicted.
 
 ```
 overwrite_results = False
