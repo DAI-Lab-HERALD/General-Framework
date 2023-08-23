@@ -122,7 +122,7 @@ class Experiment():
     def set_parameters(self, model_for_path_transform,
                        num_samples_path_pred = 100, 
                        enforce_num_timesteps_out = False, 
-                       enforce_prediction_times = True, 
+                       enforce_prediction_time = True, 
                        exclude_post_crit = True,
                        allow_extrapolation = True,
                        dynamic_prediction_agents = False,
@@ -140,7 +140,7 @@ class Experiment():
         
         assert isinstance(enforce_num_timesteps_out, bool), "enforce_num_timesteps_out should be a boolean."
         
-        assert isinstance(enforce_prediction_times, bool), "enforce_prediction_times should be a boolean."
+        assert isinstance(enforce_prediction_time, bool), "enforce_prediction_time should be a boolean."
         
         assert isinstance(exclude_post_crit, bool), "exclude_post_crit should be a boolean."
         
@@ -151,7 +151,7 @@ class Experiment():
         assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         
         self.parameters = [model_class_to_path, num_samples_path_pred, 
-                           enforce_num_timesteps_out, enforce_prediction_times, 
+                           enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
                            dynamic_prediction_agents, overwrite_results]
         
@@ -1031,10 +1031,10 @@ class Experiment():
         f.close() 
         
     #%% Write tables
-    def write_tables(self, dataset_column = True, use_scriptsize = False, depict_std = True):
+    def write_tables(self, dataset_row = True, use_scriptsize = False, depict_std = True):
         assert self.results_loaded, "No results are loaded yet. Use self.load_results()."
         
-        if dataset_column:
+        if dataset_row:
             Table_iterator = self.Metrics
             Row_iterator   = self.Data_sets
             row_name       = 'Datasets'
@@ -1045,7 +1045,7 @@ class Experiment():
             row_name       = 'Metrics'
             
         for k, table_name in enumerate(Table_iterator):
-            if dataset_column:
+            if dataset_row:
                 table_module = importlib.import_module(table_name)
                 table_class = getattr(table_module, table_name)
                 table_filename = table_class.get_name()['file']
@@ -1093,7 +1093,7 @@ class Experiment():
                 
                 
                 # Get maximum number of pre decimal points
-                if dataset_column:
+                if dataset_row:
                     Table_results = self.Results[...,k]
                 else:
                     Table_results = self.Results[k].transpose(3,0,1,2)
@@ -1110,7 +1110,7 @@ class Experiment():
                 
                 
                 for i, row_name in enumerate(Row_iterator): 
-                    if dataset_column:
+                    if dataset_row:
                         row_item = data_interface(row_name, self.parameters)
                         row_latexname = row_item.get_name()['latex']
                     else:
@@ -1118,7 +1118,7 @@ class Experiment():
                         row_class  = getattr(row_module, row_name)
                         row_latexname = row_class.get_name()['latex']
                     
-                    if dataset_column:
+                    if dataset_row:
                         metric_class  = table_class
                         metric_index  = k
                         dataset_index = i
@@ -1233,7 +1233,7 @@ class Experiment():
             # split string into lines
             Output_lines = Output_string.split('\n')
             
-            if dataset_column:
+            if dataset_row:
                 table_file_name = (self.path + '/Latex_files/Table_' + self.Experiment_name  + '_' +
                                    table_filename + '.tex')
             else:

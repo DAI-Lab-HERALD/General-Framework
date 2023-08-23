@@ -54,7 +54,8 @@ class data_interface(object):
         # Borrow dataset paprameters
         self.model_class_to_path       = parameters[0]
         self.num_samples_path_pred     = parameters[1]
-        self.enforce_prediction_times  = parameters[3]
+        self.enforce_num_timesteps_out = parameters[2]
+        self.enforce_prediction_time   = parameters[3]
         self.exclude_post_crit         = parameters[4]
         self.allow_extrapolation       = parameters[5]
         self.dynamic_prediction_agents = parameters[6]
@@ -136,11 +137,17 @@ class data_interface(object):
         (self.num_timesteps_out_real, 
          self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
         
-        if self.enforce_prediction_times:
-            t0_type_name_addon = '_s'
+        t0_type_name_addon = '_'
+        if self.enforce_prediction_time:
+            t0_type_name_addon += 's' # s for severe
         else:
-            t0_type_name_addon = '_l'
-        
+            t0_type_name_addon += 'l' # l for lax
+            
+        if self.enforce_num_timesteps_out:
+            t0_type_name_addon += 's'
+        else:
+            t0_type_name_addon += 'l'
+            
         self.data_file = (list(self.Datasets.values())[0].path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                           'Data' + os.sep +

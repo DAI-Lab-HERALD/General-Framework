@@ -9,7 +9,7 @@ class data_set_template():
     # %% Implement the provision of data
     def __init__(self, model_class_to_path, num_samples_path_pred, 
                  enforce_num_timesteps_out = True, 
-                 enforce_prediction_times = False, 
+                 enforce_prediction_time = False, 
                  exclude_post_crit = True,
                  allow_extrapolation = True,
                  dynamic_prediction_agents = False,
@@ -67,7 +67,7 @@ class data_set_template():
         
         # Determine if all predicted timesteps must be observable
         self.enforce_num_timesteps_out = enforce_num_timesteps_out
-        self.enforce_prediction_times  = enforce_prediction_times
+        self.enforce_prediction_time   = enforce_prediction_time
         self.exclude_post_crit         = exclude_post_crit
         self.overwrite_results         = overwrite_results
         self.allow_extrapolation       = allow_extrapolation
@@ -589,7 +589,7 @@ class data_set_template():
             
         
         # Update sample if necessary and permittable
-        if (not self.enforce_prediction_times and t0 >= t_start) or not self.classification_useful:
+        if not self.enforce_prediction_time and (t0 >= t_start or not self.classification_useful):
             t0 = max(t0, t0_min)
         
         # exclude samples where t0 is not admissible during open gap
@@ -602,15 +602,15 @@ class data_set_template():
         # Determine the number of input timesteps (used and max required)
         if type((1, 1)) == type(num_timesteps):
             # Refers to sctual input data
-            num_timesteps_real = num_timesteps[0]
-            num_timesteps_need = max(num_timesteps_real, num_timesteps[1])  
+            num_timesteps_real = min(99, num_timesteps[0])
+            num_timesteps_need = max(num_timesteps_real, min(99, num_timesteps[1]))
 
         # If only one value is given, assume that the required number of steps is identical
         elif type(1) == type(num_timesteps):
-            num_timesteps_real = num_timesteps  # Refers to sctual input data
-            num_timesteps_need = num_timesteps  # Restrictions on t0
+            num_timesteps_real = min(99, num_timesteps)  # Refers to sctual input data
+            num_timesteps_need = min(99, num_timesteps)  # Restrictions on t0
             
-        return num_timesteps_real, num_timesteps_need
+        return int(num_timesteps_real), int(num_timesteps_need)
     
     def set_extraction_parameters(self, t0_type, T0_type_compare, max_num_agents):
         assert isinstance(t0_type, str), "Prediction time method has to be a string."
@@ -652,11 +652,17 @@ class data_set_template():
                              'col_equal':        'fix_e',
                              'col_set':          'fix_s',
                              'crit':             'crit_'}
+        t0_type_name = t0_type_file_name[self.t0_type] + '_'
         
-        if self.enforce_prediction_times:
-            t0_type_name = t0_type_file_name[self.t0_type] + '_s'
+        if self.enforce_prediction_time:
+            t0_type_name += 's' # s for severe
         else:
-            t0_type_name = t0_type_file_name[self.t0_type] + '_l'
+            t0_type_name += 'l' # l for lax
+            
+        if self.enforce_num_timesteps_out:
+            t0_type_name += 's'
+        else:
+            t0_type_name += 'l'
             
         self.data_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
@@ -795,27 +801,18 @@ class data_set_template():
                     
 
                     # calculate number of output time steps
+                    num_timesteps_out_pred = self.num_timesteps_out_real
                     if self.classification_useful:
                         t_default = self.T_class.iloc[i][self.behavior_default]
                         
                         # set prediction horizon considered for classification
-                        Pred_horizon_max = 20 - 5 * self.dt
-                        if t_default - t0 < Pred_horizon_max:
-                            Pred_horizon = t_default - t0
-                        elif t_default - t0 >= Pred_horizon_max and t_decision - t0 < Pred_horizon_max:
-                            Pred_horizon = t_decision - t0
-                        else:
-                            Pred_horizon = Pred_horizon_max
+                        Pred_horizon_max = 2 * self.num_timesteps_in_real * self.dt
+                        Pred_horizon = min(Pred_horizon_max, t_default - t0)
 
-                        num_timesteps_out_pred = max(self.num_timesteps_out_real, int(np.ceil(Pred_horizon / self.dt)) + 5)
-                    else:
-                        num_timesteps_out_pred = self.num_timesteps_out_real
+                        num_timesteps_out_pred = max(num_timesteps_out_pred, int(np.ceil(Pred_horizon / self.dt)) + 5)
                     
-                    if self.enforce_num_timesteps_out:
-                        assert self.num_timesteps_out_real <= int(np.floor((t.max() - t0) / self.dt))
-                        num_timesteps_out_data = self.num_timesteps_out_real
-                    else:
-                        num_timesteps_out_data = min(num_timesteps_out_pred, int(np.floor((t.max() - t0) / self.dt)))
+   
+                    num_timesteps_out_data = min(num_timesteps_out_pred, int(np.floor((t.max() - t0) / self.dt)))
 
                     # build new path data
                     # create time points
