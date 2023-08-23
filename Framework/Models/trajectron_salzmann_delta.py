@@ -1,4 +1,3 @@
-from model_template import model_template
 import numpy as np
 import pandas as pd
 import torch
@@ -10,7 +9,7 @@ from Trajectron.trajec_model.model_registrar import ModelRegistrar
 import json
 import os
 
-class trajectron_salzmann_delta(model_template):
+class trajectron_salzmann_delta(trajectron_salzmann_unicycle):
     def setup_method(self, seed = 0):
         # set random seeds
         random.seed(seed)

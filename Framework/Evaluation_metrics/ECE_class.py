@@ -157,7 +157,7 @@ class ECE_class(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'ECE (Expected Calibration Error on classes)',
+        names = {'print': 'ECE (Classes)',
                  'file': 'ECE',
                  'latex': r'\emph{ECE}'}
         return names

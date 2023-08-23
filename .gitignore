@@ -34,6 +34,7 @@ python_packages/
 
 # ignore visualization tools
 Latex_files/
+!header.tex
 rename_files.py
 remove_files.py
 Results/

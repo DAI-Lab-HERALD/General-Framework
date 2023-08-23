@@ -1,6 +1,21 @@
 import numpy as np
 
 class scenario_direction():
+    '''
+    This secnario is defined at intersection. Mainly, it is assumed that a vehicle
+    is trying to enter a intersection. Realistically, it should have three options to
+    advance (going straight, left, or right). Additionally, as the observation time
+    is not infinte, it is also possible that none of those maneuvers is observed,
+    in which case, one would say that the vehicle has stayed (U turns, which are technically 
+    possible, would also be classified this way).
+    
+    There are no other vehicles needed to make this classification, so only it is only
+    essential for one vehicle to be predicted.
+    
+    Generally, predictions are only sensible if the vehicle has not yet entered the
+    intersection. Consequently, in this instance, the last safe prediction is can be made
+    at the point where the vehicle is just 5 m away from the intersection. 
+    '''
     def __init__(self):
         pass
 

@@ -42,13 +42,13 @@ Given the settings, it might be possible that only a certain number of unique re
         
     Returns
     -------
-    max_repetition_nunmber : bool
+    max_repetition_nunmber : int
         
     '''
     return max_repetition_nunmber
 ```
 
-However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see *self.data_set.scenario.get_name()*), or a split by location would require at least two locations to be findable in the dataset (see *self.Domain.location*). Such requirements can then be set in the *check_splitability_method()*:
+However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
 
 ```    
   def check_splitability_method(self):
@@ -101,20 +101,20 @@ The main part of the splitting is then the function *split_data_method()*, where
 The splitting template provides a number of attributes that might be useful in this part.
 ```
 **self.repetition** : int
-  This is the number of the current split, which can be used to differentiate between different splitting methods.
-  It has to be noted that only up to ten repetitions per method are feasible, which means that this attribute
-  can only assume values between 0 and 9.
+  This is the number of the current split, which can be used to differentiate between different splits of the
+  same splitting method. It has to be noted that only up to ten repetitions per method are feasible, which means
+  that this attribute can only assume values between 0 and 9.
 **self.test_split** : float
   This is a value between 0 and 1 which denotes the portion of the whole dataset that is used for the evaluation
   of the trained method.
 **self.Domain** : pandas.DataFrame
   This is a pandas dataset, that is mainly used to include the metadata of each sample in the dataset, and has
-  the shape :math:`\{N_{samples} {\times} (N_{info})\}`. The following keys can be used here included.
+  the shape :math:`\{N_{samples} {\times} (N_{info})\}`. The following keys can be used.
   - 'Scenario' : This is the name of the current possible datasets, such as *highD*, *rounD*, or *NuScenes*.
   - 'Path_id' : This is the id (from 0 to len(**Path_old**) - 1) of the original path data in
-                **self.data_set.Datasets['Scenario'].Path_old** this current sample is coming from.
+                **self.data_set.Datasets['Scenario'].Path_old** that this current sample is coming from.
   - 'Scenario_type' : This is the name of the Scenario, such as gap acceptance.
-  Further key might be included, but do not necessarily exist:
+  Further keys that might be included, but do not necessarily have to exist:
   - 'location' : This is the location at which the current data was recorded.
   
 ```

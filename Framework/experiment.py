@@ -122,7 +122,7 @@ class Experiment():
     def set_parameters(self, model_for_path_transform,
                        num_samples_path_pred = 100, 
                        enforce_num_timesteps_out = False, 
-                       enforce_prediction_times = True, 
+                       enforce_prediction_time = True, 
                        exclude_post_crit = True,
                        allow_extrapolation = True,
                        dynamic_prediction_agents = False,
@@ -140,7 +140,7 @@ class Experiment():
         
         assert isinstance(enforce_num_timesteps_out, bool), "enforce_num_timesteps_out should be a boolean."
         
-        assert isinstance(enforce_prediction_times, bool), "enforce_prediction_times should be a boolean."
+        assert isinstance(enforce_prediction_time, bool), "enforce_prediction_time should be a boolean."
         
         assert isinstance(exclude_post_crit, bool), "exclude_post_crit should be a boolean."
         
@@ -151,7 +151,7 @@ class Experiment():
         assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         
         self.parameters = [model_class_to_path, num_samples_path_pred, 
-                           enforce_num_timesteps_out, enforce_prediction_times, 
+                           enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
                            dynamic_prediction_agents, overwrite_results]
         
@@ -485,8 +485,8 @@ class Experiment():
                                     figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
                                     
                                     # remove model name from figure file
-                                    num = 16 + len(self.get_name()['file'])
-                                    figure_file = figure_file[:-num] + self.get_name()['file'] + '.pdf'
+                                    num = 16 + len(metric_class.get_name()['file'])
+                                    figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
                                     
                                     os.makedirs(os.path.dirname(figure_file), exist_ok = True)
                                     saving_figure = l == (self.num_models - 1)
@@ -1031,10 +1031,10 @@ class Experiment():
         f.close() 
         
     #%% Write tables
-    def write_tables(self, dataset_column = True, use_scriptsize = False, depict_std = True):
+    def write_tables(self, dataset_row = True, use_scriptsize = False, depict_std = True):
         assert self.results_loaded, "No results are loaded yet. Use self.load_results()."
         
-        if dataset_column:
+        if dataset_row:
             Table_iterator = self.Metrics
             Row_iterator   = self.Data_sets
             row_name       = 'Datasets'
@@ -1045,7 +1045,7 @@ class Experiment():
             row_name       = 'Metrics'
             
         for k, table_name in enumerate(Table_iterator):
-            if dataset_column:
+            if dataset_row:
                 table_module = importlib.import_module(table_name)
                 table_class = getattr(table_module, table_name)
                 table_filename = table_class.get_name()['file']
@@ -1093,7 +1093,7 @@ class Experiment():
                 
                 
                 # Get maximum number of pre decimal points
-                if dataset_column:
+                if dataset_row:
                     Table_results = self.Results[...,k]
                 else:
                     Table_results = self.Results[k].transpose(3,0,1,2)
@@ -1110,7 +1110,7 @@ class Experiment():
                 
                 
                 for i, row_name in enumerate(Row_iterator): 
-                    if dataset_column:
+                    if dataset_row:
                         row_item = data_interface(row_name, self.parameters)
                         row_latexname = row_item.get_name()['latex']
                     else:
@@ -1118,7 +1118,7 @@ class Experiment():
                         row_class  = getattr(row_module, row_name)
                         row_latexname = row_class.get_name()['latex']
                     
-                    if dataset_column:
+                    if dataset_row:
                         metric_class  = table_class
                         metric_index  = k
                         dataset_index = i
@@ -1233,7 +1233,7 @@ class Experiment():
             # split string into lines
             Output_lines = Output_string.split('\n')
             
-            if dataset_column:
+            if dataset_row:
                 table_file_name = (self.path + '/Latex_files/Table_' + self.Experiment_name  + '_' +
                                    table_filename + '.tex')
             else:
@@ -1420,12 +1420,13 @@ class Experiment():
                 sample_string = 'In this case '
                 for n_beh, beh in enumerate(Output_A.columns):
                     if beh != Output_A.columns[-1]:
+                        sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
                         if len(Output_A.columns) > 2:
-                            sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ', '
+                            sample_string += ', '
                         else:
-                            sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' '
+                            sample_string += ' '
                     else:                            
-                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh        
+                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
                 sample_string += ' samples are available.'
                 print(sample_string, flush = True)  
                 print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
@@ -1508,9 +1509,15 @@ class Experiment():
             map_dashed.set_array(np.asarray(map_dashed_colors))
             
             # Load raw darta
-            opp = np.stack(output_path_pred.to_numpy(), 0) # n_a x n_p x n_O x 2
-            op = np.stack(output_path.to_numpy(), 0) # n_a x n_O x 2
-            ip = np.stack(input_path.to_numpy(), 0) # n_a x n_I x 2
+            ind_p = np.array([name for name in input_path.index 
+                              if isinstance(input_path[name], np.ndarray)])
+            
+            ind_pp = np.array([name for name in output_path_pred.index 
+                               if isinstance(output_path_pred[name], np.ndarray)])
+            
+            opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+            op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
+            ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
             
             max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)), 
                                         np.max(op, axis = (0,1)),
@@ -1524,9 +1531,6 @@ class Experiment():
             min_v = np.floor((min_v - 10) / 10) * 10
             
             # plot figure
-            ind_p = np.array([name[2:] for name in input_path.index])
-            ind_pp = np.array([name[2:] for name in output_path_pred.index])
-            
             # plot map
             fig, ax = plt.subplots(figsize = (10,8))
             
@@ -1582,4 +1586,6 @@ class Experiment():
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
+            
+            assert False
             plt.close(fig)
