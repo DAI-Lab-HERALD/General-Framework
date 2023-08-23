@@ -166,7 +166,7 @@ One can also generate result tables, which present for each model, metric, datas
 ```
 write_tables(self, dataset_row = True, use_scriptsize = False, depict_std = True)
 ```
-This will create a number of tables. In each table, the outermost row will be either the dataset (*dataset_row = True*) or the metric (*dataset_row = False*). Separate tables are then created either over metrics or datasets respectively. The outermost columns meanwhile will be the models. The tables will then be separated by line along those outermost rows and columns into a number of cells. In each cell, there will be a number of rows and columns. The rows then are used to separate over the splitting method, while the columns can be used to separate between data parameters. Normally, for each entry in the cell, this will the be mean metric value (*depict_std = False*) over all repetitions of the selected splitting method. If one sets *use_scriptsize = True*, those values will be printed in a smaller font than the outermost labels, to fit more values into a single table. Finally, it is also possible to not only show the mean over the splitting method repetitions but the standard deviation as well (*depict_std = True*).
+This will create a number of tables. In each table, the outermost row will be either the dataset (*dataset_row = True*) or the metric (*dataset_row = False*). Separate tables are then created either over metrics or datasets respectively. The outermost columns meanwhile will be the models. The tables will then be separated by a line along those outermost rows and columns into a number of cells. In each cell, there will be a number of rows and columns. The rows then are used to separate over the splitting method, while the columns can be used to separate between data parameters. Normally, for each entry in the cell, this will the be mean metric value (*depict_std = False*) over all repetitions of the selected splitting method. If one sets *use_scriptsize = True*, those values will be printed in a smaller font than the outermost labels, to fit more values into a single table. Finally, it is also possible to not only show the mean over the splitting method repetitions but the standard deviation as well (*depict_std = True*).
 
 Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/*.
 
@@ -175,6 +175,6 @@ Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False)
 ```
-Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
+Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
 
 
