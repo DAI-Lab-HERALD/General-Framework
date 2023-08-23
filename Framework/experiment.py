@@ -1420,12 +1420,13 @@ class Experiment():
                 sample_string = 'In this case '
                 for n_beh, beh in enumerate(Output_A.columns):
                     if beh != Output_A.columns[-1]:
+                        sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
                         if len(Output_A.columns) > 2:
-                            sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ', '
+                            sample_string += ', '
                         else:
-                            sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' '
+                            sample_string += ' '
                     else:                            
-                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh        
+                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
                 sample_string += ' samples are available.'
                 print(sample_string, flush = True)  
                 print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
@@ -1508,9 +1509,15 @@ class Experiment():
             map_dashed.set_array(np.asarray(map_dashed_colors))
             
             # Load raw darta
-            opp = np.stack(output_path_pred.to_numpy(), 0) # n_a x n_p x n_O x 2
-            op = np.stack(output_path.to_numpy(), 0) # n_a x n_O x 2
-            ip = np.stack(input_path.to_numpy(), 0) # n_a x n_I x 2
+            ind_p = np.array([name for name in input_path.index 
+                              if isinstance(input_path[name], np.ndarray)])
+            
+            ind_pp = np.array([name for name in output_path_pred.index 
+                               if isinstance(output_path_pred[name], np.ndarray)])
+            
+            opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+            op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
+            ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
             
             max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)), 
                                         np.max(op, axis = (0,1)),
@@ -1524,9 +1531,6 @@ class Experiment():
             min_v = np.floor((min_v - 10) / 10) * 10
             
             # plot figure
-            ind_p = np.array([name[2:] for name in input_path.index])
-            ind_pp = np.array([name[2:] for name in output_path_pred.index])
-            
             # plot map
             fig, ax = plt.subplots(figsize = (10,8))
             
@@ -1582,4 +1586,6 @@ class Experiment():
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
+            
+            assert False
             plt.close(fig)

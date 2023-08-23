@@ -412,7 +412,7 @@ class trajflow_meszaros(model_template):
         # Prepare stuff for Normalization
         if self.data_set.get_name()['file'] == 'Fork_P_Aug':
             X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-            traj_tar = np.concatenate((X[:,0], Y[:,0]), dim = 1)
+            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
             self.max_pos = torch.max(traj_tar)
             self.min_pos = torch.min(traj_tar)
         else:
