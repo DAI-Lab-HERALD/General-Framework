@@ -176,7 +176,6 @@ class flomo_schoeller(model_template):
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
                     
-                    
                     if img is not None:
                         logprob = flow_dist.log_prob(future_data, past_data, T, img)
                     else:
@@ -238,7 +237,7 @@ class flomo_schoeller(model_template):
 
 
     def train_method(self):    
-        self.train_loss = np.ones((1, max(self.fut_ae_epochs, self.flow_epochs))) * np.nan
+        self.train_loss = np.ones((1, self.flow_epochs)) * np.nan
 
         # Get needed agent types
         T_all = self.provide_all_included_agent_types().astype(str)
