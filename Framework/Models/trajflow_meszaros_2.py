@@ -9,7 +9,7 @@ import pickle
 from torch.utils.data import TensorDataset, DataLoader
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_2(model_template):
     
     def setup_method(self, seed = 0):        
         # set random seeds
@@ -22,8 +22,8 @@ class trajflow_meszaros(model_template):
         self.batch_size = 128
         
         # Required attributes of the model
-        self.min_t_O_train = self.num_timesteps_out
-        self.max_t_O_train = self.num_timesteps_out
+        self.min_t_O_train = 2
+        self.max_t_O_train = 100
         self.predict_single_agent = True
         self.can_use_map = True
         # If self.can_use_map, the following is also required
@@ -524,9 +524,9 @@ class trajflow_meszaros(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                 'file': 'TrajFlow_M',
-                 'latex': r'\emph{TF}'}
+        names = {'print': 'TrajFlow (expanded)',
+                 'file': 'TrajFlow_2',
+                 'latex': r'\emph{TF2}'}
         return names
         
     def save_params_in_csv(self = None):
