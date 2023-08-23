@@ -193,9 +193,39 @@ class model_template():
                         pt = PT.iloc[i_sample]
                         t0 = T0.iloc[i_sample]
                         i_time = np.argmin(np.abs(t0 - pt))
-                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)
                         
-                        Pred_agents_N[i_sample, :pa.shape[1]] = pa[i_time]
+                        pas = PA.iloc[i_sample]
+                        i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                        pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                        
+                        Pred_agents_N[i_sample, i_agents] = pa
+                    
+                    # # Test the assumption made in https://github.com/nutonomy/nuscenes-devkit/issues/731
+                    # P = Pred_agents.copy()
+                    
+                    # X_help = self.data_set.Input_path.to_numpy()
+                    # Y_help = self.data_set.Output_path.to_numpy()
+                    
+                    # X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
+                    # Y = np.ones(list(Y_help.shape) + [self.max_t_O_train, 2], dtype = np.float32) * np.nan
+                    
+                    # # Extract data from original number a samples
+                    # for i_sample in range(X.shape[0]):
+                    #     for i_agent, agent in enumerate(Agents):
+                    #         if isinstance(X_help[i_sample, i_agent], float):
+                    #             assert not Pred_agents[i_sample, i_agent], 'A needed agent is not given.'
+                    #         else:    
+                    #             n_time = min(self.max_t_O_train, len(Y_help[i_sample, i_agent]))
+                    #             X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                    #             Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+                    
+                    # Tr = np.concatenate((X,Y), axis = 2)
+                    # Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
+                    
+                    # P &= Dr > 0.01
+                    
+                    # T = self.data_set.Type[Agents].to_numpy()
+                    # P &= (T == 'V')
                     
                     return Pred_agents_N
         return Pred_agents
