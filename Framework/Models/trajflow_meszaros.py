@@ -1,12 +1,10 @@
 from model_template import model_template
 import numpy as np
-import pandas as pd
 import torch
 import random
 import scipy
 from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
-from torch.utils.data import TensorDataset, DataLoader
 import os
 
 class trajflow_meszaros(model_template):
@@ -37,13 +35,13 @@ class trajflow_meszaros(model_template):
         self.hs_rnn = 16
         self.n_layers_rnn = 3
         self.fut_enc_sz = 4
+
+        self.scene_encoding_size = 4
+        self.obs_encoding_size = 16 
         
         if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
             self.gamma_noise = 0.02
-            
-            self.scene_encoding_size = 4
-            self.obs_encoding_size = 16 
             
             self.alpha = 10
             self.s_min = 0.3
@@ -51,11 +49,8 @@ class trajflow_meszaros(model_template):
             self.sigma = 0.5
 
         else:
-            self.beta_noise = 0
-            self.gamma_noise = 0 
-            
-            self.scene_encoding_size = 4
-            self.obs_encoding_size = 4
+            self.beta_noise = 0.002
+            self.gamma_noise = 0.002
             
             self.alpha = 3
             self.s_min = 0.8
@@ -387,8 +382,6 @@ class trajflow_meszaros(model_template):
                         print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
                         print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
                         break
-
-
 
                 if step % 10 == 0:
 
