@@ -1,7 +1,6 @@
 In order to obtain the raw data, use the Google Drive link at [Forking Paths GitHub repository](https://github.com/JunweiLiang/Multiverse#the-forking-paths-dataset).
 
 The raw data includes as folder called *next_x_v1_dataset*. This folder includes the following four folders:
-
 - bbox
 - rgb_videos
 - seg_videos
