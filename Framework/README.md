@@ -162,9 +162,9 @@ Those plots are then saved as *\*.tex* files in the folder *../Framework/Latex_f
 ### Creating tables
 One can also generate result tables, which present for each model, metric, dataset, and splitting method the mean value of all results of the repetitions of the splitting method.
 ```
-write_tables(self, dataset_column = True, use_scriptsize = False, depict_std = True)
+write_tables(self, dataset_row = True, use_scriptsize = False, depict_std = True)
 ```
-TODO: Argument explanation
+This will create a number of tables. In each table, the outermost row will be either the dataset (*dataset_row = True*) or the metric (*dataset_row = False*). Separate tables are then created either over metrics or datasets respectively. The outermost columns meanwhile will be the models. The tables will then be separated by line along those outermost rows and columns into a number of cells. In each cell, there will be a number of rows and columns. The rows then are used to separate over the splitting method, while the columns can be used to separate between data parameters. Normally, for each entry in the cell, this will the be mean metric value (*depict_std = False*) over all repetitions of the selected splitting method. If one sets *use_scriptsize = True*, those values will be printed in a smaller font than the outermost labels, to fit more values into a single table. Finally, it is also possible to not only print the mean over the splitting method repetitions but the standard deviation as well (*depict_std = True*).
 
 Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/*.
 
