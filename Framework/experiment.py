@@ -164,7 +164,7 @@ class Experiment():
         print('')
         print('------------------------------------------------------------------------------------')
         print('On dataset ' + data_set.get_name()['print'] + 
-              'at prediction time setting ' + data_set.t0_type + 
+              ' at prediction time setting ' + data_set.t0_type + 
               ' ({}/{})'.format(i + 1, self.num_data_sets), flush = True)
         
         print('with dt = ' + '{:0.2f}'.format(max(0, min(9.99, data_param['dt']))).zfill(4) + 
