@@ -57,7 +57,7 @@ Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
 Again, this is passed as a dictionary with three keys:
 - 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods).
 - 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations). That means that in this case, four different splits are possible, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
-- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
+- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method. For some splitting methods, such as splitting by location, this will however be ignored, if those locations are not balanced, which is most often not the case.
 
 Next, one has to select the models that are to be evaluated in this experiment.
 ```
