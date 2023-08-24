@@ -33,8 +33,10 @@ python_packages/
 *.m
 
 # ignore visualization tools
-Latex_files/
 !header.tex
+*.aux
+*.gz
+*.out
 rename_files.py
 remove_files.py
 Results/
