@@ -1,4 +1,4 @@
-# General-Framework
+# A general framework for benchmarking human prediction methods in traffic
 In the field of predicting human behavior in traffic situations, comprehensive and equitable comparisons between different methods are an important aspect. To this end, we present a generalized framework for benchmarking human behavior prediction models, which can be used to compare and test different models with a large amount of control over the actual testing environment.
 
 ## General usage description
