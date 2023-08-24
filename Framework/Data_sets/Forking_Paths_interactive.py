@@ -22,7 +22,7 @@ class Forking_Paths_interactive(data_set_template):
     def create_path_samples(self): 
         # Load raw data
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths_complete' + os.sep + 'FP_processed.pkl')
         # analize raw dara 
         num_tars = len(self.Data)
         self.num_samples = 0 
