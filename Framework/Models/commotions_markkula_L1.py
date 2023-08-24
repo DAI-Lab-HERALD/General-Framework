@@ -5,6 +5,21 @@ from model_template import model_template
 
     
 class commotions_markkula_L1(model_template, commotions_template):
+    '''
+    This is a model for predicting human behavior in gap acceptance scenarios,
+    which is based on cognitive theory and includes concepts such as noisy
+    perception, evidence accumulation and theory of mind in a multi agent setting.
+    
+    It uses the original loss function :math:`\mathcal{L}_1` from the paper cited 
+    below.
+    
+    The code is taken from https://github.com/julianschumann/Commotions-model-evaluation
+    and the the model is published under the following citation:
+        
+    Schumann, J. F., Srinivasan, A. R., Kober, J., Markkula, G., & Zgonnikov, A. (2023). 
+    Using Models Based on Cognitive Theory to Predict Human Behavior in Traffic: A Case 
+    Study. arXiv preprint arXiv:2305.15187.
+    '''
     def setup_method(self):
         # set model settings
         self.adjust_free_speeds = False

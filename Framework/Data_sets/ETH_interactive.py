@@ -188,7 +188,7 @@ class ETH_interactive(data_set_template):
 
     
     def get_name(self = None):
-        names = {'print': 'ETH (interactive pedestrians)',
+        names = {'print': 'ETH (pedestrians)',
                  'file': 'ETH_ped_ia',
                  'latex': r'\emph{ETH/UCY}'}
         return names

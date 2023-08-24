@@ -10,6 +10,17 @@ from agentformer.utils.torch import get_scheduler
 from agentformer.utils.config import Config
 
 class agent_yuan(model_template):
+    '''
+    The AgentFormer model is a joint prediction model mainly using transformers as
+    its main ingredient.
+    
+    The code was taken from https://github.com/Khrylx/AgentFormer and the model is published
+    under following citation:
+        
+    Yuan, Y., Weng, X., Ou, Y., & Kitani, K. M. (2021). Agentformer: Agent-aware transformers 
+    for socio-temporal multi-agent forecasting. In Proceedings of the IEEE/CVF International 
+    Conference on Computer Vision (pp. 9813-9823).
+    '''
     
     def setup_method(self, seed = 0):
         # check for gpus

@@ -3,6 +3,15 @@ import pandas as pd
 from DBN import DBN
 
 class DBN_general(DBN):
+    '''
+    The deep belief model is a standard classification model used in many settings.
+    
+    This instance takes as input extracted, scenario dependent distances, and its 
+    training is based on the following citation:
+        
+    Xie, D. F., Fang, Z. Z., Jia, B., & He, Z. (2019). A data-driven lane-changing model 
+    based on deep learning. Transportation research part C: emerging technologies, 106, 41-60.
+    '''
     def get_data(self, train = True):
         if train:
             _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)

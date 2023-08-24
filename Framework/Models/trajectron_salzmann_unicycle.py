@@ -11,6 +11,19 @@ import json
 import os
 
 class trajectron_salzmann_unicycle(model_template):
+    '''
+    This is the updated version of Trajectron++, a single agent prediction model
+    that is mainly based on LSTM cells. In its decoder, it just uses a unicycle model 
+    to transform predicted control inputs into trajectories, identically to 
+    the original model.
+    
+    The code was taken from https://github.com/NVlabs/adaptive-prediction/tree/main/src/trajectron
+    and the model is published under the following citation:
+        
+    Ivanovic, B., Harrison, J., & Pavone, M. (2023, May). Expanding the deployment envelope 
+    of behavior prediction via adaptive meta-learning. In 2023 IEEE International Conference 
+    on Robotics and Automation (ICRA) (pp. 7786-7793). IEEE.
+    '''
     def setup_method(self, seed = 0):
         # set random seeds
         random.seed(seed)

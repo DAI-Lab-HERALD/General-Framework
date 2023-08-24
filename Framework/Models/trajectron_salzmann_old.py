@@ -10,6 +10,18 @@ from Trajectron_old.environment.environment import Environment
 from attrdict import AttrDict
 
 class trajectron_salzmann_old(model_template):
+    '''
+    This is the orignial version of Trajectron++, a single agent prediction model
+    that is mainly based on LSTM cells.
+    
+    The code was taken from https://github.com/StanfordASL/Trajectron-plus-plus/tree/master
+    and the model is published under the following citation:
+        
+    Salzmann, T., Ivanovic, B., Chakravarty, P., & Pavone, M. (2020). Trajectron++: Dynamically-
+    feasible trajectory forecasting with heterogeneous data. In Computer Vision–ECCV 2020: 
+    16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part XVIII 16 
+    (pp. 683-700). Springer International Publishing.
+    '''
     
     def setup_method(self, seed = 0):
         # set random seeds
