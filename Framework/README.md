@@ -145,7 +145,7 @@ Here, **Results** are the results of the model on the testing set, while **Train
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
-The arguments *return_train_results* and *return_train_loss* respectively indicate if **Train_results** and **Loss** should be returned. Meanwhile, if *plot_is_possible = True*, then [plots](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#metric-visualization) such as calibration curves for the ECE metrics are plotted as well. Those plots are saved at *../Framework/Results/<Dataset name>/Metric_figures/*
+The arguments *return_train_results* and *return_train_loss* respectively indicate if **Train_results** and **Loss** should be returned. Meanwhile, if *plot_is_possible = True*, then [plots](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#metric-visualization) such as calibration curves for the ECE metrics are plotted as well. Those plots are saved at *../Framework/Results/<Dataset_name>/Metric_figures/*
 
 ## Visualizing results
 Besides getting numerical results and metric-specific plots, the framework also allows one to generate a number of other presentation contents.
@@ -176,6 +176,6 @@ Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False)
 ```
-Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
+Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
 
 
