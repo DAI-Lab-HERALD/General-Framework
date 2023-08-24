@@ -8,6 +8,4 @@ If one
 
 
 ## Contact and collaboration
-If you have questions regarding the usage of the framework or are interested in a collaboration, please contact J.F.Schumann@tudelft.nl
-
-<span style="color: blue;"><ins>J.F.Schumann@tudelft.nl</ins></span>
+If you have questions regarding the usage of the framework or are interested in a collaboration, please contact J.F.Schumann@tudelft.nl.
