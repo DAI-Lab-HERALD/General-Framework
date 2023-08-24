@@ -155,6 +155,7 @@ Firstly, one can generate plots with the metrics using the following command:
 ```
 new_experiment.draw_figure(include_only_mean = False, produce_single = False, plot_height = 2, plot_width = None, plot_x_labels = True)
 ```
+
 ![An example of the default output of the *draw_figure()* method.](https://github.com/julianschumann/General-Framework/blob/main/Framework/Latex_files/Figure_test.pdf)
 
 This method can be used to draw a figure with a number of aligned plots that depict the final metric results. Here, each row will depict the results for a certain metric, while each outside column will represent a certain dataset. For each plot per row and column, the $x$-axis will be divided by the models included in the current experiment. In such a row, the metric values for the combination of data parameters (denoted by color) and splitting method (denoted by marker type) will be depicted. If one however sets *produce_single = True*, then all those separate plots for each combination of metric and dataset will be saved separately from each other. In the latter case, the model names will be plotted as axis labels if *plot_x_labels = True*, and otherwise, only the $y$-axis will be labeled.
