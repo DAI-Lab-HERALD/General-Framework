@@ -6,6 +6,13 @@ from splitting_template import splitting_template
 
 
 class Dataset_split(splitting_template):
+    '''
+    When models are applied to combined datasets, it is possible to test
+    their generalizability by testing them on one dataset and letting the models
+    learn on the other datasets.
+    
+    Here, the number of possible repetitions depends on the number of datasets.
+    '''
     def split_data_method(self):
         Situations = self.Domain['Scenario']
         Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)

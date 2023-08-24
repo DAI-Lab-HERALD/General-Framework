@@ -320,8 +320,6 @@ class flomo_schoeller(model_template):
             
             torch.cuda.empty_cache()
             
-            assert False
-            
             # extrapolate if needed
             if num_steps > Pred.shape[-2]:
                 step_delta = Pred[...,-1,:] - Pred[...,-2,:]
