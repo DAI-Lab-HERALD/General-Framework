@@ -280,6 +280,29 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
 
 ```
 ```
+def get_true_prediction_with_same_input(self):
+  '''
+  This returns the true trajectories from the current sample as well as all
+  other samples that had the same past trajectories. It should be used only
+  in conjunction with *get_true_and_predicted_paths()*.
+
+  Returns
+  -------
+  Path_true : np.ndarray
+      This is the true observed trajectory of the agents, in the form of a
+      :math:`\{N_{samples} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+      dimensional numpy array with float values. If an agent is fully or on some 
+      timesteps partially not observed, then this can include np.nan values. It
+      must be noted that :math:`N_{same}` is the maximum number of similar samples,
+      so for a smaller number, there will also be np.nan values.
+
+  '''
+  
+  ...
+      
+  return Path_true_all
+```
+```
 def get_true_and_predicted_class_probabilities(self):
   '''
   This returns the true and predicted classification probabilities.
