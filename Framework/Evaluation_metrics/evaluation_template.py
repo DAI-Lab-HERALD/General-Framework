@@ -199,20 +199,31 @@ class evaluation_template():
         
         num_samples, num_agents = self.Output_path_pred.shape
         
-        Path_pred = np.zeros((num_samples, num_preds, num_agents, nto, 2))
-        Path_true = np.zeros((num_samples, 1, num_agents, nto, 2))
-        Pred_step = np.zeros((num_samples, num_agents, nto), bool)
+        # Get pred agents
+        max_num_pred_agents = self.Pred_agents.sum(1).max()
+        
+        i_agent_sort = np.argsort(-self.Pred_agents.astype(float))
+        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
+        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
+        
+        Pred_agents = self.Pred_agents[i_sampl_sort, i_agent_sort]
+        
+        # Initialize output
+        Path_pred = np.zeros((num_samples, num_preds, max_num_pred_agents, nto, 2))
+        Path_true = np.zeros((num_samples, 1, max_num_pred_agents, nto, 2))
+        Pred_step = np.zeros((num_samples, max_num_pred_agents, nto), bool)
+        
         
         for i in range(num_samples):
             nto_i = min(nto, len(self.Output_T[i]))
             
-            pred_agents = self.Pred_agents[i] 
+            pred_agents = Pred_agents[i] 
             
-            path_pred = self.Output_path_pred.iloc[i, pred_agents]
-            path_pred = np.stack(path_pred.to_numpy(), axis = 1)
+            path_pred_orig = self.Output_path_pred.iloc[i, i_agent_sort[i]]
+            path_pred = np.stack(path_pred_orig.iloc[pred_agents].to_numpy(), axis = 1)
             
-            path_true = self.Output_path.iloc[i, pred_agents]
-            path_true = np.stack(path_true, axis = 0)[np.newaxis]
+            path_true_orig = self.Output_path.iloc[i, i_agent_sort[i]]
+            path_true = np.stack(path_true_orig.iloc[pred_agents].to_numpy(), axis = 0)[np.newaxis]
             
             # For some reason using pred_agents here moves the agent dimension to the front
             Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i].transpose(1,0,2,3)
