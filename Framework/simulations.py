@@ -9,7 +9,7 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'NuScenes_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'Lyft_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.5, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (12, 12)}] 
