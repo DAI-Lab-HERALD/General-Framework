@@ -6,6 +6,8 @@ python_packages/
 *.pkl
 *.csv
 *.txt
+*.tfw
+*.tif
 !requirements.txt
 *.log
 *.npy
@@ -26,6 +28,7 @@ python_packages/
 *.jpg
 *.pcd
 *.xcf
+*.pb
 
 
 # C extensions
@@ -40,6 +43,7 @@ python_packages/
 rename_files.py
 remove_files.py
 Results/
+*.zarr/
 Data_sets/NuScenes/v1.0-mini/
 simulations*.py
 
