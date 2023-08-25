@@ -218,12 +218,13 @@ class evaluation_template():
             nto_i = min(nto, len(self.Output_T[i]))
             
             pred_agents = Pred_agents[i] 
+            prd_agent_id = i_agent_sort[i, pred_agents]
             
-            path_pred_orig = self.Output_path_pred.iloc[i, i_agent_sort[i]]
-            path_pred = np.stack(path_pred_orig.iloc[pred_agents].to_numpy(), axis = 1)
+            path_pred_orig = self.Output_path_pred.iloc[i, prd_agent_id]
+            path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
             
-            path_true_orig = self.Output_path.iloc[i, i_agent_sort[i]]
-            path_true = np.stack(path_true_orig.iloc[pred_agents].to_numpy(), axis = 0)[np.newaxis]
+            path_true_orig = self.Output_path.iloc[i, prd_agent_id]
+            path_true = np.stack(path_true_orig.to_numpy(), axis = 0)[np.newaxis]
             
             # For some reason using pred_agents here moves the agent dimension to the front
             Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i].transpose(1,0,2,3)
@@ -235,6 +236,7 @@ class evaluation_template():
             Types = self.Type.to_numpy()
             Types = Types.astype(str)
             Types[Types == 'nan'] = '0'
+            Types = Types[i_sampl_sort, i_agent_sort]
             return Path_true, Path_pred, Pred_step, Types     
         else:
             return Path_true, Path_pred, Pred_step
