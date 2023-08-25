@@ -427,6 +427,10 @@ class trajectron_salzmann_old(model_template):
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
                 
+                # Move img to device
+                if img is not None:
+                    img = img.to(self.trajectron.device)
+                
                 self.trajectron.set_curr_iter(curr_iter)
                 self.trajectron.step_annealers()
                 
@@ -442,7 +446,7 @@ class trajectron_salzmann_old(model_template):
                                               neighbors             = Neighbor,
                                               neighbors_edge_value  = Neighbor_edge,       
                                               robot                 = None,
-                                              map                   = img.to(self.trajectron.device),
+                                              map                   = img,
                                               prediction_horizon    = num_steps)
                 
                 # Calculate gradients

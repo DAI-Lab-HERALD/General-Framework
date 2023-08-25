@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import networkx as nx
 
 
 class evaluation_template():
@@ -241,6 +242,100 @@ class evaluation_template():
         else:
             return Path_true, Path_pred, Pred_step
     
+    
+    def get_true_prediction_with_same_input(self):
+        '''
+        This returns the true trajectories from the current sample as well as all
+        other samples which had the same past trajectories. It should be used only
+        in conjunction with *get_true_and_predicted_paths()*.
+
+        Returns
+        -------
+        Path_true : np.ndarray
+            This is the true observed trajectory of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+            dimensional numpy array with float values. If an agent is fully or on some 
+            timesteps partially not observed, then this can include np.nan values. It
+            must be noted that :math:`N_{same}` is the maximum number of similar samples,
+            so for a smaller number, there will also be np.nan values.
+
+        '''
+        # Get the same entrie in full dataset
+        T_full = self.Type_full.to_numpy().astype(str)
+        Type_unique, Type_inverse = np.unique(T_full, axis = 0, return_inverse = True)
+        
+        Subgroup_full = np.zeros(len(T_full), int)
+        max_len = 0
+        subgroup_index = 1
+        # go through all potentiall similar entries
+        for type_inverse in np.unique(Type_inverse):
+            index = np.where(Type_inverse == type_inverse)[0]
+            T = Type_unique[type_inverse]
+            
+            # Get agents that are there
+            useful_agents = T != 'nan'
+            
+            # Get corresponding input path
+            X = np.stack(self.Input_path_full.iloc[index, useful_agents].to_numpy().tolist())
+            # X.shape: len(index) x useful_agents.sum() x nI x 2
+            
+            # Get differences 
+            D = np.abs(X[np.newaxis] - X[:,np.newaxis])
+            D_max = np.nanmax(D, (2,3,4))
+            
+            Identical = D_max < 1e-3
+            
+            # Remove self references
+            Identical[np.arange(len(index)), np.arange(len(index))] = False
+            
+            # Get graph
+            G = nx.Graph(Identical)
+            unconnected_subgraphs = list(nx.connected_components(G))
+            
+            for subgraph in unconnected_subgraphs:
+                Subgroup_full[index[list(subgraph)]] = subgroup_index
+                max_len = max(max_len, len(subgraph))
+                
+                subgroup_index += 1
+        
+        assert Subgroup_full.min() > 0
+        
+        # Get pred agents
+        nto = self.data_set.num_timesteps_out_real
+        
+        num_samples, num_agents = self.Pred_agents.shape
+        max_num_pred_agents = self.Pred_agents.sum(1).max()
+        
+        i_agent_sort = np.argsort(-self.Pred_agents.astype(float))
+        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
+        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
+        
+        Pred_agents = self.Pred_agents[i_sampl_sort, i_agent_sort]
+        
+        # Initialize output
+        Path_true_all = np.ones((num_samples, max_len, max_num_pred_agents, nto, 2)) * np.nan 
+        
+        for i, ind in enumerate(self.Output_path.index):
+            nto_i = min(nto, len(self.Output_T[i]))
+            
+            # Get pred agents
+            pred_agents = Pred_agents[i] 
+            prd_agent_id = i_agent_sort[i, pred_agents]
+            
+            # get identical input
+            identical_ind = np.where(Subgroup_full[ind] == Subgroup_full)[0]
+            
+            path_true_orig = self.Output_path_full.iloc[identical_ind, prd_agent_id]
+            path_true_all = np.stack(path_true_orig.to_numpy().tolist())
+            
+            # For some reason using pred_agents here moves the agent dimension to the front
+            Path_true_all[i,:len(identical_ind),pred_agents,:nto_i] = path_true_all[:,:,:nto_i].transpose(1,0,2,3)
+            
+        return Path_true_all
+            
+        
+        
+        
         
     def evaluate_prediction(self, Output_pred, create_plot_if_possible = False):
         if self.depict_results:
