@@ -5,6 +5,20 @@ from scenario_gap_acceptance import scenario_gap_acceptance
 import os
 
 class CoR_left_turns(data_set_template):
+    '''
+    The L-GAP simulator study focuses on a two agent scenario, where on computer
+    controlloed vehicle drives straight across an intersection, whle the human driving
+    vehicle, approaching the intersection from the opposite direction with the intention
+    to turn left, has to decided if it is to cross either in front of or behind the AV.
+    
+    This is consequently a exaple for a gap acceptance scenario, the code of which can be found at 
+    https://data.4tu.nl/file/80e7f503-2471-4f06-be03-9d620a2a5495/0a77d88b-15df-47aa-92c9-d141baf6a2b1
+    and the following citation can be used:
+        
+    Zgonnikov, A., Abbink, D., & Markkula, G. (2022). Should I stay or should I go? 
+    Cognitive modeling of left-turn gap acceptance decisions in human drivers. 
+    Human factors, 00187208221144561.
+    '''
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
    
