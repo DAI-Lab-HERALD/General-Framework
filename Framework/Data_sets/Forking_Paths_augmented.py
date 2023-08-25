@@ -122,21 +122,17 @@ class Forking_Paths_augmented(data_set_template):
                 num_t = min(num_T, num_T_other)
                 Paths_other[j, :num_t] = path_other.tar[:num_t]
     
-            Check = Paths_other == path_init[np.newaxis]
-            if Check.any():
-                in_position = ~Check.all(axis = (0, 2))
-                ind_split = np.argmax(in_position) - 1
-            else:
-                ind_split = 0
+            Dist = np.abs(Paths_other - path_init[np.newaxis])
+            Dist = np.nanmax(Dist, axis = (0,2))
+            ind_split = max(0, np.argmax(Dist > 1e-3) - 1)
             
             s_min = 0.8
             s_max = 1.2
             sigma = 0.2
             num_samples = 10 #100
             Factors = scipy.stats.truncnorm.rvs((s_min-1)/sigma, (s_max-1)/sigma, 
-                                                                    loc=1, scale=sigma, size=num_samples)#.float()
+                                                loc=1, scale=sigma, size=num_samples)#.float()
             # Factors = [1.0]
-            
             for factor in Factors:
                 path = pd.Series(np.zeros(0, np.ndarray), index = [])
                 agent_types = pd.Series(np.zeros(0, str), index = [])
@@ -151,6 +147,7 @@ class Forking_Paths_augmented(data_set_template):
                 
                 domain = domain_init.copy()
                 domain['t_split'] = t_init[ind_split]
+                domain['ind_split'] = ind_split
                 
                 self.Path.append(path)
                 self.Type_old.append(agent_types)
@@ -204,21 +201,7 @@ class Forking_Paths_augmented(data_set_template):
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the classification is possible.
         '''
-        other_samples_bool = (self.Domain_old.scene == domain.scene).to_numpy()
-        num_T = path.tar.shape[0]
-        Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
-        for i in range(other_samples_bool.sum()):
-            path_other = self.Path.iloc[other_samples_bool].iloc[i]
-            num_T_other = path_other.tar.shape[0]
-            num_t = min(num_T, num_T_other)
-            Paths_other[i, :num_t] = path_other.tar[:num_t]
-
-        Check = Paths_other == path.tar[np.newaxis]
-        in_position = ~Check.all(axis = (0, 2))
-        ind_first = np.argmax(in_position)
-        if ind_first > 0:
-            in_position[ind_first - 1] = True
-              
+        in_position = np.arange(len(path.tar)) >= domain.ind_split
         return in_position
         
     def calculate_additional_distances(self, path, t, domain):

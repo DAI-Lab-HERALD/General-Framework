@@ -17,6 +17,8 @@ Final_data = pd.DataFrame(np.zeros((1,6), object), columns = ['scenario', 'Id', 
 overall_id = 0
 # Load each dataset separately; these will be concatenated later into one dataset
 for dataset_path in dataset_paths:
+    if not dataset_path[-5:] == '.json':
+        continue
     print("Loading dataset {}".format(dataset_path))
     data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path
     detection_file = open(data_path_expanded, 'r')
