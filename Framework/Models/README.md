@@ -237,7 +237,7 @@ This is both possible for classification models as well as trajectory prediction
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
       true if it is expected by the framework that a prediction will be made for the specific agent.
       
-      If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**,
+      If only one agent has to be predicted per sample, for **img** and **img_m_per_px**,
       :math:`N_{agents} = 1` will be returned instead, and the agent to be predicted will be the one mentioned
       first in **X** and **T**.
     Sample_id_train : np.ndarray, optional
@@ -324,7 +324,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
     true if it is expected by the framework that a prediction will be made for the specific agent.
     
-    If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**,
+    If only one agent has to be predicted per sample, for **img** and **img_m_per_px**,
     :math:`N_{agents} = 1` will be returned instead, and the agent to be predicted will be the one mentioned
     first in **X** and **T**.
   num_steps : int
