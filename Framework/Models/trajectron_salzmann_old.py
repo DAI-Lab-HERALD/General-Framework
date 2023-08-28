@@ -489,6 +489,10 @@ class trajectron_salzmann_old(model_template):
             X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
             S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, num_steps)
             
+            # Move img to device
+            if img is not None:
+                img = img.to(self.trajectron.device)
+                
             torch.cuda.empty_cache()
             # Run prediction pass
             model = self.trajectron.node_models_dict[node_type]
@@ -501,7 +505,7 @@ class trajectron_salzmann_old(model_template):
                                             neighbors             = Neighbor,
                                             neighbors_edge_value  = Neighbor_edge,
                                             robot                 = None,
-                                            map                   = img.to(self.trajectron.device),
+                                            map                   = img,
                                             prediction_horizon    = num_steps,
                                             num_samples           = self.num_samples_path_pred)
             
