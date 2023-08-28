@@ -331,6 +331,7 @@ class model_template():
                 
             # Project out the sample ID
             X = X[Sample_id, Agent_id]
+            Y = Y[Sample_id, Agent_id]
             T = T[Sample_id, Agent_id]
             
             # Find closest distance between agents during past observation
@@ -340,19 +341,19 @@ class model_template():
             Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
             
             X = X[Sample_id_sorted, Agents_sorted_id] 
-            T = T[Sample_id_sorted, Agents_sorted_id] 
+            Y = Y[Sample_id_sorted, Agents_sorted_id]
+            T = T[Sample_id_sorted, Agents_sorted_id]
             
             # Set agents to nan that are to far away from the predicted agent
             num_agent = self.data_set.max_num_agents
             if num_agent is not None:
                 X[:, num_agent:] = np.nan
+                Y[:, num_agent:] = np.nan
                 T[:, num_agent:] = np.nan
             
             Agent_id = Agent_id[Sample_id_sorted, Agents_sorted_id] 
             
             ID = np.stack((Sample_id, Agent_id), axis = -1)
-            
-            Y = Y[Pred_agents].reshape(-1, 1, *Y.shape[-2:])
             
             if use_map:
                 centre = X[:,0,-1,:] #x_t.squeeze(-2)
@@ -565,7 +566,7 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
             
-            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
             be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
         Sample_id : np.ndarray, optional
             This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
@@ -653,7 +654,7 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
             
-            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
             be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
         num_steps : int
             This is the number of future timesteps provided in the case of traning in expected in the case of prediction. In the 
