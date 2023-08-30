@@ -20,25 +20,21 @@ class interactiveflow_meszaros(model_template):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        self.batch_size = 128
-        # Get params
-        self.num_timesteps_in = len(self.Input_path_train.to_numpy()[0,0])
-        self.num_timesteps_out = np.zeros(len(self.Output_T_train), int)
-        for i_sample in range(self.Output_T_train.shape[0]):
-            len_use = len(self.Output_T_train[i_sample])
-            self.num_timesteps_out[i_sample] = len_use
 
-        self.future_traj_len = self.data_set.num_timesteps_out_real
-        self.norm_rotation = True
-        
-        self.use_map = self.data_set.includes_images()
+        self.batch_size = 128
+
+        # Required attributes of the model
+        self.min_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = self.num_timesteps_out
+        self.predict_single_agent = True
+        self.can_use_map = True
+        # If self.can_use_map, the following is also required
         self.target_width = 257
         self.target_height = 156
-        
-        self.past_traj_len = self.data_set.num_timesteps_in_real
-        self.remain_samples = self.num_timesteps_out >= self.future_traj_len 
-        self.num_timesteps_out = np.minimum(self.num_timesteps_out[self.remain_samples], self.future_traj_len )
+        self.grayscale = True
 
+        self.norm_rotation = True
+        
         
         self.hs_rnn = 16
         self.n_layers_rnn = 3
@@ -69,8 +65,8 @@ class interactiveflow_meszaros(model_template):
             self.sigma = 0.5
 
         else:
-            self.beta_noise = 0
-            self.gamma_noise = 0 
+            self.beta_noise = 0.002
+            self.gamma_noise = 0.002
             
             self.alpha = 3
             self.s_min = 0.8
@@ -89,162 +85,42 @@ class interactiveflow_meszaros(model_template):
         self.std_pos_ped = 1
         self.std_pos_veh = 1
         
+    
+    def extract_batch_data(self, X, T, Y = None, img = None):
         
-        # Set time step
-        self.dt = self.Input_T_train[0][-1] - self.Input_T_train[0][-2]
-        # TODO see if this can be made variable
-        self.img_dim = [self.target_height, self.target_width]
+        # Get type of agents
+        T_out = T.astype(str)
+        Ped_agents = T_out == 'P'
         
+        # Transform types to numbers
+        T_out[T_out == 'nan'] = '0'
+        T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, int(str(T_out.astype(str).dtype)[2:])).astype(np.uint8)[:,:,0]
+        T_out = torch.from_numpy(T_out).to(device = self.device)
         
-    def extract_data(self, train = True):
+        # Normalize positions
+        X = (X - self.min_pos) / (self.max_pos - self.min_pos)
         
-        if train:
-            X_help = self.Input_path_train.to_numpy()
-            Y_help = self.Output_path_train.to_numpy() 
-            Types  = self.Type_train.to_numpy()
-            
-            X_help = X_help[self.remain_samples]
-            Y_help = Y_help[self.remain_samples]
-            Types  = Types[self.remain_samples]
-
-            self.domain_old = self.Domain_train.iloc[self.remain_samples]
-        else:
-            X_help = self.Input_path_test.to_numpy()
-            Types  = self.Type_test.to_numpy()
-            self.domain_old = self.Domain_test
+        # Standardize positions
+        X[Ped_agents]  /= self.std_pos_ped
+        X[~Ped_agents] /= self.std_pos_veh
+        X = torch.from_numpy(X).float().to(device = self.device)
         
-        Agents = np.array(self.input_names_train)
+        if Y is not None:
+            # Normalize future positions
+            Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
+            
+            # Standardize future positions
+            Y[Ped_agents[:,0]]  /= self.std_pos_ped
+            Y[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y = torch.from_numpy(Y).float().to(device = self.device)
         
-        # Extract predicted agents
-        Pred_agents = np.array([agent in self.data_set.needed_agents for agent in Agents])
-        assert Pred_agents.sum() > 0, "nothing to predict"
-        
-        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        if train:
-            Y = np.ones(list(Y_help.shape) + [self.num_timesteps_out.max(), 2], dtype = np.float32) * np.nan
+        if img is not None:
+            img = torch.from_numpy(img).float().to(device = self.device) / 255
             
-        for i_sample in range(X.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if isinstance(X_help[i_sample, i_agent], float):
-                    assert not Pred_agents[i_agent], 'A needed agent is not given.'
-                else:    
-                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    if train:
-                        n_time = self.num_timesteps_out[i_sample]
-                        Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-        
-        #standardize input
-        Ped_agents = Types == 'P'
-        
-                
-        if train:
-            Xi = X # num_samples, num_agents, num_timesteps, 2
-            T = Types
-            
-            
-            # set agent to be predicted into first location
-            # X = []
-            # T = []
-            # for i_agent in np.where(Pred_agents)[0]:
-            #     reorder_index = np.array([i_agent] + list(np.arange(i_agent)) + 
-            #                              list(np.arange(i_agent + 1, Xi.shape[1])))
-            #     X.append(Xi[:,reorder_index])
-            #     T.append(Types[:, reorder_index])
-            # X = np.stack(X, axis = 1).reshape(-1, Xi.shape[1], self.num_timesteps_in, 2)
-            # T = np.stack(T, axis = 1).reshape(-1, Types.shape[1])
-            T = T.astype(str)
-            PPed_agents = T == 'P'
-            # transform to ascii int:
-            T[T == 'nan'] = '0'
-            T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0]
-
-            if self.use_map:
-                
-                Img_needed = T != 48
-                centre = X[Img_needed, -1,:]
-                x_rel = centre - X[Img_needed, -2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-
-                domain_index = self.domain_old.index.to_numpy()
-                domain_index = domain_index.repeat(Img_needed.sum(1))
-                domain_repeat = self.domain_old.loc[domain_index]
-
-                img = np.zeros((X.shape[0], X.shape[1], self.target_height, self.target_width, 1), dtype = 'uint8')
-                img[Img_needed] = self.data_set.return_batch_images(domain_repeat, centre, rot, target_height=self.target_height, target_width=self.target_width, grayscale = True)
-                
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                Y[Ped_agents]  /= self.std_pos_ped
-                Y[~Ped_agents] /= self.std_pos_veh
-                # Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
-                
-                my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
-                                           torch.tensor(Y).to(device=self.device), 
-                                           torch.tensor(img),
-                                           torch.tensor(T).to(device=self.device)) # create your datset
-                
-            else:
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                Y[Ped_agents]  /= self.std_pos_ped
-                Y[~Ped_agents] /= self.std_pos_veh
-                # Y = Y[:, Pred_agents].reshape(-1, 1, self.num_timesteps_out.max(), 2)
-                
-                my_dataset = TensorDataset(torch.tensor(X).to(device=self.device),
-                                           torch.tensor(Y).to(device=self.device),
-                                           torch.tensor(T).to(device=self.device)) # create your datset
-
-            
-            train_data, val_data = torch.utils.data.random_split(my_dataset, 
-                                                                 [int(np.round(len(my_dataset)*0.9)),
-                                                                  int(len(my_dataset) - np.round(len(my_dataset)*0.9))],
-                                                                 generator=torch.Generator().manual_seed(42))
-
-            train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=True)
-            val_loader = DataLoader(val_data, batch_size=self.batch_size, shuffle=True)
-            
-            return train_loader, val_loader, T
-        else:
-            Xi = X # num_samples, num_agents, num_timesteps, 2
-            # set agent to be predicted int
-            
-            # X = X.transpose(0,1,3,2) # num_samples, num_agents, num_timesteps, 2            
-            
-            T = Types #np.tile(Types[np.newaxis,:], (len(X), 1))
-            T = T.astype(str)
-            PPed_agents = T == 'P'
-            T[T == 'nan'] = '0'
-            # transform to ascii int:
-            T = T = np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(*T.shape, 3).astype(np.uint8)[:,:,0] #np.fromstring(T.reshape(-1), dtype = np.uint32).reshape(len(T), -1).astype(np.uint8)
-
-            if self.use_map:
-                
-                Img_needed = T != 48
-                centre = X[Img_needed, -1,:]
-                x_rel = centre - X[Img_needed, -2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-
-                domain_index = self.domain_old.index.to_numpy()
-                domain_index = domain_index.repeat(Img_needed.sum(1))
-                domain_repeat = self.domain_old.loc[domain_index]
-
-                img = np.zeros((X.shape[0], X.shape[1], self.target_height, self.target_width, 1), dtype = 'uint8')
-                img[Img_needed] = self.data_set.return_batch_images(domain_repeat, centre, rot, target_height=self.target_height, target_width=self.target_width, grayscale = True)
-                
-                
-                # img = img.reshape(len(X), X.shape[1], self.target_height, self.target_width, -1)
-                
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                return Pred_agents, Agents, X, T, PPed_agents, img
-            
-            else:
-                X[PPed_agents]   /= self.std_pos_ped
-                X[~PPed_agents]  /= self.std_pos_veh
-                return Pred_agents, Agents, X, T, PPed_agents
+        return X, T_out, Y, img
 
 
-    def train_futureAE(self, train_loader, val_loader, T_all):
+    def train_futureAE(self, T_all):
 
         t_unique = torch.unique(torch.from_numpy(T_all).to(self.device))
         t_unique = t_unique[t_unique != 48]
@@ -271,26 +147,26 @@ class interactiveflow_meszaros(model_template):
 
             train_loss = []
             val_loss = []
+
+            converged = False
             for epoch in range(self.fut_ae_epochs):
                 future_scene_ae.train()
                 train_loss_ep = []
                 val_loss_ep = []
 
-                converged = False
-
+                train_epoch_done = False
                 print('Training Future Scene AE...')
-                for i_batch, data in enumerate(train_loader):
+                while not train_epoch_done:
+                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                           val_split_size = 0.1)
+                    X, T, Y, _ = self.extract_batch_data(X, T, Y)
 
-
-                    past_pos = data[0].to(device = self.device)
-                    future_pos = data[1].to(device = self.device)
-                    agent_types = data[-1].to(device = self.device)
+                    past_pos = X
+                    future_pos = Y
+                    agent_types = T
 
                     future_traj_orig = future_pos.to(self.device).float()
                     past_traj_orig = past_pos.to(self.device).float()
-
-                    # Loss = []
-                    # for i_samples in range(len(past_pos)):
                     
                     # shuffle agents to potentially get different target agents for the decoding (should improve generalization) TODO check
                     shuffle_ids = torch.randperm(past_traj_orig.size()[1])
@@ -355,11 +231,17 @@ class interactiveflow_meszaros(model_template):
                 print('Validating...')
                 future_scene_ae.eval()
                 with torch.no_grad():
-                    for _, data_val in enumerate(val_loader):
 
-                        past_pos_val = data_val[0].to(device = self.device)
-                        future_pos_val = data_val[1].to(device = self.device)
-                        agent_types = data_val[-1].to(device = self.device)
+                    val_epoch_done = False
+                    while not val_epoch_done:
+                        X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                val_split_size = 0.1)
+                        
+                        X, T, Y, _ = self.extract_batch_data(X, T, Y)
+
+                        past_pos_val = X
+                        future_pos_val = Y
+                        agent_types = T
 
                         # if curr_pos_val_orig.squeeze().size()[0] > 1:
                         future_traj_val_orig = future_pos_val.to(self.device).float()
@@ -426,22 +308,24 @@ class interactiveflow_meszaros(model_template):
                     print('Model is converged.')
                     break
                 
+            self.train_loss[0, :len(val_loss)] = np.array(val_loss)
             os.makedirs(os.path.dirname(fut_model_file), exist_ok=True)
             pickle.dump(future_scene_ae, open(fut_model_file, 'wb'))
 
         return future_scene_ae
 
 
-    def train_flow(self, fut_model, train_loader, val_loader, T_all):
+    def train_flow(self, fut_model, T_all):
+        use_map = self.can_use_map and self.has_map
         steps = self.flow_epochs
 
-        beta_noise = 0 
-        gamma_noise = 0 
+        beta_noise = 0.002
+        gamma_noise = 0.002 
 
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(self.device))
         self.t_unique = self.t_unique[self.t_unique != 48]
 
-        if self.use_map:
+        if use_map:
             gnn_in_dim = self.obs_encoding_size + self.map_encoding_size
         else:
             gnn_in_dim = self.obs_encoding_size
@@ -481,11 +365,16 @@ class interactiveflow_meszaros(model_template):
                 losses_epoch = []
                 val_losses_epoch = []
                 
-                for i, data in enumerate(train_loader, 0):
+                train_epoch_done = False
+                while not train_epoch_done:
+                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                           val_split_size = 0.1)
+                    X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+
                     
-                    past_pos = data[0].to(device = self.device)
-                    future_pos = data[1].to(device = self.device)
-                    agent_types = data[-1].to(device = self.device)
+                    past_pos = X
+                    future_pos = Y
+                    agent_types = T
                     
                     
                     optimizer.zero_grad()
@@ -503,10 +392,8 @@ class interactiveflow_meszaros(model_template):
                     curr_pos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
                     curr_pos = curr_pos.squeeze(2)
 
-                    if self.use_map:
-                        img = data[2].float().to(device = self.device)
-                        # img.shape = (batch_sz, num_agents, target_height, target_width, channels)
-                        img = img.permute(0,1,4,2,3)
+                    if img is not None:
+                        img = img[:,0].permute(0,3,1,2)
 
 
                     target_length = y_rel.size(dim=2)
@@ -536,7 +423,7 @@ class interactiveflow_meszaros(model_template):
                     # out.shape:       batch size x enc_dims
                     # past_data.shape: btach_size x num_agents x input_timesteps x num_dims
                     
-                    if self.use_map:
+                    if img is not None:
                         logprob = flow_dist.log_prob(out, past_data, agent_types, img)#prior_logprob + log_det
                     else:
                         logprob = flow_dist.log_prob(out, past_data, agent_types)#prior_logprob + log_det
@@ -553,11 +440,15 @@ class interactiveflow_meszaros(model_template):
                 flow_dist.eval()
                 fut_model.eval()
                 with torch.no_grad():
-                    for j, val in enumerate(val_loader, 0):
-                        
-                        past_data_val = val[0].float().to(device = self.device)
-                        future_data_val = val[1].float().to(device = self.device)  
-                        agent_types_val = val[-1].to(device = self.device)
+                    val_epoch_done = False
+                    while not val_epoch_done:
+                        X, Y, T, img, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                val_split_size = 0.1)
+                        X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+
+                        past_data_val = X
+                        future_data_val = Y
+                        agent_types_val = T
                         
                         past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data_val, future_data_val)
                         
@@ -569,11 +460,9 @@ class interactiveflow_meszaros(model_template):
                         curr_pos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
                         curr_pos = curr_pos.squeeze(2)
                         
-                        if self.use_map:
-                            img_val = val[2].float().to(device = self.device)
-                            # img.shape = (batch_sz, num_agents, target_height, target_width, channels)
-                            img_val = img_val.permute(0,1,4,2,3)
-
+                        
+                        if img is not None:
+                            img_val = img[:,0].permute(0,3,1,2)
 
 
                         target_length = y_rel.size(dim=2)
@@ -628,6 +517,7 @@ class interactiveflow_meszaros(model_template):
                     print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
                     print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
 
+            self.train_loss[1, :len(val_losses)] = np.array(val_losses)
             os.makedirs(os.path.dirname(flow_dist_file), exist_ok=True)
             pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
 
@@ -635,18 +525,33 @@ class interactiveflow_meszaros(model_template):
 
 
     def train_method(self):    
+        self.train_loss = np.ones((2, max(self.fut_ae_epochs, self.flow_epochs))) * np.nan
 
-        train_loader, val_loader, T = self.extract_data(train = True)
-        self.fut_model = self.train_futureAE(train_loader, val_loader, T_all=T)
+        # Get needed agent types
+        T_all = self.provide_all_included_agent_types().astype(str)
+        T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
 
-        self.flow_dist = self.train_flow(self.fut_model, train_loader, val_loader, T_all=T)
+        # Prepare stuff for Normalization
+        if self.data_set.get_name()['file'] == 'Fork_P_Aug':
+            X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
+            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
+            self.max_pos = np.max(traj_tar)
+            self.min_pos = np.min(traj_tar)
+        else:
+            self.min_pos = 0.0
+            self.max_pos = 1.0
+
+        self.fut_model = self.train_futureAE(T_all)
+        self.flow_dist = self.train_flow(self.fut_model, T_all)
         
         # save weigths 
         # after checking here, please return num_epochs to 100 and batch size to 
-        self.weights_saved = []
+        self.weights_saved = [self.min_pos, self.max_pos]
         
         
     def load_method(self):
+        self.min_pos, self.max_pos = self.weights_saved
+        
         fut_model_file = self.model_file[:-16] + '--InteFlow_M_AE'
         flow_dist_file = self.model_file[:-16] + '--InteFlow_M_NF'
         self.fut_model = pickle.load(open(fut_model_file, 'rb'))
@@ -657,209 +562,122 @@ class interactiveflow_meszaros(model_template):
         x = x.repeat(1, 1, n)
         return x.view(-1, n, org_dim)
                 
-    def predict_batch(self, models, test_loader, target_length, batch_sz, T_all):
-        flow_dist = models[1]
-        fut_model = models[0]
-
+    def predict_method(self, T_all):
+        prediction_done = False
         
-        for _, sample_batched in enumerate(test_loader):
+        while not prediction_done:
+            X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+            Ped_agent = T == 'P'
             
-            past=sample_batched[0]
-            past=past.float().to(device = self.device)
-            agent_types = sample_batched[-1].to(device = self.device)
+            X, T, _, img = self.extract_batch_data(X, T, img = img)
+
+            # Run prediction pass
+            with torch.no_grad():
+                past = X
+                agent_types = T
             
-            past_traj, rot_angles_rad = flow_dist._normalize_rotation(past)
-            
-            
-            if self.use_map:
-                img = sample_batched[1].float().to(device=self.device)
-                # img.shape = (batch_sz, num_agents, target_height, target_width, channels)
-                img = img.permute(0,1,4,2,3)
+                past_traj, rot_angles_rad = self.flow_dist._normalize_rotation(past)
 
-            else:
-                img = None
-            
-            t_unique = torch.unique(torch.from_numpy(T_all))
-            t_unique = t_unique[t_unique != 48]
-
-            num_agents = past.size(dim=1)
-            batch_size = past.size(dim=0)
-            x_t = past_traj[...,-1:,:]
-            x_t = x_t.repeat_interleave(self.num_samples_path_pred, dim=0)
-            T = agent_types.repeat_interleave(self.num_samples_path_pred, dim=0)
-            
-            rot_angles_rad = rot_angles_rad.repeat_interleave(self.num_samples_path_pred, dim=0)
-
-            if self.use_map: 
-                samples_rel, log_probs = flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types, img)
-            else:
-                samples_rel, log_probs = flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types)
-            
-            samples_rel = samples_rel.squeeze(0)
-                    
-            agentPos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
-            agentPos = agentPos.squeeze(2)
-
-            existing_agent = T != 48 # (batch_size, max_num_agents)
-            exist_sample2, exist_row2 = torch.where(existing_agent)
-
-            agentPos_existing = agentPos[exist_sample2, exist_row2] # (num_existing_agents, 2)
-
-            pos_emb = F.tanh(fut_model.pos_emb(agentPos_existing)) # (n_agents, enc_dim)
-            
-            tmp = torch.zeros((batch_size, num_agents, 2), device = self.device)
-            tmp[tmp == 0] = float('nan')
-            tmp[exist_sample2, exist_row2] = pos_emb
-
-            pos_emb = tmp
-
-            num_existing_agents = existing_agent.sum(axis=1)
-            numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_existing_agents).float().to(self.device).unsqueeze(1))) # (n_agents, 1)
-            
-            # numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
-            # numAgents_emb = numAgents_emb.repeat(batch_size*self.num_samples_path_pred, 1) # (n_agents, 1)
-            
-            graphDecoding, existing_agents = fut_model.scene_decoder(agentPos, samples_rel, pos_emb, numAgents_emb, num_agents, T)
-
-            agentFutureTrajDec = torch.zeros((graphDecoding.shape[0], target_length, 2),
-                                                    device = self.device)
-        
-            T_flattened = T.reshape(-1)
-            T_flattened = T_flattened[T_flattened != 48]
-            for t in t_unique:
-                # assert t in T_flattened
-                t_in = T_flattened == t
-                
-                t_key = str(int(t.detach().cpu().numpy().astype(int)))
-                agentFutureTrajDec[t_in] = fut_model.traj_decoder[t_key](graphDecoding[t_in], target_length=target_length, batch_size=len(graphDecoding[t_in]))
-
-            # Needed for batch training
-            tmp = torch.zeros((batch_size*self.num_samples_path_pred, num_agents, target_length, 2), device = self.device)
-            tmp[tmp == 0] = float('nan')
-            existing_sample, existing_row = torch.where(existing_agents)
-
-            tmp[existing_sample, existing_row] = agentFutureTrajDec
-
-            agentFutureTrajDec = tmp
-            torch.cuda.empty_cache() 
-            
-            y_hat = flow_dist._rel_to_abs(agentFutureTrajDec, x_t)
-
-            # invert rotation normalization
-            y_hat = flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad)#.unsqueeze(1))
-
-            #prediction.shape = (batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)   
-            # y_hat = y_hat.reshape(batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)
-            tmp = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, target_length, 2)
-            tmp = tmp.transpose(2,1)
-            y_hat = tmp
-            
-            # y_hat = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, target_length, 2)
-            # y_hat = y_hat.transpose(2,1)
-            
-            Y_pred = y_hat.detach()
-                
-            log_probs = log_probs.reshape(batch_size, self.num_samples_path_pred)
-            log_probs = log_probs.detach()
-            log_probs[torch.isnan(log_probs)] = -1000
-            prob = torch.exp(log_probs)#[exp(x) for x in log_probs]
-            prob = torch.tensor(prob)
-        
-            torch.cuda.empty_cache() 
-        return Y_pred, prob
-
-
-    def predict_method(self):
-        # get desired output length
-        self.num_timesteps_out_test = np.zeros(len(self.Output_T_pred_test), int)
-        for i_sample in range(len(self.Output_T_pred_test)):
-            self.num_timesteps_out_test[i_sample] = len(self.Output_T_pred_test[i_sample])
-            
-        if self.use_map:
-            Pred_agents, Agents, X, T, PPed_agents, img = self.extract_data(train = False)
-        else:
-            Pred_agents, Agents, X, T, PPed_agents = self.extract_data(train = False)
-        
-        
-        Path_names = np.array([name for name in self.Output_path_train.columns])
-        
-        # TODO keep in mind since len(test_loader.dataset) might cause issues
-        samples_all = int(len(X)) 
-
-        Output_Path = pd.DataFrame(np.empty((samples_all, Pred_agents.sum()), object), 
-                                   columns = Path_names[Pred_agents].reshape(-1))
-        
-        nums = np.unique(self.num_timesteps_out_test)
-        
-        
-        samples_done = 0
-        calculations_done = 0
-        calculations_all = np.sum(self.num_timesteps_out_test)
-
-        self.batch_size = 32
-
-        for num in nums:
-            Index_num = np.where(self.num_timesteps_out_test == num)[0]
-            
-            if self.batch_size > len(Index_num):
-                Index_uses = [Index_num]
-            else:
-                Index_uses = [Index_num[i * self.batch_size : (i + 1) * self.batch_size] 
-                              for i in range(int(np.ceil(len(Index_num)/ self.batch_size)))] 
-            
-            for Index_use in Index_uses:
-                
-                if self.use_map:
-                    
-                    my_dataset = TensorDataset(torch.tensor(X[Index_use]).to(device=self.device),
-                                                torch.tensor(img[Index_use]),
-                                                torch.tensor(T[Index_use]).to(device=self.device)) # create your datset
+                if img is not None:
+                    img = img[:,0].permute(0,3,1,2)
                 else:
+                    img = None
+                
+                t_unique = torch.unique(torch.from_numpy(T_all))
+                t_unique = t_unique[t_unique != 48]
+
+                num_agents = past.size(dim=1)
+                batch_size = past.size(dim=0)
+                x_t = past_traj[...,-1:,:]
+                x_t = x_t.repeat_interleave(self.num_samples_path_pred, dim=0)
+                T = agent_types.repeat_interleave(self.num_samples_path_pred, dim=0)
+                
+                rot_angles_rad = rot_angles_rad.repeat_interleave(self.num_samples_path_pred, dim=0)
+
+                if img is not None: 
+                    samples_rel, log_probs = self.flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types, img)
+                else:
+                    samples_rel, log_probs = self.flow_dist.sample(self.num_samples_path_pred, past.float(), agent_types)
+                
+                samples_rel = samples_rel.squeeze(0)
+                        
+                agentPos = x_t-x_t.nanmean(1, keepdims=True)#x_t[:,0].unsqueeze(1)
+                agentPos = agentPos.squeeze(2)
+
+                existing_agent = T != 48 # (batch_size, max_num_agents)
+                exist_sample2, exist_row2 = torch.where(existing_agent)
+
+                agentPos_existing = agentPos[exist_sample2, exist_row2] # (num_existing_agents, 2)
+
+                pos_emb = F.tanh(self.fut_model.pos_emb(agentPos_existing)) # (n_agents, enc_dim)
+                
+                tmp = torch.zeros((batch_size, num_agents, 2), device = self.device)
+                tmp[tmp == 0] = float('nan')
+                tmp[exist_sample2, exist_row2] = pos_emb
+
+                pos_emb = tmp
+
+                num_existing_agents = existing_agent.sum(axis=1)
+                numAgents_emb = F.tanh(self.fut_model.numAgents_emb(torch.tensor(num_existing_agents).float().to(self.device).unsqueeze(1))) # (n_agents, 1)
+                
+                # numAgents_emb = F.tanh(fut_model.numAgents_emb(torch.tensor(num_agents).float().to(self.device).unsqueeze(0))) # (1, 1)
+                # numAgents_emb = numAgents_emb.repeat(batch_size*self.num_samples_path_pred, 1) # (n_agents, 1)
+                
+                graphDecoding, existing_agents = self.fut_model.scene_decoder(agentPos, samples_rel, pos_emb, numAgents_emb, num_agents, T)
+
+                agentFutureTrajDec = torch.zeros((graphDecoding.shape[0], num_steps, 2),
+                                                        device = self.device)
+            
+                T_flattened = T.reshape(-1)
+                T_flattened = T_flattened[T_flattened != 48]
+                for t in t_unique:
+                    # assert t in T_flattened
+                    t_in = T_flattened == t
                     
-                    my_dataset = TensorDataset(torch.tensor(X[Index_use]).to(device=self.device),
-                                                torch.tensor(T[Index_use]).to(device=self.device)) # create your datset
-                
-                test_loader = DataLoader(my_dataset, batch_size=len(Index_use)) # create your dataloader
+                    t_key = str(int(t.detach().cpu().numpy().astype(int)))
+                    agentFutureTrajDec[t_in] = self.fut_model.traj_decoder[t_key](graphDecoding[t_in], target_length=num_steps, batch_size=len(graphDecoding[t_in]))
 
-                
-                # Run prediction pass
-                with torch.no_grad(): # Do not build graph for backprop
-                    predictions, predictions_prob = self.predict_batch([self.fut_model, self.flow_dist], test_loader, num, len(Index_use), T_all=T)
+                # Needed for batch training
+                tmp = torch.zeros((batch_size*self.num_samples_path_pred, num_agents, num_steps, 2), device = self.device)
+                tmp[tmp == 0] = float('nan')
+                existing_sample, existing_row = torch.where(existing_agents)
 
-                #prediction.shape = (batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)                
-                Pred = predictions.detach().cpu().numpy()
+                tmp[existing_sample, existing_row] = agentFutureTrajDec
 
-                if len(Pred.shape) == 4:
-                    Pred = Pred[np.newaxis]
+                agentFutureTrajDec = tmp
+                torch.cuda.empty_cache() 
                 
-                Pred[PPed_agents[Index_use]]  *= self.std_pos_ped
-                Pred[~PPed_agents[Index_use]] *= self.std_pos_veh
+                y_hat = self.flow_dist._rel_to_abs(agentFutureTrajDec, x_t)
+
+                # invert rotation normalization
+                y_hat = self.flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad)#.unsqueeze(1))
+
+                #prediction.shape = (batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)   
+                # y_hat = y_hat.reshape(batch_sz, num_agents, self.num_samples_path_pred, target_length, 2)
+                tmp = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, num_steps, 2)
+                tmp = tmp.transpose(2,1)
+                y_hat = tmp
                 
+                # y_hat = y_hat.reshape(batch_size, self.num_samples_path_pred, num_agents, target_length, 2)
+                # y_hat = y_hat.transpose(2,1)
                 
-                torch.cuda.empty_cache()
-                
-                for i, i_sample in enumerate(Index_use):
-                    traj = Pred[i, :, :, :]
-                    for index in Path_names:
-                        j = np.where(index==Agents)[0][0] 
-                        if Pred_agents[j]:
-                            Output_Path.iloc[i_sample][index] = traj[j,:,:,:].astype('float32')
-                        
-                        
-                samples_done += len(Index_use)
-                calculations_done += len(Index_use) * num
-                
-                samples_perc = 100 * samples_done / samples_all
-                calculations_perc = 100 * calculations_done / calculations_all
-                
-                print('Predict TrajFlow: ' + 
-                      format(samples_perc, '.2f').rjust(len('100.00')) + 
-                      '% of samples, ' + 
-                      format(calculations_perc, '.2f').rjust(len('100.00')) +
-                      '% of calculations')
-                
-        return [Output_Path]
-    
+                Y_pred = y_hat.detach()
+                    
+            Pred = Y_pred.detach().cpu().numpy()
+            if len(Pred.shape) == 3:
+                Pred = Pred[np.newaxis]
+            
+            Pred[Ped_agent[:,0]]  *= self.std_pos_ped
+            Pred[~Ped_agent[:,0]] *= self.std_pos_veh
+
+            if self.data_set.get_name()['file'] == 'Fork_P_Aug':
+                Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
+
+            torch.cuda.empty_cache() 
+        
+            # save predictions
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
+
     
     def check_trainability_method(self):
         return None

@@ -244,6 +244,9 @@ class trajflow_meszaros(model_template):
 
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
+
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
         
         if use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
