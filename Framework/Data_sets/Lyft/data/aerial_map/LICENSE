@@ -1,0 +1,6 @@
+LYFT LEVEL 5 PREDICTION DATASET KIT
+Licensing information
+The downloadable Lyft Level 5 AV Prediction dataset and included semantic map data are ©2020 Lyft, Inc., and licensed under version 4.0 of the Creative Commons Attribution-NonCommercial-ShareAlike license (https://creativecommons.org/licenses/by-nc-sa/4.0/). 
+The HD map included with the dataset was developed using data from the OpenStreetMap(https://www.openstreetmap.org/) database which is ©OpenStreetMap contributors (http://www.openstreetmap.org/copyright) will be released under the Open Database License (ODbL) v1.0(https://opendatacommons.org/licenses/odbl/1.0/index.html) license.
+The Python software kit developed by Level 5 to read the dataset is available under the Apache license version 2.0 (http://www.apache.org/licenses/LICENSE-2.0). 
+The geo-tiff files included in the dataset were developed by ©2020 Nearmap Us, Inc.(https://www.nearmap.com/) and is available under version 4.0 of the Creative Commons Attribution-NonCommercial-ShareAlike license (https://creativecommons.org/licenses/by-nc-sa/4.0/). 
