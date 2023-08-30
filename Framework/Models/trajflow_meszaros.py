@@ -8,6 +8,16 @@ import pickle
 import os
 
 class trajflow_meszaros(model_template):
+    '''
+    TrajFlow is a single agent prediction model that combine Normalizing Flows with
+    GRU-based autoencoders.
+    
+    The model was implemented into the framework by its original creators, and 
+    the model was first published under:
+        
+    Mészáros, A., Alonso-Mora, J., & Kober, J. (2023). Trajflow: Learning the 
+    distribution over trajectories. arXiv preprint arXiv:2304.05166.
+    '''
     
     def setup_method(self, seed = 0):        
         # set random seeds

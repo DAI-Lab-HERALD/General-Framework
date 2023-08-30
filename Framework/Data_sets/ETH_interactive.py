@@ -15,6 +15,29 @@ def rotate_track(track, angle, center):
 
 
 class ETH_interactive(data_set_template):
+    '''
+    The ETH/UCY dataset is one of the most commonly used pedestrian dataset
+    for general trajectroy prediction models. It consists out of five parts
+    recorded at the following locations (for the location splitting, it would
+    be in the following order):
+    - Hotel
+    - ETH
+    - UCY
+    - Zara1
+    - Zara2
+    
+    The raw data can be found at 
+    https://github.com/cschoeller/constant_velocity_pedestrian_motion/tree/master/data
+    and the following two citations can be used:
+        
+    Pellegrini, S., Ess, A., Schindler, K., & Van Gool, L. (2009, September). You'll 
+    never walk alone: Modeling social behavior for multi-target tracking. In 2009 IEEE 
+    12th international conference on computer vision (pp. 261-268). IEEE.
+    
+    Lerner, A., Chrysanthou, Y., & Lischinski, D. (2007, September). Crowds by example. 
+    In Computer graphics forum (Vol. 26, No. 3, pp. 655-664). Oxford, UK: Blackwell 
+    Publishing Ltd.
+    '''
     def set_scenario(self):
         self.scenario = scenario_none()
         
@@ -188,7 +211,7 @@ class ETH_interactive(data_set_template):
 
     
     def get_name(self = None):
-        names = {'print': 'ETH (interactive pedestrians)',
+        names = {'print': 'ETH (pedestrians)',
                  'file': 'ETH_ped_ia',
                  'latex': r'\emph{ETH/UCY}'}
         return names

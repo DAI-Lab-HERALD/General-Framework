@@ -10,6 +10,28 @@ from pyquaternion import Quaternion
 
 
 class NuScenes_interactive(data_set_template):
+    '''
+    The NuScenes dataset is one of the most common real-word datasets used in testing 
+    general trajectory prediction models. It encompasses many situations that might 
+    be encounterd inside cities.
+    
+    If one wants to do the NuScenes prediction challenge (only including vehicles), then
+    one would have to set the exact following arguments in Datasets:
+    - 't0_type': 'all'
+    
+    The following settings would have to be set in Data_Params:
+    - 'dt': 0.5
+    - 'num_timesteps_in': 4
+    - 'num_timesteps_out': 12
+    
+    The dataset meanwhile is available at https://www.nuscenes.org/nuscenes, and the 
+    following citation can be used:
+        
+    Caesar, H., Bankiti, V., Lang, A. H., Vora, S., Liong, V. E., Xu, Q., ... & Beijbom, O. (2020). 
+    nuscenes: A multimodal dataset for autonomous driving. In Proceedings of the IEEE/CVF conference 
+    on computer vision and pattern recognition (pp. 11621-11631).
+    
+    '''
     def get_name(self=None):
         names = {'print':'NuScenes',
                  'file':'NuScenes_I',

@@ -8,6 +8,21 @@ from scipy import interpolate as interp
 from scipy.signal import savgol_filter
 
 class HighD_lane_change(data_set_template):
+    '''
+    The highD dataset is extracted from drone recordings of real world traffic over
+    german highways. This specific instance focuses on cases where a vehicle wants
+    to switch to a faster lane, along which vehicles already driving along the lane
+    have priority. Predicting if the vehicle will change lanes in front or behind such 
+    vehicles can therefore be seen as a gap acceptance problem.
+    
+    The dataset can be found at https://www.highd-dataset.com/ and the following 
+    citation can be used:
+        
+    Krajewski, R., Bock, J., Kloeker, L., & Eckstein, L. (2018, November). The highd 
+    dataset: A drone dataset of naturalistic vehicle trajectories on german highways 
+    for validation of highly automated driving systems. In 2018 21st international 
+    conference on intelligent transportation systems (ITSC) (pp. 2118-2125). IEEE.
+    '''
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
         

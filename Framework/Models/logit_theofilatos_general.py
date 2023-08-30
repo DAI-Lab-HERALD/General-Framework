@@ -4,6 +4,17 @@ from logit_theofilatos import logit_theofilatos
 from sklearn.linear_model import LogisticRegression as LR
 
 class logit_theofilatos_general(logit_theofilatos):
+    '''
+    The logistic regression model is a standard classification model used in many 
+    settings.
+    
+    This instance takes as input extracted, scenario dependent distances, and its 
+    training is based on the following citation:
+        
+    Theofilatos, A., Ziakopoulos, A., Oviedo-Trespalacios, O., & Timmis, A. (2021). 
+    To cross or not to cross? Review and meta-analysis of pedestrian gap acceptance 
+    decisions at midblock street crossings. Journal of Transport & Health, 22, 101108.
+    '''
     def get_data(self, train = True):
         if train:
             _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)

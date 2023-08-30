@@ -15,7 +15,21 @@ def rotate_track(track, angle, center):
     return track
 
 
-class RounD_round_about(data_set_template):   
+class RounD_round_about(data_set_template): 
+    '''
+    The rounD dataset is extracted from drone recordings of real world traffic over
+    three german round abouts. This specific instance focuses on the behavior of 
+    vehicles entering a roundabout, and if the tend to cut of or let pass the vehicles
+    already in the round about, which is one examply of a gap acceptance scenario.
+    
+    The dataset can be found at https://www.round-dataset.com/ and the following 
+    citation can be used:
+        
+    Krajewski, R., Moers, T., Bock, J., Vater, L., & Eckstein, L. (2020, September). 
+    The round dataset: A drone dataset of road user trajectories at roundabouts in 
+    germany. In 2020 IEEE 23rd International Conference on Intelligent Transportation 
+    Systems (ITSC) (pp. 1-6). IEEE.
+    '''
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
         

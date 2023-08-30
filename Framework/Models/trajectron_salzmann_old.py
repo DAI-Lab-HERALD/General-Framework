@@ -10,6 +10,18 @@ from Trajectron_old.environment.environment import Environment
 from attrdict import AttrDict
 
 class trajectron_salzmann_old(model_template):
+    '''
+    This is the orignial version of Trajectron++, a single agent prediction model
+    that is mainly based on LSTM cells.
+    
+    The code was taken from https://github.com/StanfordASL/Trajectron-plus-plus/tree/master
+    and the model is published under the following citation:
+        
+    Salzmann, T., Ivanovic, B., Chakravarty, P., & Pavone, M. (2020). Trajectron++: Dynamically-
+    feasible trajectory forecasting with heterogeneous data. In Computer Vision–ECCV 2020: 
+    16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part XVIII 16 
+    (pp. 683-700). Springer International Publishing.
+    '''
     
     def setup_method(self, seed = 0):
         # set random seeds
@@ -415,6 +427,10 @@ class trajectron_salzmann_old(model_template):
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
                 
+                # Move img to device
+                if img is not None:
+                    img = img.to(self.trajectron.device)
+                
                 self.trajectron.set_curr_iter(curr_iter)
                 self.trajectron.step_annealers()
                 
@@ -430,7 +446,7 @@ class trajectron_salzmann_old(model_template):
                                               neighbors             = Neighbor,
                                               neighbors_edge_value  = Neighbor_edge,       
                                               robot                 = None,
-                                              map                   = img.to(self.trajectron.device),
+                                              map                   = img,
                                               prediction_horizon    = num_steps)
                 
                 # Calculate gradients
@@ -473,6 +489,10 @@ class trajectron_salzmann_old(model_template):
             X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
             S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, num_steps)
             
+            # Move img to device
+            if img is not None:
+                img = img.to(self.trajectron.device)
+                
             torch.cuda.empty_cache()
             # Run prediction pass
             model = self.trajectron.node_models_dict[node_type]
@@ -485,7 +505,7 @@ class trajectron_salzmann_old(model_template):
                                             neighbors             = Neighbor,
                                             neighbors_edge_value  = Neighbor_edge,
                                             robot                 = None,
-                                            map                   = img.to(self.trajectron.device),
+                                            map                   = img,
                                             prediction_horizon    = num_steps,
                                             num_samples           = self.num_samples_path_pred)
             

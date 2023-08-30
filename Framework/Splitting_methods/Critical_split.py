@@ -6,6 +6,18 @@ from splitting_template import splitting_template
 
 
 class Critical_split(splitting_template):
+    '''
+    In gap acceptance scenarios, one has the ability to roughly rate the difficulty 
+    of prediction based on the assumption that unintuitive behavior is more
+    difficult to predict.
+    
+    One can classify here beahvior to be more unintuitive, the smaller the difference 
+    in time between the target vehicle entering the contested space (accepting the gap) 
+    and the ego vehicle entering the gap, or the larger a rejected gap is.
+    
+    However, this method then allows only one splitting repetition.
+    '''
+    
     def split_data_method(self):
         Index = np.arange(len(self.data_set.Output_A))
         

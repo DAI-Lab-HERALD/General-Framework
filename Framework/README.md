@@ -57,11 +57,11 @@ Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
 Again, this is passed as a dictionary with three keys:
 - 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods).
 - 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations). That means that in this case, four different splits are possible, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
-- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method.
+- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method. For some splitting methods, such as splitting by location, this will however be ignored, if those locations are not balanced, which is most often not the case.
 
 Next, one has to select the models that are to be evaluated in this experiment.
 ```
-Models = ['trajectron_salzmann_unicycle']
+Models = ['<Model name 1>', '<Model name 2>', '<Model name 3>']
 ```
 Different from the previous list, **Models** contains only the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models).
 
@@ -145,26 +145,29 @@ Here, **Results** are the results of the model on the testing set, while **Train
 
 Meanwhile, **Loss** is a similarly sized array, but instead of single float values, it contains arrays with the respective information collected during training, such as epoch loss. Due to the large variability in models, this has to be processed individually outside the framework.
 
-The arguments *return_train_results* and *return_train_loss* respectively indicate if **Train_results** and **Loss** should be returned. Meanwhile, if *plot_is_possible = True*, then [plots](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#metric-visualization) such as calibration curves for the ECE metrics are plotted as well. Those plots are saved at *../Framework/Results/<Dataset name>/Metric_figures/*
+The arguments *return_train_results* and *return_train_loss* respectively indicate if **Train_results** and **Loss** should be returned. Meanwhile, if *plot_is_possible = True*, then [plots](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#metric-visualization) such as calibration curves for the ECE metrics are plotted as well. Those plots are saved at *../Framework/Results/<Dataset_name>/Metric_figures/*
 
 ## Visualizing results
 Besides getting numerical results and metric-specific plots, the framework also allows one to generate a number of other presentation contents.
-For those to not throw an error upon running, it is paramount to run at least *load_results()* beforehand.
+For those to not throw an error upon running, it is paramount to run at least *load_results()* beforehand. The argument values given in the code snippets below are the default values assumed by the framework.
 ### Plotting metrics
 Firstly, one can generate plots with the metrics using the following command:
 ```
-new_experiment.draw_figure(include_only_mean = False, produce_single = False, plot_height = 2, plot_width = None, plot_x_labels = True)
+new_experiment.draw_figure(include_only_mean = False, produce_single = False,
+                           plot_height = 2, plot_width = None, plot_x_labels = True)
 ```
-TODO: Argument explanation
+This method can be used to draw a figure with a number of aligned plots that depict the final metric results, an example of which with default arguments can be seen [here](https://github.com/julianschumann/General-Framework/blob/main/Framework/Latex_files/Figure_test.pdf). Here, each row will depict the results for a certain metric, while each outside column will represent a certain dataset. For each plot per row and column, the $x$-axis will be divided by the models included in the current experiment. In such a row, the metric values for the combination of data parameters (denoted by color) and splitting method (denoted by marker type) will be depicted. If one however sets *produce_single = True*, then all those separate plots for each combination of metric and dataset will be saved separately from each other. In the latter case, the model names will be plotted as axis labels if *plot_x_labels = True*, and otherwise, only the $y$-axis will be labeled.
 
-Those plots are then saved as *\*.tex* files in the folder *../Framework/Latex_files/*. While those could be compiled inside a larger document, it is advisable to compile them in a standalone format and import only the resulting *\*.pdf* document, as the compilation time might be quite long.
+It is also possible that one splitting method has multiple *repetitions*, in which case one has the option of only printing the mean value (*include_only_mean = True*) or both individual values in smaller markers and the mean value (*include_only_mean = False*). It is also necessary to define the height that each plot must take in *cm*, which is given to the argument *plot_height*. If *plot_width = None*, the plot width will be set to allow the whole figure to fit into a predefined text width of either $8.856 cm$ (if $len(Models) \cdot len(Data	\textunderscore  params) < 30$) or $18.137 cm$, while otherwise the given plot width is used.
+
+Those figures are then saved as *\*.tex* files in the folder *../Framework/Latex_files/*. While those could be compiled inside a larger document, it is advisable to compile them in a standalone format and import only the resulting *\*.pdf* document, as the compilation time might be quite long. 
 
 ### Creating tables
 One can also generate result tables, which present for each model, metric, dataset, and splitting method the mean value of all results of the repetitions of the splitting method.
 ```
-write_tables(self, dataset_column = True, use_scriptsize = False, depict_std = True)
+write_tables(self, dataset_row = True, use_scriptsize = False, depict_std = True)
 ```
-TODO: Argument explanation
+This will create a number of tables (with one example with the default arguments visible [here](https://github.com/julianschumann/General-Framework/blob/main/Framework/Latex_files/Table_test.pdf)). In each table, the outermost row will be either the dataset (*dataset_row = True*) or the metric (*dataset_row = False*). Separate tables are then created either over metrics or datasets respectively. The outermost columns meanwhile will be the models. The tables will then be separated by a line along those outermost rows and columns into a number of cells. In each cell, there will be a number of rows and columns. The rows then are used to separate over the splitting method, while the columns can be used to separate between data parameters. Normally, for each entry in the cell, this will the be mean metric value (*depict_std = False*) over all repetitions of the selected splitting method. If one sets *use_scriptsize = True*, those values will be printed in a smaller font than the outermost labels, to fit more values into a single table. Finally, it is also possible to not only show the mean over the splitting method repetitions but the standard deviation as well (*depict_std = True*).
 
 Those tables are then also saved as *\*.tex* files in the folder *../Framework/Latex_files/*.
 
@@ -173,6 +176,6 @@ Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False)
 ```
-Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, on can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset name>/Metric_figures/*. 
+Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
 
 

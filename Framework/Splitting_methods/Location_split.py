@@ -6,6 +6,13 @@ from splitting_template import splitting_template
 
 
 class Location_split(splitting_template):
+    '''
+    To test how well models generalize to new scenes, one can test them on a 
+    recording location held out from the training set. 
+    
+    The number of possible repetitions of this split is therefore depending
+    on the number of different recording locations.
+    '''
     def split_data_method(self):
         Situations = self.Domain[['Scenario', 'location']]
         Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)

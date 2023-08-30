@@ -169,17 +169,58 @@ class model_template():
         return output
     
     #%% 
+    def _extract_original_trajectories(self):
+        if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
+            return
+        
+        self.N_O_data_orig = np.zeros(len(self.data_set.Output_T), int)
+        self.N_O_pred_orig = np.zeros(len(self.data_set.Output_T), int)
+        for i_sample in range(self.data_set.Output_T.shape[0]):
+            self.N_O_data_orig[i_sample] = len(self.data_set.Output_T[i_sample])
+            self.N_O_pred_orig[i_sample] = len(self.data_set.Output_T_pred[i_sample])
+        
+        Agents = np.array(self.input_names_train)
+        
+        X_help = self.data_set.Input_path.to_numpy()
+        Y_help = self.data_set.Output_path.to_numpy()
+            
+        self.X_orig = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
+        self.Y_orig = np.ones(list(Y_help.shape) + [self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
+        
+        # Extract data from original number a samples
+        for i_sample in range(self.X_orig.shape[0]):
+            for i_agent, agent in enumerate(Agents):
+                if not isinstance(X_help[i_sample, i_agent], float):    
+                    n_time = self.N_O_data_orig[i_sample]
+                    self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                    self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+    
     def _determine_pred_agents(self, data_set, Recorded, dynamic):
         Agents = np.array(Recorded.columns)
-        Pred_agents = np.array([agent in data_set.needed_agents for agent in Agents])
-        Pred_agents = np.tile(Pred_agents[np.newaxis], (len(Recorded), 1))
+        Required_agents = np.array([agent in data_set.needed_agents for agent in Agents])
+        Required_agents = np.tile(Required_agents[np.newaxis], (len(Recorded), 1))
         
         if dynamic:
+            Recorded_agents = np.zeros(Required_agents.shape, bool)
             for i_sample in range(len(Recorded)):
                 R = Recorded.iloc[i_sample]
                 for i_agent, agent in enumerate(Agents):
                     if isinstance(R[agent], np.ndarray):
-                        Pred_agents[i_sample, i_agent] = np.all(R[agent])
+                        Recorded_agents[i_sample, i_agent] = np.all(R[agent])
+        
+            # remove still standing agents
+            self._extract_original_trajectories()
+            Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
+            Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
+            
+            # Get moving vehicles
+            Moving_agents = Dr > 0.01
+            
+            # Get pred agents
+            Pred_agents = Required_agents | (Moving_agents & Recorded_agents)
+        else:
+            Pred_agents = Required_agents
+        
         
         # NuScenes exemption:
         if self.data_set.get_name()['print'] == 'NuScenes':
@@ -193,9 +234,39 @@ class model_template():
                         pt = PT.iloc[i_sample]
                         t0 = T0.iloc[i_sample]
                         i_time = np.argmin(np.abs(t0 - pt))
-                        pa = np.stack(PA.iloc[i_sample].to_numpy().tolist(), 1)
                         
-                        Pred_agents_N[i_sample, :pa.shape[1]] = pa[i_time]
+                        pas = PA.iloc[i_sample]
+                        i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                        pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                        
+                        Pred_agents_N[i_sample, i_agents] = pa
+                    
+                    # # Test the assumption made in https://github.com/nutonomy/nuscenes-devkit/issues/731
+                    # P = Pred_agents.copy()
+                    
+                    # X_help = self.data_set.Input_path.to_numpy()
+                    # Y_help = self.data_set.Output_path.to_numpy()
+                    
+                    # X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
+                    # Y = np.ones(list(Y_help.shape) + [self.max_t_O_train, 2], dtype = np.float32) * np.nan
+                    
+                    # # Extract data from original number a samples
+                    # for i_sample in range(X.shape[0]):
+                    #     for i_agent, agent in enumerate(Agents):
+                    #         if isinstance(X_help[i_sample, i_agent], float):
+                    #             assert not Pred_agents[i_sample, i_agent], 'A needed agent is not given.'
+                    #         else:    
+                    #             n_time = min(self.max_t_O_train, len(Y_help[i_sample, i_agent]))
+                    #             X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                    #             Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+                    
+                    # Tr = np.concatenate((X,Y), axis = 2)
+                    # Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
+                    
+                    # P &= Dr > 0.01
+                    
+                    # T = self.data_set.Type[Agents].to_numpy()
+                    # P &= (T == 'V')
                     
                     return Pred_agents_N
         return Pred_agents
@@ -212,46 +283,35 @@ class model_template():
         # self.target_height:
         # self.grayscale: Are image required in grayscale
         
+        # Extract old trajectories
+        self._extract_original_trajectories()
         
+        # Get required timesteps
+        N_O_pred = self.N_O_pred_orig.copy()
+        N_O_data = np.minimum(self.N_O_data_orig, self.max_t_O_train)
         
-        N_O_data = np.zeros(len(self.data_set.Output_T), int)
-        N_O_pred = np.zeros(len(self.data_set.Output_T), int)
-        for i_sample in range(self.data_set.Output_T.shape[0]):
-            N_O_data[i_sample] = len(self.data_set.Output_T[i_sample])
-            N_O_pred[i_sample] = len(self.data_set.Output_T_pred[i_sample])
-            
-        N_O_data = np.minimum(N_O_data, self.max_t_O_train)
+        # Get positional data
+        X = self.X_orig
+        Y = self.Y_orig[:,:,:N_O_data.max()]
         
-        X_help = self.data_set.Input_path.to_numpy()
-        Y_help = self.data_set.Output_path.to_numpy()
-        
-        T = self.data_set.Type.to_numpy()
-        T = T.astype(str)
-        T[T == 'nan'] = '0'
-        
+        # Get metadata
         Recorded_old = self.data_set.Recorded
         domain_old = self.data_set.Domain
         
         # Determine needed agents
-        Agents = np.array(self.input_names_train)
         Pred_agents = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
+        
+        # Check if everything needed is there
+        assert not np.isnan(X[Pred_agents]).all((1,2)).any(), 'A needed agent is not given.'
+        assert not np.isnan(Y[Pred_agents]).all((1,2)).any(), 'A needed agent is not given.'
+        
+        # Get agent types
+        T = self.data_set.Type.to_numpy()
+        T = T.astype(str)
+        T[T == 'nan'] = '0'
         
         # Determine map use
         use_map = self.has_map and self.can_use_map
-            
-        X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-        Y = np.ones(list(Y_help.shape) + [N_O_data.max(), 2], dtype = np.float32) * np.nan
-        
-        # Extract data from original number a samples
-        for i_sample in range(X.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if isinstance(X_help[i_sample, i_agent], float):
-                    assert not Pred_agents[i_sample, i_agent], 'A needed agent is not given.'
-                else:    
-                    n_time = N_O_data[i_sample]
-                    X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-        
         
         if self.predict_single_agent or (Pred_agents.sum(1) == 1).all():
             N_O_data = N_O_data.repeat(Pred_agents.sum(axis = 1))
@@ -271,6 +331,7 @@ class model_template():
                 
             # Project out the sample ID
             X = X[Sample_id, Agent_id]
+            Y = Y[Sample_id, Agent_id]
             T = T[Sample_id, Agent_id]
             
             # Find closest distance between agents during past observation
@@ -280,19 +341,19 @@ class model_template():
             Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
             
             X = X[Sample_id_sorted, Agents_sorted_id] 
-            T = T[Sample_id_sorted, Agents_sorted_id] 
+            Y = Y[Sample_id_sorted, Agents_sorted_id]
+            T = T[Sample_id_sorted, Agents_sorted_id]
             
             # Set agents to nan that are to far away from the predicted agent
             num_agent = self.data_set.max_num_agents
             if num_agent is not None:
                 X[:, num_agent:] = np.nan
+                Y[:, num_agent:] = np.nan
                 T[:, num_agent:] = np.nan
             
             Agent_id = Agent_id[Sample_id_sorted, Agents_sorted_id] 
             
             ID = np.stack((Sample_id, Agent_id), axis = -1)
-            
-            Y = Y[Pred_agents].reshape(-1, 1, *Y.shape[-2:])
             
             if use_map:
                 centre = X[:,0,-1,:] #x_t.squeeze(-2)
@@ -346,7 +407,7 @@ class model_template():
             Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - Pred_agents.astype(int)
             
             Agent_id = np.argsort(Value, axis = 1)
-            Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, len(Agents)))
+            Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
             
             ID = np.stack((Sample_id, Agent_id), -1)
             
@@ -505,7 +566,7 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
             
-            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
             be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
         Sample_id : np.ndarray, optional
             This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
@@ -593,7 +654,7 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
             
-            If only one agent has to be predicted per sample, for **Y**, **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+            If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
             be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
         num_steps : int
             This is the number of future timesteps provided in the case of traning in expected in the case of prediction. In the 

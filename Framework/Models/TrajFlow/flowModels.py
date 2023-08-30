@@ -308,10 +308,9 @@ class FloMo_I(FloMo):
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         for t in self.t_unique:
-            assert t in T
             t_in = T == t
-            t_key = str(int(t.detach().cpu().numpy().astype(int)))
             
+            t_key = str(int(t.detach().cpu().numpy().astype(int)))
             x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
@@ -323,37 +322,52 @@ class FloMo_I(FloMo):
         x_enc     = x_enc[...,-1,:]
         x_tar_enc = x_tar_enc[...,-1,:]
         
+        # Define sizes
+        max_num_agents = x_enc.shape[1]
+        
         # Deal with autoencoder here
-        num_nodes = x_enc.size(dim=1)
-        row = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-        col = torch.arange(num_nodes, dtype=torch.long, device=self.device)
-
-        row = row.view(-1, 1).repeat(1, num_nodes).view(-1)
-        col = col.repeat(num_nodes)
-        graph_edge_node = torch.stack([row, col], dim=0).unsqueeze(0).repeat((len(x_enc),1,1))
-        # Combine batch into one matrix
-        sample_enc = torch.arange(len(x_enc), device = self.device).unsqueeze(1).repeat((1,num_nodes ** 2))
-        graph_edge_index = graph_edge_node + sample_enc.unsqueeze(1) * num_nodes
-        # Combine
-        graph_edge_index = graph_edge_index.permute(1,0,2).reshape(2,-1)
+        # Find existing agents (T = 48 means that the agent does not exist)
+        existing_agent = T != 48 # shape: num_samples x max_num_agents
         
-        T_one_hot = (T.unsqueeze(-1) == self.t_unique.unsqueeze(0).unsqueeze(0)).float().reshape(-1, len(self.t_unique))
+        # Find connection matrix of existing agents
+        Edge_bool = existing_agent[:,None] & existing_agent[:,:,None] # shape: num_samples x max_num_agents x max_num_agents
         
-        class_in_out = T_one_hot[graph_edge_index, :].permute(1,0,2).reshape(-1, 2 * len(self.t_unique))
+        exist_sample2, exist_row2 = torch.where(existing_agent)
+        exist_sample3, exist_row3, exist_col3 = torch.where(Edge_bool)
         
-        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1))
-        dist_in_out = D[sample_enc, graph_edge_node[:,0], graph_edge_node[:,1]]
-        dist_in_out = dist_in_out.reshape(-1,1)
+        # Differentiate between agents of different samples
+        node_adder = exist_sample3 * max_num_agents
+        graph_edge_index = torch.stack([exist_row3, exist_col3]) + node_adder[None,:] # shape: 2 x num_edges
+        
+        # Eliminate the holes due to missing agents
+        # i.e node ids go from (0,3,4,6,...) to (0,1,2,3,...)
+        graph_edge_index = torch.unique(graph_edge_index, return_inverse = True)[1] 
+        
+        # Get type of existing agents
+        T_exisiting_agents = T[exist_sample2, exist_row2] # shape: num_nodes
+        # Get one hot encodeing of this agent type
+        T_one_hot = (T_exisiting_agents.unsqueeze(-1) == self.t_unique.unsqueeze(0)).float() # shape: num_nodes x num_classes
+        # Get one hot encoding from start and goal node of each edge
+        T_one_hot_edge = T_one_hot[graph_edge_index, :] # shape: 2 x num_edges x num_classes
+        # Concatenate in and output type for each edge
+        class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
+        
+        # Get distance between all agents at prediction time
+        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        # Get distance along each edge
+        dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
-        graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
+        # Concatenate edge information
+        graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
         
-        graph_batch = torch.arange((len(x_enc)), dtype=torch.long, device=self.device).repeat_interleave(num_nodes)
+        # Get encoded trajectory for each edge
+        x_enc_existing_agents = x_enc[exist_sample2, exist_row2] # shape: num_nodes x enc_size
         
-        socialData = Data(x=x_enc.reshape(-1, self.obs_encoding_size), 
-                          edge_index=graph_edge_index, 
-                          edge_attr=graph_edge_attr, 
-                          batch=graph_batch)
-        
+        # Apply the graph neural network to the batch 
+        socialData = Data(x          = x_enc_existing_agents, 
+                          edge_index = graph_edge_index, 
+                          edge_attr  = graph_edge_attr, 
+                          batch      = exist_sample2)
         social_enc = self.GNNencoder(socialData)
         
         if scene is not None:
@@ -668,14 +682,11 @@ class TrajFlow_I(TrajFlow):
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
-        num_samples = len(x_enc)
         max_num_agents = x_enc.shape[1]
         
         # Deal with autoencoder here
         # Find existing agents (T = 48 means that the agent does not exist)
         existing_agent = T != 48 # shape: num_samples x max_num_agents
-        # Find number of existing agents for each sample
-        num_nodes_samples = existing_agent.sum(1) # shape: num_samples
         
         # Find connection matrix of existing agents
         Edge_bool = existing_agent[:,None] & existing_agent[:,:,None] # shape: num_samples x max_num_agents x max_num_agents

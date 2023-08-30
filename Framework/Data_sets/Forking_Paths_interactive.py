@@ -15,6 +15,24 @@ def rotate_track(track, angle, center):
 
 
 class Forking_Paths_interactive(data_set_template):
+    '''
+    The forking paths dataset is an adaption of the ETH/UCY pedestrian dataset.
+    In this case, in specific trajectories, test subjects where ask to use a 
+    controler to continue the observed path of a specific agent in a scene towards
+    a specific and (per subject varying goal), while other agents simply followed 
+    their originally observed trjectories.
+    
+    It has to be pointed out, that the trajectories are recorded and provided not in 
+    meter, but in px, which might require some rescaling for specific models. Unfortunately,
+    the exact conversion rate from px to meters is unknown.
+    
+    The data can be found at https://github.com/JunweiLiang/Multiverse#the-forking-paths-dataset
+    and the following citation can bes used:
+        
+    Liang, J., Jiang, L., Murphy, K., Yu, T., & Hauptmann, A. (2020). The garden of 
+    forking paths: Towards multi-future trajectory prediction. In Proceedings of the 
+    IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 10508-10518).
+    '''
     def set_scenario(self):
         self.scenario = scenario_none()
         
@@ -22,7 +40,7 @@ class Forking_Paths_interactive(data_set_template):
     def create_path_samples(self): 
         # Load raw data
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths_complete' + os.sep + 'FP_processed.pkl')
         # analize raw dara 
         num_tars = len(self.Data)
         self.num_samples = 0 

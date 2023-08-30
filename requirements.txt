@@ -16,7 +16,6 @@ Pillow
 psutil
 pyquaternion
 PyYAML
-PyYAML
 scikit_learn
 scipy
 torch_geometric

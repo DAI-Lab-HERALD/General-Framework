@@ -8,73 +8,20 @@ from scipy import interpolate as interp
 
 pd.options.mode.chained_assignment = None
 
-
-def rotate_track(track, angle, center):
-    Rot_matrix = np.array([[np.cos(angle), np.sin(angle)],
-                           [-np.sin(angle), np.cos(angle)]])
-    tar_tr = track[['x','y']].to_numpy()
-    track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
-    if hasattr(track, 'heading'):
-        track.heading = np.mod(track.heading - angle * 180 / np.pi, 360)
-    return track
-
-def determine_streets(track, streets):
-    pos = track[['x','y']].to_numpy()
-    streets = streets.to_numpy()[:,1:7].reshape(len(streets), 3, 2).astype(float)
-    
-    useless_streets = (streets[:,0] == streets[:,1]).all(1)
-    # Distance to staying is not required as weel
-    
-    Dt = (streets[:,2] - streets[:,1])[np.newaxis]
-    Dt /= np.linalg.norm(Dt, axis = -1, keepdims = True) + 1e-6
-    Dtt = np.stack([Dt[:,:,1], -Dt[:,:,0]], -1)
-    
-    De = (streets[:,0] - streets[:,1])[np.newaxis]
-    Dp = pos[:,np.newaxis] - streets[np.newaxis,:,1,:]
-    
-    sides = np.sign((De * Dtt).sum(-1)) # 1 if both xE and XP are on the same side of the line
-    
-    D = - sides * (Dtt * Dp).sum(-1)
-    D = D.transpose(1,0)
-    
-    D = D[~useless_streets]
-    Use_ind = np.where(~useless_streets)[0]
-    
-    if np.min(D[:,0]) >= 0:
-        dist_in = ((pos[[0]] - streets[:,1]) ** 2).sum(-1)
-        street_in = np.argmin(dist_in)
-    else:
-        street_in = Use_ind[np.argmin(D[:,0])]
-        
-    if np.min(D[:,-1]) >= 0:
-        dist_out = ((pos[[-1]] - streets[:,1]) ** 2).sum(-1)
-        street_out = np.argmin(dist_out)
-    else:
-        street_out = Use_ind[np.argmin(D[:,-1])]
-    
-    if street_in == street_out:
-        # check if heading changed
-        heading_in = track.heading.iloc[0]
-        heading_out = track.heading.iloc[-1]
-        heading_change = abs(heading_in - heading_out)
-        # account for circle
-        heading_change = min(heading_change, 360 - heading_change)
-        if heading_change > 90:
-            behavior = 'turned_around'
-        else: 
-            behavior = 'went_straight'
-        
-    elif street_in == np.mod(street_out + 1, len(streets)):
-        behavior = 'turned_left'
-    elif street_in == np.mod(street_out - 1, len(streets)):
-        behavior = 'turned_right'
-    else:
-        behavior = 'went_straight'
-    return street_in, street_out, behavior
-
-
-
 class InD_direction(data_set_template):
+    '''
+    The inD dataset is extracted from drone recordings of real world traffic over
+    four german intersections. This specific instance focuses on the behavior of
+    vehicles when entering the intersection, and the challange lies in predicting
+    the direction which they are about to take (left, straight, right or staying).
+    
+    The dataset can be found at https://www.ind-dataset.com/format and the following
+    citation can be used:
+        
+    Bock, J., Krajewski, R., Moers, T., Runde, S., Vater, L., & Eckstein, L. (2020, October). 
+    The ind dataset: A drone dataset of naturalistic road user trajectories at german 
+    intersections. In 2020 IEEE Intelligent Vehicles Symposium (IV) (pp. 1929-1934). IEEE.
+    '''
     def analyze_maps(self):
         unique_map = [1, 2, 3, 4]
         
@@ -594,3 +541,67 @@ class InD_direction(data_set_template):
     
     def includes_images(self = None):
         return True
+    
+    
+def rotate_track(track, angle, center):
+    Rot_matrix = np.array([[np.cos(angle), np.sin(angle)],
+                           [-np.sin(angle), np.cos(angle)]])
+    tar_tr = track[['x','y']].to_numpy()
+    track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
+    if hasattr(track, 'heading'):
+        track.heading = np.mod(track.heading - angle * 180 / np.pi, 360)
+    return track
+
+def determine_streets(track, streets):
+    pos = track[['x','y']].to_numpy()
+    streets = streets.to_numpy()[:,1:7].reshape(len(streets), 3, 2).astype(float)
+    
+    useless_streets = (streets[:,0] == streets[:,1]).all(1)
+    # Distance to staying is not required as weel
+    
+    Dt = (streets[:,2] - streets[:,1])[np.newaxis]
+    Dt /= np.linalg.norm(Dt, axis = -1, keepdims = True) + 1e-6
+    Dtt = np.stack([Dt[:,:,1], -Dt[:,:,0]], -1)
+    
+    De = (streets[:,0] - streets[:,1])[np.newaxis]
+    Dp = pos[:,np.newaxis] - streets[np.newaxis,:,1,:]
+    
+    sides = np.sign((De * Dtt).sum(-1)) # 1 if both xE and XP are on the same side of the line
+    
+    D = - sides * (Dtt * Dp).sum(-1)
+    D = D.transpose(1,0)
+    
+    D = D[~useless_streets]
+    Use_ind = np.where(~useless_streets)[0]
+    
+    if np.min(D[:,0]) >= 0:
+        dist_in = ((pos[[0]] - streets[:,1]) ** 2).sum(-1)
+        street_in = np.argmin(dist_in)
+    else:
+        street_in = Use_ind[np.argmin(D[:,0])]
+        
+    if np.min(D[:,-1]) >= 0:
+        dist_out = ((pos[[-1]] - streets[:,1]) ** 2).sum(-1)
+        street_out = np.argmin(dist_out)
+    else:
+        street_out = Use_ind[np.argmin(D[:,-1])]
+    
+    if street_in == street_out:
+        # check if heading changed
+        heading_in = track.heading.iloc[0]
+        heading_out = track.heading.iloc[-1]
+        heading_change = abs(heading_in - heading_out)
+        # account for circle
+        heading_change = min(heading_change, 360 - heading_change)
+        if heading_change > 90:
+            behavior = 'turned_around'
+        else: 
+            behavior = 'went_straight'
+        
+    elif street_in == np.mod(street_out + 1, len(streets)):
+        behavior = 'turned_left'
+    elif street_in == np.mod(street_out - 1, len(streets)):
+        behavior = 'turned_right'
+    else:
+        behavior = 'went_straight'
+    return street_in, street_out, behavior

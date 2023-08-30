@@ -7,6 +7,19 @@ from PIL import Image
 from scipy import interpolate as interp
 
 class HighD_interactive(data_set_template):
+    '''
+    The highD dataset is extracted from drone recordings of real world traffic over
+    german highways. TThis is the full dataset and contains instances of car
+    following, lane changes and merging.
+    
+    The dataset can be found at https://www.highd-dataset.com/ and the following 
+    citation can be used:
+        
+    Krajewski, R., Bock, J., Kloeker, L., & Eckstein, L. (2018, November). The highd 
+    dataset: A drone dataset of naturalistic vehicle trajectories on german highways 
+    for validation of highly automated driving systems. In 2018 21st international 
+    conference on intelligent transportation systems (ITSC) (pp. 2118-2125). IEEE.
+    '''
     def set_scenario(self):
         self.scenario = scenario_none()
         

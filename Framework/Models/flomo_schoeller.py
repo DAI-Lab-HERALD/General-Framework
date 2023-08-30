@@ -11,6 +11,17 @@ import os
 from mpmath import exp
 
 class flomo_schoeller(model_template):
+    '''
+    FloMo is a single agent prediction model using Normalizing Flows as its main 
+    component.
+    
+    The code was taken from https://github.com/cschoeller/flomo_motion_prediction
+    and the model is published under the following citation:
+        
+    Schöller, C., & Knoll, A. (2021, September). Flomo: Tractable motion prediction 
+    with normalizing flows. In 2021 IEEE/RSJ International Conference on Intelligent 
+    Robots and Systems (IROS) (pp. 7977-7984). IEEE.    
+    '''
     
     def setup_method(self, seed = 0):
         # set random seeds
@@ -176,7 +187,6 @@ class flomo_schoeller(model_template):
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
                     
-                    
                     if img is not None:
                         logprob = flow_dist.log_prob(future_data, past_data, T, img)
                     else:
@@ -238,7 +248,7 @@ class flomo_schoeller(model_template):
 
 
     def train_method(self):    
-        self.train_loss = np.ones((1, max(self.fut_ae_epochs, self.flow_epochs))) * np.nan
+        self.train_loss = np.ones((1, self.flow_epochs)) * np.nan
 
         # Get needed agent types
         T_all = self.provide_all_included_agent_types().astype(str)
@@ -309,6 +319,18 @@ class flomo_schoeller(model_template):
                 Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
             
             torch.cuda.empty_cache()
+            
+            # extrapolate if needed
+            if num_steps > Pred.shape[-2]:
+                step_delta = Pred[...,-1,:] - Pred[...,-2,:]
+                step_delta = step_delta[...,np.newaxis,:]
+                
+                steps = np.arange(1, num_steps + 1 - Pred.shape[-2])
+                steps = steps[np.newaxis,np.newaxis,:,np.newaxis]
+                
+                Pred_delta = Pred[...,[-1],:] + step_delta * steps
+                
+                Pred = np.concatenate((Pred, Pred_delta), axis = -2)
             
             # save predictions
             self.save_predicted_batch_data(Pred, Sample_id, Agent_id)

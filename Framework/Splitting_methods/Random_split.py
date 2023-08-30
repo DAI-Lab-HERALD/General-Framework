@@ -5,6 +5,11 @@ from splitting_template import splitting_template
 
 
 class Random_split(splitting_template):
+    '''
+    The easiest form of splitting data into training and testing sets is surely
+    a random splitting. As this does not rest on any assumptions, the number
+    of repetitions is potentially limitless.
+    '''
     def split_data_method(self):
         np.random.seed(self.repetition)
         

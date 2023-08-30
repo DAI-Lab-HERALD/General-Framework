@@ -12,6 +12,24 @@ def rotate_track(track, angle, center):
 
 
 class Commotions_crossing(data_set_template):
+    '''
+    The part of the COMMOTIONS Urban Interactive Driving Simulator Study dataset 
+    included here focueses on intersection in left-hand traffic. There, a number
+    of vehicle with priority appear from the left side, and the vehicle driven by 
+    huma controler has to decided when to pass through this oncoming traffic and 
+    continue driving straight on.
+    
+    Due to this limited focus, one can describe this situation as a gap acceptance
+    scenario.
+    
+    The data is published at https://osf.io/eazg5/?view_only= and the following
+    citation can be used:
+        
+    Srinivasan, A. R., Schumann, J., Wang, Y., Lin, Y. S., Daly, M., 
+    Solernou, A., ... & Markkula, G. (2023). The COMMOTIONS Urban Interactions 
+    Driving Simulator Study Dataset. arXiv preprint arXiv:2305.11909.
+    '''
+    
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
         

@@ -164,12 +164,15 @@ class Experiment():
         print('')
         print('------------------------------------------------------------------------------------')
         print('On dataset ' + data_set.get_name()['print'] + 
-              'at prediction time setting ' + data_set.t0_type + 
+              ' at prediction time setting ' + data_set.t0_type + 
               ' ({}/{})'.format(i + 1, self.num_data_sets), flush = True)
+        n_I = data_param['num_timesteps_in']
+        
+        if not isinstance(n_I, tuple):
+            n_I = (n_I, n_I)
         
         print('with dt = ' + '{:0.2f}'.format(max(0, min(9.99, data_param['dt']))).zfill(4) + 
-              ' and n_I = {}->{}'.format(*data_param['num_timesteps_in']) + 
-              ' ({}/{})'.format(j + 1, self.num_data_params), flush = True)
+              ' and n_I = {}->{}'.format(*n_I) + ' ({}/{})'.format(j + 1, self.num_data_params), flush = True)
         
         if data_set.classification_useful:
             sample_string = ''
