@@ -50,6 +50,11 @@ class agent_yuan(model_template):
         self.batch_size = 2 * total_memory / (len(self.input_names_train) ** 1.5 * (self.num_timesteps_out + self.num_timesteps_in))
         self.batch_size = max(1, int(np.floor(self.batch_size)))
         
+        # Note: int eh original published version of the model, a batch size of 1 seems to have been used.
+        # However, due the long training time of the model, the method above was used to achieve as fast a
+        # training as possible. However, this comes at a decrease in performance, so for best possible
+        # results, switching to self.batch_size = 1 would likely be advisable.
+        
         self.sample_number = 10
         
         self.use_map = self.can_use_map and self.has_map
@@ -515,7 +520,7 @@ class agent_yuan(model_template):
             print('Predict trajectron: Batch {}'.format( batch))
             
             # check if problem was already solved in saved data
-            X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 2)
+            X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 1)
             data = self.extract_data_batch(X, T, Pred_agents, img, img_m_per_px, num_steps)
             
             # OOM protection
