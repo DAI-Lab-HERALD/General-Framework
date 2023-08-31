@@ -126,8 +126,7 @@ class CommonRoad(data_set_template):
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the classification is possible.
         '''
-        in_position = np.arange(len(path.tar)) >= domain.ind_split
-        return in_position
+        return None
         
     def calculate_additional_distances(self, path, t, domain):
         r'''

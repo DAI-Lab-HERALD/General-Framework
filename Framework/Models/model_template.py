@@ -19,7 +19,26 @@ class model_template():
                 self.device = torch.device('cpu')
         
         
+        self.data_set = data_set
         
+        self.dt = data_set.dt
+        self.has_map = self.data_set.includes_images()
+        
+        self.num_timesteps_in = data_set.num_timesteps_in_real
+        self.num_timesteps_out = data_set.num_timesteps_out_real
+        
+        self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
+        self.general_input_available = self.data_set.general_input_available
+        
+        self.input_names_train = np.array(data_set.Input_path.columns)
+        
+        self.t_e_quantile = self.data_set.p_quantile
+            
+        
+        self.num_samples_path_pred = self.data_set.num_samples_path_pred
+        
+        self.setup_method()
+
         if behavior == None:
             self.is_data_transformer = False
             
@@ -61,28 +80,9 @@ class model_template():
             save_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
             self.model_file = save_file
             self.pred_file = self.model_file[:-4] + '-pred_tra_wi_pov.npy'
-        
-        self.data_set = data_set
-        
-        self.dt = data_set.dt
-        self.has_map = self.data_set.includes_images()
-        
-        self.num_timesteps_in = data_set.num_timesteps_in_real
-        self.num_timesteps_out = data_set.num_timesteps_out_real
-        
-        self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
-        self.general_input_available = self.data_set.general_input_available
-        
-        self.input_names_train = np.array(data_set.Input_path.columns)
-        
-        self.t_e_quantile = self.data_set.p_quantile
-            
+
         # check if model is allowed
         self.Domain_train            = data_set.Domain.iloc[self.Index_train]
-        
-        self.num_samples_path_pred = self.data_set.num_samples_path_pred
-        
-        self.setup_method()
         
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False

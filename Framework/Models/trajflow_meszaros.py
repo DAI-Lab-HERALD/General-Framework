@@ -78,6 +78,8 @@ class trajflow_meszaros(model_template):
 
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
+
+        self.vary_input_length = False
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -257,6 +259,12 @@ class trajflow_meszaros(model_template):
 
         self.beta_noise = 0.002
         self.gamma_noise = 0.002
+
+        if self.vary_input_length:
+            past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
+            sample_past_length = np.random.choice(past_length_options)/self.dt
+        else:
+            sample_past_length = self.num_timesteps_in
         
         if use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
@@ -310,6 +318,8 @@ class trajflow_meszaros(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
+
+                    X = X[:,:,-sample_past_length:,:]
                     
                     all_pos_past   = X
                     tar_pos_past   = X[:,0]
@@ -530,9 +540,14 @@ class trajflow_meszaros(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                 'file': 'TrajFlow_M',
-                 'latex': r'\emph{TF}'}
+        if self.vary_input_length:
+            names = {'print': 'TrajFlow_varIn',
+                    'file': 'TF_M_varIn',
+                    'latex': r'\emph{TF}'}
+        else:
+            names = {'print': 'TrajFlow',
+                    'file': 'TrajFlow_M',
+                    'latex': r'\emph{TF}'}
         return names
         
     def save_params_in_csv(self = None):
