@@ -44,45 +44,35 @@ class model_template():
             
             self.Index_train = splitter.Train_index
             
-            self.model_file = data_set.change_result_directory(splitter.split_file,
-                                                               'Models', self.get_name()['file'])
-            
-            
             if self.get_output_type() == 'path_all_wi_pov':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_tra_wi_pov')
-            
+                pred_string = 'pred_tra_wi_pov'
             elif self.get_output_type() == 'path_all_wo_pov':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_tra_wo_pov')
-                
+                pred_string = 'pred_tra_wo_pov'
             elif self.get_output_type() == 'class':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_classified')
-                
+                pred_string = 'pred_classified'
             elif self.get_output_type() == 'class_and_time':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_class_time')
-            
+                pred_string = 'pred_class_time'
             else:
                 raise AttributeError("This type of prediction is not implemented")
             
+            self.model_file = data_set.change_result_directory(splitter.split_file,
+                                                               'Models', self.get_name()['file'])
+            self.pred_file  = data_set.change_result_directory(self.model_file,
+                                                               'Predictions', pred_string)
             
         else:
             self.is_data_transformer = True
+            
             self.Index_train = np.where(data_set.Output_A[behavior])[0]
+            
             if len(self.Index_train) == 0:
                 # There are no samples of the required behavior class
                 # Use those cases where the other behaviors are the furthers away
                 num_long_index = int(len(data_set.Output_A) / len(data_set.Behaviors))
                 self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
             
-            save_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
-            self.model_file = save_file
+            self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
             self.pred_file = self.model_file[:-4] + '-pred_tra_wi_pov.npy'
-
-        # check if model is allowed
-        self.Domain_train            = data_set.Domain.iloc[self.Index_train]
         
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False

@@ -58,8 +58,7 @@ class Neural_Social_Physics(model_template):
         dtype = torch.float32
         torch.set_default_dtype(dtype)
         
-        config_path = os.sep.join(os.path.dirname(self.model_file).split(os.sep)[:-3])
-        config_path += os.sep + 'Models' + os.sep + 'NSP' + os.sep + 'config' + os.sep 
+        config_path = self.data_set.path + os.sep + 'Models' + os.sep + 'NSP' + os.sep + 'config' + os.sep 
         
         
         # Get goal network
