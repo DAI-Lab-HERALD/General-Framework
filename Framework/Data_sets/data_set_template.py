@@ -917,8 +917,8 @@ class data_set_template():
                                     helper_path[agent][~recorded_positions[agent]] = np.nan
                             
                             
-                            input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :]
-                            output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :]
+                            input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
+                            output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
                             
                         else:
                             input_path[agent]         = np.nan

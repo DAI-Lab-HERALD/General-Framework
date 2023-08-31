@@ -201,7 +201,10 @@ class model_template():
             # remove still standing agents
             self._extract_original_trajectories()
             Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
-            Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
+            Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category = RuntimeWarning)
+                Dr = np.nanmax(Dr, (2, 3))
             
             # Get moving vehicles
             Moving_agents = Dr > 0.01
@@ -325,7 +328,10 @@ class model_template():
             T = T[Sample_id, Agent_id]
             
             # Find closest distance between agents during past observation
-            D = np.nanmin(((X[:,[0]] - X) ** 2).sum(-1), axis = -1)
+            D = ((X[:,[0]] - X) ** 2).sum(-1)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category = RuntimeWarning)
+                D = np.nanmin(D, axis = -1)
             Agents_sorted_id = np.argsort(D, axis = 1)
             
             Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 

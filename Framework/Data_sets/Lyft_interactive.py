@@ -128,10 +128,10 @@ class Lyft_interactive(data_set_template):
                     if path_name in path.index:
                         continue
     
-                    traj = np.ones((scene.length_timesteps, 2)) * np.nan
+                    traj = np.ones((scene.length_timesteps, 2), dtype = np.float32) * np.nan
                     
                     # Get observed trajectories
-                    traj_observed = scene_data.loc[agent.name].to_numpy()
+                    traj_observed = scene_data.loc[agent.name].to_numpy().astype(np.float32)
                     
                     # Adjust trajectories to map
                     traj_observed = traj_observed - np.array([[min_x, min_y]])
