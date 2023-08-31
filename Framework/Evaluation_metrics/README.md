@@ -288,19 +288,26 @@ def get_true_prediction_with_same_input(self):
 
   Returns
   -------
-  Path_true : np.ndarray
-      This is the true observed trajectory of the agents, in the form of a
-      :math:`\{N_{samples} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
-      dimensional numpy array with float values. If an agent is fully or on some 
-      timesteps partially not observed, then this can include np.nan values. It
-      must be noted that :math:`N_{same}` is the maximum number of similar samples,
-      so for a smaller number, there will also be np.nan values.
+  Path_true_all : np.ndarray
+    This is the true observed trajectory of the agents, in the form of a
+    :math:`\{N_{samples} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+    dimensional numpy array with float values. If an agent is fully or on some 
+    timesteps partially not observed, then this can include np.nan values. It
+    must be noted that :math:`N_{same}` is the maximum number of similar samples,
+    so for a smaller number, there will also be np.nan values.
+
+  Subgroup_ind : np.ndarray
+    This is a :math:`N_{samples}` dimensional numpy array with int values. 
+    All samples with the same value belong to a group with the same corresponding
+    input. This can be used to avoid having to evaluate the same metric values
+    for identical samples. It must however be noted, that due to randomness in 
+    the model, the predictions made for these samples might differ.
 
   '''
   
   ...
       
-  return Path_true_all
+  return Path_true_all, Subgroup_ind
 ```
 ```
 def get_true_and_predicted_class_probabilities(self):
