@@ -42,7 +42,7 @@ class trajectron_salzmann_unicycle(model_template):
         self.target_height = 100
         self.grayscale = False
         
-        config_path = self.data_set.path + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
+        config_path = self.data_set.path + os.sep + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
         
         if (self.provide_all_included_agent_types() == 'P').all():
             config_file = config_path + 'pedestrian.json' 
