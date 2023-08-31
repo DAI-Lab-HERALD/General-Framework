@@ -4,7 +4,7 @@ from evaluation_template import evaluation_template
 from sklearn.neighbors import KernelDensity
 from scipy.stats import gaussian_kde 
 
-class KLD_traj_indep(evaluation_template):
+class KLD_traj_joint(evaluation_template):
     r'''
     TODO: 
     The value :math:`F` of the Kullback-Leibler divergence , 
@@ -17,25 +17,25 @@ class KLD_traj_indep(evaluation_template):
     for which the initial input to the models was identical.
     
     Each value :math:`D_{KL,s}` is then calcualted in the following way
-    (assuming :math:`N_{agents,i}` independent agents :math:`j` for each sample :math:`i`):
+    (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j` for each sample :math:`i`):
     
     .. math::
         D_{KL,s} = {1 \over{|T_{O,s}|}} \sum\limits_{t \in T_{O,s}} {1 \over{|S_s|}}
                     \sum\limits_{(i, j) \in S_s} \ln 
-                    \left({ P_{KDE,s, t} \left(\{x_{i,j} (t), y_{i,j} (t)\} \right)   
-                           \over{P_{KDE,pred,s,t} \left(\{x_{i,j} (t), y_{i,j} (t)\} \right) }} \right)
+                    \left({ P_{KDE,s, t} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \} \right)   
+                           \over{P_{KDE,pred,s,t} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \} \right) }} \right)
                     
-    Here, :math:`P_{KDE,s,t}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all 
-    predicted agents in each subset (:math:`(i, j) \in S_s`):
+    Here, :math:`P_{KDE,s,t}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all samples
+    in each subset (:math:`i \in S_s`):
     
     .. math::
-        \{x_{i,j} (t), y_{i,j} (t) \} 
+        \{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \}
     
     
-    while :math:`P_{KDE,pred,s,t}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`(i, j) \in S_s`):
+    while :math:`P_{KDE,pred,s,t}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`i \in S_s`):
     
     .. math::
-        \{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \}
+        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, j \}
     
     '''
     
@@ -50,36 +50,36 @@ class KLD_traj_indep(evaluation_template):
         # Consider agents separately
         Pred_agents = Pred_steps.any(-1)
         
-        # Combine agent and samples separately (differentiate between agents)
-        subgroups = subgroups[:,np.newaxis] + np.linspace(0,0.9, Pred_agents.shape[1])[np.newaxis,:]
-        subgroups = subgroups[Pred_agents]
-        
-        # Combine agent and sample dimension
-        Path_true_all = Path_true_all.transpose(0,2,1,3,4)[Pred_agents]
-        Path_pred     = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
-        Pred_steps    = Pred_steps[Pred_agents]
-        Types         = Types[Pred_agents]
-        
         KLD = 0
         unique_subgroups = np.unique(subgroups)
         for subgroup in np.unique(subgroups):
             indices = np.where(subgroup == subgroups)[0]
             
-            samples_true = Path_true_all[indices[1]]
+            samples_true = Path_true_all[indices[0]]
             samples_pred = Path_pred[indices].reshape(-1, *Path_pred.shape[2:]) 
+            
+            #Get pred agents
+            assert len(np.unique(Pred_agents[indices], axis = 0)) == 1, 'In subgroup, pred agents are not similar.'
+            pred_agents = Pred_agents[indices[0]]
+            
+            samples_true = samples_true[:,pred_agents]
+            samples_pred = samples_pred[:,pred_agents]
             
             kld_timesteps = np.zeros(samples_pred.shape[-2])
             
             for t_ind in range(samples_pred.shape[-2]):
-                s_true = samples_true[...,t_ind, :]
-                s_pred = samples_pred[...,t_ind, :]
+                s_true = samples_true[..., t_ind, :]
+                s_pred = samples_pred[..., t_ind, :]
                 
-                s_true = s_true[np.isfinite(s_true).all(1)]
-                s_pred = s_pred[np.isfinite(s_pred).all(1)]
+                s_true = s_true[np.isfinite(s_true).all((1,2))]
+                s_pred = s_pred[np.isfinite(s_pred).all((1,2))]
+                
+                # Combine agents and dimensions
+                s_true = s_true.reshape(len(s_true), -1)
+                s_pred = s_pred.reshape(len(s_true), -1)
                 
                 kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_true)
                 kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_pred)
-                
                 
                 log_like_true = kde_true.score_samples(s_true)
                 log_like_pred = kde_pred.score_samples(s_true)
@@ -99,9 +99,9 @@ class KLD_traj_indep(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'KLD (Trajectories, independent predictions)',
-                 'file': 'KLD_traj_indep',
-                 'latex': r'\emph{KLD$_{\text{Traj}, indep}$}'}
+        names = {'print': 'KLD (Trajectories, joint predictions)',
+                 'file': 'KLD_traj_joint',
+                 'latex': r'\emph{KLD$_{\text{Traj}, joint}$}'}
         return names
     
     

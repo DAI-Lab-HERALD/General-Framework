@@ -16,6 +16,8 @@ python_packages/
 *.docx
 *.json
 *.xml
+*.tar
+*.tar.part
 *.pcd.bin
 !nuScenes.json
 !nuScenes_state_delta.json
