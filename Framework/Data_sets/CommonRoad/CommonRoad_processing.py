@@ -76,5 +76,5 @@ for dataset_path in dataset_paths:
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
         
 
-# %%
+# Save data
 Final_data.to_pickle(path + os.sep + "CommonRoad_processed.pkl")
