@@ -35,10 +35,6 @@ class CommonRoad(data_set_template):
         self.T = []
         self.Domain_old = []
         
-        Path_init = []
-        T_init = []
-        Domain_init = []
-        
         # extract raw samples
         max_number_other = 0
         for i in range(num_tars):
@@ -62,11 +58,13 @@ class CommonRoad(data_set_template):
                 
             
             # find crossing point
-            path = pd.Series(np.zeros(0, np.ndarray), index = [])
-            
             track_all = data_i.path.copy(deep = True)
-            path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+            path = pd.Series(np.zeros(0, np.ndarray), index = [])
+            agent_types = pd.Series(np.zeros(0, str), index = [])
             
+            path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+            agent_types['tar'] = data_i.type
+
             t = track_all.t.to_numpy()
             
             domain = pd.Series(np.zeros(4, object), index = ['location', 'neighbors', 'name', 'type'])
@@ -75,62 +73,12 @@ class CommonRoad(data_set_template):
             track_all = track_all.set_index('t')
             domain.neighbors = track_all.CN
             domain.type = data_i.type
-            
-            Path_init.append(path)
-            T_init.append(t)
-            Domain_init.append(domain)
-        
-        Path_init = pd.DataFrame(Path_init)
-        T_init = np.array(T_init+[()], np.ndarray)[:-1]
-        Domain_init = pd.DataFrame(Domain_init)
-        
-        for i in range(len(Path_init)):
-            path_init   = Path_init.iloc[i].tar
-            t_init      = T_init[i]
-            domain_init = Domain_init.iloc[i]
-        
-            other_samples_bool = (Domain_init.scene == domain_init.scene).to_numpy()
-            num_T = path_init.shape[0]
-            Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
-            Paths_other_df = Path_init.iloc[other_samples_bool]
-            for j in range(other_samples_bool.sum()):
-                path_other = Paths_other_df.iloc[j]
-                num_T_other = path_other.tar.shape[0]
-                num_t = min(num_T, num_T_other)
-                Paths_other[j, :num_t] = path_other.tar[:num_t]
-    
-            Dist = np.abs(Paths_other - path_init[np.newaxis])
-            Dist = np.nanmax(Dist, axis = (0,2))
-            ind_split = max(0, np.argmax(Dist > 1e-3) - 1)
-            
-            s_min = 0.8
-            s_max = 1.2
-            sigma = 0.2
-            num_samples = 10 #100
-            Factors = scipy.stats.truncnorm.rvs((s_min-1)/sigma, (s_max-1)/sigma, 
-                                                loc=1, scale=sigma, size=num_samples)#.float()
-            # Factors = [1.0]
-            for factor in Factors:
-                path = pd.Series(np.zeros(0, np.ndarray), index = [])
-                agent_types = pd.Series(np.zeros(0, str), index = [])
-                
-                traj = path_init.copy()
-                
-                traj[ind_split + 1:] = (traj[ind_split + 1:] - traj[[ind_split]]) * factor + traj[[ind_split]] 
-                
-                path['tar'] = traj
-                # should be done based on actual agent types
-                agent_types['tar'] = domain.type
-                
-                domain = domain_init.copy()
-                domain['t_split'] = t_init[ind_split]
-                domain['ind_split'] = ind_split
-                
-                self.Path.append(path)
-                self.Type_old.append(agent_types)
-                self.T.append(t_init)
-                self.Domain_old.append(domain)
-                self.num_samples = self.num_samples + 1
+
+            self.Path.append(path)
+            self.Type_old.append(agent_types)
+            self.T.append(t)
+            self.Domain_old.append(domain)
+            self.num_samples = self.num_samples + 1
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)

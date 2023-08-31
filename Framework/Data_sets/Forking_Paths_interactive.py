@@ -3,6 +3,8 @@ import pandas as pd
 from data_set_template import data_set_template
 from scenario_none import scenario_none
 import os
+import scipy
+import torch
 from scipy import interpolate as interp
 
 pd.set_option('mode.chained_assignment',None)
@@ -12,7 +14,6 @@ def rotate_track(track, angle, center):
     tar_tr = track[['x','y']].to_numpy()
     track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
     return track
-
 
 class Forking_Paths_interactive(data_set_template):
     '''
@@ -40,7 +41,7 @@ class Forking_Paths_interactive(data_set_template):
     def create_path_samples(self): 
         # Load raw data
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'Forking_Paths_complete' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
         # analize raw dara 
         num_tars = len(self.Data)
         self.num_samples = 0 
@@ -48,6 +49,10 @@ class Forking_Paths_interactive(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
+        
+        Path_init = []
+        T_init = []
+        Domain_init = []
         
         # extract raw samples
         max_number_other = 0
@@ -75,28 +80,71 @@ class Forking_Paths_interactive(data_set_template):
                 
             
             # find crossing point
-            track_all = data_i.path.copy(deep = True)
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])
             
+            track_all = data_i.path.copy(deep = True)
             path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
-            agent_types['tar'] = 'P'
             
             t = track_all.t.to_numpy()
             
-            domain = pd.Series(np.zeros(5, object), index = ['location', 'scene', 'scene_full', 'neighbors', 'name'])
+            domain = pd.Series(np.zeros(6, object), index = ['location', 'scene', 'scene_full', 'neighbors', 'name', 'type'])
             domain.location = scene
             domain.scene = "_".join([scene, moment, tar_id])
             domain.scene_full = data_i.scenario
             domain.name = data_i.name
             track_all = track_all.set_index('t')
             domain.neighbors = track_all.CN
+            domain.type = data_i.type
             
-            self.Path.append(path)
-            self.Type_old.append(agent_types)
-            self.T.append(t)
-            self.Domain_old.append(domain)
-            self.num_samples = self.num_samples + 1
+            Path_init.append(path)
+            T_init.append(t)
+            Domain_init.append(domain)
+        
+        Path_init = pd.DataFrame(Path_init)
+        T_init = np.array(T_init+[()], np.ndarray)[:-1]
+        Domain_init = pd.DataFrame(Domain_init)
+        
+        for i in range(len(Path_init)):
+            path_init   = Path_init.iloc[i].tar
+            t_init      = T_init[i]
+            domain_init = Domain_init.iloc[i]
+        
+            other_samples_bool = (Domain_init.scene == domain_init.scene).to_numpy()
+            num_T = path_init.shape[0]
+            Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
+            Paths_other_df = Path_init.iloc[other_samples_bool]
+            for j in range(other_samples_bool.sum()):
+                path_other = Paths_other_df.iloc[j]
+                num_T_other = path_other.tar.shape[0]
+                num_t = min(num_T, num_T_other)
+                Paths_other[j, :num_t] = path_other.tar[:num_t]
+    
+            Dist = np.abs(Paths_other - path_init[np.newaxis])
+            Dist = np.nanmax(Dist, axis = (0,2))
+            ind_split = max(0, np.argmax(Dist > 1e-3) - 1)
+
+            Factors = [1.0]
+            for factor in Factors:
+                path = pd.Series(np.zeros(0, np.ndarray), index = [])
+                agent_types = pd.Series(np.zeros(0, str), index = [])
+                
+                traj = path_init.copy()
+                
+                traj[ind_split + 1:] = (traj[ind_split + 1:] - traj[[ind_split]]) * factor + traj[[ind_split]] 
+                
+                path['tar'] = traj
+                # should be done based on actual agent types
+                agent_types['tar'] = domain.type
+                
+                domain = domain_init.copy()
+                domain['t_split'] = t_init[ind_split]
+                domain['ind_split'] = ind_split
+                
+                self.Path.append(path)
+                self.Type_old.append(agent_types)
+                self.T.append(t_init)
+                self.Domain_old.append(domain)
+                self.num_samples = self.num_samples + 1
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
@@ -144,21 +192,7 @@ class Forking_Paths_interactive(data_set_template):
             This is a :math:`|T|` dimensioanl boolean array, which is true if all agents are
             in a position where the classification is possible.
         '''
-        other_samples_bool = (self.Domain_old.scene == domain.scene).to_numpy()
-        num_T = path.tar.shape[0]
-        Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
-        for i in range(other_samples_bool.sum()):
-            path_other = self.Path.iloc[other_samples_bool].iloc[i]
-            num_T_other = path_other.tar.shape[0]
-            num_t = min(num_T, num_T_other)
-            Paths_other[i, :num_t] = path_other.tar[:num_t]
-
-        Check = Paths_other == path.tar[np.newaxis]
-        in_position = ~Check.all(axis = (0, 2))
-        ind_first = np.argmax(in_position)
-        if ind_first > 0:
-            in_position[ind_first - 1] = True
-              
+        in_position = np.arange(len(path.tar)) >= domain.ind_split
         return in_position
         
     def calculate_additional_distances(self, path, t, domain):
@@ -189,7 +223,7 @@ class Forking_Paths_interactive(data_set_template):
     def fill_empty_path(self, path, t, domain, agent_types):
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                       'Forking_Paths' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
             self.Data = self.Data.reset_index(drop = True)
 
         I_t = t + domain.t_0
@@ -207,9 +241,14 @@ class Forking_Paths_interactive(data_set_template):
 
             t = data_id.path.t.to_numpy()
             pos = np.stack([data_id.path.x.to_numpy(), data_id.path.y.to_numpy()], axis = -1)
-            for dim in range(2):
-                Pos[j, :, dim] = interp.interp1d(np.array(t), pos[:,dim], 
-                                                 fill_value = 'extrapolate', assume_sorted = True)(I_t)
+                
+            if len(t) > 1:
+                for dim in range(2):
+                    Pos[j, :, dim] = interp.interp1d(np.array(t), pos[:,dim], 
+                                                    fill_value = 'extrapolate', assume_sorted = True)(I_t)
+                    
+            else:
+                Pos[j, :, :] = pos.repeat(len(I_t), axis = 0)[np.newaxis]
         
         D = np.sqrt(((Pos[:,:n_I] - Own_pos[:,:n_I]) ** 2).sum(-1)).min(-1)
         
@@ -219,7 +258,7 @@ class Forking_Paths_interactive(data_set_template):
         for i, pos in enumerate(Pos):
             name = 'v_{}'.format(i+1)
             path[name] = pos
-            agent_types[name] = 'P'
+            agent_types[name] = domain.type#'P'
         
         return path, agent_types
             
