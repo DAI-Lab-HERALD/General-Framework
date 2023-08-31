@@ -14,7 +14,7 @@ Those downloads then need then need do be extracted into the *Lyft/data/* folder
 │   |   │   ├── ...
 │   ├── feedback.txt
 │   ├── meta.json
-│   ├── scenes/
+│   ├── scenes
 │   │   ├── sample.zarr
 │   |   │   ├── ...
 │   |   ├── train.zarr
@@ -25,6 +25,6 @@ Those downloads then need then need do be extracted into the *Lyft/data/* folder
 │   |   │   ├── ...
 │   |   ├── validation.zarr
 │   |   │   ├── ...
-│   ├── semantic_map/
+│   ├── semantic_map
 │   │   ├── semantic_map.pb
 ```
