@@ -46,9 +46,9 @@ class model_template():
             self.Index_test  = splitter.Test_index
             
             if self.get_output_type() == 'path_all_wi_pov':
-                pred_string = 'pred_tra_wi_pov'
+                pred_string = 'pred_tra_wip_'
             elif self.get_output_type() == 'path_all_wo_pov':
-                pred_string = 'pred_tra_wo_pov'
+                pred_string = 'pred_tra_wop_'
             elif self.get_output_type() == 'class':
                 pred_string = 'pred_classified'
             elif self.get_output_type() == 'class_and_time':
@@ -74,7 +74,7 @@ class model_template():
                 self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
             
             self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
-            self.pred_file = self.model_file[:-4] + '-pred_tra_wi_pov.npy'
+            self.pred_file = self.model_file[:-4] + '-pred_tra_wip_.npy'
         
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False
@@ -131,45 +131,90 @@ class model_template():
         
         
     def predict(self):
+        # check if prediction can be loaded
         self.model_mode = 'pred'
         # perform prediction
-        if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
-            output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
+        if self.get_output_type()[:4] == 'path':
+            test_file = self.pred_file[:-4] + '00.npy'
+            if os.path.isfile(test_file) and not self.data_set.overwrite_results:
+                output = np.load(test_file, allow_pickle = True)
+                
+                Pred_index = [output[0]]
+                Output_path = [output[1]]
+                
+                save = 1 
+                new_test_file = self.pred_file[:-4] + str(save).zfill(2)+ '.npy'
+                while os.path.isfile(new_test_file):
+                    output = np.load(new_test_file, allow_pickle = True)
+                    Pred_index.append(output[0])
+                    Output_path.append(output[1])
+                    
+                    save += 1 
+                    new_test_file = self.pred_file[:-4] + str(save).zfill(2)+ '.npy'
+                
+                Pred_index = np.concatenate(Pred_index, axis = 0)
+                Output_path = pd.concat(Output_path)
+                
+                return [Pred_index, Output_path]
+            
         else:
-                
-            # apply model to test samples
-            if self.get_output_type()[:4] == 'path':
-                self.create_empty_output_path()
-                self.predict_method()
-                output = [self.Output_path_pred]
-            elif self.get_output_type() == 'class':
-                self.create_empty_output_A()
-                self.predict_method()
-                output = [self.Output_A_pred]
-            elif self.get_output_type() == 'class_and_time':
-                self.create_empty_output_A()
-                self.create_empty_output_T()
-                self.predict_method()
-                output = [self.Output_A_pred, self.Output_T_E_pred]
-            else:
-                raise TypeError("This output type for models is not implemented.")
+            if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
+                output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
+                return output
             
-            # Save indices of predicted samples
-            if self.evaluate_on_train_set:
-                Pred_index = np.arange(len(self.data_set.Output_T))
-            else:
-                Pred_index = self.Index_test
-                
-            save_data = np.array([Pred_index] + output + [0], object) #0 is there to avoid some numpy load and save errros
+        # Save indices of predicted samples
+        if self.evaluate_on_train_set:
+            Pred_index = np.arange(len(self.data_set.Output_T))
+        else:
+            Pred_index = self.Index_test
             
-            os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
-            try:
-                np.save(self.pred_file, save_data)
-            except:
-                print('There is a memory error when trying to save the predictions.')
-                print('Predictions will be saved in multiple steps.')
-                
-                assert False
+        # create predictions, as no save file available
+        # apply model to test samples
+        if self.get_output_type()[:4] == 'path':
+            self.create_empty_output_path()
+            self.predict_method()
+            output = [Pred_index, self.Output_path_pred]
+        elif self.get_output_type() == 'class':
+            self.create_empty_output_A()
+            self.predict_method()
+            output = [Pred_index, self.Output_A_pred]
+        elif self.get_output_type() == 'class_and_time':
+            self.create_empty_output_A()
+            self.create_empty_output_T()
+            self.predict_method()
+            output = [Pred_index, self.Output_A_pred, self.Output_T_E_pred]
+        else:
+            raise TypeError("This output type for models is not implemented.")
+        
+        
+        
+        os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
+        
+        if self.get_output_type()[:4] != 'path':
+            #0 is there to avoid some numpy load and save errros
+            save_data = np.array(output + [0], object)
+            np.save(self.pred_file, save_data)
+        else:
+            Unsaved_indices = np.arange(len(Pred_index))
+            split_factor = 1
+            save = 0
+            while len(Unsaved_indices) > 0:
+                try:
+                    num_saved = int(np.ceil(len(Pred_index) / split_factor))
+                    save_indices = Unsaved_indices[:num_saved]
+                    save_data = np.array([Pred_index[save_indices], 
+                                          self.Output_path_pred.iloc[save_indices], 
+                                          0], object)
+                    
+                    save_file = self.pred_file[:-4] + str(save).zfill(2) + '.npy'
+                    
+                    np.save(save_file, save_data)
+                    
+                    save += 1
+                    Unsaved_indices = Unsaved_indices[num_saved:]
+                    
+                except:
+                    split_factor *= 1.99
                 
         print('')
         print('The model ' + self.get_name()['print'] + ' successfully made predictions.')

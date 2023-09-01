@@ -327,10 +327,12 @@ class data_interface(object):
             
             # Get output_d_index
             dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
-            match = dataset_index[np.newaxis] == output_index[use,np.newaxis]
-            
-            assert np.all(match.sum(axis = 1) == 1)
-            output_d_index = match.argmax(axis = 1)
+            if dataset_index == output_index[use.to_numpy()]:
+                output_d_index = np.arange(len(dataset_index))
+            else:
+                match = dataset_index[np.newaxis] == output_index[use.to_numpy(),np.newaxis]
+                assert np.all(match.sum(axis = 1) == 1)
+                output_d_index = match.argmax(axis = 1)
             
             # assemble output for dataset
             output_d = [output_d_index] + output_d_data            
