@@ -117,6 +117,12 @@ overwrite_results = False
 It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noted that this does not redo the extraction of the training and testing set.
 
 ```
+evaluate_on_train_set = True
+```
+If one wants to test for overfitting in the model, it might be useful to also evaluate it on the training set. However, this omes at a cost in computation and especially memory usage,
+so it can be disabled via this flag as well.
+
+```
 model_for_path_transform = '<Trajecotry Prediction Model>'
 ```
 One part of the framework allows one to transform the predictions made by classification models into trajectories. This is based on a number of conditional trajectory prediction models trained only on the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
@@ -126,7 +132,7 @@ Finally, one has to pass these parameters to the experiment.
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
                               exclude_post_crit, allow_extrapolation, 
-                              dynamic_prediction_agents, overwrite_results)
+                              dynamic_prediction_agents, overwrite_results, evaluate_on_train_set)
 ```
 
 ## Getting results
