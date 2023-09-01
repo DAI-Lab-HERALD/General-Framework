@@ -361,7 +361,7 @@ class evaluation_template():
         else:
             # Get output_data_train           
             if self.get_output_type()[:4] == 'path':
-                [Output_path_pred] = Output_pred
+                [Pred_index, Output_path_pred] = Output_pred
                 # reorder columns if needed
                 Output_path_pred = Output_path_pred[self.Output_path_full.columns]
                 for i in range(self.num_samples_full):                
@@ -378,7 +378,7 @@ class evaluation_template():
                             
                 Predictions = [Output_path_pred]
             elif self.get_output_type() == 'class_and_time':
-                [Output_A_pred, Output_T_E_pred] = Output_pred
+                [Pred_index, Output_A_pred, Output_T_E_pred] = Output_pred
                 
                 # reorder columns if needed
                 Output_A_pred   = Output_A_pred[self.Output_A_full.columns]
@@ -387,7 +387,7 @@ class evaluation_template():
                 Predictions = [Output_A_pred, Output_T_E_pred]
                 
             elif self.get_output_type() == 'class':
-                [Output_A_pred] = Output_pred
+                [Pred_index, Output_A_pred] = Output_pred
                 
                 # reorder columns if needed
                 Output_A_pred = Output_A_pred[self.Output_A_full.columns]
@@ -396,18 +396,26 @@ class evaluation_template():
             else:
                 raise AttributeError("This type of prediction is not implemented")
             
+                
             
             Results = []
             # Evaluate the model both on the training set and the testing set
             if not np.array_equal(np.unique(self.splitter.Train_index), 
                                   np.unique(self.splitter.Test_index)):
-            
-                Indeces = [self.splitter.Train_index, self.splitter.Test_index]
+                
+                # check what predictions are available
+                if np.all(np.unique(Pred_index) == np.unique(self.splitter.Test_index)):
+                    Indeces = [[], self.splitter.Test_index]
+                else:
+                    assert np.all(np.unique(Pred_index) == np.arange(len(self.Output_T_full))), "There are missing predictions."
+                    Indeces = [self.splitter.Train_index, self.splitter.Test_index]
                 
                 for self.Index_curr in Indeces:
-                    self._set_current_data(self.Index_curr, Predictions)
-                    
-                    Results.append(self.evaluate_prediction_method()) # output needs to be a list of components
+                    if len(self.Index_curr) > 0:
+                        self._set_current_data(self.Index_curr, Predictions)
+                        Results.append(self.evaluate_prediction_method()) # output needs to be a list of components
+                    else:
+                        Results.append(None)
             else:
                 self.Index_curr = self.splitter.Test_index
                 self._set_current_data(self.Index_curr)

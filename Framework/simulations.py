@@ -49,13 +49,16 @@ dynamic_prediction_agents = True
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = False
 
+# Determine if the model should be evaluated on the training set as well
+evaluate_on_train_set = True
+
 # Select method used for transformation function to path predictions
 model_for_path_transform = 'trajectron_salzmann_unicycle'
 
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
                               exclude_post_crit, allow_extrapolation, 
-                              dynamic_prediction_agents, overwrite_results)
+                              dynamic_prediction_agents, overwrite_results, evaluate_on_train_set)
 
 #%% Run experiment
 new_experiment.run()                  

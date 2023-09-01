@@ -1206,7 +1206,7 @@ class data_set_template():
             self.path_models = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
             self.path_models_pred = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
             for beh in self.Behaviors:
-                self.path_models[beh] = self.model_class_to_path(self, None, beh)
+                self.path_models[beh] = self.model_class_to_path(self, None, True, beh)
                 self.path_models[beh].train()
                 self.path_models_pred[beh] = self.path_models[beh].predict()[0]
 
@@ -1222,91 +1222,91 @@ class data_set_template():
             # If the metric requires trajectory predictions
             if metric_pred_type == 'path_all_wo_pov':
                 if model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
 
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, Output_T_E_pred] = output
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    [Pred_index, Output_A_pred, Output_T_E_pred] = output
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
+                    [Pred_index, Output_path_pred] = output
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
 
-                Output_path_pred = self.path_remove_pov_agent(Output_path_pred, self.Domain,
-                                                              pred_save_file)
-                output_trans = [Output_path_pred]
+                Output_path_pred = self.path_remove_pov_agent(Output_path_pred, Pred_index, 
+                                                              self.Domain, pred_save_file)
+                output_trans = [Pred_index, Output_path_pred]
 
             elif metric_pred_type == 'path_all_wi_pov':
                 if model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
 
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, Output_T_E_pred] = output
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    [Pred_index, Output_A_pred, Output_T_E_pred] = output
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index,
+                                                               self.Domain, pred_save_file)
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
-                output_trans = [Output_path_pred]
+                output_trans = [Pred_index, Output_path_pred]
 
             # If the metric requires class predictions
             elif metric_pred_type == 'class':
                 if model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index, 
+                                                               self.Domain, pred_save_file)
 
-                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                      self.Domain, pred_save_file)
 
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
-                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                    [Pred_index, Output_path_pred] = output
+                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                      self.Domain, pred_save_file)
 
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, _] = output
+                    [Pred_index, Output_A_pred, _] = output
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
 
-                output_trans = [Output_A_pred]
+                output_trans = [Pred_index, Output_A_pred]
 
             # If the metric requires class andf tiem predictions
             elif metric_pred_type == 'class_and_time':
                 if model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index, 
+                                                               self.Domain, pred_save_file)
                     [Output_A_pred,
-                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                     self.Domain, pred_save_file)
 
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
+                    [Pred_index, Output_path_pred] = output
                     [Output_A_pred,
-                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                     self.Domain, pred_save_file)
 
                 elif model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
-                output_trans = [Output_A_pred, Output_T_E_pred]
+                output_trans = [Pred_index, Output_A_pred, Output_T_E_pred]
 
             else:
                 raise AttributeError(
@@ -1337,65 +1337,138 @@ class data_set_template():
         else:
             T = np.ones((self.num_samples_path_pred, len(self.Behaviors)), float) * t[-1]
         return T
-
-    def path_add_pov_agent(self, Output_path_pred, Output_T_pred, Domain, pred_save_file, use_model=False):
-        test_file = pred_save_file[:-19] + 'pred_tra_wi_pov.npy'
+    
+    # TODO: Rewrite saving method for transformed trajectories
+    def path_add_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file, use_model=False):
+        test_file = pred_save_file[:-19] + 'pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
-            [Output_path_pred_add, _] = np.load(test_file, allow_pickle=True)
+            output = np.load(test_file, allow_pickle = True)
+            
+            Output_path_pred_add = [output[1]]
+            
+            save = 1 
+            new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            while os.path.isfile(new_test_file):
+                output = np.load(new_test_file, allow_pickle = True)
+                Output_path_pred_add.append(output[1])
+                
+                save += 1 
+                new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            
+            Output_path_pred_add = pd.concat(Output_path_pred_add)
+            
+            return Output_path_pred_add
+        
+        if self.pov_agent is None:
+            Output_path_pred_add = Output_path_pred
         else:
-            if self.pov_agent is None:
-                Output_path_pred_add = Output_path_pred
-            else:
-                Index_old = Output_path_pred.columns
-                Index_new = [self.pov_agent]
-                Index_add = Index_new + list(Index_old)
+            Index_old = Output_path_pred.columns
+            Index_new = [self.pov_agent]
+            Index_add = Index_new + list(Index_old)
 
-                Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
-                                                    columns=Index_add)
+            Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
+                                                columns=Index_add)
 
 
-                Output_path_pred_add.iloc[:, 1:] = Output_path_pred
-                for i_sample, path_true in enumerate(self.Output_path):
-                    t = self.Output_T_pred[i_sample]
-                    t_true = self.Output_T[i_sample]
-                    index = Index_new[0]
-                    # interpolate the values at the new set of points using numpy.interp()
-                    path_index_old = path_true[index]
-                    path_index_new = np.stack([np.interp(t, t_true, path_index_old[:,0]),
-                                               np.interp(t, t_true, path_index_old[:,1])], axis = -1)
+            Output_path_pred_add.iloc[:, 1:] = Output_path_pred
+            for i_sample, i_full in enumerate(Pred_index):
+                path_true = self.Ouput_path.iloc[i_full]
+                t = self.Output_T_pred[i_full]
+                t_true = self.Output_T[i_full]
+                index = Index_new[0]
+                # interpolate the values at the new set of points using numpy.interp()
+                path_index_old = path_true[index]
+                path_index_new = np.stack([np.interp(t, t_true, path_index_old[:,0]),
+                                           np.interp(t, t_true, path_index_old[:,1])], axis = -1)
 
-                    # use the gradient to estimate values outside the bounds of xp
-                    dx = np.stack([np.gradient(path_index_old[:,0], t_true),
-                                   np.gradient(path_index_old[:,1], t_true)], axis = -1)
-                    later_time = t > t_true[-1]
-                    path_index_new[later_time] = path_index_old[[-1]] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
+                # use the gradient to estimate values outside the bounds of xp
+                dx = np.stack([np.gradient(path_index_old[:,0], t_true),
+                               np.gradient(path_index_old[:,1], t_true)], axis = -1)
+                later_time = t > t_true[-1]
+                path_index_new[later_time] = path_index_old[[-1]] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
 
-                    # Add new results
-                    Output_path_pred_add.iloc[i_sample, 0] = np.tile(path_index_new[np.newaxis],
-                                                                     (self.num_samples_path_pred, 1, 1))
+                # Add new results
+                Output_path_pred_add.iloc[i_sample, 0] = np.tile(path_index_new[np.newaxis],
+                                                                 (self.num_samples_path_pred, 1, 1))
 
-            save_data = np.array([Output_path_pred_add, 0], object)
-            os.makedirs(os.path.dirname(test_file), exist_ok=True)
-            np.save(test_file, save_data)
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        Unsaved_indices = np.arange(len(Pred_index))
+        split_factor = 1
+        save = 0
+        while len(Unsaved_indices) > 0:
+            try:
+                num_saved = int(np.ceil(len(Pred_index) / split_factor))
+                save_indices = Unsaved_indices[:num_saved]
+                save_data = np.array([Pred_index[save_indices], 
+                                      Output_path_pred_add.iloc[save_indices], 
+                                      0], object)
+                
+                save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+                
+                np.save(save_file, save_data)
+                
+                save += 1
+                Unsaved_indices = Unsaved_indices[num_saved:]
+                
+            except:
+                split_factor *= 1.99
 
         return Output_path_pred_add
 
-    def path_remove_pov_agent(self, Output_path_pred, Domain, pred_save_file):
-        test_file = pred_save_file[:-19] + 'pred_tra_wo_pov.npy'
+    def path_remove_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file):
+        test_file = pred_save_file[:-19] + 'pred_tra_wop_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
-            [Output_path_pred_remove, _] = np.load(
-                test_file, allow_pickle=True)
-        else:
-            Index_retain = np.array([name in self.scenario.classifying_agents() for name in Output_path_pred.columns])
-            Output_path_pred_remove = Output_path_pred.iloc[:, Index_retain]
+            output = np.load(test_file, allow_pickle = True)
+            
+            Output_path_pred_remove = [output[1]]
+            
+            save = 1 
+            new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            while os.path.isfile(new_test_file):
+                output = np.load(new_test_file, allow_pickle = True)
+                Output_path_pred_remove.append(output[1])
+                
+                save += 1 
+                new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            
+            Output_path_pred_remove = pd.concat(Output_path_pred_remove)
+            
+            return Output_path_pred_remove
+        
+        Index_retain = np.array([name in self.scenario.classifying_agents() for name in Output_path_pred.columns])
+        Output_path_pred_remove = Output_path_pred.iloc[:, Index_retain]
 
-            save_data = np.array([Output_path_pred_remove, 0], object)
-            os.makedirs(os.path.dirname(test_file), exist_ok=True)
-            np.save(test_file, save_data)
+        save_data = np.array([Output_path_pred_remove, 0], object)
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        np.save(test_file, save_data)
 
+        # Save predicted trajectories
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        
+        Unsaved_indices = np.arange(len(Pred_index))
+        split_factor = 1
+        save = 0
+        while len(Unsaved_indices) > 0:
+            try:
+                num_saved = int(np.ceil(len(Pred_index) / split_factor))
+                save_indices = Unsaved_indices[:num_saved]
+                save_data = np.array([Pred_index[save_indices], 
+                                      Output_path_pred_remove.iloc[save_indices], 
+                                      0], object)
+                
+                save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+                
+                np.save(save_file, save_data)
+                
+                save += 1
+                Unsaved_indices = Unsaved_indices[num_saved:]
+                
+            except:
+                split_factor *= 1.99
         return Output_path_pred_remove
 
-    def path_to_class_and_time(self, Output_path_pred, Output_T_pred, Domain, pred_save_file, save_results=True):
+    def path_to_class_and_time(self, Output_path_pred, Pred_index, 
+                               Output_T_pred, Domain, pred_save_file, save_results=True):
 
         # Remove other prediction method
         test_file = pred_save_file[:-19] + 'pred_class_time.npy'
@@ -1409,10 +1482,10 @@ class data_set_template():
             Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
                                            columns=self.Behaviors)
 
-            for i_sample in range(len(Output_path_pred)):
+            for i_sample, i_full in enumerate(Pred_index):
                 paths = Output_path_pred.iloc[i_sample]
-                t = Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
+                t = Output_T_pred[i_full]
+                domain = Domain.iloc[i_full]
                 T_class = self.path_to_class_and_time_sample(paths, t, domain)
 
                 output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
@@ -1433,7 +1506,7 @@ class data_set_template():
 
         return Output_A_pred, Output_T_E_pred
 
-    def class_to_time(self, Output_A_pred, Domain, pred_save_file):
+    def class_to_time(self, Output_A_pred, Pred_index, Domain, pred_save_file):
         # Remove other prediction type
         test_file = pred_save_file[:-19] + 'pred_class_time.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
@@ -1443,11 +1516,11 @@ class data_set_template():
 
             Output_T_E_pred = pd.DataFrame(np.empty((len(Output_A_pred), len(self.Behaviors)), object),
                                            columns=self.Behaviors)
-            for i_sample in range(len(Output_A_pred)):
-                t = self.Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
+            for i_sample, i_full in enumerate(Pred_index):
+                t = self.Output_T_pred[i_full]
+                domain = Domain.iloc[i_full]
                 for i_beh, beh in enumerate(self.Behaviors):
-                    paths_beh = self.path_models_pred[beh].iloc[i_sample]
+                    paths_beh = self.path_models_pred[beh].iloc[i_full]
                     T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
                     T_beh = T_class_beh[((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
                                          (T_class_beh[:, i_beh] <= t[-1])), i_beh]
@@ -1462,88 +1535,121 @@ class data_set_template():
             np.save(test_file, save_data)
         return Output_T_E_pred
 
-    def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Domain, pred_save_file):
+    def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Pred_index, Domain, pred_save_file):
         # check if this has already been performed
-        test_file = pred_save_file[:-19] + 'pred_tra_wi_pov.npy'
+        test_file = pred_save_file[:-19] + 'pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
-            [Output_path_pred, _] = np.load(test_file, allow_pickle=True)
-        else:
-            self.train_path_models()
-            Index = self.Output_path.columns
-            Index_needed = np.array([name in self.needed_agents for name in Index])
+            output = np.load(test_file, allow_pickle = True)
+            
+            Output_path_pred = [output[1]]
+            
+            save = 1 
+            new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            while os.path.isfile(new_test_file):
+                output = np.load(new_test_file, allow_pickle = True)
+                Output_path_pred.append(output[1])
+                
+                save += 1 
+                new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            
+            Output_path_pred = pd.concat(Output_path_pred)
+            
+            return Output_path_pred
+        
+        self.train_path_models()
+        Index = self.Output_path.columns
+        Index_needed = np.array([name in self.needed_agents for name in Index])
 
-            Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), Index_needed.sum()), object),
-                                            columns=Index[Index_needed])
+        Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), Index_needed.sum()), object),
+                                        columns=Index[Index_needed])
 
-            # Transform probabilities into numbers
-            Path_num = np.floor(self.num_samples_path_pred *
-                                Output_A_pred.to_numpy()).astype(int)
-            Remaining_sum = self.num_samples_path_pred - Path_num.sum(axis=1)
-            Index_sort = np.argsort(
-                (Path_num / self.num_samples_path_pred - Output_A_pred).to_numpy(), axis=1)
-            Add_n, Add_beh = np.where(Remaining_sum[:, np.newaxis] > np.arange(
-                len(self.Behaviors))[np.newaxis])
+        # Transform probabilities into integer numbers that sum up to self.num_samples_path_pred
+        Path_num = np.floor(self.num_samples_path_pred * Output_A_pred.to_numpy()).astype(int)
+        Remaining_sum = self.num_samples_path_pred - Path_num.sum(axis=1)
+        Index_sort = np.argsort((Path_num / self.num_samples_path_pred - Output_A_pred).to_numpy(), axis=1)
+        Add_n, Add_beh = np.where(Remaining_sum[:, np.newaxis] > np.arange(len(self.Behaviors))[np.newaxis])
 
-            Path_num[Add_n, Index_sort[Add_n, Add_beh]] += 1
-            assert (Path_num.sum(1) == self.num_samples_path_pred).all()
+        Path_num[Add_n, Index_sort[Add_n, Add_beh]] += 1
+        assert (Path_num.sum(1) == self.num_samples_path_pred).all()
 
-            for i_sample, path_num in enumerate(Path_num):
-                t = self.Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
-                for j, index in enumerate(Output_path_pred.columns):
-                    Output_path_pred.iloc[i_sample, j] = np.zeros((self.num_samples_path_pred, len(t), 2), float)
+        for i_sample, i_full in enumerate(Pred_index):
+            path_num = Path_num[i_sample]
+            t = self.Output_T_pred[i_full]
+            domain = Domain.iloc[i_full]
+            for j, index in enumerate(Output_path_pred.columns):
+                Output_path_pred.iloc[i_sample, j] = np.zeros((self.num_samples_path_pred, len(t), 2), float)
 
-                output_T_E_pred = Output_T_E_pred.iloc[i_sample]
-                ind_n_start = 0
-                for i_beh, beh in enumerate(self.Behaviors):
-                    num_beh_paths = path_num[i_beh]
-                    if num_beh_paths >= 1:
-                        ind_n_end = ind_n_start + num_beh_paths
-                        paths_beh = self.path_models_pred[beh].iloc[i_sample]
-                        T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
+            output_T_E_pred = Output_T_E_pred.iloc[i_sample]
+            ind_n_start = 0
+            for i_beh, beh in enumerate(self.Behaviors):
+                num_beh_paths = path_num[i_beh]
+                if num_beh_paths >= 1:
+                    ind_n_end = ind_n_start + num_beh_paths
+                    paths_beh = self.path_models_pred[beh].iloc[i_full]
+                    T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
 
-                        Index_beh = np.where(((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
-                                              (T_class_beh[:, i_beh] <= t[-1])))[0]
+                    Index_beh = np.where(((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
+                                          (T_class_beh[:, i_beh] <= t[-1])))[0]
 
-                        if len(Index_beh) > 0:
-                            T_beh = T_class_beh[Index_beh, i_beh]
+                    if len(Index_beh) > 0:
+                        T_beh = T_class_beh[Index_beh, i_beh]
 
-                            # Sample according to provided distribution
-                            p_quantile_expanded = np.concatenate(([0.0], self.p_quantile, [1.0]), axis=0)
+                        # Sample according to provided distribution
+                        p_quantile_expanded = np.concatenate(([0.0], self.p_quantile, [1.0]), axis=0)
 
-                            if np.all(output_T_E_pred[beh] <= t[-1]):
-                                T_pred_beh_expanded = np.concatenate(([0.0], output_T_E_pred[beh], 
-                                                                      [max(t[-1], output_T_E_pred[beh].max()) + 1e-4]), axis=0)
-                                T_sampled = np.interp(np.random.rand(num_beh_paths), p_quantile_expanded, T_pred_beh_expanded)
+                        if np.all(output_T_E_pred[beh] <= t[-1]):
+                            T_pred_beh_expanded = np.concatenate(([0.0], output_T_E_pred[beh], 
+                                                                  [max(t[-1], output_T_E_pred[beh].max()) + 1e-4]), axis=0)
+                            T_sampled = np.interp(np.random.rand(num_beh_paths), p_quantile_expanded, T_pred_beh_expanded)
 
-                                # Get closest value
-                                Distance = np.abs(np.subtract.outer(T_sampled, T_beh))
-                                Rand_ind = np.random.rand(*Distance.shape).argsort(-1)
-                                Dist_rand = Distance[np.tile(np.arange(len(T_sampled))[:, np.newaxis], 
-                                                             (1, len(T_beh))), Rand_ind]
+                            # Get closest value
+                            Distance = np.abs(np.subtract.outer(T_sampled, T_beh))
+                            Rand_ind = np.random.rand(*Distance.shape).argsort(-1)
+                            Dist_rand = Distance[np.tile(np.arange(len(T_sampled))[:, np.newaxis], 
+                                                         (1, len(T_beh))), Rand_ind]
 
-                                Index_sampled = Rand_ind[np.arange(len(T_sampled)), np.argmin(Dist_rand, axis=1)]
-                                assert (
-                                    Distance.min(-1) == Distance[np.arange(len(T_sampled)), Index_sampled]).all()
-                            else:
-                                # This is the case where no time prediction is made, so simply select latest cases
-                                if len(T_beh) >= num_beh_paths:
-                                    Index_sampled = np.argpartition(T_beh, -num_beh_paths)[-num_beh_paths:]
-                                else:
-                                    Index_sampled = (np.random.rand(num_beh_paths) * len(T_beh) * (1 - 1e-5)).astype(int)
-                            Index_used = Index_beh[Index_sampled]
+                            Index_sampled = Rand_ind[np.arange(len(T_sampled)), np.argmin(Dist_rand, axis=1)]
+                            assert (
+                                Distance.min(-1) == Distance[np.arange(len(T_sampled)), Index_sampled]).all()
                         else:
-                            Index_used = np.argpartition(T_class_beh.min(axis=-1)-T_class_beh[:, i_beh], -num_beh_paths)[-num_beh_paths:]
+                            # This is the case where no time prediction is made, so simply select latest cases
+                            if len(T_beh) >= num_beh_paths:
+                                Index_sampled = np.argpartition(T_beh, -num_beh_paths)[-num_beh_paths:]
+                            else:
+                                Index_sampled = (np.random.rand(num_beh_paths) * len(T_beh) * (1 - 1e-5)).astype(int)
+                        Index_used = Index_beh[Index_sampled]
+                    else:
+                        Index_used = np.argpartition(T_class_beh.min(axis=-1)-T_class_beh[:, i_beh], -num_beh_paths)[-num_beh_paths:]
 
-                        for j, index in enumerate(Output_path_pred.columns):
-                            Output_path_pred.iloc[i_sample, j][ind_n_start:ind_n_end] = paths_beh[index][Index_used]
+                    for j, index in enumerate(Output_path_pred.columns):
+                        Output_path_pred.iloc[i_sample, j][ind_n_start:ind_n_end] = paths_beh[index][Index_used]
 
-                        # Reset ind_start for next possible behavior
-                        ind_n_start = ind_n_end
+                    # Reset ind_start for next possible behavior
+                    ind_n_start = ind_n_end
 
-            save_data = np.array([Output_path_pred, 0], object)
-            os.makedirs(os.path.dirname(test_file), exist_ok=True)
-            np.save(test_file, save_data)
+        # Save predicted trajectories
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        
+        Unsaved_indices = np.arange(len(Pred_index))
+        split_factor = 1
+        save = 0
+        while len(Unsaved_indices) > 0:
+            try:
+                num_saved = int(np.ceil(len(Pred_index) / split_factor))
+                save_indices = Unsaved_indices[:num_saved]
+                save_data = np.array([Pred_index[save_indices], 
+                                      Output_path_pred.iloc[save_indices], 
+                                      0], object)
+                
+                save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+                
+                np.save(save_file, save_data)
+                
+                save += 1
+                Unsaved_indices = Unsaved_indices[num_saved:]
+                
+            except:
+                split_factor *= 1.99
         return Output_path_pred
 
     #########################################################################################
