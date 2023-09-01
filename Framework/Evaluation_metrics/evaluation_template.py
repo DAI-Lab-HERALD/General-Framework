@@ -201,7 +201,7 @@ class evaluation_template():
         num_samples, num_agents = self.Output_path_pred.shape
         
         # Get pred agents
-        max_num_pred_agents = self.Pred_agents.sum(1).max()
+        max_num_pred_agents = self.Pred_agents_full.sum(1).max()
         
         i_agent_sort = np.argsort(-self.Pred_agents.astype(float))
         i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
@@ -251,9 +251,9 @@ class evaluation_template():
 
         Returns
         -------
-        Path_true : np.ndarray
+        Path_true_all : np.ndarray
             This is the true observed trajectory of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+            :math:`\{N_{subgroups} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
             dimensional numpy array with float values. If an agent is fully or on some 
             timesteps partially not observed, then this can include np.nan values. It
             must be noted that :math:`N_{same}` is the maximum number of similar samples,
@@ -264,19 +264,27 @@ class evaluation_template():
             input. This can be used to avoid having to evaluate the same metric values
             for identical samples. It must however be noted, that due to randomness in 
             the model, the predictions made for these samples might differ.
+            
+            The value in this array will indicate which of the entries of **Path_true_all**
+            should be chosen.
 
         '''
         # Get the same entrie in full dataset
         T_full = self.Type_full.to_numpy().astype(str)
-        Type_unique, Type_inverse = np.unique(T_full, axis = 0, return_inverse = True)
+        PA_str = self.Pred_agents_full.astype(str) 
+        
+        Div = np.stack((T_full, PA_str), axis = -1)
+        Div_unique, Div_inverse = np.unique(Div, axis = 0, return_inverse = True)
         
         Subgroup_full = np.zeros(len(T_full), int)
         max_len = 0
         subgroup_index = 1
         # go through all potentiall similar entries
-        for type_inverse in np.unique(Type_inverse):
-            index = np.where(Type_inverse == type_inverse)[0]
-            T = Type_unique[type_inverse]
+        for div_inverse in np.unique(Div_inverse):
+            index = np.where(Div_inverse == div_inverse)[0]
+            div = Div_unique[div_inverse]
+            
+            T = div[...,0]
             
             # Get agents that are there
             useful_agents = T != 'nan'
@@ -309,39 +317,40 @@ class evaluation_template():
         # Get pred agents
         nto = self.data_set.num_timesteps_out_real
         
-        num_samples, num_agents = self.Pred_agents.shape
-        max_num_pred_agents = self.Pred_agents.sum(1).max()
+        num_samples = len(self.Pred_agents_full)
+        max_num_pred_agents = self.Pred_agents_full.sum(1).max()
         
-        i_agent_sort = np.argsort(-self.Pred_agents.astype(float))
+        i_agent_sort = np.argsort(-self.Pred_agents_full.astype(float))
         i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
-        Pred_agents = self.Pred_agents[i_sampl_sort, i_agent_sort]
+        Pred_agents = self.Pred_agents_full[i_sampl_sort, i_agent_sort]
         
-        # Initialize output
-        Path_true_all = np.ones((num_samples, max_len, max_num_pred_agents, nto, 2)) * np.nan 
+        Path_true_all = np.ones((Subgroup_full.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
         
-        for i, ind in enumerate(self.Output_path.index):
-            nto_i = min(nto, len(self.Output_T[i]))
+        for subgroup in np.unique(Subgroup_full):
+            # get identical input
+            identical_ind = np.where(subgroup == Subgroup_full)[0]
             
             # Get pred agents
-            pred_agents = Pred_agents[i] 
-            prd_agent_id = i_agent_sort[i, pred_agents]
-            
-            # get identical input
-            identical_ind = np.where(Subgroup_full[ind] == Subgroup_full)[0]
+            pred_agents_u = np.unique(Pred_agents[identical_ind], axis = 0)
+            assert len(pred_agents_u) == 1
+            pred_agents = pred_agents_u[0] 
+            prd_agent_id = i_agent_sort[identical_ind[0], pred_agents]
             
             path_true_orig = self.Output_path_full.iloc[identical_ind, prd_agent_id]
             try:
                 path_true_all = np.stack(path_true_orig.to_numpy().tolist())
             except:
-                path_true_all = np.ones((len(identical_ind), len(prd_agent_id), nto_i, 2)) * np.nan 
+                path_true_all = np.ones((len(identical_ind), len(prd_agent_id), nto, 2)) * np.nan 
                 for j, j_ind in enumerate(identical_ind):
-                    nto_j = min(nto_i, len(self.Output_T_full[j_ind]))
+                    nto_j = min(nto, len(self.Output_T_full[j_ind]))
                     path_true_all[j, :, :nto_j] = np.stack(path_true_orig.iloc[j].to_numpy())[:,:nto_j,:]
             
+            # nto available
+            nto_i = min(nto, path_true_all.shape[2])
             # For some reason using pred_agents here moves the agent dimension to the front
-            Path_true_all[i,:len(identical_ind),pred_agents,:nto_i] = path_true_all[:,:,:nto_i].transpose(1,0,2,3)
+            Path_true_all[subgroup,:len(identical_ind),pred_agents,:nto_i] = path_true_all[:,:,:nto_i].transpose(1,0,2,3)
             
         return Path_true_all, Subgroup_full[self.Index_curr]
             
