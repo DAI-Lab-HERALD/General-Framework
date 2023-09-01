@@ -376,7 +376,7 @@ class model_template():
         # remove nan columns
         self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
         self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        self.Pred_agents = Pred_agents[Sample_id, Agent_id]
+        self.Pred_agents = Pred_agents
         
         self.T = T[Sample_id, Agent_id] # num_samples, num_agents
         
