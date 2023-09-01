@@ -151,7 +151,7 @@ class model_template():
             save_data = np.array(output + [0], object) #0 is there to avoid some numpy load and save errros
             
             os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
-            np.save(self.pred_file, save_data)
+            np.save(self.pred_file, save_data, allow_pickle=True)
                         
         print('')
         print('The model ' + self.get_name()['print'] + ' successfully made predictions.')
