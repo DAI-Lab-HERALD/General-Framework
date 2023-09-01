@@ -126,7 +126,8 @@ class Experiment():
                        exclude_post_crit = True,
                        allow_extrapolation = True,
                        dynamic_prediction_agents = False,
-                       overwrite_results = False):
+                       overwrite_results = False,
+                       evaluate_on_train_set = True):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
         model_class_to_path = getattr(model_to_path_module, model_for_path_transform)
@@ -150,10 +151,14 @@ class Experiment():
         
         assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         
+        assert isinstance(evaluate_on_train_set, bool), "evaluate_on_train_set should be a boolean."
+        
         self.parameters = [model_class_to_path, num_samples_path_pred, 
                            enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
                            dynamic_prediction_agents, overwrite_results]
+        
+        self.evaluate_on_train_set = evaluate_on_train_set
         
         self.provided_setting = True
     
@@ -319,7 +324,7 @@ class Experiment():
                         model_class = getattr(model_module, model_name)
                         
                         # Initialize the model
-                        model = model_class(data_set, splitter)
+                        model = model_class(data_set, splitter, self.evaluate_on_train_set)
                         
                         # Check if the model can be trained on this dataset
                         model_failure = model.check_trainability()
@@ -427,8 +432,6 @@ class Experiment():
             metric = metric_class(None, None, None)
             
             # Get index of result array at which comparable result is saved
-            result_index = 0
-                
             for i, data_set_dict in enumerate(self.Data_sets):
                 # Get data set class
                 data_set = data_interface(data_set_dict, self.parameters)
@@ -479,10 +482,11 @@ class Experiment():
                                 
                                 if return_train_results:
                                     train_results = metric_result[0]
-                                    self.Train_results[i,j,k,l,m] = train_results[result_index]
+                                    if train_results is not None:
+                                        self.Train_results[i,j,k,l,m] = train_results[0]
                                 
                                 test_results = metric_result[1]    
-                                self.Results[i,j,k,l,m] = test_results[result_index]
+                                self.Results[i,j,k,l,m] = test_results[0]
                                 
                                 if create_plot:
                                     figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
@@ -1398,13 +1402,13 @@ class Experiment():
         splitter.split_data() 
         
         # Load specific model
-        model = model_class(data_set, splitter)
+        model = model_class(data_set, splitter, self.evaluate_on_train_set)
         model.train()
         output = model.predict()
         
         output_trans_path = data_set.transform_outputs(output, model.get_output_type(), 
                                                        'path_all_wi_pov', model.pred_file)
-        [Output_path_pred] = output_trans_path
+        [Pred_index, Output_path_pred] = output_trans_path
         
         # Load needed files
         Input_path  = data_set.Input_path.iloc[splitter.Test_index]
@@ -1477,12 +1481,15 @@ class Experiment():
         for sample_ind in sample_inds:   
             input_path       = Input_path.iloc[sample_ind]
             output_path      = Output_path.iloc[sample_ind]
-            output_path_pred = Output_path_pred.iloc[splitter.Test_index[sample_ind]]
             output_A         = Output_A.iloc[sample_ind]
             output_T_E       = Output_T_E[sample_ind]
             domain           = Domain.iloc[sample_ind]
             if data_set.includes_images():
                 img = Imgs[sample_ind] / 255
+                
+            # Get Pred index
+            pred_index = np.where(splitter.Test_index[sample_ind] == Pred_index)[0][0]
+            output_path_pred = Output_path_pred.iloc[pred_index]
             
             useful_columns = np.array([isinstance(path, np.ndarray) for path in input_path])
             

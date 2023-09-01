@@ -1206,7 +1206,7 @@ class data_set_template():
             self.path_models = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
             self.path_models_pred = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
             for beh in self.Behaviors:
-                self.path_models[beh] = self.model_class_to_path(self, None, beh)
+                self.path_models[beh] = self.model_class_to_path(self, None, True, beh)
                 self.path_models[beh].train()
                 self.path_models_pred[beh] = self.path_models[beh].predict()[0]
 
@@ -1222,91 +1222,91 @@ class data_set_template():
             # If the metric requires trajectory predictions
             if metric_pred_type == 'path_all_wo_pov':
                 if model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
 
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, Output_T_E_pred] = output
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    [Pred_index, Output_A_pred, Output_T_E_pred] = output
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
+                    [Pred_index, Output_path_pred] = output
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
 
                 Output_path_pred = self.path_remove_pov_agent(Output_path_pred, self.Domain,
                                                               pred_save_file)
-                output_trans = [Output_path_pred]
+                output_trans = [Pred_index, Output_path_pred]
 
             elif metric_pred_type == 'path_all_wi_pov':
                 if model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
 
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, Output_T_E_pred] = output
-                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred,
+                    [Pred_index, Output_A_pred, Output_T_E_pred] = output
+                    Output_path_pred = self.class_and_time_to_path(Output_A_pred, Output_T_E_pred, Pred_index,
                                                                    self.Domain, pred_save_file)
                 elif model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index,
+                                                               self.Domain, pred_save_file)
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
-                output_trans = [Output_path_pred]
+                output_trans = [Pred_index, Output_path_pred]
 
             # If the metric requires class predictions
             elif metric_pred_type == 'class':
                 if model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index, 
+                                                               self.Domain, pred_save_file)
 
-                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                      self.Domain, pred_save_file)
 
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
-                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                    [Pred_index, Output_path_pred] = output
+                    [Output_A_pred, _] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                      self.Domain, pred_save_file)
 
                 elif model_pred_type == 'class_and_time':
-                    [Output_A_pred, _] = output
+                    [Pred_index, Output_A_pred, _] = output
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
 
-                output_trans = [Output_A_pred]
+                output_trans = [Pred_index, Output_A_pred]
 
             # If the metric requires class andf tiem predictions
             elif metric_pred_type == 'class_and_time':
                 if model_pred_type == 'path_all_wo_pov':
-                    [Output_path_pred] = output
-                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, self.Domain,
-                                                               pred_save_file)
+                    [Pred_index, Output_path_pred] = output
+                    Output_path_pred = self.path_add_pov_agent(Output_path_pred, Pred_index, 
+                                                               self.Domain, pred_save_file)
                     [Output_A_pred,
-                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                     self.Domain, pred_save_file)
 
                 elif model_pred_type == 'path_all_wi_pov':
-                    [Output_path_pred] = output
+                    [Pred_index, Output_path_pred] = output
                     [Output_A_pred,
-                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, self.Output_T_pred,
+                     Output_T_E_pred] = self.path_to_class_and_time(Output_path_pred, Pred_index, self.Output_T_pred,
                                                                     self.Domain, pred_save_file)
 
                 elif model_pred_type == 'class':
-                    [Output_A_pred] = output
-                    Output_T_E_pred = self.class_to_time(Output_A_pred, self.Domain, pred_save_file)
+                    [Pred_index, Output_A_pred] = output
+                    Output_T_E_pred = self.class_to_time(Output_A_pred, Pred_index, self.Domain, pred_save_file)
                 else:
                     raise AttributeError(
                         "This type of output produced by the model is not implemented")
-                output_trans = [Output_A_pred, Output_T_E_pred]
+                output_trans = [Pred_index, Output_A_pred, Output_T_E_pred]
 
             else:
                 raise AttributeError(
@@ -1338,7 +1338,7 @@ class data_set_template():
             T = np.ones((self.num_samples_path_pred, len(self.Behaviors)), float) * t[-1]
         return T
 
-    def path_add_pov_agent(self, Output_path_pred, Output_T_pred, Domain, pred_save_file, use_model=False):
+    def path_add_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file, use_model=False):
         test_file = pred_save_file[:-19] + 'pred_tra_wi_pov.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
             [Output_path_pred_add, _] = np.load(test_file, allow_pickle=True)
@@ -1355,9 +1355,10 @@ class data_set_template():
 
 
                 Output_path_pred_add.iloc[:, 1:] = Output_path_pred
-                for i_sample, path_true in enumerate(self.Output_path):
-                    t = self.Output_T_pred[i_sample]
-                    t_true = self.Output_T[i_sample]
+                for i_sample, i_full in enumerate(Pred_index):
+                    path_true = self.Ouput_path.iloc[i_full]
+                    t = self.Output_T_pred[i_full]
+                    t_true = self.Output_T[i_full]
                     index = Index_new[0]
                     # interpolate the values at the new set of points using numpy.interp()
                     path_index_old = path_true[index]
@@ -1395,7 +1396,8 @@ class data_set_template():
 
         return Output_path_pred_remove
 
-    def path_to_class_and_time(self, Output_path_pred, Output_T_pred, Domain, pred_save_file, save_results=True):
+    def path_to_class_and_time(self, Output_path_pred, Pred_index, 
+                               Output_T_pred, Domain, pred_save_file, save_results=True):
 
         # Remove other prediction method
         test_file = pred_save_file[:-19] + 'pred_class_time.npy'
@@ -1409,10 +1411,10 @@ class data_set_template():
             Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
                                            columns=self.Behaviors)
 
-            for i_sample in range(len(Output_path_pred)):
+            for i_sample, i_full in enumerate(Pred_index):
                 paths = Output_path_pred.iloc[i_sample]
-                t = Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
+                t = Output_T_pred[i_full]
+                domain = Domain.iloc[i_full]
                 T_class = self.path_to_class_and_time_sample(paths, t, domain)
 
                 output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
@@ -1433,7 +1435,7 @@ class data_set_template():
 
         return Output_A_pred, Output_T_E_pred
 
-    def class_to_time(self, Output_A_pred, Domain, pred_save_file):
+    def class_to_time(self, Output_A_pred, Pred_index, Domain, pred_save_file):
         # Remove other prediction type
         test_file = pred_save_file[:-19] + 'pred_class_time.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
@@ -1443,11 +1445,11 @@ class data_set_template():
 
             Output_T_E_pred = pd.DataFrame(np.empty((len(Output_A_pred), len(self.Behaviors)), object),
                                            columns=self.Behaviors)
-            for i_sample in range(len(Output_A_pred)):
-                t = self.Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
+            for i_sample, i_full in enumerate(Pred_index):
+                t = self.Output_T_pred[i_full]
+                domain = Domain.iloc[i_full]
                 for i_beh, beh in enumerate(self.Behaviors):
-                    paths_beh = self.path_models_pred[beh].iloc[i_sample]
+                    paths_beh = self.path_models_pred[beh].iloc[i_full]
                     T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
                     T_beh = T_class_beh[((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
                                          (T_class_beh[:, i_beh] <= t[-1])), i_beh]
@@ -1462,7 +1464,7 @@ class data_set_template():
             np.save(test_file, save_data)
         return Output_T_E_pred
 
-    def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Domain, pred_save_file):
+    def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Pred_index, Domain, pred_save_file):
         # check if this has already been performed
         test_file = pred_save_file[:-19] + 'pred_tra_wi_pov.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
@@ -1475,21 +1477,19 @@ class data_set_template():
             Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), Index_needed.sum()), object),
                                             columns=Index[Index_needed])
 
-            # Transform probabilities into numbers
-            Path_num = np.floor(self.num_samples_path_pred *
-                                Output_A_pred.to_numpy()).astype(int)
+            # Transform probabilities into integer numbers that sum up to self.num_samples_path_pred
+            Path_num = np.floor(self.num_samples_path_pred * Output_A_pred.to_numpy()).astype(int)
             Remaining_sum = self.num_samples_path_pred - Path_num.sum(axis=1)
-            Index_sort = np.argsort(
-                (Path_num / self.num_samples_path_pred - Output_A_pred).to_numpy(), axis=1)
-            Add_n, Add_beh = np.where(Remaining_sum[:, np.newaxis] > np.arange(
-                len(self.Behaviors))[np.newaxis])
+            Index_sort = np.argsort((Path_num / self.num_samples_path_pred - Output_A_pred).to_numpy(), axis=1)
+            Add_n, Add_beh = np.where(Remaining_sum[:, np.newaxis] > np.arange(len(self.Behaviors))[np.newaxis])
 
             Path_num[Add_n, Index_sort[Add_n, Add_beh]] += 1
             assert (Path_num.sum(1) == self.num_samples_path_pred).all()
 
-            for i_sample, path_num in enumerate(Path_num):
-                t = self.Output_T_pred[i_sample]
-                domain = Domain.iloc[i_sample]
+            for i_sample, i_full in enumerate(Pred_index):
+                path_num = Path_num[i_sample]
+                t = self.Output_T_pred[i_full]
+                domain = Domain.iloc[i_full]
                 for j, index in enumerate(Output_path_pred.columns):
                     Output_path_pred.iloc[i_sample, j] = np.zeros((self.num_samples_path_pred, len(t), 2), float)
 
@@ -1499,7 +1499,7 @@ class data_set_template():
                     num_beh_paths = path_num[i_beh]
                     if num_beh_paths >= 1:
                         ind_n_end = ind_n_start + num_beh_paths
-                        paths_beh = self.path_models_pred[beh].iloc[i_sample]
+                        paths_beh = self.path_models_pred[beh].iloc[i_full]
                         T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
 
                         Index_beh = np.where(((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &

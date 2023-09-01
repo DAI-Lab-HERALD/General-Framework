@@ -304,21 +304,43 @@ class data_interface(object):
     def transform_outputs(self, output, model_pred_type, metric_pred_type, pred_save_file):
         if not self.data_loaded:
             raise AttributeError("Input and Output data has not yet been specified.")
-            
+        
+        # Set up empty splitting parts
         output_trans = []
         Uses = []
+        
+        # Get parts of output
+        output_data = output[1:]
+        output_index = output[0]
+        
+        # Go through part datasets
         for i, data_set in enumerate(self.Datasets.values()):
-            use = self.Domain['Scenario'] == data_set.get_name()['print']
-            output_d = []
-            for out in output:
-                assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-                output_d.append(out[use])
+            # Get predictions from this dataset
+            use = self.Domain['Scenario'].iloc[output_index] == data_set.get_name()['print']
             Uses.append(use)
+            
+            # Get output_data for the specific dataset
+            output_d_data = []
+            for out in output_data:
+                assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                output_d_data.append(out[use])
+            
+            # Get output_d_index
+            dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
+            match = dataset_index[np.newaxis] == output_index[use,np.newaxis]
+            
+            assert np.all(match.sum(axis = 1) == 1)
+            output_d_index = match.argmax(axis = 1)
+            
+            # assemble output for dataset
+            output_d = [output_d_index] + output_d_data            
+            
             ds_save_file = pred_save_file.replace(os.sep + self.get_name()['file'], os.sep + data_set.get_name()['file'])
             output_trans.append(data_set.transform_outputs(output_d, model_pred_type, metric_pred_type, ds_save_file))
         
-        output_trans_all = []
-        for j in range(len(output_trans[0])):
+        output_trans_all = [output_index]
+        # Go through all parts of the transformed prediction
+        for j in range(1, len(output_trans[0])):
             assert isinstance(output_trans[0][j], pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
             # Collect columns
             columns = []
@@ -328,7 +350,7 @@ class data_interface(object):
             
             array_type = output_trans[0][j].to_numpy().dtype
             
-            output_trans_all.append(pd.DataFrame(np.zeros((len(self.Domain), len(columns)), array_type),
+            output_trans_all.append(pd.DataFrame(np.zeros((len(output_index), len(columns)), array_type),
                                                  columns = list(columns)))
             
             for i, out in enumerate(output_trans):

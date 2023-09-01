@@ -5,7 +5,7 @@ import torch
 import warnings
 
 class model_template():
-    def __init__(self, data_set, splitter, behavior = None): 
+    def __init__(self, data_set, splitter, evaluate_on_train_set, behavior = None): 
         # Load gpu
         if self.requires_torch_gpu():
             if torch.cuda.is_available():
@@ -43,6 +43,7 @@ class model_template():
             self.is_data_transformer = False
             
             self.Index_train = splitter.Train_index
+            self.Index_test  = splitter.Test_index
             
             if self.get_output_type() == 'path_all_wi_pov':
                 pred_string = 'pred_tra_wi_pov'
@@ -64,6 +65,7 @@ class model_template():
             self.is_data_transformer = True
             
             self.Index_train = np.where(data_set.Output_A[behavior])[0]
+            self.Index_test = np.arange(len(data_set.Output_A))
             
             if len(self.Index_train) == 0:
                 # There are no samples of the required behavior class
@@ -77,9 +79,11 @@ class model_template():
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False
         self.extracted_data = False
+        self.evaluate_on_train_set = evaluate_on_train_set
     
     
     def train(self):
+        self.model_mode = 'train'
         if os.path.isfile(self.model_file) and not self.data_set.overwrite_results:
             self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
             self.load_method()
@@ -127,10 +131,12 @@ class model_template():
         
         
     def predict(self):
+        self.model_mode = 'pred'
         # perform prediction
         if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
             output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
         else:
+                
             # apply model to test samples
             if self.get_output_type()[:4] == 'path':
                 self.create_empty_output_path()
@@ -148,11 +154,23 @@ class model_template():
             else:
                 raise TypeError("This output type for models is not implemented.")
             
-            save_data = np.array(output + [0], object) #0 is there to avoid some numpy load and save errros
+            # Save indices of predicted samples
+            if self.evaluate_on_train_set:
+                Pred_index = np.arange(len(self.data_set.Output_T))
+            else:
+                Pred_index = self.Index_test
+                
+            save_data = np.array([Pred_index] + output + [0], object) #0 is there to avoid some numpy load and save errros
             
             os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
-            np.save(self.pred_file, save_data)
-                        
+            try:
+                np.save(self.pred_file, save_data)
+            except:
+                print('There is a memory error when trying to save the predictions.')
+                print('Predictions will be saved in multiple steps.')
+                
+                assert False
+                
         print('')
         print('The model ' + self.get_name()['print'] + ' successfully made predictions.')
         print('')
@@ -384,7 +402,6 @@ class model_template():
         self.N_O_data = N_O_data
         
         self.ID = np.stack((Sample_id, Agent_id), -1)  
-        
         # Get images
         if use_map:
             if self.predict_single_agent:
@@ -668,12 +685,17 @@ class model_template():
             self.prepare_batch_generation()
         
         if mode == 'pred':
+            assert self.model_mode == 'pred', 'During prediction, testing set should be called.'
             if not hasattr(self, 'Ind_pred'):
-                self.Ind_pred = [np.arange(len(self.X)), np.array([], int)]
+                if self.evaluate_on_train_set:
+                    self.Ind_pred = [np.arange(len(self.X)), np.array([], int)]
+                else:
+                    self.Ind_pred = [self.Index_test.copy(), np.array([], int)]
             N_O = self.N_O_pred
             Ind_advance = self.Ind_pred
             
         elif mode == 'val':
+            assert self.model_mode == 'train', 'During validation, the validation part of the training set should be called.'
             if not hasattr(self, 'Ind_val'):
                 I_train = self._extract_useful_training_samples()
                 num_train = int(len(I_train) * (1 - val_split_size))
@@ -683,6 +705,7 @@ class model_template():
             Ind_advance = self.Ind_val
             
         elif mode == 'train':
+            assert self.model_mode == 'train', 'During training, the non-validation part of the training set should be called.'
             if not hasattr(self, 'Ind_train'):
                 I_train = self._extract_useful_training_samples()
                 num_train = int(len(I_train) * (1 - val_split_size))
@@ -693,10 +716,6 @@ class model_template():
         
         else:
             raise TypeError("Unknown mode.")
-        
-        
-        # TODO: add method that allows one to extract the whole dataset in one batch 
-        # For classification models
         
         # Find identical agents
         N_O_advance = N_O[Ind_advance[0]]
@@ -768,7 +787,6 @@ class model_template():
             Agent_id = Agents[self.ID[ind_advance,:,1]]
             return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
-            assert False
             return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
     
     
@@ -852,9 +870,14 @@ class model_template():
         dist_names = self.data_set.Input_prediction.columns
         
         if train:
+            assert self.model_mode == 'train', 'During training, training set should be called.'
             Index = self.Index_train
         else:
-            Index = np.arange(len(X))
+            assert self.model_mode == 'pred', 'During training, training set should be called.'
+            if self.evaluate_on_train_set:
+                Index = np.arange(len(X))
+            else:
+                Index = self.Index_test
             
         X = X[Index]
         T = T[Index]
@@ -913,19 +936,34 @@ class model_template():
     
     def create_empty_output_path(self):
         Agents = np.array(self.data_set.Output_path.columns)
-        self.Output_path_pred = pd.DataFrame(np.empty((len(self.data_set.Output_T), len(Agents)), np.ndarray), columns = Agents)
+        if self.evaluate_on_train_set:
+            num_rows = len(self.data_set.Output_T)
+        else:
+            num_rows = len(self.Index_test)
+        
+        self.Output_path_pred = pd.DataFrame(np.empty((num_rows, len(Agents)), np.ndarray), columns = Agents)
         
     
     
     def create_empty_output_A(self):
         Behaviors = np.array(self.data_set.Behaviors)
-        self.Output_A_pred = pd.DataFrame(np.zeros((len(self.data_set.Output_T), len(Behaviors)), float), columns = Behaviors)
+        if self.evaluate_on_train_set:
+            num_rows = len(self.data_set.Output_T)
+        else:
+            num_rows = len(self.Index_test)
+            
+        self.Output_A_pred = pd.DataFrame(np.zeros((num_rows, len(Behaviors)), float), columns = Behaviors)
         
     
     def create_empty_output_T(self):
         Behaviors = np.array(self.data_set.Behaviors)
-        self.Output_T_E_pred = pd.DataFrame(np.empty((len(self.data_set.Output_T), len(Behaviors)), np.ndarray), columns = Behaviors)
-        for i in range(len(self.Output_T_E_pred)):
+        if self.evaluate_on_train_set:
+            num_rows = len(self.data_set.Output_T)
+        else:
+            num_rows = len(self.Index_test)
+            
+        self.Output_T_E_pred = pd.DataFrame(np.empty((num_rows, len(Behaviors)), np.ndarray), columns = Behaviors)
+        for i in range(num_rows):
             for j in range(self.Output_T_E_pred.shape[1]):
                 self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
         
