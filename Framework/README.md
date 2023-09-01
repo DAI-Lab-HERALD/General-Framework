@@ -13,7 +13,10 @@ new_experiment = Experiment(Experiment_name)
 The only required input here is **Experiment_name**, which will be included in the final saved files for created tables and figures. So if it is desired that those are not overwritten, it should be unique for each different experiment.
 
 ## Select Modules
-In the second step, one then has to make the choices regarding the modules (datasets, models, etc.) one wants to include in the current experiment. The first selection regards the datasets:
+In the second step, one then has to make the choices regarding the modules (datasets, models, etc.) one wants to include in the current experiment. 
+
+### Datasets
+The first selection regards the datasets:
 ```
 Data_sets = [{'scenario': '<Dataset 1>', 'max_num_agents': 6, 't0_type': 'all', 'conforming_t0_types': []},
              [{'scenario': '<Dataset 2>', 'max_num_agents': 3, 't0_type': 'start', 'conforming_t0_types': []},
@@ -36,6 +39,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
 
 It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**, as was done with '<Dataset 2>' and '<Dataset 3>' in the example above. If multiple datasets are combined, then the 'max_num_agents' of the combined dataset will be the smallest number that is seen in all of the combined datasets (in this selection, 'None' would count as infinity).
 
+### Extracting past and future timesteps
 In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** above, this will be a number of dictionaries:
 ```
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)},
@@ -49,6 +53,7 @@ Here, the following keys have to be set:
 It must be noted that both $n_{I, need}$ and $n_{O, need}$ are automatically set by the framework to be at least as large as $n_I$ and $n_O$ respectively, while values larger than 99 are set to 99.
 It must be noted that if both values in the tuple are identical, setting one integer instead of a tuple with two integers is also permissible, as seen in the second line in the above code snippet, where setting *'num_timesteps_out': 12* is identical to setting *'num_timesteps_out': (12, 12)*.
 
+### Splitting method
 After setting up the dataset and its parameters, one then has to select the splitting method.
 ```
 Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
@@ -59,12 +64,14 @@ Again, this is passed as a dictionary with three keys:
 - 'repetition': This is the repetition number of this split. It can either be an integer or a list of integers if the same method should be used repeatedly with shifted outputs (such as for cross-validation, or looping through locations). That means that in this case, four different splits are possible, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
 - 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method. For some splitting methods, such as splitting by location, this will however be ignored, if those locations are not balanced, which is most often not the case.
 
+### Models
 Next, one has to select the models that are to be evaluated in this experiment.
 ```
 Models = ['<Model name 1>', '<Model name 2>', '<Model name 3>']
 ```
 Different from the previous list, **Models** contains only the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models).
 
+### Metrics
 Lastly, one has to select the metrics by which the models are to be evaluated. 
 ```
 Metrics = ['<Metric name 1>', '<Metric name 2>']
@@ -81,47 +88,57 @@ As each module is applied to each other module, this will then result in up to $
 
 ## Set the experiment hyperparameters
 Besides selecting the modules, one must also set some hyperparameters for the overall framework.
+
+### Stochastic predictions
 ```
 num_samples_path_pred = 100
 ```
 This sets the number $N_{preds}$ of different predictions that are expected from each trajectory prediction model to represent the inherent stochasticity of their predictions. While this number can be set to any liking, setting it to at least 20 is advisable to be comparable with most standard metrics, which are normally evaluated on 20 predictions.
 
+### Enforce rules for selecting prediction times
 ```
 enforce_prediction_time = True
 ```
 When extracting samples, it might be possible that there is not enough data available to extract the number of required input time steps $n_{I, need}$ at a set prediction time $t_0$ in a sample. If **enforce_prediction_time** is set to *True*, then such a sample would be discarded. Otherwise the prediction time $t_0$ is moved forward until sufficient past observations are available. It has to be noted that choosing the latter option will generally increase the size of the final dataset, but will also result in the actual definition of the prediction time $t_0$ to become diluted.
 
+### Enforce the existence of a future trajectory 
 ```
 enforce_num_timesteps_out = False
 ```
 When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/tree/main/Framework#select-modules).
 
+### Exclude useless predictions
 ```
 exclude_post_crit = True
 ```
 If the dataset allows for classification, and a method for defining the [last useful prediction time](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-safe-actions) is available, setting **exclude_post_crit** to *True* would result in all samples, where the prediction time is after this last useful time, to be discarded. If one chooses to set *False* instead, then only samples where the behavior can already be classified during past observations are discarded.
 
+### Fill in missing positions
 ```
 allow_extrapolation = True
 ```
 In the framework, it is possible that the past and future trajectories of agents that are not [distinguished in the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are only partially observed. If one sets **allow_extrapolation** to be *False*, then those missing values are filled up with *np.nan*. However, if **allow_extrapolation** is instead set to *True*, the missing values are filled in using linear inter- and extrapolation. This might be beneficial for some models that might not be able to deal with such missing information but might obfuscate the true human behavior.
 
+### Expand pool of predicted agents
 ```
 dynamic_prediction_agents = False
 ```
 In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model, in which case one could set **dynamic_prediction_agents** to *True*. In this case, all other agents in the scene, for which the past and future trajectories have been fully observed and are not extrapolated, are also designated to be predicted.
 
+### Overwrite results
 ```
 overwrite_results = False
 ```
 It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noted that this does not redo the extraction of the training and testing set.
 
+### Evaluate overfitting
 ```
 evaluate_on_train_set = True
 ```
 If one wants to test for overfitting in the model, it might be useful to also evaluate it on the training set. However, this omes at a cost in computation and especially memory usage,
 so it can be disabled via this flag as well.
 
+### Allow for transformations between prediction methods
 ```
 model_for_path_transform = '<Trajecotry Prediction Model>'
 ```
