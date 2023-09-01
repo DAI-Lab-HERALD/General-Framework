@@ -6,6 +6,9 @@ import os
 
 class data_interface(object):
     def __init__(self, data_dicts, parameters):
+        # Initialize path
+        self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
+        
         if isinstance(data_dicts, dict):
             data_dicts = [data_dicts]
         else:

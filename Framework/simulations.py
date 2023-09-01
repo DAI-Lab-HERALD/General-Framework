@@ -18,7 +18,7 @@ Data_params = [{'dt': 0.5, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (12,
 Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
 
 # Select the models to be trained
-Models = ['trajectron_salzmann_unicycle']
+Models = ['trajectron_salzmann_old']
 
 # Select the metrics to be used
 Metrics = ['ADE_joint']

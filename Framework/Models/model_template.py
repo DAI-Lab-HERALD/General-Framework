@@ -44,45 +44,35 @@ class model_template():
             
             self.Index_train = splitter.Train_index
             
-            self.model_file = data_set.change_result_directory(splitter.split_file,
-                                                               'Models', self.get_name()['file'])
-            
-            
             if self.get_output_type() == 'path_all_wi_pov':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_tra_wi_pov')
-            
+                pred_string = 'pred_tra_wi_pov'
             elif self.get_output_type() == 'path_all_wo_pov':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_tra_wo_pov')
-                
+                pred_string = 'pred_tra_wo_pov'
             elif self.get_output_type() == 'class':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_classified')
-                
+                pred_string = 'pred_classified'
             elif self.get_output_type() == 'class_and_time':
-                self.pred_file = data_set.change_result_directory(self.model_file,
-                                                                  'Predictions', 'pred_class_time')
-            
+                pred_string = 'pred_class_time'
             else:
                 raise AttributeError("This type of prediction is not implemented")
             
+            self.model_file = data_set.change_result_directory(splitter.split_file,
+                                                               'Models', self.get_name()['file'])
+            self.pred_file  = data_set.change_result_directory(self.model_file,
+                                                               'Predictions', pred_string)
             
         else:
             self.is_data_transformer = True
+            
             self.Index_train = np.where(data_set.Output_A[behavior])[0]
+            
             if len(self.Index_train) == 0:
                 # There are no samples of the required behavior class
                 # Use those cases where the other behaviors are the furthers away
                 num_long_index = int(len(data_set.Output_A) / len(data_set.Behaviors))
                 self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
             
-            save_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
-            self.model_file = save_file
+            self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
             self.pred_file = self.model_file[:-4] + '-pred_tra_wi_pov.npy'
-
-        # check if model is allowed
-        self.Domain_train            = data_set.Domain.iloc[self.Index_train]
         
         # Set trained to flase, this prevents a prediction on an untrained model
         self.trained = False
@@ -211,7 +201,10 @@ class model_template():
             # remove still standing agents
             self._extract_original_trajectories()
             Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
-            Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
+            Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category = RuntimeWarning)
+                Dr = np.nanmax(Dr, (2, 3))
             
             # Get moving vehicles
             Moving_agents = Dr > 0.01
@@ -313,12 +306,14 @@ class model_template():
         # Determine map use
         use_map = self.has_map and self.can_use_map
         
+        # Reorder agents to save data
         if self.predict_single_agent or (Pred_agents.sum(1) == 1).all():
-            N_O_data = N_O_data.repeat(Pred_agents.sum(axis = 1))
-            N_O_pred = N_O_pred.repeat(Pred_agents.sum(axis = 1))
+            num_pred_agents = Pred_agents.sum(axis = 1)
+            
+            N_O_data = N_O_data.repeat(num_pred_agents)
+            N_O_pred = N_O_pred.repeat(num_pred_agents)
             
             # set agent to be predicted into first location
-            ID = []
             sample_id, pred_agent_id = np.where(Pred_agents)
             
             # Get sample id
@@ -328,62 +323,92 @@ class model_template():
             Agent_id = np.tile(np.arange(Pred_agents.shape[1])[np.newaxis,:], (len(sample_id), 1))
             Agent_id = Agent_id + pred_agent_id[:,np.newaxis]
             Agent_id = np.mod(Agent_id, Pred_agents.shape[1]) 
-                
+            
             # Project out the sample ID
             X = X[Sample_id, Agent_id]
-            Y = Y[Sample_id, Agent_id]
-            T = T[Sample_id, Agent_id]
             
             # Find closest distance between agents during past observation
-            D = np.nanmin(((X[:,[0]] - X) ** 2).sum(-1), axis = -1)
-            Agents_sorted_id = np.argsort(D, axis = 1)
+            D = ((X[:,[0]] - X) ** 2).sum(-1)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category = RuntimeWarning)
+                D = np.nanmin(D, axis = -1)
+            Agent_sorted_id = np.argsort(D, axis = 1)
             
             Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
             
-            X = X[Sample_id_sorted, Agents_sorted_id] 
-            Y = Y[Sample_id_sorted, Agents_sorted_id]
-            T = T[Sample_id_sorted, Agents_sorted_id]
+            X = X[Sample_id_sorted, Agent_sorted_id] 
+            Sample_id = Sample_id[Sample_id_sorted, Agent_sorted_id]
+            Agent_id  = Agent_id[Sample_id_sorted, Agent_sorted_id] 
+            
+            # remove nan columns
+            use_agents = np.where(~np.isnan(X).all((0,2,3)))[0]
             
             # Set agents to nan that are to far away from the predicted agent
             num_agent = self.data_set.max_num_agents
             if num_agent is not None:
-                X[:, num_agent:] = np.nan
-                Y[:, num_agent:] = np.nan
-                T[:, num_agent:] = np.nan
+                use_agents = use_agents[:num_agent]
             
-            Agent_id = Agent_id[Sample_id_sorted, Agents_sorted_id] 
+            X         = X[:,use_agents]
+            Sample_id = Sample_id[:,use_agents]
+            Agent_id  = Agent_id[:,use_agents]
             
-            ID = np.stack((Sample_id, Agent_id), axis = -1)
+            Pred_agents = Pred_agents[Sample_id, Agent_id]
+            Pred_agents[:,1:] = False
             
-            if use_map:
+        else:
+            # Sort agents to move the absent ones to the behind, and pred agents first
+            Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - Pred_agents.astype(int)
+            
+            Agent_id = np.argsort(Value, axis = 1)
+            Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
+            
+            
+            X = X[Sample_id, Agent_id]
+            
+            # remove nan columns
+            missing_agents = np.isnan(X).all((0,2,3))
+            X = X[:,~missing_agents]
+            
+            Sample_id = Sample_id[:,~missing_agents]
+            Agent_id  = Agent_id[:,~missing_agents]
+            Pred_agents = Pred_agents[Sample_id, Agent_id]
+            
+        # remove nan columns
+        self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+        self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+        self.Pred_agents = Pred_agents
+        
+        self.T = T[Sample_id, Agent_id] # num_samples, num_agents
+        
+        self.N_O_pred = N_O_pred
+        self.N_O_data = N_O_data
+        
+        self.ID = np.stack((Sample_id, Agent_id), -1)  
+        
+        # Get images
+        if use_map:
+            if self.predict_single_agent:
                 centre = X[:,0,-1,:] #x_t.squeeze(-2)
                 x_rel = centre - X[:,0,-2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
-
-                domain_repeat = domain_old.loc[domain_old.index.repeat(Pred_agents.sum(axis = 1))]
+                rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
+        
+                domain_repeat = domain_old.loc[domain_old.index.repeat(num_pred_agents)]
                 
                 img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
                                                                       target_height = self.target_height, 
                                                                       target_width = self.target_width, 
                                                                       grayscale = self.grayscale, 
                                                                       return_resolution = True)
-
+        
                 img          = img[:,np.newaxis]
                 img_m_per_px = img_m_per_px[:,np.newaxis]
-            
-            # Overwrite Pred agents with new length
-            Pred_agents = np.zeros(T.shape, bool)
-            Pred_agents[:,0] = True
-            
-        else:
-            
-            if use_map:
-                Img_needed = T != 48
+            else:
+                Img_needed = T[Sample_id, Agent_id] != 48
                 
                 
                 centre = X[Img_needed, -1,:]
                 x_rel = centre - X[Img_needed, -2,:]
-                rot = np.angle(x_rel[:,0] + 1j*x_rel[:,1]) 
+                rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
             
                 domain_index = domain_old.index.to_numpy()
                 domain_index = domain_index.repeat(Img_needed.sum(1))
@@ -402,38 +427,7 @@ class model_template():
                                                                                               target_width = self.target_width, 
                                                                                               grayscale = self.grayscale, 
                                                                                               return_resolution = True)
-            
-            # Sort agents to move the absent ones to the behind, and pred agents first
-            Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - Pred_agents.astype(int)
-            
-            Agent_id = np.argsort(Value, axis = 1)
-            Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
-            
-            ID = np.stack((Sample_id, Agent_id), -1)
-            
-            X = X[Sample_id, Agent_id]
-            Y = Y[Sample_id, Agent_id]
-            T = T[Sample_id, Agent_id]
-            
-            img = img[Sample_id, Agent_id]
-            img_m_per_px = img_m_per_px[Sample_id, Agent_id]
-            
-            
-                
-                
-        self.Pred_agents = Pred_agents   
-        
-        self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        self.Y = Y.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        
-        self.T = T # num_samples, num_agents
-        
-        self.N_O_pred = N_O_pred
-        self.N_O_data = N_O_data
-        
-        self.ID = ID
-        
-        if use_map:
+
             self.img = img  # num_samples, num_agents, height, width, channels
             self.img_m_per_px = img_m_per_px # num_samples, num_agents
         else:
@@ -774,6 +768,7 @@ class model_template():
             Agent_id = Agents[self.ID[ind_advance,:,1]]
             return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
+            assert False
             return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
     
     

@@ -258,6 +258,12 @@ class evaluation_template():
             timesteps partially not observed, then this can include np.nan values. It
             must be noted that :math:`N_{same}` is the maximum number of similar samples,
             so for a smaller number, there will also be np.nan values.
+        Subgroup_ind : np.ndarray
+            This is a :math:`N_{samples}` dimensional numpy array with int values. 
+            All samples with the same value belong to a group with the same corresponding
+            input. This can be used to avoid having to evaluate the same metric values
+            for identical samples. It must however be noted, that due to randomness in 
+            the model, the predictions made for these samples might differ.
 
         '''
         # Get the same entrie in full dataset
@@ -326,12 +332,18 @@ class evaluation_template():
             identical_ind = np.where(Subgroup_full[ind] == Subgroup_full)[0]
             
             path_true_orig = self.Output_path_full.iloc[identical_ind, prd_agent_id]
-            path_true_all = np.stack(path_true_orig.to_numpy().tolist())
+            try:
+                path_true_all = np.stack(path_true_orig.to_numpy().tolist())
+            except:
+                path_true_all = np.ones((len(identical_ind), len(prd_agent_id), nto_i, 2)) * np.nan 
+                for j, j_ind in enumerate(identical_ind):
+                    nto_j = min(nto_i, len(self.Output_T_full[j_ind]))
+                    path_true_all[j, :, :nto_j] = np.stack(path_true_orig.iloc[j].to_numpy())[:,:nto_j,:]
             
             # For some reason using pred_agents here moves the agent dimension to the front
             Path_true_all[i,:len(identical_ind),pred_agents,:nto_i] = path_true_all[:,:,:nto_i].transpose(1,0,2,3)
             
-        return Path_true_all
+        return Path_true_all, Subgroup_full[self.Index_curr]
             
         
         
@@ -392,13 +404,13 @@ class evaluation_template():
             
                 Indeces = [self.splitter.Train_index, self.splitter.Test_index]
                 
-                for Index in Indeces:
-                    self._set_current_data(Index, Predictions)
+                for self.Index_curr in Indeces:
+                    self._set_current_data(self.Index_curr, Predictions)
                     
                     Results.append(self.evaluate_prediction_method()) # output needs to be a list of components
             else:
-                Index = self.splitter.Test_index
-                self._set_current_data(Index)
+                self.Index_curr = self.splitter.Test_index
+                self._set_current_data(self.Index_curr)
                 
                 results = self.evaluate_prediction_method()
                 

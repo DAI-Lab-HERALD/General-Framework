@@ -113,6 +113,10 @@ class Forking_Paths_augmented(data_set_template):
             domain_init = Domain_init.iloc[i]
         
             other_samples_bool = (Domain_init.scene == domain_init.scene).to_numpy()
+            
+            if other_samples_bool.sum() < 2:
+                continue
+            
             num_T = path_init.shape[0]
             Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
             Paths_other_df = Path_init.iloc[other_samples_bool]

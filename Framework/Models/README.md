@@ -481,6 +481,10 @@ def save_predicted_classifications(self, class_names, P, DT = None):
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
 ```
+**self.data_set.path** : str
+  This is the global path to the framework. It might for example be useful to load model
+  hyper-parameters that are saved in a different directory.
+
 **self.dt** : float
   This value gives the size of the time steps in the selected dataset.
 
