@@ -55,39 +55,55 @@ class KLD_traj_joint(evaluation_template):
         for subgroup in np.unique(subgroups):
             indices = np.where(subgroup == subgroups)[0]
             
-            samples_true = Path_true_all[indices[0]]
-            samples_pred = Path_pred[indices].reshape(-1, *Path_pred.shape[2:]) 
+            # Get the true futures of the samples with similar input
+            samples_true = Path_true_all[subgroup]
             
-            #Get pred agents
-            assert len(np.unique(Pred_agents[indices], axis = 0)) == 1, 'In subgroup, pred agents are not similar.'
-            pred_agents = Pred_agents[indices[0]]
+            # get the predicted paths for all samples with similar input
+            samples_pred = Path_pred[indices]
+            # Combine samples and prediction into one dimension
+            samples_pred = samples_pred.reshape(-1, *samples_pred.shape[2:]) 
             
+            # Get pred agents. They should be similar in each subgroup
+            pred_agents_u = np.unique(Pred_agents[indices], axis = 0)
+            assert len(pred_agents_u) == 1, 'In subgroup, pred agents are not similar.'
+            pred_agents = pred_agents_u[0] 
+            
+            # Get the true and predicted trajectories for chosen agents
             samples_true = samples_true[:,pred_agents]
             samples_pred = samples_pred[:,pred_agents]
             
+            # Get individual kld values over timestep
             kld_timesteps = np.zeros(samples_pred.shape[-2])
             
             for t_ind in range(samples_pred.shape[-2]):
+                # Get position at current timestep
                 s_true = samples_true[..., t_ind, :]
                 s_pred = samples_pred[..., t_ind, :]
-                
-                s_true = s_true[np.isfinite(s_true).all((1,2))]
-                s_pred = s_pred[np.isfinite(s_pred).all((1,2))]
                 
                 # Combine agents and dimensions
                 s_true = s_true.reshape(len(s_true), -1)
                 s_pred = s_pred.reshape(len(s_true), -1)
                 
+                s_true = s_true[np.isfinite(s_true).all(1)]
+                s_pred = s_pred[np.isfinite(s_pred).all(1)]
+                
+                # Train kde models on true and predicted samples
                 kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_true)
                 kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_pred)
                 
+                # Get the likelihood of the the true samples according to the
+                # true samples. This reflects the fact that we take the 
+                # expected value over the true distribtuion
                 log_like_true = kde_true.score_samples(s_true)
                 log_like_pred = kde_pred.score_samples(s_true)
                 
+                # Calculate KLD at this timestep
                 kld_timesteps[t_ind] = np.mean((log_like_true-log_like_pred))
-                
+            
+            # Average KLD of this subgroup over time and add to total
             KLD += kld_timesteps.mean()
         
+        # Average KLD over subgroups
         KLD /= len(unique_subgroups)
         
         return [KLD]
