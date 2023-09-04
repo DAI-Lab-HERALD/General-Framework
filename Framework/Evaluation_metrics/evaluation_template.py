@@ -78,7 +78,6 @@ class evaluation_template():
         
                     
         if self.get_output_type()[:4] == 'path':
-            assert False
             self.Output_path_pred = Predictions[0].loc[Index]
             
         elif self.get_output_type() == 'class_and_time':
