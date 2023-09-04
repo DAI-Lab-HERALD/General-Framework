@@ -152,8 +152,10 @@ class model_template():
                     save += 1 
                     new_test_file = self.pred_file[:-4] + str(save).zfill(2)+ '.npy'
                 
+                # Concatenate files
                 Pred_index = np.concatenate(Pred_index, axis = 0)
                 Output_path = pd.concat(Output_path)
+                
                 # If loaded data is only test set, but train set is required
                 if not ((len(Pred_index) < len(self.data_set.Output_T)) and
                         self.evaluate_on_train_set):
