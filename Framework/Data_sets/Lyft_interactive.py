@@ -4,6 +4,7 @@ from scipy import interpolate as interp
 from pathlib import Path
 
 import os
+import shutil
 
 from data_set_template import data_set_template
 from scenario_none import scenario_none
@@ -54,14 +55,20 @@ class Lyft_interactive(data_set_template):
         
         # The framed code should be the only dataset specific part whenusing trajdata
         ################################################################################
-        data_path = self.path + os.sep + 'Data_sets' + os.sep + 'Lyft' + os.sep + 'data'
-        zarr_path = data_path + os.sep + 'scenes' + os.sep + 'sample.zarr'
+        data_path = self.path + os.sep + 'Data_sets' + os.sep + 'Lyft' + os.sep + 'data' + os.sep
         
-        dataset = UnifiedDataset(desired_data=["lyft_sample"],
-                                 data_dirs={"lyft_sample": zarr_path})
+        cache_path  = data_path + '.unified_data_cache'
+        scenes_path = data_path + 'scenes' + os.sep
+        
+        dataset = UnifiedDataset(desired_data = ["lyft_sample", "lyft_train", "lyft_val"], #, "lyft_train_full"],
+                                 data_dirs = {"lyft_sample":     scenes_path + 'sample.zarr',
+                                              "lyft_train":      scenes_path + 'train.zarr',
+                                              "lyft_val":        scenes_path + 'validate.zarr',
+                                              "lyft_train_full": data_path + 'train_full.zarr'},
+                                 cache_location = cache_path,
+                                 verbose = True)
         ################################################################################
-        
-        map_api = MapAPI(Path(dataset.cache_path))
+        map_api = MapAPI(Path(cache_path))
         # Go over scenes
         for i, scene in enumerate(dataset.scenes()):
             print('')
@@ -155,6 +162,14 @@ class Lyft_interactive(data_set_template):
             domain.scene = scene.name 
             domain.image_id = map_id
             
+            # Reset path names
+            num_index = len(path.index)
+            assert path.index[0] == 'tar'
+            
+            Index = ['tar'] + ['v_' + str(i) for i in range(1, num_index)]
+            path.index = Index
+            
+            
             print('Number of agents: ' + str(len(path)))
             self.num_samples += 1
             self.Path.append(path)
@@ -193,7 +208,8 @@ class Lyft_interactive(data_set_template):
                                    (0,0)), 'constant', constant_values=0)
             self.Images.Image.loc[loc_id] = img_pad        
 
-                    
+        # deletet cached data
+        shutil.rmtree(cache_path)
 
 
         

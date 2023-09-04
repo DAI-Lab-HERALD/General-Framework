@@ -327,7 +327,7 @@ class data_interface(object):
             
             # Get output_d_index
             dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
-            if dataset_index == output_index[use.to_numpy()]:
+            if np.all(dataset_index == output_index[use.to_numpy()]):
                 output_d_index = np.arange(len(dataset_index))
             else:
                 match = dataset_index[np.newaxis] == output_index[use.to_numpy(),np.newaxis]
