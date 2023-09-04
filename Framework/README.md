@@ -87,7 +87,7 @@ new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 As each module is applied to each other module, this will then result in up to $len(Data	\textunderscore  sets) \cdot len(Data	\textunderscore  params) \cdot num_{splits} \cdot len(Models) \cdot len(Metrics) = 4 \cdot 2 \cdot 4 \cdot 3 \cdot 2$ calculated metrics. It must be noted that $len(Splitters)$ is not necessarily identical to $num_{splits}$, as by using the key 'repetition', each entry in Splitters can spawn multiple different training/testing splits. However, the actual value might be slightly lower, as some combinations might not be applicable (for example, splitting by location is not possible for datasets with only one recorded location).
 
 ## Set the experiment hyperparameters
-Besides selecting the modules, one must also set some hyperparameters for the overall framework.
+Besides selecting the modules, one must also set some hyperparameters for the overall framework. The values given in the code snippets below are the default values.
 
 ### Stochastic predictions
 ```
@@ -146,10 +146,15 @@ One part of the framework allows one to transform the predictions made by classi
 
 Finally, one has to pass these parameters to the experiment.
 ```
-new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
-                              enforce_num_timesteps_out, enforce_prediction_times, 
-                              exclude_post_crit, allow_extrapolation, 
-                              dynamic_prediction_agents, overwrite_results, evaluate_on_train_set)
+new_experiment.set_parameters(model_for_path_transform  = model_for_path_transform,
+                              num_samples_path_pred     = num_samples_path_pred, 
+                              enforce_num_timesteps_out = enforce_num_timesteps_out,
+                              enforce_prediction_times  = enforce_prediction_times, 
+                              exclude_post_crit         = exclude_post_crit,
+                              allow_extrapolation       = allow_extrapolation, 
+                              dynamic_prediction_agents = dynamic_prediction_agents,
+                              overwrite_results         = overwrite_results,
+                              evaluate_on_train_set     = evaluate_on_train_set)
 ```
 
 ## Getting results
