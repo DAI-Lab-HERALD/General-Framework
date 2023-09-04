@@ -354,7 +354,46 @@ class evaluation_template():
             
         return Path_true_all, Subgroup_full[self.Index_curr]
             
+    
+    def _check_predictions(self, Output_pred):
+        # Get output_data_train           
+        if self.get_output_type()[:4] == 'path':
+            [Pred_index, Output_path_pred] = Output_pred
+            # reorder columns if needed
+            Output_path_pred = Output_path_pred[self.Output_path_full.columns]
+            for i, i_full in enumerate(Pred_index):                
+                test_length = len(self.Output_T_full[i_full])
+                for j in range(Output_path_pred.shape[1]):
+                    # Ensure that prediction has corresponding ground truth
+                    if not isinstance(Output_path_pred.iloc[i,j], np.ndarray):
+                        assert not self.Pred_agents_full[i,j], "Desired agent is missing"
+                        continue
+                    
+                    Output_path_pred.iloc[i,j] = Output_path_pred.iloc[i,j][:,:test_length]
+                    if self.Pred_agents_full[i,j]:
+                        assert np.isfinite(Output_path_pred.iloc[i,j]).all(), "NaN positions are predicted."
+                        
+            Predictions = [Output_path_pred]
+        elif self.get_output_type() == 'class_and_time':
+            [Pred_index, Output_A_pred, Output_T_E_pred] = Output_pred
+            
+            # reorder columns if needed
+            Output_A_pred   = Output_A_pred[self.Output_A_full.columns]
+            Output_T_E_pred = Output_T_E_pred[self.Output_A_full.columns]
+            
+            Predictions = [Output_A_pred, Output_T_E_pred]
+            
+        elif self.get_output_type() == 'class':
+            [Pred_index, Output_A_pred] = Output_pred
+            
+            # reorder columns if needed
+            Output_A_pred = Output_A_pred[self.Output_A_full.columns]
+            
+            Predictions = [Output_A_pred]
+        else:
+            raise AttributeError("This type of prediction is not implemented")
         
+        return Predictions, Pred_index
         
         
         
@@ -367,45 +406,20 @@ class evaluation_template():
         
         if os.path.isfile(self.metric_file) and not self.data_set.overwrite_results:
             Results = list(np.load(self.metric_file, allow_pickle = True)[:-1])
+            
+            if (Results[0] is None) and self.model.evaluate_on_train_set:
+                # Get train results
+                Predictions, Pred_index = self._check_predictions(Output_pred)
+                self._set_current_data(self.splitter.Train_index)
+                Results[0] = self.evaluate_prediction_method()
+                
+            if create_plot_if_possible:
+                self.create_plot(Results[1], self.metric_file)
+     
+            return Results
         else:
             # Get output_data_train           
-            if self.get_output_type()[:4] == 'path':
-                [Pred_index, Output_path_pred] = Output_pred
-                # reorder columns if needed
-                Output_path_pred = Output_path_pred[self.Output_path_full.columns]
-                for i, i_full in enumerate(Pred_index):                
-                    test_length = len(self.Output_T_full[i_full])
-                    for j in range(Output_path_pred.shape[1]):
-                        # Ensure that prediction has corresponding ground truth
-                        if not isinstance(Output_path_pred.iloc[i,j], np.ndarray):
-                            assert not self.Pred_agents_full[i,j], "Desired agent is missing"
-                            continue
-                        
-                        Output_path_pred.iloc[i,j] = Output_path_pred.iloc[i,j][:,:test_length]
-                        if self.Pred_agents_full[i,j]:
-                            assert np.isfinite(Output_path_pred.iloc[i,j]).all(), "NaN positions are predicted."
-                            
-                Predictions = [Output_path_pred]
-            elif self.get_output_type() == 'class_and_time':
-                [Pred_index, Output_A_pred, Output_T_E_pred] = Output_pred
-                
-                # reorder columns if needed
-                Output_A_pred   = Output_A_pred[self.Output_A_full.columns]
-                Output_T_E_pred = Output_T_E_pred[self.Output_A_full.columns]
-                
-                Predictions = [Output_A_pred, Output_T_E_pred]
-                
-            elif self.get_output_type() == 'class':
-                [Pred_index, Output_A_pred] = Output_pred
-                
-                # reorder columns if needed
-                Output_A_pred = Output_A_pred[self.Output_A_full.columns]
-                
-                Predictions = [Output_A_pred]
-            else:
-                raise AttributeError("This type of prediction is not implemented")
-            
-                
+            Predictions, Pred_index = self._check_predictions(Output_pred)
             
             Results = []
             # Evaluate the model both on the training set and the testing set
@@ -434,7 +448,7 @@ class evaluation_template():
                 Results.append(results)
                 Results.append(results)
             
-            save_data = np.array(Results + [[0] * len(Results[0])], object) #0 is there to avoid some numpy load and save errros
+            save_data = np.array(Results + [0], object) #0 is there to avoid some numpy load and save errros
             
             os.makedirs(os.path.dirname(self.metric_file), exist_ok=True)
             np.save(self.metric_file, save_data)
