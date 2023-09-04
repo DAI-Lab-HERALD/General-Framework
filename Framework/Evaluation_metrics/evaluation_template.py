@@ -373,8 +373,8 @@ class evaluation_template():
                 [Pred_index, Output_path_pred] = Output_pred
                 # reorder columns if needed
                 Output_path_pred = Output_path_pred[self.Output_path_full.columns]
-                for i in range(self.num_samples_full):                
-                    test_length = len(self.Output_T_full[i])
+                for i, i_full in enumerate(Pred_index):                
+                    test_length = len(self.Output_T_full[i_full])
                     for j in range(Output_path_pred.shape[1]):
                         # Ensure that prediction has corresponding ground truth
                         if not isinstance(Output_path_pred.iloc[i,j], np.ndarray):
@@ -414,7 +414,7 @@ class evaluation_template():
                 
                 # check what predictions are available
                 if np.all(np.unique(Pred_index) == np.unique(self.splitter.Test_index)):
-                    Indeces = [[], self.splitter.Test_index]
+                    Indeces = [[], Pred_index]
                 else:
                     assert np.all(np.unique(Pred_index) == np.arange(len(self.Output_T_full))), "There are missing predictions."
                     Indeces = [self.splitter.Train_index, self.splitter.Test_index]

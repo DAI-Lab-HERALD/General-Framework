@@ -154,8 +154,11 @@ class model_template():
                 
                 Pred_index = np.concatenate(Pred_index, axis = 0)
                 Output_path = pd.concat(Output_path)
+                # If loaded data is only test set, but train set is required
+                if not ((len(Pred_index) < len(self.data_set.Output_T)) and
+                        self.evaluate_on_train_set)):
                 
-                return [Pred_index, Output_path]
+                    return [Pred_index, Output_path]
             
         else:
             if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
@@ -998,7 +1001,7 @@ class model_template():
         Agents = np.array(self.data_set.Output_path.columns)
         
         if self.evaluate_on_train_set:
-            Index_test = np.arange(self.data_set.Output_T)
+            Index_test = np.arange(len(self.data_set.Output_T))
         else:
             Index_test = self.Index_test
         num_rows = len(Index_test)
@@ -1012,7 +1015,7 @@ class model_template():
         Behaviors = np.array(self.data_set.Behaviors)
         
         if self.evaluate_on_train_set:
-            Index_test = np.arange(self.data_set.Output_T)
+            Index_test = np.arange(len(self.data_set.Output_T))
         else:
             Index_test = self.Index_test
         num_rows = len(Index_test)
@@ -1025,7 +1028,7 @@ class model_template():
         Behaviors = np.array(self.data_set.Behaviors)
         
         if self.evaluate_on_train_set:
-            Index_test = np.arange(self.data_set.Output_T)
+            Index_test = np.arange(len(self.data_set.Output_T))
         else:
             Index_test = self.Index_test
         num_rows = len(Index_test)
