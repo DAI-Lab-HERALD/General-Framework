@@ -21,7 +21,6 @@ Pillow==9.5.0
 psutil==5.9.0
 pyquaternion==0.9.9
 PyYAML==6.0
-PyYAML==6.0.1
 scikit_learn==1.2.2
 scipy==1.11.2
 torch==1.21.1
