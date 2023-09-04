@@ -53,7 +53,7 @@ overwrite_results = False
 evaluate_on_train_set = True
 
 # Select method used for transformation function to path predictions
-model_for_path_transform = 'trajectron_salzmann_unicycle'
+model_for_path_transform = 'trajectron_salzmann_old'
 
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
