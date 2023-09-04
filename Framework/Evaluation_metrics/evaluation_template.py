@@ -78,14 +78,15 @@ class evaluation_template():
         
                     
         if self.get_output_type()[:4] == 'path':
-            self.Output_path_pred = Predictions[0].iloc[Index]
+            assert False
+            self.Output_path_pred = Predictions[0].loc[Index]
             
         elif self.get_output_type() == 'class_and_time':
-            self.Output_A_pred   = Predictions[0].iloc[Index]
-            self.Output_T_E_pred = Predictions[1].iloc[Index]
+            self.Output_A_pred   = Predictions[0].loc[Index]
+            self.Output_T_E_pred = Predictions[1].loc[Index]
             
         elif self.get_output_type() == 'class':
-            self.Output_A_pred = Predictions[0].iloc[Index]
+            self.Output_A_pred = Predictions[0].loc[Index]
     
     
     def get_true_and_predicted_class_probabilities(self):
