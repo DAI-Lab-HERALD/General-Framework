@@ -82,7 +82,7 @@ class KLD_traj_joint(evaluation_template):
                 
                 # Combine agents and dimensions
                 s_true = s_true.reshape(len(s_true), -1)
-                s_pred = s_pred.reshape(len(s_true), -1)
+                s_pred = s_pred.reshape(len(s_pred), -1)
                 
                 s_true = s_true[np.isfinite(s_true).all(1)]
                 s_pred = s_pred[np.isfinite(s_pred).all(1)]

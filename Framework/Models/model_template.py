@@ -195,29 +195,41 @@ class model_template():
             save_data = np.array(output + [0], object)
             np.save(self.pred_file, save_data)
         else:
-            print('Saving predictions')
+            print('Saving predicted trajectories.')
+            
+            # Get number of predicted agents per sample:
+            agent_bool = self.data_set.Type.to_numpy().astype(str) != 'nan'
+            num_timesteps = self.N_O_data_orig + self.num_timesteps_in
+            savable_timesteps = agent_bool.sum(1) * num_timesteps
+            savable_timesteps_total = savable_timesteps.sum()
+            savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 26 should be 1 GB
+            
+            # Get number of timesteps per sample that should be saved
+            pred_agent_bool = self.Pred_agents_orig[Pred_index]
+            num_timesteps_pred = self.N_O_pred_orig[Pred_index]
+            to_save_timesteps = pred_agent_bool.sum(1) * num_timesteps_pred * self.num_samples_path_pred
+            
             Unsaved_indices = np.arange(len(Pred_index))
-            split_factor = 1
             save = 0
             while len(Unsaved_indices) > 0:
-                print('Try saving predictions as {} seperate parts'.format(int(np.ceil(split_factor))))
-                try:
-                    num_saved = int(np.ceil(len(Pred_index) / split_factor))
-                    save_indices = Unsaved_indices[:num_saved]
-                    save_data = np.array([Pred_index[save_indices], 
-                                          self.Output_path_pred.iloc[save_indices], 
-                                          0], object)
-                    
-                    save_file = self.pred_file[:-4] + str(save).zfill(2) + '.npy'
-                    
-                    np.save(save_file, save_data)
-                    
-                    save += 1
-                    Unsaved_indices = Unsaved_indices[num_saved:]
-                    
-                    print('Saved part {} of predictions'.format(save))
-                except:
-                    split_factor *= 1.99
+                to_save_timesteps_cum = np.cumsum(to_save_timesteps[Unsaved_indices])
+                if to_save_timesteps_cum[-1] <= savable_timesteps_total:
+                    num_saved = len(Unsaved_indices)
+                else:
+                    num_saved = np.where(to_save_timesteps_cum > savable_timesteps_total)[0][0]
+
+                save_indices = Unsaved_indices[:num_saved]
+                save_data = np.array([Pred_index[save_indices], 
+                                      self.Output_path_pred.iloc[save_indices], 
+                                      0], object)
+                
+                save_file = self.pred_file[:-4] + str(save).zfill(2) + '.npy'
+                np.save(save_file, save_data)
+                
+                save += 1
+                Unsaved_indices = Unsaved_indices[num_saved:]
+                
+                print('Saved part {} of predicted trajectories'.format(save))
                 
         print('')
         print('The model ' + self.get_name()['print'] + ' successfully made predictions.')
@@ -358,11 +370,11 @@ class model_template():
         domain_old = self.data_set.Domain
         
         # Determine needed agents
-        Pred_agents = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
+        self.Pred_agents_orig = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
         
         # Check if everything needed is there
-        assert not np.isnan(X[Pred_agents]).all((1,2)).any(), 'A needed agent is not given.'
-        assert not np.isnan(Y[Pred_agents]).all((1,2)).any(), 'A needed agent is not given.'
+        assert not np.isnan(X[self.Pred_agents_orig]).all((1,2)).any(), 'A needed agent is not given.'
+        assert not np.isnan(Y[self.Pred_agents_orig]).all((1,2)).any(), 'A needed agent is not given.'
         
         # Get agent types
         T = self.data_set.Type.to_numpy()
@@ -373,22 +385,23 @@ class model_template():
         use_map = self.has_map and self.can_use_map
         
         # Reorder agents to save data
-        if self.predict_single_agent or (Pred_agents.sum(1) == 1).all():
-            num_pred_agents = Pred_agents.sum(axis = 1)
+        if self.predict_single_agent or (self.Pred_agents_orig.sum(1) == 1).all():
+            num_pred_agents = self.Pred_agents_orig.sum(axis = 1)
             
             N_O_data = N_O_data.repeat(num_pred_agents)
             N_O_pred = N_O_pred.repeat(num_pred_agents)
             
             # set agent to be predicted into first location
-            sample_id, pred_agent_id = np.where(Pred_agents)
+            sample_id, pred_agent_id = np.where(self.Pred_agents_orig)
             
             # Get sample id
-            Sample_id = np.tile(sample_id[:,np.newaxis], (1, Pred_agents.shape[1]))
+            num_agents = self.Pred_agents_orig.shape[1]
+            Sample_id = np.tile(sample_id[:,np.newaxis], (1, num_agents))
             
             # Roll agents so that pred agent is first
-            Agent_id = np.tile(np.arange(Pred_agents.shape[1])[np.newaxis,:], (len(sample_id), 1))
+            Agent_id = np.tile(np.arange(num_agents)[np.newaxis,:], (len(sample_id), 1))
             Agent_id = Agent_id + pred_agent_id[:,np.newaxis]
-            Agent_id = np.mod(Agent_id, Pred_agents.shape[1]) 
+            Agent_id = np.mod(Agent_id, num_agents) 
             
             # Project out the sample ID
             X = X[Sample_id, Agent_id]
@@ -418,12 +431,12 @@ class model_template():
             Sample_id = Sample_id[:,use_agents]
             Agent_id  = Agent_id[:,use_agents]
             
-            Pred_agents = Pred_agents[Sample_id, Agent_id]
-            Pred_agents[:,1:] = False
+            self.Pred_agents = self.Pred_agents_orig[Sample_id, Agent_id]
+            self.Pred_agents[:,1:] = False
             
         else:
             # Sort agents to move the absent ones to the behind, and pred agents first
-            Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - Pred_agents.astype(int)
+            Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - self.Pred_agents_orig.astype(int)
             
             Agent_id = np.argsort(Value, axis = 1)
             Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
@@ -437,12 +450,11 @@ class model_template():
             
             Sample_id = Sample_id[:,~missing_agents]
             Agent_id  = Agent_id[:,~missing_agents]
-            Pred_agents = Pred_agents[Sample_id, Agent_id]
+            self.Pred_agents = self.Pred_agents_orig[Sample_id, Agent_id]
             
         # remove nan columns
         self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
         self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-        self.Pred_agents = Pred_agents
         
         self.T = T[Sample_id, Agent_id] # num_samples, num_agents
         
