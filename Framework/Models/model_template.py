@@ -156,7 +156,7 @@ class model_template():
                 Output_path = pd.concat(Output_path)
                 # If loaded data is only test set, but train set is required
                 if not ((len(Pred_index) < len(self.data_set.Output_T)) and
-                        self.evaluate_on_train_set)):
+                        self.evaluate_on_train_set):
                 
                     return [Pred_index, Output_path]
             
