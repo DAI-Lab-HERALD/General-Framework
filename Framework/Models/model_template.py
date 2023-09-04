@@ -195,10 +195,12 @@ class model_template():
             save_data = np.array(output + [0], object)
             np.save(self.pred_file, save_data)
         else:
+            print('Saving predictions')
             Unsaved_indices = np.arange(len(Pred_index))
             split_factor = 1
             save = 0
             while len(Unsaved_indices) > 0:
+                print('Try saving predictions as {} seperate parts'.format(int(np.ceil(split_factor))))
                 try:
                     num_saved = int(np.ceil(len(Pred_index) / split_factor))
                     save_indices = Unsaved_indices[:num_saved]
@@ -213,6 +215,7 @@ class model_template():
                     save += 1
                     Unsaved_indices = Unsaved_indices[num_saved:]
                     
+                    print('Saved part {} of predictions'.format(save))
                 except:
                     split_factor *= 1.99
                 
