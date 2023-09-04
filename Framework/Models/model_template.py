@@ -202,7 +202,7 @@ class model_template():
             num_timesteps = self.N_O_data_orig + self.num_timesteps_in
             savable_timesteps = agent_bool.sum(1) * num_timesteps
             savable_timesteps_total = savable_timesteps.sum()
-            savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 26 should be 1 GB
+            savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 27 should be 1 GB
             
             # Get number of timesteps per sample that should be saved
             pred_agent_bool = self.Pred_agents_orig[Pred_index]
