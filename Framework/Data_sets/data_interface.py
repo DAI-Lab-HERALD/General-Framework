@@ -310,7 +310,7 @@ class data_interface(object):
         Uses = []
         
         # Get parts of output
-        output_data = output[1:]
+        output_data  = output[1:]
         output_index = output[0]
         
         # Go through part datasets
@@ -353,7 +353,7 @@ class data_interface(object):
             array_type = output_trans[0][j].to_numpy().dtype
             
             output_trans_all.append(pd.DataFrame(np.zeros((len(output_index), len(columns)), array_type),
-                                                 columns = list(columns)))
+                                                 columns = list(columns), index = output_index))
             
             for i, out in enumerate(output_trans):
                 c_index = (out[j].columns.to_numpy()[:,np.newaxis] == columns[np.newaxis]).argmax(axis = - 1)
