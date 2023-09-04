@@ -11,6 +11,8 @@ python_packages/
 !requirements.txt
 *.log
 *.npy
+*.dill
+*.feather
 *.zip
 *.xlsx
 *.docx
