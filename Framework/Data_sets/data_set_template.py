@@ -1359,19 +1359,21 @@ class data_set_template():
             
             return Output_path_pred_add
         
+        # Add extrapolated pov agent to data
+        Index_old = Output_path_pred.columns
+        
         if self.pov_agent is None:
-            Output_path_pred_add = Output_path_pred
-        else:
-            Index_old = Output_path_pred.columns
             Index_new = [self.pov_agent]
-            Index_add = Index_new + list(Index_old)
+        else:
+            Index_new = []
+            
+        Index_add = Index_new + list(Index_old)
+        Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
+                                            columns=Index_add)
 
-            Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
-                                                columns=Index_add)
-
-
-            Output_path_pred_add.iloc[:, 1:] = Output_path_pred
-            for i_sample, i_full in enumerate(Pred_index):
+        to_save_timesteps = np.zeros(len(Output_path_pred))
+        for i_sample, i_full in enumerate(Pred_index):
+            if self.pov_agent is None:
                 path_true = self.Ouput_path.iloc[i_full]
                 t = self.Output_T_pred[i_full]
                 t_true = self.Output_T[i_full]
@@ -1380,38 +1382,46 @@ class data_set_template():
                 path_index_old = path_true[index]
                 path_index_new = np.stack([np.interp(t, t_true, path_index_old[:,0]),
                                            np.interp(t, t_true, path_index_old[:,1])], axis = -1)
-
+    
                 # use the gradient to estimate values outside the bounds of xp
                 dx = np.stack([np.gradient(path_index_old[:,0], t_true),
                                np.gradient(path_index_old[:,1], t_true)], axis = -1)
                 later_time = t > t_true[-1]
                 path_index_new[later_time] = path_index_old[[-1]] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
-
+    
                 # Add new results
                 Output_path_pred_add.iloc[i_sample, 0] = np.tile(path_index_new[np.newaxis],
                                                                  (self.num_samples_path_pred, 1, 1))
-
+            Output_path_pred_add.iloc[i_sample, -len(Index_old):] = Output_path_pred.iloc[i_sample]
+            
+            num_pred_agents = np.sum(np.array([isinstance(Output_path_pred_add.iloc[i_sample,j], np.ndarray) 
+                                               for j in range(Output_path_pred_add.shape[1])]))
+            to_save_timesteps[i_sample] = len(self.Output_T_pred[i_full]) * self.num_samples_path_pred * num_pred_agents
+        
         os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        savable_timesteps_total = 2 ** 27 # 2 ** 27 should be 1 GB
+        
         Unsaved_indices = np.arange(len(Pred_index))
-        split_factor = 1
         save = 0
         while len(Unsaved_indices) > 0:
-            try:
-                num_saved = int(np.ceil(len(Pred_index) / split_factor))
-                save_indices = Unsaved_indices[:num_saved]
-                save_data = np.array([Pred_index[save_indices], 
-                                      Output_path_pred_add.iloc[save_indices], 
-                                      0], object)
-                
-                save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
-                
-                np.save(save_file, save_data)
-                
-                save += 1
-                Unsaved_indices = Unsaved_indices[num_saved:]
-                
-            except:
-                split_factor *= 1.99
+            to_save_timesteps_cum = np.cumsum(to_save_timesteps[Unsaved_indices])
+            if to_save_timesteps_cum[-1] <= savable_timesteps_total:
+                num_saved = len(Unsaved_indices)
+            else:
+                num_saved = np.where(to_save_timesteps_cum > savable_timesteps_total)[0][0]
+
+            save_indices = Unsaved_indices[:num_saved]
+            save_data = np.array([Pred_index[save_indices], 
+                                  Output_path_pred_add.iloc[save_indices], 
+                                  0], object)
+            
+            save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+            np.save(save_file, save_data)
+            
+            save += 1
+            Unsaved_indices = Unsaved_indices[num_saved:]
+            
+            print('Saved part {} of predicted trajectories'.format(save))
 
         return Output_path_pred_add
 
@@ -1437,34 +1447,38 @@ class data_set_template():
         
         Index_retain = np.array([name in self.scenario.classifying_agents() for name in Output_path_pred.columns])
         Output_path_pred_remove = Output_path_pred.iloc[:, Index_retain]
-
-        save_data = np.array([Output_path_pred_remove, 0], object)
-        os.makedirs(os.path.dirname(test_file), exist_ok=True)
-        np.save(test_file, save_data)
-
+        
+        # Get number of predicted timesteps per trajectory
+        to_save_timesteps = np.zeros(len(Output_path_pred))
+        for i_sample, i_full in enumerate(Pred_index):
+            num_pred_agents = np.sum(np.array([isinstance(Output_path_pred_remove.iloc[i_sample,j], np.ndarray) 
+                                               for j in range(Output_path_pred_remove.shape[1])]))
+            to_save_timesteps[i_sample] = len(self.Output_T_pred[i_full]) * self.num_samples_path_pred * num_pred_agents
+        
         # Save predicted trajectories
         os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        savable_timesteps_total = 2 ** 27 # 2 ** 27 should be 1 GB
         
         Unsaved_indices = np.arange(len(Pred_index))
-        split_factor = 1
         save = 0
         while len(Unsaved_indices) > 0:
-            try:
-                num_saved = int(np.ceil(len(Pred_index) / split_factor))
-                save_indices = Unsaved_indices[:num_saved]
-                save_data = np.array([Pred_index[save_indices], 
-                                      Output_path_pred_remove.iloc[save_indices], 
-                                      0], object)
-                
-                save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
-                
-                np.save(save_file, save_data)
-                
-                save += 1
-                Unsaved_indices = Unsaved_indices[num_saved:]
-                
-            except:
-                split_factor *= 1.99
+            to_save_timesteps_cum = np.cumsum(to_save_timesteps[Unsaved_indices])
+            if to_save_timesteps_cum[-1] <= savable_timesteps_total:
+                num_saved = len(Unsaved_indices)
+            else:
+                num_saved = np.where(to_save_timesteps_cum > savable_timesteps_total)[0][0]
+
+            save_indices = Unsaved_indices[:num_saved]
+            save_data = np.array([Pred_index[save_indices], 
+                                  Output_path_pred_remove.iloc[save_indices], 
+                                  0], object)
+            
+            save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+            np.save(save_file, save_data)
+            
+            save += 1
+            Unsaved_indices = Unsaved_indices[num_saved:]
+            
         return Output_path_pred_remove
 
     def path_to_class_and_time(self, Output_path_pred, Pred_index, 
@@ -1560,8 +1574,8 @@ class data_set_template():
         Index = self.Output_path.columns
         Index_needed = np.array([name in self.needed_agents for name in Index])
 
-        Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), Index_needed.sum()), object),
-                                        columns=Index[Index_needed])
+        Output_path_pred = pd.DataFrame(np.empty((len(Output_A_pred), len(Index)), object),
+                                        columns=Index)
 
         # Transform probabilities into integer numbers that sum up to self.num_samples_path_pred
         Path_num = np.floor(self.num_samples_path_pred * Output_A_pred.to_numpy()).astype(int)
@@ -1571,13 +1585,16 @@ class data_set_template():
 
         Path_num[Add_n, Index_sort[Add_n, Add_beh]] += 1
         assert (Path_num.sum(1) == self.num_samples_path_pred).all()
-
+        
+        # Go over all samples individually
+        to_save_timesteps = np.zeros(len(Output_path_pred))
         for i_sample, i_full in enumerate(Pred_index):
             path_num = Path_num[i_sample]
             t = self.Output_T_pred[i_full]
             domain = Domain.iloc[i_full]
             for j, index in enumerate(Output_path_pred.columns):
-                Output_path_pred.iloc[i_sample, j] = np.zeros((self.num_samples_path_pred, len(t), 2), float)
+                if Index_needed[j]:
+                    Output_path_pred.iloc[i_sample, j] = np.zeros((self.num_samples_path_pred, len(t), 2), float)
 
             output_T_E_pred = Output_T_E_pred.iloc[i_sample]
             ind_n_start = 0
@@ -1622,14 +1639,42 @@ class data_set_template():
                         Index_used = np.argpartition(T_class_beh.min(axis=-1)-T_class_beh[:, i_beh], -num_beh_paths)[-num_beh_paths:]
 
                     for j, index in enumerate(Output_path_pred.columns):
-                        Output_path_pred.iloc[i_sample, j][ind_n_start:ind_n_end] = paths_beh[index][Index_used]
+                        if Index_needed[j]:
+                            Output_path_pred.iloc[i_sample, j][ind_n_start:ind_n_end] = paths_beh[index][Index_used]
 
                     # Reset ind_start for next possible behavior
                     ind_n_start = ind_n_end
-
+            
+            num_pred_agents = np.sum(np.array([isinstance(Output_path_pred.iloc[i_sample,j], np.ndarray) 
+                                               for j in range(Output_path_pred.shape[1])]))
+            to_save_timesteps[i_sample] = len(self.Output_T_pred[i_full]) * self.num_samples_path_pred * num_pred_agents
+        
         # Save predicted trajectories
         os.makedirs(os.path.dirname(test_file), exist_ok=True)
+        savable_timesteps_total = 2 ** 27 # 2 ** 27 should be 1 GB
         
+        Unsaved_indices = np.arange(len(Pred_index))
+        save = 0
+        while len(Unsaved_indices) > 0:
+            to_save_timesteps_cum = np.cumsum(to_save_timesteps[Unsaved_indices])
+            if to_save_timesteps_cum[-1] <= savable_timesteps_total:
+                num_saved = len(Unsaved_indices)
+            else:
+                num_saved = np.where(to_save_timesteps_cum > savable_timesteps_total)[0][0]
+
+            save_indices = Unsaved_indices[:num_saved]
+            save_data = np.array([Pred_index[save_indices], 
+                                  Output_path_pred.iloc[save_indices], 
+                                  0], object)
+            
+            save_file = test_file[:-6] + str(save).zfill(2) + '.npy'
+            np.save(save_file, save_data)
+            
+            save += 1
+            Unsaved_indices = Unsaved_indices[num_saved:]
+            
+            print('Saved part {} of predicted trajectories'.format(save))
+            
         Unsaved_indices = np.arange(len(Pred_index))
         split_factor = 1
         save = 0

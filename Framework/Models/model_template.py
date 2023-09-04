@@ -202,7 +202,7 @@ class model_template():
             num_timesteps = self.N_O_data_orig + self.num_timesteps_in
             savable_timesteps = agent_bool.sum(1) * num_timesteps
             savable_timesteps_total = savable_timesteps.sum()
-            savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 26 should be 1 GB
+            savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 27 should be 1 GB
             
             # Get number of timesteps per sample that should be saved
             pred_agent_bool = self.Pred_agents_orig[Pred_index]
@@ -599,7 +599,7 @@ class model_template():
             for j, agent in enumerate(Agent_id[i]):
                 if not Pred_agents[i,j]:
                     continue
-                self.Output_path_pred.iloc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
+                self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
     
     def provide_all_training_trajectories(self):
         r'''
@@ -996,33 +996,42 @@ class model_template():
     
     def create_empty_output_path(self):
         Agents = np.array(self.data_set.Output_path.columns)
-        if self.evaluate_on_train_set:
-            num_rows = len(self.data_set.Output_T)
-        else:
-            num_rows = len(self.Index_test)
         
-        self.Output_path_pred = pd.DataFrame(np.empty((num_rows, len(Agents)), np.ndarray), columns = Agents)
+        if self.evaluate_on_train_set:
+            Index_test = np.arange(self.data_set.Output_T)
+        else:
+            Index_test = self.Index_test
+        num_rows = len(Index_test)
+        
+        self.Output_path_pred = pd.DataFrame(np.empty((num_rows, len(Agents)), np.ndarray), 
+                                             columns = Agents, index = Index_test)
         
     
     
     def create_empty_output_A(self):
         Behaviors = np.array(self.data_set.Behaviors)
+        
         if self.evaluate_on_train_set:
-            num_rows = len(self.data_set.Output_T)
+            Index_test = np.arange(self.data_set.Output_T)
         else:
-            num_rows = len(self.Index_test)
+            Index_test = self.Index_test
+        num_rows = len(Index_test)
             
-        self.Output_A_pred = pd.DataFrame(np.zeros((num_rows, len(Behaviors)), float), columns = Behaviors)
+        self.Output_A_pred = pd.DataFrame(np.zeros((num_rows, len(Behaviors)), float), 
+                                          columns = Behaviors, index = Index_test)
         
     
     def create_empty_output_T(self):
         Behaviors = np.array(self.data_set.Behaviors)
+        
         if self.evaluate_on_train_set:
-            num_rows = len(self.data_set.Output_T)
+            Index_test = np.arange(self.data_set.Output_T)
         else:
-            num_rows = len(self.Index_test)
+            Index_test = self.Index_test
+        num_rows = len(Index_test)
             
-        self.Output_T_E_pred = pd.DataFrame(np.empty((num_rows, len(Behaviors)), np.ndarray), columns = Behaviors)
+        self.Output_T_E_pred = pd.DataFrame(np.empty((num_rows, len(Behaviors)), np.ndarray), 
+                                            columns = Behaviors, index = Index_test)
         for i in range(num_rows):
             for j in range(self.Output_T_E_pred.shape[1]):
                 self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
