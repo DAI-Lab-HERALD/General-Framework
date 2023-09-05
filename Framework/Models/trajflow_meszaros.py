@@ -79,7 +79,7 @@ class trajflow_meszaros(model_template):
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
 
-        self.vary_input_length = True
+        self.vary_input_length = False
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -262,7 +262,7 @@ class trajflow_meszaros(model_template):
 
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
-            sample_past_length = np.random.choice(past_length_options)/self.dt
+            sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
         else:
             sample_past_length = self.num_timesteps_in
         
