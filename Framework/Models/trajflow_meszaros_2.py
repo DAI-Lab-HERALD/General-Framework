@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Dec
 import pickle
 import os
 
-class trajflow_meszaros_2(model_template):
+class trajflow_meszaros(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders and allows for an extend prediction horizon.
@@ -78,6 +78,8 @@ class trajflow_meszaros_2(model_template):
 
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
+
+        self.vary_input_length = True
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -104,8 +106,8 @@ class trajflow_meszaros_2(model_template):
             Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
             
             # Standardize future positions
-            Y[Ped_agents[:,0]]  /= self.std_pos_ped
-            Y[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y[Ped_agents]  /= self.std_pos_ped
+            Y[~Ped_agents] /= self.std_pos_veh
             Y = torch.from_numpy(Y).float().to(device = self.device)
         
         if img is not None:
@@ -222,9 +224,9 @@ class trajflow_meszaros_2(model_template):
                         
                         future_traj_hat, y_in = fut_model(y_rel)
                             
-                        conc_out.append(future_traj_hat.cpu().reshape(-1))
-                        conc_label.append(y_rel.cpu().reshape(-1))
-                    
+                        conc_out.append(future_traj_hat.cpu())
+                        conc_label.append(y_rel.cpu())
+                            
                     conc_out = torch.cat(conc_out)
                     conc_label = torch.cat(conc_label) 
                         
@@ -254,6 +256,15 @@ class trajflow_meszaros_2(model_template):
 
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
+
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
+
+        if self.vary_input_length:
+            past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
+            sample_past_length = np.random.choice(past_length_options)/self.dt
+        else:
+            sample_past_length = self.num_timesteps_in
         
         if use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
@@ -307,6 +318,8 @@ class trajflow_meszaros_2(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
+
+                    X = X[:,:,-sample_past_length:,:]
                     
                     all_pos_past   = X
                     tar_pos_past   = X[:,0]
@@ -527,9 +540,15 @@ class trajflow_meszaros_2(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow (expanded)',
-                 'file': 'TrajFlow_2',
-                 'latex': r'\emph{TF2}'}
+        
+        if self.vary_input_length:
+            names = {'print': 'TrajFlow_varIn (expanded training)',
+                    'file': 'TF_2_varIn',
+                    'latex': r'\emph{TF}'}
+        else:
+            names = {'print': 'TrajFlow (expanded training)',
+                    'file': 'TrajFlow_2',
+                    'latex': r'\emph{TF}'}
         return names
         
     def save_params_in_csv(self = None):

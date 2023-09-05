@@ -222,8 +222,8 @@ class trajectron_salzmann_unicycle(model_template):
                                maps_resolution = res_batch)
         else:
             Y_st = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
-            Y_st[Ped_agents[:,0]]  /= self.std_pos_ped
-            Y_st[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y_st[Ped_agents]  /= self.std_pos_ped
+            Y_st[~Ped_agents] /= self.std_pos_veh
         
             # Only take out prediction agent
             Y_st = Y_st[:,0]

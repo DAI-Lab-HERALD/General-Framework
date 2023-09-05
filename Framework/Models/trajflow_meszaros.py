@@ -106,8 +106,8 @@ class trajflow_meszaros(model_template):
             Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
             
             # Standardize future positions
-            Y[Ped_agents[:,0]]  /= self.std_pos_ped
-            Y[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y[Ped_agents]  /= self.std_pos_ped
+            Y[~Ped_agents] /= self.std_pos_veh
             Y = torch.from_numpy(Y).float().to(device = self.device)
         
         if img is not None:
@@ -308,7 +308,7 @@ class trajflow_meszaros(model_template):
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
                     # X.shape:   bs x num_agents x num_timesteps_is x 2
-                    # Y.shape:   bs x 1 x num_timesteps_is x 2
+                    # Y.shape:   bs x num_agents x num_timesteps_is x 2
                     # T.shape:   bs x num_agents
                     # img.shape: bs x 1 x 156 x 257 x 1
                     
