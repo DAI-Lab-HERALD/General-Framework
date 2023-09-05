@@ -121,6 +121,9 @@ class FloMo(nn.Module):
         return x_enc_context
 
     def _abs_to_rel(self, y, x_t):
+        if len(y.shape) != len(x_t.shape):
+            x_t = x_t[:,0]
+
         y_rel = y - x_t # future trajectory relative to x_t
         y_rel[...,1:,:] = (y_rel[...,1:,:] - y_rel[...,:-1,:]) # steps relative to each other
         y_rel = y_rel * self.alpha # scale up for numeric reasons
@@ -159,7 +162,10 @@ class FloMo(nn.Module):
         x = self._rotate(x, x_t, rot_angles_rad)
         
         if y_true != None:
-            y_true = self._rotate(y_true, x_t, rot_angles_rad)
+            if len(y_true.shape) == len(x.shape):
+                y_true = self._rotate(y_true, x_t, rot_angles_rad)
+            else:
+                y_true = self._rotate(y_true, x_t[:,0], rot_angles_rad[:,0])
             return x, y_true, rot_angles_rad # inverse
         else:
             return x, rot_angles_rad # forward pass
@@ -264,6 +270,7 @@ class FloMo_I(FloMo):
         self.obs_encoder = nn.ModuleDict({})
         self.tar_obs_encoder = nn.ModuleDict({})
         self.t_unique = torch.unique(torch.from_numpy(T_all).to(device))
+        self.t_unique = self.t_unique[self.t_unique != 48]
         for t in self.t_unique:
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
             self.obs_encoder[t_key] = TrajRNN(nin=2, nout=self.obs_encoding_size, es=self.es_rnn, 

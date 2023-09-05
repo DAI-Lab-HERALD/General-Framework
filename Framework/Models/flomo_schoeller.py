@@ -188,9 +188,9 @@ class flomo_schoeller(model_template):
                         img = img[:,0].permute(0,3,1,2)
                     
                     if img is not None:
-                        logprob = flow_dist.log_prob(future_data, past_data, T, img)
+                        logprob = flow_dist.log_prob(future_data[:,0], past_data, T, img)
                     else:
-                        logprob = flow_dist.log_prob(future_data, past_data, T)
+                        logprob = flow_dist.log_prob(future_data[:,0], past_data, T)
 
                     loss = -torch.mean(logprob) # NLL
                     losses_epoch.append(loss.item())
@@ -257,9 +257,9 @@ class flomo_schoeller(model_template):
         # Prepare stuff for Normalization
         if self.data_set.get_name()['file'] == 'Fork_P_Aug':
             X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-            traj_tar = np.concatenate((X[:,0], Y[:,0]), dim = 1)
-            self.max_pos = torch.max(traj_tar)
-            self.min_pos = torch.min(traj_tar)
+            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
+            self.max_pos = np.max(traj_tar)
+            self.min_pos = np.min(traj_tar)
         else:
             self.min_pos = 0.0
             self.max_pos = 1.0
