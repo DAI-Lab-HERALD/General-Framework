@@ -355,8 +355,8 @@ class trajectron_salzmann_old(model_template):
             Y = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
             
             Y_st = Y.copy()
-            Y_st[Ped_agents[:,0]]  /= self.std_pos_ped
-            Y_st[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y_st[Ped_agents]  /= self.std_pos_ped
+            Y_st[~Ped_agents] /= self.std_pos_veh
         
             Y = torch.from_numpy(Y).to(dtype = torch.float32)
             Y_st = torch.from_numpy(Y_st).to(dtype = torch.float32)

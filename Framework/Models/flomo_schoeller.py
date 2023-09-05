@@ -102,8 +102,8 @@ class flomo_schoeller(model_template):
             Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
             
             # Standardize future positions
-            Y[Ped_agents[:,0]]  /= self.std_pos_ped
-            Y[~Ped_agents[:,0]] /= self.std_pos_veh
+            Y[Ped_agents]  /= self.std_pos_ped
+            Y[~Ped_agents] /= self.std_pos_veh
             Y = torch.from_numpy(Y).float().to(device = self.device)
         
         if img is not None:
@@ -111,8 +111,6 @@ class flomo_schoeller(model_template):
             
         return X, T_out, Y, img
         
-    
-    
 
     def train_flow(self, T_all):
         use_map = self.can_use_map and self.has_map
@@ -156,7 +154,7 @@ class flomo_schoeller(model_template):
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
                     # X.shape:   bs x num_agents x num_timesteps_is x 2
-                    # Y.shape:   bs x 1 x num_timesteps_is x 2
+                    # Y.shape:   bs x num_agents x num_timesteps_is x 2
                     # T.shape:   bs x num_agents
                     # img.shape: bs x 1 x 156 x 257 x 1
 
@@ -257,9 +255,9 @@ class flomo_schoeller(model_template):
         # Prepare stuff for Normalization
         if self.data_set.get_name()['file'] == 'Fork_P_Aug':
             X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-            traj_tar = np.concatenate((X[:,0], Y[:,0]), dim = 1)
-            self.max_pos = torch.max(traj_tar)
-            self.min_pos = torch.min(traj_tar)
+            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
+            self.max_pos = np.max(traj_tar)
+            self.min_pos = np.min(traj_tar)
         else:
             self.min_pos = 0.0
             self.max_pos = 1.0
