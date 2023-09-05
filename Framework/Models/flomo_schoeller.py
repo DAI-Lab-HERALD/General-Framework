@@ -215,9 +215,9 @@ class flomo_schoeller(model_template):
                         optimizer.zero_grad()
 
                         if img is not None:
-                            log_prob = flow_dist.log_prob(future_data_val, past_data_val, T, img_val)
+                            log_prob = flow_dist.log_prob(future_data_val[:,0], past_data_val, T, img_val)
                         else:
-                            log_prob = flow_dist.log_prob(future_data_val, past_data_val, T)
+                            log_prob = flow_dist.log_prob(future_data_val[:,0], past_data_val, T)
                     
                         val_loss = -torch.mean(log_prob)
                         val_losses_epoch.append(val_loss.item())
