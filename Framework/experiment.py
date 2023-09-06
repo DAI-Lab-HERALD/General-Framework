@@ -467,7 +467,8 @@ class Experiment():
                                                  # Add splitting method
                                                  splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
                                                  # Add model name
-                                                 model_class.get_name()['file']  + '--' + 
+                                                 model_class(data_set, splitter, self.evaluate_on_train_set).get_name()['file']  + '--' +
+                                                #  model_class.get_name()['file']  + '--' + 
                                                  # Add metric name
                                                  metric_class.get_name()['file']  + '.npy')
                             
