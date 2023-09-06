@@ -500,17 +500,17 @@ class Experiment():
                                     
                                     os.makedirs(os.path.dirname(figure_file), exist_ok = True)
                                     saving_figure = l == (self.num_models - 1)
-                                    metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model_class)
+                                    metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model)
                             else:
                                 print('Desired result not findable')
                                 
                             if m == 0 and return_train_loss:
-                                if model_class.provides_epoch_loss():
+                                if model.provides_epoch_loss():
                                     train_loss_file_name = (data_set.data_file[:-4] + '--' + 
                                                             # Add splitting method
                                                             splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
                                                             # Add model name
-                                                            model_class.get_name()['file']  + '--train_loss.npy')
+                                                            model.get_name()['file']  + '--train_loss.npy')
                                     
                                     train_loss_file_name = train_loss_file_name.replace(os.sep + 'Data' + os.sep,
                                                                                         os.sep + 'Models' + os.sep)
@@ -523,7 +523,7 @@ class Experiment():
                                     else:
                                         print('Desired train loss is not available not findable')
                                 else:
-                                    print('The model ' + model_class.get_name()['print'] + ' does not provide training losses.')
+                                    print('The model ' + model.get_name()['print'] + ' does not provide training losses.')
                                   
         self.results_loaded = True
         
