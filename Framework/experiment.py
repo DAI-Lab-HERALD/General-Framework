@@ -462,13 +462,15 @@ class Experiment():
                         for l, model_name in enumerate(self.Models):
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name)
-                        
+                            
+                            # Initialize the model
+                            model = model_class(data_set, splitter, self.evaluate_on_train_set)
+                            
                             results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
                                                  splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
                                                  # Add model name
-                                                 model_class(data_set, splitter, self.evaluate_on_train_set).get_name()['file']  + '--' +
-                                                #  model_class.get_name()['file']  + '--' + 
+                                                 model.get_name()['file']  + '--' + 
                                                  # Add metric name
                                                  metric_class.get_name()['file']  + '.npy')
                             
