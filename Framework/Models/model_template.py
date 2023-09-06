@@ -42,9 +42,14 @@ class model_template():
         if behavior == None:
             self.is_data_transformer = False
             
-            self.Index_train = splitter.Train_index
-            self.Index_test  = splitter.Test_index
-            
+            if hasattr(splitter, 'Train_index'):
+                self.Index_train = splitter.Train_index
+                self.Index_test  = splitter.Test_index
+                self.simply_load_results = False
+            else:
+                self.simply_load_results = True
+                
+                
             if self.get_output_type() == 'path_all_wi_pov':
                 pred_string = 'pred_tra_wip_'
             elif self.get_output_type() == 'path_all_wo_pov':
@@ -63,6 +68,7 @@ class model_template():
             
         else:
             self.is_data_transformer = True
+            self.simply_load_results = False
             
             self.Index_train = np.where(data_set.Output_A[behavior])[0]
             self.Index_test = np.arange(len(data_set.Output_A))
@@ -83,6 +89,7 @@ class model_template():
     
     
     def train(self):
+        assert not self.simply_load_results, 'This model instance is nonly for loading results.'
         self.model_mode = 'train'
         if os.path.isfile(self.model_file) and not self.data_set.overwrite_results:
             self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
@@ -131,6 +138,7 @@ class model_template():
         
         
     def predict(self):
+        assert not self.simply_load_results, 'This model instance is nonly for loading results.'
         # check if prediction can be loaded
         self.model_mode = 'pred'
         # perform prediction
