@@ -45,26 +45,25 @@ class model_template():
             if hasattr(splitter, 'Train_index'):
                 self.Index_train = splitter.Train_index
                 self.Index_test  = splitter.Test_index
+            
+                if self.get_output_type() == 'path_all_wi_pov':
+                    pred_string = 'pred_tra_wip_'
+                elif self.get_output_type() == 'path_all_wo_pov':
+                    pred_string = 'pred_tra_wop_'
+                elif self.get_output_type() == 'class':
+                    pred_string = 'pred_classified'
+                elif self.get_output_type() == 'class_and_time':
+                    pred_string = 'pred_class_time'
+                else:
+                    raise AttributeError("This type of prediction is not implemented")
+                    
+                self.model_file = data_set.change_result_directory(splitter.split_file,
+                                                                   'Models', self.get_name()['file'])
+                self.pred_file  = data_set.change_result_directory(self.model_file,
+                                                                   'Predictions', pred_string)
                 self.simply_load_results = False
             else:
                 self.simply_load_results = True
-                
-                
-            if self.get_output_type() == 'path_all_wi_pov':
-                pred_string = 'pred_tra_wip_'
-            elif self.get_output_type() == 'path_all_wo_pov':
-                pred_string = 'pred_tra_wop_'
-            elif self.get_output_type() == 'class':
-                pred_string = 'pred_classified'
-            elif self.get_output_type() == 'class_and_time':
-                pred_string = 'pred_class_time'
-            else:
-                raise AttributeError("This type of prediction is not implemented")
-            
-            self.model_file = data_set.change_result_directory(splitter.split_file,
-                                                               'Models', self.get_name()['file'])
-            self.pred_file  = data_set.change_result_directory(self.model_file,
-                                                               'Predictions', pred_string)
             
         else:
             self.is_data_transformer = True
