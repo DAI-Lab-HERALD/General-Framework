@@ -147,7 +147,7 @@ class Experiment():
         
         assert isinstance(allow_extrapolation, bool), "allow_extrapolation should be a boolean."
         
-        assert isinstance(dynamic_prediction_agents, bool), "dynamic_prediction_agents should be a boolean."
+        assert isinstance(dynamic_prediction_agents, str), "dynamic_prediction_agents should be a string."
         
         assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
         

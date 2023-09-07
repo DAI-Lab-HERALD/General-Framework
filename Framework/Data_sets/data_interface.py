@@ -61,7 +61,7 @@ class data_interface(object):
         self.enforce_prediction_time   = parameters[3]
         self.exclude_post_crit         = parameters[4]
         self.allow_extrapolation       = parameters[5]
-        self.dynamic_prediction_agents = parameters[6]
+        self.agents_to_predict         = parameters[6]
         self.overwrite_results         = parameters[7]
         
         # Get scenario
@@ -150,7 +150,20 @@ class data_interface(object):
             t0_type_name_addon += 's'
         else:
             t0_type_name_addon += 'l'
-            
+        
+        if self.max_num_agents is None:
+            num = 0 
+        else:
+            num = self.max_num_agents
+        
+        if self.agents_to_predict == 'predefined':
+            pat = '0'
+        elif self.agents_to_predict == 'all':
+            pat = 'A'
+        else:
+            pat = self.agents_to_predict[0]
+        
+        
         self.data_file = (list(self.Datasets.values())[0].path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                           'Data' + os.sep +
@@ -162,7 +175,7 @@ class data_interface(object):
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(self.max_num_agents) + '_agents'
+                          '--max_' + str(num).zfill(3) + '_agents_' + pat +
                           '.npy')
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):

@@ -44,7 +44,7 @@ exclude_post_crit = True
 allow_extrapolation = True
 
 # Use all available agents for predictions
-dynamic_prediction_agents = True
+agents_to_predict = 'all'
 
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = False
@@ -58,7 +58,7 @@ model_for_path_transform = 'trajectron_salzmann_old'
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
                               exclude_post_crit, allow_extrapolation, 
-                              dynamic_prediction_agents, overwrite_results, evaluate_on_train_set)
+                              agents_to_predict, overwrite_results, evaluate_on_train_set)
 
 #%% Run experiment
 new_experiment.run()                  

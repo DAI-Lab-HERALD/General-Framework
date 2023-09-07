@@ -33,9 +33,10 @@ class evaluation_template():
             
             self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
             self.Type_full = data_set.Type.iloc[:, Agent_index]
-            self.Pred_agents_full = model._determine_pred_agents(data_set, 
-                                                                 data_set.Recorded,
-                                                                 data_set.dynamic_prediction_agents)
+            self.Pred_agents_full = model._determine_pred_agents(data_set = data_set, 
+                                                                 Recorded = data_set.Recorded,
+                                                                 dynamic  = data_set.agents_to_predict,
+                                                                 evaluate = True)
             self.Pred_agents_full = self.Pred_agents_full[:, Agent_index]
             
             self.data_set = data_set
