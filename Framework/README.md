@@ -121,9 +121,9 @@ In the framework, it is possible that the past and future trajectories of agents
 
 ### Expand pool of predicted agents
 ```
-dynamic_prediction_agents = False
+dynamic_prediction_agents = 'none'
 ```
-In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model, in which case one could set **dynamic_prediction_agents** to *True*. In this case, all other agents in the scene, for which the past and future trajectories have been fully observed and are not extrapolated, are also designated to be predicted.
+In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model, in which case one could set **dynamic_prediction_agents** to *'all'*, *'V'*, *'P'*, *'B'*, or *'M'*. In this case, all other agents (or only those of the specific type mentioned in the scene, such as only pedestrians when setting *'P'*), for which the past and future trajectories have been fully observed and are not extrapolated, are also designated to be predicted. If one specific type of agent is chosen, and the agents [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are ignored in trajectory metrics if they are of the wrong type.
 
 ### Overwrite results
 ```
