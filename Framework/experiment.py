@@ -1321,6 +1321,10 @@ class Experiment():
         else:
             data_param = self.Data_params[0]
         
+        # Load predicted data 
+        num_samples_path_pred = self.parameters[1]
+        data_set.get_data(**data_param)
+        
         if self.num_splitters > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
@@ -1365,7 +1369,11 @@ class Experiment():
             sample_string = 'In the current experiment, the following splitters are available:'
             for i, m_name in enumerate(self.Models):
                 m_class = getattr(importlib.import_module(m_name), m_name)
-                sample_string += '\n{}: '.format(i + 1) + m_class.get_name()['print']  
+                try:
+                    sample_string += '\n{}: '.format(i + 1) + m_class.get_name()['print']  
+                except:
+                    mm = m_class(data_set, None, self.evaluate_on_train_set)
+                    sample_string += '\n{}: '.format(i + 1) + mm.get_name()['print']  
             print(sample_string, flush = True)  
             print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(self.num_models), flush = True)
             print('', flush = True)
@@ -1386,10 +1394,6 @@ class Experiment():
             model_name = self.Models[0]
         
         model_class = getattr(importlib.import_module(model_name), model_name)
-        
-        # Load predicted data 
-        num_samples_path_pred = self.parameters[1]
-        data_set.get_data(**data_param)
         
         # Use splitting method to get train and test samples
         if 'repetition' in split_param.keys():
@@ -1577,13 +1581,18 @@ class Experiment():
                 ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
                         np.concatenate((ip[i,-1:,1], op[i,:,1])),
                         color = color, marker = 'o', ms = 3, linewidth = 1)
-                
+            
+            # allow for latex code
+            from matplotlib import rc
+            rc('text', usetex=True)
+            
+            # Format plot
             ax.set_aspect('equal', adjustable='box') 
             ax.set_xlim([min_v[0],max_v[0]])
             ax.set_ylim([min_v[1],max_v[1]])
             title = (r'\textbf{Predicted paths}' + 
-                     r'\\Data set: ' + data_set.get_name()['print'] +  
-                     r'with $\delta t = ' + str(data_param['dt']) + 
+                     r'Data set: ' + data_set.get_name()['print'] +  
+                     r' with $\delta t = ' + str(data_param['dt']) + 
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.index)
             if len(behs) > 1:
@@ -1600,5 +1609,4 @@ class Experiment():
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
             
-            assert False
             plt.close(fig)

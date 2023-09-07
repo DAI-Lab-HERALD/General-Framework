@@ -678,7 +678,7 @@ class data_set_template():
             pat = self.agents_to_predict[0]
         
         
-        self.data_file = (list(self.Datasets.values())[0].path + os.sep + 'Results' + os.sep +
+        self.data_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                           'Data' + os.sep +
                           self.get_name()['file'] +
