@@ -12,7 +12,7 @@ class data_set_template():
                  enforce_prediction_time = False, 
                  exclude_post_crit = True,
                  allow_extrapolation = True,
-                 dynamic_prediction_agents = False,
+                 agents_to_predict = 'predefined',
                  overwrite_results = False):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
@@ -71,6 +71,7 @@ class data_set_template():
         self.exclude_post_crit         = exclude_post_crit
         self.overwrite_results         = overwrite_results
         self.allow_extrapolation       = allow_extrapolation
+        self.agents_to_predict         = agents_to_predict
 
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
@@ -664,18 +665,31 @@ class data_set_template():
         else:
             t0_type_name += 'l'
             
+        if self.max_num_agents is None:
+            num = 0 
+        else:
+            num = self.max_num_agents
+        
+        if self.agents_to_predict == 'predefined':
+            pat = '0'
+        elif self.agents_to_predict == 'all':
+            pat = 'A'
+        else:
+            pat = self.agents_to_predict[0]
+        
+        
         self.data_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                           'Data' + os.sep +
                           self.get_name()['file'] +
                           '--t0=' + t0_type_name +
-                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, self.dt))).zfill(4) +
+                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
                           '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
                           'm' + str(self.num_timesteps_in_need).zfill(2) +
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(self.max_num_agents) + '_agents'
+                          '--max_' + str(num).zfill(3) + '_agents_' + pat +
                           '.npy')
 
         # check if same data set has already been done in the same way

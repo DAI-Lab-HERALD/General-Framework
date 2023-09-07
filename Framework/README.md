@@ -119,11 +119,14 @@ allow_extrapolation = True
 ```
 In the framework, it is possible that the past and future trajectories of agents that are not [distinguished in the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are only partially observed. If one sets **allow_extrapolation** to be *False*, then those missing values are filled up with *np.nan*. However, if **allow_extrapolation** is instead set to *True*, the missing values are filled in using linear inter- and extrapolation. This might be beneficial for some models that might not be able to deal with such missing information but might obfuscate the true human behavior.
 
-### Expand pool of predicted agents
+### Assign the predicted agents
 ```
-dynamic_prediction_agents = False
+agents_to_predict = 'predefined'
 ```
-In most situations, only a handful of agents in each scene are [set as prediction agents by the scenario](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors). This might not be enough to properly evaluate the model, in which case one could set **dynamic_prediction_agents** to *True*. In this case, all other agents in the scene, for which the past and future trajectories have been fully observed and are not extrapolated, are also designated to be predicted.
+There are a number of possibilities to set the string **agents_to_predict** to:
+- *'predefined'*: In this case, only the [agents needed for classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are predicted and evaluated. While those agents are also predicted under the other settings to allow for the classification, they might not be automatically included in trajectory metrics.
+- *'all'*: All agents in a scene for which the past and future trajectories are fully observed (i.e., no extrapolation is used) are included in trajectory metrics.
+- *'P'*, *'V'*, *'B'*, *'M'*: Only agents of the set [agent type](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#importing-the-raw-data) are included in the trajectory metrics.
 
 ### Overwrite results
 ```
@@ -152,7 +155,7 @@ new_experiment.set_parameters(model_for_path_transform  = model_for_path_transfo
                               enforce_prediction_times  = enforce_prediction_times, 
                               exclude_post_crit         = exclude_post_crit,
                               allow_extrapolation       = allow_extrapolation, 
-                              dynamic_prediction_agents = dynamic_prediction_agents,
+                              agents_to_predict         = agents_to_predict,
                               overwrite_results         = overwrite_results,
                               evaluate_on_train_set     = evaluate_on_train_set)
 ```

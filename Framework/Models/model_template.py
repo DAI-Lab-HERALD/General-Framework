@@ -27,7 +27,7 @@ class model_template():
         self.num_timesteps_in = data_set.num_timesteps_in_real
         self.num_timesteps_out = data_set.num_timesteps_out_real
         
-        self.dynamic_prediction_agents = data_set.dynamic_prediction_agents
+        self.agents_to_predict = data_set.agents_to_predict
         self.general_input_available = self.data_set.general_input_available
         
         self.input_names_train = np.array(data_set.Input_path.columns)
@@ -275,12 +275,14 @@ class model_template():
                     self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
                     self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
     
-    def _determine_pred_agents(self, data_set, Recorded, dynamic):
+    def _determine_pred_agents(self, data_set, Recorded, dynamic, evaluate = False):
         Agents = np.array(Recorded.columns)
         Required_agents = np.array([agent in data_set.needed_agents for agent in Agents])
         Required_agents = np.tile(Required_agents[np.newaxis], (len(Recorded), 1))
         
-        if dynamic:
+        if dynamic == 'none':
+            Pred_agents = Required_agents
+        else:
             Recorded_agents = np.zeros(Required_agents.shape, bool)
             for i_sample in range(len(Recorded)):
                 R = Recorded.iloc[i_sample]
@@ -299,59 +301,43 @@ class model_template():
             # Get moving vehicles
             Moving_agents = Dr > 0.01
             
-            # Get pred agents
-            Pred_agents = Required_agents | (Moving_agents & Recorded_agents)
-        else:
-            Pred_agents = Required_agents
+            # Get correct type 
+            T = self.data_set.Type[Agents].to_numpy()
+            Correct_type_agents = T == dynamic
+            
+            Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
+            
+            if evaluate:
+                Pred_agents = (Correct_type_agents & Required_agents) | Extra_agents
+            else:
+                Pred_agents = Required_agents | Extra_agents
         
         
         # NuScenes exemption:
-        if self.data_set.get_name()['print'] == 'NuScenes':
-            if self.num_timesteps_in == 4 and self.num_timesteps_out == 12:
-                if self.dt == 0.5 and self.data_set.t0_type == 'all':
-                    Pred_agents_N = np.zeros(Pred_agents.shape, bool)
-                    PA = self.data_set.Domain.pred_agents
-                    PT = self.data_set.Domain.pred_timepoints
-                    T0 = self.data_set.Domain.t_0
-                    for i_sample in range(len(Recorded)):
-                        pt = PT.iloc[i_sample]
-                        t0 = T0.iloc[i_sample]
-                        i_time = np.argmin(np.abs(t0 - pt))
-                        
-                        pas = PA.iloc[i_sample]
-                        i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
-                        pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
-                        
-                        Pred_agents_N[i_sample, i_agents] = pa
-                    
-                    # # Test the assumption made in https://github.com/nutonomy/nuscenes-devkit/issues/731
-                    # P = Pred_agents.copy()
-                    
-                    # X_help = self.data_set.Input_path.to_numpy()
-                    # Y_help = self.data_set.Output_path.to_numpy()
-                    
-                    # X = np.ones(list(X_help.shape) + [self.num_timesteps_in, 2], dtype = np.float32) * np.nan
-                    # Y = np.ones(list(Y_help.shape) + [self.max_t_O_train, 2], dtype = np.float32) * np.nan
-                    
-                    # # Extract data from original number a samples
-                    # for i_sample in range(X.shape[0]):
-                    #     for i_agent, agent in enumerate(Agents):
-                    #         if isinstance(X_help[i_sample, i_agent], float):
-                    #             assert not Pred_agents[i_sample, i_agent], 'A needed agent is not given.'
-                    #         else:    
-                    #             n_time = min(self.max_t_O_train, len(Y_help[i_sample, i_agent]))
-                    #             X[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    #             Y[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-                    
-                    # Tr = np.concatenate((X,Y), axis = 2)
-                    # Dr = np.nanmax(np.abs(Tr[:,:,1:] - Tr[:,:,:-1]), (2, 3))
-                    
-                    # P &= Dr > 0.01
-                    
-                    # T = self.data_set.Type[Agents].to_numpy()
-                    # P &= (T == 'V')
-                    
-                    return Pred_agents_N
+        if ((self.data_set.get_name()['print'] == 'NuScenes') and
+            (self.num_timesteps_in == 4) and 
+            (self.num_timesteps_out == 12) and
+            (self.dt == 0.5) and 
+            (self.data_set.t0_type == 'all')):
+            
+            # Get predefined predicted agents for NuScenes
+            Pred_agents_N = np.zeros(Pred_agents.shape, bool)
+            PA = self.data_set.Domain.pred_agents
+            PT = self.data_set.Domain.pred_timepoints
+            T0 = self.data_set.Domain.t_0
+            for i_sample in range(len(Recorded)):
+                pt = PT.iloc[i_sample]
+                t0 = T0.iloc[i_sample]
+                i_time = np.argmin(np.abs(t0 - pt))
+                
+                pas = PA.iloc[i_sample]
+                i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                
+                Pred_agents_N[i_sample, i_agents] = pa
+            
+            return Pred_agents_N
+        
         return Pred_agents
     
     
@@ -382,7 +368,10 @@ class model_template():
         domain_old = self.data_set.Domain
         
         # Determine needed agents
-        self.Pred_agents_orig = self._determine_pred_agents(self.data_set, Recorded_old, self.dynamic_prediction_agents)
+        self.Pred_agents_orig = self._determine_pred_agents(data_set = self.data_set, 
+                                                            Recorded = Recorded_old, 
+                                                            dynamic  = self.agents_to_predict, 
+                                                            evaluate = False)
         
         # Check if everything needed is there
         assert not np.isnan(X[self.Pred_agents_orig]).all((1,2)).any(), 'A needed agent is not given.'

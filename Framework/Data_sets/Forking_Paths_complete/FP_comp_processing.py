@@ -34,42 +34,39 @@ for dataset_path in dataset_paths:
         # check if agent is already know
         Index = Final_data.index[(Final_data.scenario == dataset_path[:-5]) & (Final_data.Id == detection[i]['track_id'])]
 
-        # select frames so that the framerate is 2.5 Hz
-        if frame%(fps/2.5) == 0:
+        assert len(Index) < 2
+        if len(Index) == 0:
+            track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
+            track.frame = frame
+            track.t = frame / fps #(frame - 1) / framerate
+            track.x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
+            track.y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
+            track = track.set_index('frame')
 
-            assert len(Index) < 2
-            if len(Index) == 0:
-                track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
-                track.frame = frame
-                track.t = frame / fps #(frame - 1) / framerate
-                track.x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
-                track.y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
-                track = track.set_index('frame')
+            data = pd.Series(np.zeros((6), object), index = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
+            data.Id             = detection[i]['track_id']
+            data.type           = detection[i]['class_name'][0]
+            data['First frame'] = frame
+            data['Last frame']  = frame
+            data.scenario       = dataset_path[:-5]
+            data.path           = track
 
-                data = pd.Series(np.zeros((6), object), index = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
-                data.Id             = detection[i]['track_id']
-                data.type           = detection[i]['class_name'][0]
-                data['First frame'] = frame
-                data['Last frame']  = frame
-                data.scenario       = dataset_path[:-5]
-                data.path           = track
+            Final_data.loc[overall_id] = data
+            overall_id += 1
 
-                Final_data.loc[overall_id] = data
-                overall_id += 1
+        else:
+            index = Index[0]
+            data = Final_data.loc[index]
 
-            else:
-                index = Index[0]
-                data = Final_data.loc[index]
+            data['First frame'] = min(frame, data['First frame'])
+            data['Last frame']  = max(frame, data['Last frame'])
+            
+            data.path.loc[frame] = pd.Series(np.zeros(3), index = ['t', 'x', 'y'])
+            data.path.loc[frame].t = frame / fps #(frame - 1) / framerate
+            data.path.loc[frame].x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
+            data.path.loc[frame].y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
 
-                data['First frame'] = min(frame, data['First frame'])
-                data['Last frame']  = max(frame, data['Last frame'])
-                
-                data.path.loc[frame] = pd.Series(np.zeros(3), index = ['t', 'x', 'y'])
-                data.path.loc[frame].t = frame / fps #(frame - 1) / framerate
-                data.path.loc[frame].x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
-                data.path.loc[frame].y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
-
-                Final_data.loc[index] = data 
+            Final_data.loc[index] = data 
     
     # do tests
     for index, data in Final_data[Final_data.scenario == dataset_path].iterrows():

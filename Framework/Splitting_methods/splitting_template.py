@@ -14,7 +14,9 @@ class splitting_template():
         assert repetition < 10, "No more than 10 repetitions of the same splitting type are possible."
         self.repetition = int(max(0,repetition))
         
-        self.Domain = self.data_set.Domain
+        if data_set is not None:
+            self.Domain = self.data_set.Domain
+        
        
     def split_data(self):
         self.split_file = self.data_set.change_result_directory(self.data_set.data_file, 'Splitting', 
