@@ -10,8 +10,8 @@ from data_set_template import data_set_template
 from scenario_none import scenario_none
 
 from trajdata import UnifiedDataset, MapAPI
-from trajdata.simulation import SimulationScene
 from trajdata.data_structures.agent import AgentType
+from trajdata.caching.df_cache import DataFrameCache
 
 
 class Lyft_interactive(data_set_template):
@@ -89,73 +89,47 @@ class Lyft_interactive(data_set_template):
             # Get map offset
             min_x, min_y, _, _, _, _ = map_api.maps[map_id].extent 
             
-            # Get useful agents 
-            useful_agent = np.array([agent.type != AgentType.UNKNOWN for agent in scene.agents])
-            
-            # Get agent presence matrix to determine advantageous time indices
-            agent_present = pd.DataFrame(np.zeros((scene.length_timesteps, len(scene.agents)), bool),
-                                         columns = scene.agents)
-            
-            for t_ind in agent_present.index:
-                agent_present.loc[t_ind][scene.agent_presence[t_ind]] = True
+            Cache = DataFrameCache(cache_path = dataset.cache_path,
+                                   scene = scene)
+            scene_data = Cache.scene_data_df[['x', 'y']]
+
                 
-            agent_present_array = agent_present.to_numpy()[:,useful_agent]
-            
-            # Get greedy algortihms for minimal set cover problem
-            needed_rows = []
-            while agent_present_array.shape[1] > 0:
-                new_row = agent_present_array.sum(1).argmax()
+            for agent in scene.agents:
+                # Check if agent type is allowable
+                if agent.type == AgentType.UNKNOWN:
+                    continue
                 
-                needed_rows.append(new_row)
-                agent_present_array = agent_present_array[:,~agent_present_array[new_row]]
-            
-            needed_rows = np.sort(needed_rows)
-            
-            # Go through all needed agents
-            for t_ind in needed_rows:
-                sim_scene = SimulationScene(env_name = scene.env_name,
-                                            scene_name = scene.name,
-                                            scene = scene,
-                                            dataset = dataset,
-                                            init_timestep = t_ind,
-                                            )
-                scene_data = sim_scene.cache.scene_data_df[['x', 'y']]
+                if agent.name == 'ego':
+                    path_name = 'tar'
+                else:
+                    path_name = 'v_' + str(agent.name)
+                    
+                # Check if agent is already included
+                if path_name in path.index:
+                    continue
                 
-                for agent in scene.agent_presence[t_ind]:
-                    # Check if agent type is allowable
-                    if agent.type == AgentType.UNKNOWN:
-                        continue
-                    
-                    if agent.name == 'ego':
-                        path_name = 'tar'
-                    else:
-                        path_name = 'v_' + str(agent.name)
-                        
-                    # Check if agent is already included
-                    if path_name in path.index:
-                        continue
-    
-                    traj = np.ones((scene.length_timesteps, 2), dtype = np.float32) * np.nan
-                    
-                    # Get observed trajectories
-                    traj_observed = scene_data.loc[agent.name].to_numpy().astype(np.float32)
-                    
-                    # Adjust trajectories to map
-                    traj_observed = traj_observed - np.array([[min_x, min_y]])
-                    traj_observed = traj_observed * np.array([[1.0, -1.0]])
-                    
-                    traj[agent.first_timestep:agent.last_timestep + 1] = scene_data.loc[agent.name].to_numpy()
-                    path[path_name] = traj
-                    if agent.type == AgentType.VEHICLE:
-                        agent_types[path_name] = 'V'
-                    elif agent.type == AgentType.PEDESTRIAN:
-                        agent_types[path_name] = 'P'
-                    elif agent.type == AgentType.MOTORCYCLE:
-                        agent_types[path_name] = 'M'
-                    elif agent.type == AgentType.BICYCLE:
-                        agent_types[path_name] = 'B'
-                    else:   
-                        raise ValueError('Unknown agent type: ' + str(agent.type))
+                # Get observed trajectories
+                traj_observed = scene_data.loc[agent.name].to_numpy().astype(np.float32)
+                
+                # Adjust trajectories to map
+                traj_observed = traj_observed - np.array([[min_x, min_y]])
+                traj_observed = traj_observed * np.array([[1.0, -1.0]])
+                
+                # Fill in full trajectory
+                traj = np.ones((scene.length_timesteps, 2), dtype = np.float32) * np.nan
+                traj[agent.first_timestep:agent.last_timestep + 1] = traj_observed
+                
+                path[path_name] = traj
+                if agent.type == AgentType.VEHICLE:
+                    agent_types[path_name] = 'V'
+                elif agent.type == AgentType.PEDESTRIAN:
+                    agent_types[path_name] = 'P'
+                elif agent.type == AgentType.MOTORCYCLE:
+                    agent_types[path_name] = 'M'
+                elif agent.type == AgentType.BICYCLE:
+                    agent_types[path_name] = 'B'
+                else:   
+                    raise ValueError('Unknown agent type: ' + str(agent.type))
                         
             domain = pd.Series(np.zeros(3, object), index = ['location', 'scene', 'image_id'])
             domain.location = scene.env_name
