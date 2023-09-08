@@ -280,7 +280,7 @@ class model_template():
         Required_agents = np.array([agent in data_set.needed_agents for agent in Agents])
         Required_agents = np.tile(Required_agents[np.newaxis], (len(Recorded), 1))
         
-        if dynamic == 'none':
+        if dynamic == 'predefined':
             Pred_agents = Required_agents
         else:
             Recorded_agents = np.zeros(Required_agents.shape, bool)
@@ -303,7 +303,10 @@ class model_template():
             
             # Get correct type 
             T = self.data_set.Type[Agents].to_numpy()
-            Correct_type_agents = T == dynamic
+            if dynamic != 'all':
+                Correct_type_agents = T == dynamic
+            else:
+                Correct_type_agents = np.ones(T.shape, bool)
             
             Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
             
