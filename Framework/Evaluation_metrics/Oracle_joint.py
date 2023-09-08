@@ -57,7 +57,7 @@ class Oracle_joint(evaluation_template):
         Step_error = Diff.sum(0) / Pred_steps.sum(0).max(0)
         
         # Mean over timesteps
-        Diff = Diff.sum(-1) / Num_steps[:,np.newaxis]
+        Diff = Diff.sum(-1) / Num_steps
         
         # Mean over samples
         Error = Diff.mean()
