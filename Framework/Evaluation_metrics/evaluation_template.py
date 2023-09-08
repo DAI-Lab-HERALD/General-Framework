@@ -273,9 +273,12 @@ class evaluation_template():
         # Get the same entrie in full dataset
         T_full = self.Type_full.to_numpy().astype(str)
         PA_str = self.Pred_agents_full.astype(str) 
-        Loc    = np.tile(self.Domain_full.location.to_numpy().astype(str)[:,np.newaxis], (1, T_full.shape[1]))
-        
-        Div = np.stack((T_full, PA_str, Loc), axis = -1)
+        if hasattr(self.Domain_full, 'location'):
+            Loc = np.tile(self.Domain_full.location.to_numpy().astype(str)[:,np.newaxis], (1, T_full.shape[1]))
+            Div = np.stack((T_full, PA_str, Loc), axis = -1)
+        else:
+            Div = np.stack((T_full, PA_str), axis = -1)
+            
         Div_unique, Div_inverse, Div_counts = np.unique(Div, axis = 0, 
                                                         return_inverse = True, 
                                                         return_counts = True)
