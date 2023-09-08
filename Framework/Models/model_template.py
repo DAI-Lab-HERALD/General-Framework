@@ -207,7 +207,7 @@ class model_template():
             save_data = np.array(output + [0], object)
             np.save(self.pred_file, save_data)
         else:
-            print('Saving predicted trajectories.')
+            print('Saving predicted trajectories.', flush = True)
             
             # Get number of predicted agents per sample:
             agent_bool = self.data_set.Type.to_numpy().astype(str) != 'nan'
@@ -241,10 +241,10 @@ class model_template():
                 save += 1
                 Unsaved_indices = Unsaved_indices[num_saved:]
                 
-                print('Saved part {} of predicted trajectories'.format(save))
+                print('Saved part {} of predicted trajectories'.format(save), flush = True)
                 
         print('')
-        print('The model ' + self.get_name()['print'] + ' successfully made predictions.')
+        print('The model ' + self.get_name()['print'] + ' successfully made predictions.', flush = True)
         print('')
         return output
     

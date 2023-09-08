@@ -273,9 +273,12 @@ class evaluation_template():
         # Get the same entrie in full dataset
         T_full = self.Type_full.to_numpy().astype(str)
         PA_str = self.Pred_agents_full.astype(str) 
+        Loc    = np.tile(self.Domain_full.location.to_numpy().astype(str)[:,np.newaxis], (1, T_full.shape[1]))
         
-        Div = np.stack((T_full, PA_str), axis = -1)
-        Div_unique, Div_inverse = np.unique(Div, axis = 0, return_inverse = True)
+        Div = np.stack((T_full, PA_str, Loc), axis = -1)
+        Div_unique, Div_inverse, Div_counts = np.unique(Div, axis = 0, 
+                                                        return_inverse = True, 
+                                                        return_counts = True)
         
         Subgroup_full = np.zeros(len(T_full), int)
         max_len = 0
@@ -295,8 +298,14 @@ class evaluation_template():
             # X.shape: len(index) x useful_agents.sum() x nI x 2
             
             # Get differences 
-            D = np.abs(X[np.newaxis] - X[:,np.newaxis])
-            D_max = np.nanmax(D, (2,3,4))
+            D_max = np.zeros((len(index), len(index)), np.float32)
+            
+            max_num = np.floor(2 ** 29 / np.prod(X.shape))
+            
+            for i in range(int(np.ceil(len(index) / max_num))):
+                d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                D = X[d_index, np.newaxis] - X[np.newaxis]
+                D_max[d_index] = np.nanmax(D, (2,3,4))
             
             Identical = D_max < 1e-3
             
