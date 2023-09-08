@@ -96,8 +96,10 @@ class data_set_template():
                  self.Domain_old,
                  self.num_samples] = np.load(test_file, allow_pickle=True)
                 
-                
-                [self.Images, _] = np.load(image_file, allow_pickle=True)
+                if self.includes_images():
+                    [self.Images, _] = np.load(image_file, allow_pickle=True)
+                else:
+                    self.Images = None
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -188,23 +190,24 @@ class data_set_template():
                                 raise ValueError("For a given path, the agent type must not be nan.")
 
                 # save the results
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
                 test_data = np.array([self.Path,
                                       self.Type_old,
                                       self.T,
                                       self.Domain_old,
                                       self.num_samples], object)
-                
-                image_data = np.array([self.Images, 0], object)
-
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
                 np.save(test_file, test_data)
-                np.save(image_file, image_data)
+                
+                if self.includes_images():
+                    image_data = np.array([self.Images, 0], object)
+                    np.save(image_file, image_data)
 
             self.raw_data_loaded = True
             self.raw_images_loaded = True
             
     def load_raw_images(self):
-        if not self.raw_images_loaded:
+        if not self.raw_images_loaded and self.includes_images():
             image_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                          'Data' + os.sep +
