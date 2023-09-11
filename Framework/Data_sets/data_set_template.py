@@ -81,18 +81,25 @@ class data_set_template():
 
     def load_raw_data(self):
         if not self.raw_data_loaded:
-            test_file = (self.path + os.sep + 'Results' + os.sep +
+            file_path = (self.path + os.sep + 'Results' + os.sep +
                          self.get_name()['print'] + os.sep +
                          'Data' + os.sep +
-                         self.get_name()['file'] + '--all_orig_paths.npy')
+                         self.get_name()['file'])
+            
+            test_file = file_path + '--all_orig_paths.npy'
+            image_file = file_path + '--Images.npy'
 
             if os.path.isfile(test_file):
                 [self.Path,
                  self.Type_old,
                  self.T,
-                 self.Images,
                  self.Domain_old,
                  self.num_samples] = np.load(test_file, allow_pickle=True)
+                
+                if self.includes_images():
+                    [self.Images, _] = np.load(image_file, allow_pickle=True)
+                else:
+                    self.Images = None
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -183,21 +190,24 @@ class data_set_template():
                                 raise ValueError("For a given path, the agent type must not be nan.")
 
                 # save the results
-                save_data = np.array([self.Path,
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
+                test_data = np.array([self.Path,
                                       self.Type_old,
                                       self.T,
-                                      self.Images,
                                       self.Domain_old,
                                       self.num_samples], object)
-
-                os.makedirs(os.path.dirname(test_file), exist_ok=True)
-                np.save(test_file, save_data)
+                np.save(test_file, test_data)
+                
+                if self.includes_images():
+                    image_data = np.array([self.Images, 0], object)
+                    np.save(image_file, image_data)
 
             self.raw_data_loaded = True
             self.raw_images_loaded = True
             
     def load_raw_images(self):
-        if not self.raw_images_loaded:
+        if not self.raw_images_loaded and self.includes_images():
             image_file = (self.path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
                          'Data' + os.sep +
@@ -208,10 +218,10 @@ class data_set_template():
             else:
                 self.load_raw_data()
                 # save the results
-                save_data = np.array([self.Images, 0], object)
+                image_data = np.array([self.Images, 0], object)
 
                 os.makedirs(os.path.dirname(image_file), exist_ok=True)
-                np.save(image_file, save_data)
+                np.save(image_file, image_data)
 
             self.raw_images_loaded = True
 

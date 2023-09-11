@@ -223,11 +223,11 @@ class Experiment():
         print('')
         
         if model_failure is not None:
-            print('However, the model ' + model.get_name()['print'] + ' cannot be trained, because ' + model_failure)
-            print('')
+            print('However, the model ' + model.get_name()['print'] + ' cannot be trained, because ' + model_failure, flush = True)
+            print('', flush = True)
         else:
-            print('The model ' + model.get_name()['print'] + ' will be trained.')
-            print('')
+            print('The model ' + model.get_name()['print'] + ' will be trained.', flush = True)
+            print('', flush = True)
 
     def print_metric_status(self, metric, metric_failure = None):
         if not metric.data_set.classification_useful:
@@ -235,11 +235,11 @@ class Experiment():
                 metric_failure = 'the dataset does not allow for classifications.'
         
         if metric_failure is not None:
-            print('The metric ' + metric.get_name()['print'] + ' cannot be used, because ' + metric_failure)
-            print('')
+            print('The metric ' + metric.get_name()['print'] + ' cannot be used, because ' + metric_failure, flush = True)
+            print('', flush = True)
         else:
             print('The metric ' + metric.get_name()['print'] + ' is used for evaluation. ' + 
-                  'This might require the training of a transformation model.')
+                  'This might require the training of a transformation model.', flush = True)
             
 
     def run(self):
