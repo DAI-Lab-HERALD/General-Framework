@@ -53,7 +53,7 @@ class OPTICS_GMM():
         return self
         
         
-    def prob(self, X):
+    def prob(self, X, return_log = False):
         assert self.fitted, 'The model was not fitted yet'
         
         assert len(X.shape) == 2
@@ -61,14 +61,30 @@ class OPTICS_GMM():
         
         # calculate logarithmic probability
         prob = np.zeros(len(X))
+        
+        log_probs = np.zeros((len(X), len(self.GMMs)), dtype = np.float32)
+        
         for i, GMM in enumerate(self.GMMs):
-            prob += np.exp(self.log_probs[i] + GMM.score_samples(X))
+            log_probs[:,i] = self.log_probs[i] + GMM.score_samples(X)
             
-        return prob
+        prob = np.exp(log_probs).sum(1)
+        if return_log:
+            return prob, log_probs
+        else:
+            return prob
     
     
     def score_samples(self, X):
-        return np.log(self.prob(X))
+        probs, log_probs = self.prob(X, return_log = True)
+        
+        l_probs = - np.ones(probs.shape, dtype = np.float32) * np.inf
+        
+        # get useful probabilities
+        useful = probs > 0
+        l_probs[useful] = np.log(probs[useful])
+        l_probs = np.maximum(l_probs, log_probs.max(1))
+        
+        return l_probs
         
     
     def sample(self, num_samples = 1):
