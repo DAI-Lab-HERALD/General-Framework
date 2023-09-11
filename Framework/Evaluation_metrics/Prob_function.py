@@ -49,6 +49,8 @@ class OPTICS_GMM():
         self.log_probs = np.log(self.probs)
         
         self.fitted = True
+
+        return self
         
         
     def prob(self, X):
@@ -88,6 +90,8 @@ class OPTICS_GMM():
         samples = np.concatenate(samples, axis = 0)
         
         np.random.shuffle(samples)
+
+        return samples
             
             
         

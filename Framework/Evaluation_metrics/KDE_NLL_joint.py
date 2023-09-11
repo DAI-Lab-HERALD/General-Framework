@@ -3,6 +3,8 @@ import pandas as pd
 from evaluation_template import evaluation_template 
 from sklearn.neighbors import KernelDensity
 
+from Prob_function import OPTICS_GMM
+
 class KDE_NLL_joint(evaluation_template):
     r'''
     The value :math:`F` of the Negative Log Likelihood (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j`), is calculated in the following way:
@@ -46,7 +48,8 @@ class KDE_NLL_joint(evaluation_template):
             path_true_comp = (path_true / std).reshape(-1, n_agents * nto * 2)
             path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
             
-            kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
+            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
+            kde = OPTICS_GMM().fit(path_pred_comp)
                 
             log_prob_true = kde.score_samples(path_true_comp)
             

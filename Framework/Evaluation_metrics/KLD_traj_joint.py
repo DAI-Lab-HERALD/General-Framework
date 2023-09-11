@@ -4,6 +4,8 @@ from evaluation_template import evaluation_template
 from sklearn.neighbors import KernelDensity
 from scipy.stats import gaussian_kde 
 
+from Prob_function import OPTICS_GMM
+
 class KLD_traj_joint(evaluation_template):
     r'''
     TODO: 
@@ -88,8 +90,11 @@ class KLD_traj_joint(evaluation_template):
                 s_pred = s_pred[np.isfinite(s_pred).all(1)]
                 
                 # Train kde models on true and predicted samples
-                kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_true)
-                kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_pred)
+                # kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_true)
+                # kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_pred)
+
+                kde_true = OPTICS_GMM().fit(s_true)
+                kde_pred = OPTICS_GMM().fit(s_pred)
                 
                 # Get the likelihood of the the true samples according to the
                 # true samples. This reflects the fact that we take the 
