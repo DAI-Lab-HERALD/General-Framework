@@ -107,10 +107,12 @@ class OPTICS_GMM():
         for label in np.unqiue(labels):
             num = (label == labels).sum()
             X_label_stand = self.KDEs[label].sample(num)
+            
+            assert len(X_label_stand.shape) == 2
+            assert X_label_stand.shape[1] == self.num_features
+            
             X_label = X_label_stand * self.stds[[label]] + self.means[[label]]
             
-            assert len(X_label.shape) == 2
-            assert X_label.shape[1] == self.num_features
             
             samples.append(self.KDEs[label].sample(num))
             
