@@ -3,6 +3,8 @@ import pandas as pd
 import importlib
 from scenario_none import scenario_none
 import os
+import warnings
+import networkx as nx
 
 class data_interface(object):
     def __init__(self, data_dicts, parameters):
@@ -124,7 +126,19 @@ class data_interface(object):
             data_set.reset()
         
         self.data_loaded = False
-    
+        
+        # Delete extracted data
+        if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
+            del self.X_orig
+            del self.Y_orig
+        
+        if hasattr(self, 'Pred_agents_eval') and hasattr(self, 'Pred_agents_pred'):
+            del self.Pred_agents_eval
+            del self.Pred_agents_pred
+        
+        if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
+            del self.Subgroups
+            del self.Path_true_all
     
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
         return list(self.Datasets.values())[0].change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
@@ -257,9 +271,20 @@ class data_interface(object):
         self.Recorded         = self.Recorded.reset_index(drop = True)
         self.Domain           = self.Domain.reset_index(drop = True)
         
-        self.data_loaded = True
+        # Ensure agent order is the same everywhere
+        Agents = np.array(self.Input_path.columns)
+        self.Output_path = self.Output_path[Agents]
+        self.Type        = self.Type[Agents]
+        self.Recorded    = self.Recorded[Agents]
         
+        # Ensure behavior stuff is aligned
+        self.Output_A = self.Output_A[self.Behaviors]
+        
+        
+        # Set final values
+        self.data_loaded = True
         self.dt = dt
+        
         return complete_failure
         
         
@@ -404,5 +429,215 @@ class data_interface(object):
                      'latex': r'/'.join(self.Latex_names)}
             return names
             
+    #%% Useful function for later modules
+    def _extract_original_trajectories(self):
+        if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
+            return
+        
+        self.N_O_data_orig = np.zeros(len(self.Output_T), int)
+        self.N_O_pred_orig = np.zeros(len(self.Output_T), int)
+        for i_sample in range(self.Output_T.shape[0]):
+            self.N_O_data_orig[i_sample] = len(self.Output_T[i_sample])
+            self.N_O_pred_orig[i_sample] = len(self.Output_T_pred[i_sample])
+        
+        Agents = np.array(self.Input_path.columns)
+        
+        X_help = self.Input_path.to_numpy()
+        Y_help = self.Output_path.to_numpy()
             
+        self.X_orig = np.ones(list(X_help.shape) + [self.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
+        self.Y_orig = np.ones(list(Y_help.shape) + [self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
+        
+        # Extract data from original number a samples
+        for i_sample in range(self.X_orig.shape[0]):
+            for i_agent, agent in enumerate(Agents):
+                if not isinstance(X_help[i_sample, i_agent], float):    
+                    n_time = self.N_O_data_orig[i_sample]
+                    self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
+                    self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+                    
+                    
+    def _determine_pred_agents(self):
+        if hasattr(self, 'Pred_agents_eval') and hasattr(self, 'Pred_agents_pred'):
+            return
+        
+        Agents = np.array(self.Recorded.columns)
+        Required_agents = np.array([agent in self.needed_agents for agent in Agents])
+        Required_agents = np.tile(Required_agents[np.newaxis], (len(self.Recorded), 1))
+        
+        # Get path data
+        self._extract_original_trajectories()
+        
+        if self.agents_to_predict == 'predefined':
+            self.Pred_agents_eval = Required_agents
+            self.Pred_agents_pred = Required_agents
+        else:
+            Recorded_agents = np.zeros(Required_agents.shape, bool)
+            for i_sample in range(len(self.Recorded)):
+                R = self.Recorded.iloc[i_sample]
+                for i_agent, agent in enumerate(Agents):
+                    if isinstance(R[agent], np.ndarray):
+                        Recorded_agents[i_sample, i_agent] = np.all(R[agent])
+        
+            # remove non-moving agents
+            Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
+            Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category = RuntimeWarning)
+                Dr = np.nanmax(Dr, (2, 3))
             
+            # Get moving vehicles
+            Moving_agents = Dr > 0.01
+            
+            # Get correct type 
+            T = self.Type[Agents].to_numpy()
+            if self.agents_to_predict != 'all':
+                Correct_type_agents = T == self.agents_to_predict
+            else:
+                Correct_type_agents = np.ones(T.shape, bool)
+            
+            Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
+            
+            self.Pred_agents_eval = (Correct_type_agents & Required_agents) | Extra_agents
+            self.Pred_agents_pred = Required_agents | Extra_agents
+        
+        
+        # NuScenes exemption:
+        if ((self.get_name()['print'] == 'NuScenes') and
+            (self.num_timesteps_in_real == 4) and 
+            (self.num_timesteps_out_real == 12) and
+            (self.dt == 0.5) and 
+            (self.t0_type == 'all')):
+            
+            # Get predefined predicted agents for NuScenes
+            Pred_agents_N = np.zeros(Required_agents.shape, bool)
+            PA = self.Domain.pred_agents
+            PT = self.Domain.pred_timepoints
+            T0 = self.Domain.t_0
+            for i_sample in range(len(self.Recorded)):
+                pt = PT.iloc[i_sample]
+                t0 = T0.iloc[i_sample]
+                i_time = np.argmin(np.abs(t0 - pt))
+                
+                pas = PA.iloc[i_sample]
+                i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                
+                Pred_agents_N[i_sample, i_agents] = pa
+            
+            self.Pred_agents_eval = Pred_agents_N
+            self.Pred_agents_pred = Pred_agents_N
+            
+        # Check if everything needed is there
+        assert not np.isnan(self.X_orig[self.Pred_agents_pred]).all((1,2)).any(), 'A needed agent is not given.'
+        assert not np.isnan(self.Y_orig[self.Pred_agents_pred]).all((1,2)).any(), 'A needed agent is not given.'
+        
+        
+    def _extract_identical_inputs(self):
+        if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
+            return
+        
+        # get input trajectories
+        self._extract_original_trajectories()
+        self._determine_pred_agents()
+        
+        # Get the same entrie in full dataset
+        T = self.Type.to_numpy().astype(str)
+        PA_str = self.Pred_agents_eval.astype(str) 
+        if hasattr(self.Domain, 'location'):
+            Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
+            Div = np.stack((T, PA_str, Loc), axis = -1)
+        else:
+            Div = np.stack((T, PA_str), axis = -1)
+            
+        Div_unique, Div_inverse, Div_counts = np.unique(Div, axis = 0, 
+                                                        return_inverse = True, 
+                                                        return_counts = True)
+        
+        # Prepare subgroup saving
+        self.Subgroups = np.zeros(len(T), int)
+        max_len = 0
+        subgroup_index = 1
+        
+        # go through all potentiall similar entries
+        for div_inverse in range(len(Div_unique)):
+            # Get potentially similar samples
+            index = np.where(Div_inverse == div_inverse)[0]
+            
+            # Get agents that are there
+            T_div = Div_unique[div_inverse,:,0]
+            useful_agents = np.where(T_div != 'nan')[0]
+            
+            # Get corresponding input path
+            X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+            # X.shape: len(index) x len(useful_agents) x nI x 2
+            
+            # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
+            max_num = np.floor(2 ** 29 / np.prod(X.shape))
+            
+            # Prepare maximum differences
+            D_max = np.zeros((len(index), len(index)), np.float32)
+            
+            # Calculate differences
+            for i in range(int(np.ceil(len(index) / max_num))):
+                d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                D = X[d_index, np.newaxis] - X[np.newaxis]
+                D_max[d_index] = np.nanmax(D, (2,3,4))
+            
+            # Find identical trajectories
+            Identical = D_max < 1e-3
+            
+            # Remove self references
+            Identical[np.arange(len(index)), np.arange(len(index))] = False
+            
+            # Get graph
+            G = nx.Graph(Identical)
+            unconnected_subgraphs = list(nx.connected_components(G))
+            
+            for subgraph in unconnected_subgraphs:
+                # Set subgraph
+                self.Subgroups[index[list(subgraph)]] = subgroup_index
+                
+                # Update parameters
+                subgroup_index += 1
+                max_len = max(max_len, len(subgraph))
+        
+        # check if all samples are accounted for
+        assert self.Subgroups.min() > 0
+        
+        # Get pred agents
+        nto = self.num_timesteps_out_real
+        
+        num_samples = len(self.Pred_agents_eval)
+        max_num_pred_agents = self.Pred_agents_eval.sum(1).max()
+        
+        # Find agents to be predicted first
+        i_agent_sort = np.argsort(-self.Pred_agents_eval.astype(float))
+        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
+        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
+        
+        # reset prediction agents
+        Pred_agents = self.Pred_agents_eval[i_sampl_sort, i_agent_sort]
+        
+        # Sort future trajectories
+        Path_true = self.Y_orig[i_sampl_sort, i_agent_sort, :nto]
+        
+        # Prepare saving of observerd futures
+        self.Path_true_all = np.ones((self.Subgroups.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
+        
+        # Go throug subgroups for data
+        for subgroup in np.unique(self.Subgroups):
+            # get samples with similar inputs
+            s_ind = np.where(subgroup == self.Subgroups)[0]
+            
+            # Get pred agents
+            pred_agents = Pred_agents[s_ind] # shape: len(s_ind) x num_agents
+            
+            # Get future pbservations for all agents
+            path_true = Path_true[s_ind] # shape: len(s_ind) x max_num_pred_agents x nto x 2
+            
+            # Remove not useful agents
+            path_true[~pred_agents] = np.nan
+            
+            # For some reason using pred_agents here moves the agent dimension to the front
+            self.Path_true_all[subgroup,:len(s_ind)] = path_true

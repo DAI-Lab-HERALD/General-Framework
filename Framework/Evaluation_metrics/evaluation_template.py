@@ -1,54 +1,25 @@
 import pandas as pd
 import numpy as np
 import os
-import networkx as nx
 
 
 class evaluation_template():
     def __init__(self, data_set, splitter, model):
         if data_set is not None:
-            self.depict_results = False
-            self.Input_prediction_full = data_set.Input_prediction
-            self.Input_path_full       = data_set.Input_path
-            self.Input_T_full          = data_set.Input_T
-            
-            self.Output_T_full         = data_set.Output_T
-            self.Output_A_full         = data_set.Output_A
-            self.Output_T_E_full       = data_set.Output_T_E
-            
-            self.Domain_full           = data_set.Domain
-            
-            self.num_samples_full      = len(self.Output_T_full)
-            
-            # Ensure the right numebr of agents
-            if self.get_output_type()[:4] == 'path':
-                Agents = np.array(self.Input_path_full.columns)
-                Agent_index = np.ones(len(Agents), bool)
-                
-                if self.get_output_type() == 'path_all_wo_pov':
-                    pov_bool = Agents == data_set.pov_agent
-                    Agent_index[pov_bool] = False
-            else:
-                Agent_index = np.zeros(len(self.Input_path_full.columns), bool)
-            
-            self.Output_path_full = data_set.Output_path.iloc[:, Agent_index]
-            self.Type_full = data_set.Type.iloc[:, Agent_index]
-            self.Pred_agents_full = model._determine_pred_agents(data_set = data_set, 
-                                                                 Recorded = data_set.Recorded,
-                                                                 dynamic  = data_set.agents_to_predict,
-                                                                 evaluate = True)
-            self.Pred_agents_full = self.Pred_agents_full[:, Agent_index]
-            
             self.data_set = data_set
             self.splitter = splitter
             self.model = model
             
+            self.depict_results = False
+            
+            self.Output_A_full         = self.data_set.Output_A
+            self.Output_T_E_full       = self.data_set.Output_T_E
+            
             self.t_e_quantile = self.data_set.p_quantile
             
-    
             if self.requires_preprocessing():
-                test_file = data_set.change_result_directory(splitter.split_filse,
-                                                             'Metrics', self.get_name()['file'] + '_weights')
+                test_file = self.data_set.change_result_directory(splitter.split_filse,
+                                                                  'Metrics', self.get_name()['file'] + '_weights')
                 if os.path.isfile(test_file):
                     self.weights_saved = list(np.load(test_file, allow_pickle = True)[:-1])  
                 else:
@@ -61,33 +32,10 @@ class evaluation_template():
         else:
             self.depict_results = True
     
+
     
-    def _set_current_data(self, Index, Predictions):
-        self.Input_path        = self.Input_path_full.iloc[Index]
-        self.Input_T           = self.Input_T_full[Index]
-        
-        self.Output_path       = self.Output_path_full.iloc[Index]
-        self.Output_T          = self.Output_T_full[Index]
-        self.Output_A          = self.Output_A_full.iloc[Index]
-        self.Output_T_E        = self.Output_T_E_full[Index]
-        
-        self.Type              = self.Type_full.iloc[Index]
-        self.Pred_agents       = self.Pred_agents_full[Index]
-        self.Domain            = self.Domain_full.iloc[Index]
-        
-        self.num_samples = len(self.Output_path)
-        
-                    
-        if self.get_output_type()[:4] == 'path':
-            self.Output_path_pred = Predictions[0].loc[Index]
+    #%% Helper functions
             
-        elif self.get_output_type() == 'class_and_time':
-            self.Output_A_pred   = Predictions[0].loc[Index]
-            self.Output_T_E_pred = Predictions[1].loc[Index]
-            
-        elif self.get_output_type() == 'class':
-            self.Output_A_pred = Predictions[0].loc[Index]
-    
     
     def get_true_and_predicted_class_probabilities(self):
         '''
@@ -144,7 +92,7 @@ class evaluation_template():
         T_true = np.ones((*self.Output_A.shape, 1)) * np.nan
         T_pred = np.ones((*self.Output_A.shape, self.t_e_quantile)) * np.nan
         
-        T_true[np.arange(len(T_true)), np.argmax(self.Output_A.to_numpy(), 1)] = self.Output_T_E.to_numpy()
+        T_true[np.arange(len(T_true)), np.argmax(self.Output_A.to_numpy(), 1), 0] = self.Output_T_E.to_numpy()
         
         for i in range(T_pred.shape[0]):
             for j in range(T_pred.shape[1]):
@@ -189,56 +137,25 @@ class evaluation_template():
 
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
-        nto = self.data_set.num_timesteps_out_real
         
-        if num_preds == None:
-            num_preds = self.data_set.num_samples_path_pred
+        # Get the stochastic prediction indices
+        if num_preds is None:
             idx = np.arange(self.data_set.num_samples_path_pred)
-        elif num_preds <= self.data_set.num_samples_path_pred:
-            idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds]#
         else:
-            idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
+            if num_preds <= self.data_set.num_samples_path_pred:
+                idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds]#
+            else:
+                idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
-        num_samples, num_agents = self.Output_path_pred.shape
+        self.model._transform_predictions_to_numpy(self.Output_path_pred, self.get_output_type() == 'path_all_wo_pov')
         
-        # Get pred agents
-        max_num_pred_agents = self.Pred_agents_full.sum(1).max()
+        Path_true = self.model.Path_true[self.Index_curr_pred]
+        Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
+        Pred_step = self.model.Pred_step[self.Index_curr_pred]
         
-        i_agent_sort = np.argsort(-self.Pred_agents.astype(float))
-        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
-        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
-        
-        Pred_agents = self.Pred_agents[i_sampl_sort, i_agent_sort]
-        
-        # Initialize output
-        Path_pred = np.zeros((num_samples, num_preds, max_num_pred_agents, nto, 2))
-        Path_true = np.zeros((num_samples, 1, max_num_pred_agents, nto, 2))
-        Pred_step = np.zeros((num_samples, max_num_pred_agents, nto), bool)
-        
-        
-        for i in range(num_samples):
-            nto_i = min(nto, len(self.Output_T[i]))
-            
-            pred_agents = Pred_agents[i] 
-            prd_agent_id = i_agent_sort[i, pred_agents]
-            
-            path_pred_orig = self.Output_path_pred.iloc[i, prd_agent_id]
-            path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
-            
-            path_true_orig = self.Output_path.iloc[i, prd_agent_id]
-            path_true = np.stack(path_true_orig.to_numpy(), axis = 0)[np.newaxis]
-            
-            # For some reason using pred_agents here moves the agent dimension to the front
-            Path_pred[i,:,pred_agents,:nto_i] = path_pred[idx,:,:nto_i].transpose(1,0,2,3)
-            Path_true[i,:,pred_agents,:nto_i] = path_true[:,:,:nto_i].transpose(1,0,2,3)
-            
-            Pred_step[i,pred_agents,:nto_i] = True
         
         if return_types:
-            Types = self.Type.to_numpy()
-            Types = Types.astype(str)
-            Types[Types == 'nan'] = '0'
-            Types = Types[i_sampl_sort, i_agent_sort]
+            Types = self.model.T_pred[self.Index_curr_pred]
             return Path_true, Path_pred, Pred_step, Types     
         else:
             return Path_true, Path_pred, Pred_step
@@ -270,145 +187,61 @@ class evaluation_template():
             should be chosen.
 
         '''
-        # Get the same entrie in full dataset
-        T_full = self.Type_full.to_numpy().astype(str)
-        PA_str = self.Pred_agents_full.astype(str) 
-        if hasattr(self.Domain_full, 'location'):
-            Loc = np.tile(self.Domain_full.location.to_numpy().astype(str)[:,np.newaxis], (1, T_full.shape[1]))
-            Div = np.stack((T_full, PA_str, Loc), axis = -1)
-        else:
-            Div = np.stack((T_full, PA_str), axis = -1)
-            
-        Div_unique, Div_inverse, Div_counts = np.unique(Div, axis = 0, 
-                                                        return_inverse = True, 
-                                                        return_counts = True)
+        self.data_set._extract_identical_inputs()
+        Subgroup_unique, Subgroup = np.unique(self.data_set.Subgroups[self.Index_curr], return_inverse = True)
+        Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
         
-        Subgroup_full = np.zeros(len(T_full), int)
-        max_len = 0
-        subgroup_index = 1
-        # go through all potentiall similar entries
-        for div_inverse in np.unique(Div_inverse):
-            index = np.where(Div_inverse == div_inverse)[0]
-            div = Div_unique[div_inverse]
-            
-            T = div[...,0]
-            
-            # Get agents that are there
-            useful_agents = T != 'nan'
-            
-            # Get corresponding input path
-            X = np.stack(self.Input_path_full.iloc[index, useful_agents].to_numpy().tolist())
-            # X.shape: len(index) x useful_agents.sum() x nI x 2
-            
-            # Get differences 
-            D_max = np.zeros((len(index), len(index)), np.float32)
-            
-            max_num = np.floor(2 ** 29 / np.prod(X.shape))
-            
-            for i in range(int(np.ceil(len(index) / max_num))):
-                d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                D = X[d_index, np.newaxis] - X[np.newaxis]
-                D_max[d_index] = np.nanmax(D, (2,3,4))
-            
-            Identical = D_max < 1e-3
-            
-            # Remove self references
-            Identical[np.arange(len(index)), np.arange(len(index))] = False
-            
-            # Get graph
-            G = nx.Graph(Identical)
-            unconnected_subgraphs = list(nx.connected_components(G))
-            
-            for subgraph in unconnected_subgraphs:
-                Subgroup_full[index[list(subgraph)]] = subgroup_index
-                max_len = max(max_len, len(subgraph))
-                
-                subgroup_index += 1
-        
-        assert Subgroup_full.min() > 0
-        
-        # Get pred agents
-        nto = self.data_set.num_timesteps_out_real
-        
-        num_samples = len(self.Pred_agents_full)
-        max_num_pred_agents = self.Pred_agents_full.sum(1).max()
-        
-        i_agent_sort = np.argsort(-self.Pred_agents_full.astype(float))
-        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
-        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
-        
-        Pred_agents = self.Pred_agents_full[i_sampl_sort, i_agent_sort]
-        
-        Path_true_all = np.ones((Subgroup_full.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
-        
-        for subgroup in np.unique(Subgroup_full):
-            # get identical input
-            identical_ind = np.where(subgroup == Subgroup_full)[0]
-            
-            # Get pred agents
-            pred_agents_u = np.unique(Pred_agents[identical_ind], axis = 0)
-            assert len(pred_agents_u) == 1
-            pred_agents = pred_agents_u[0] 
-            prd_agent_id = i_agent_sort[identical_ind[0], pred_agents]
-            
-            path_true_orig = self.Output_path_full.iloc[identical_ind, prd_agent_id]
-            try:
-                path_true_all = np.stack(path_true_orig.to_numpy().tolist())
-            except:
-                path_true_all = np.ones((len(identical_ind), len(prd_agent_id), nto, 2)) * np.nan 
-                for j, j_ind in enumerate(identical_ind):
-                    nto_j = min(nto, len(self.Output_T_full[j_ind]))
-                    path_true_all[j, :, :nto_j] = np.stack(path_true_orig.iloc[j].to_numpy())[:,:nto_j,:]
-            
-            # nto available
-            nto_i = min(nto, path_true_all.shape[2])
-            # For some reason using pred_agents here moves the agent dimension to the front
-            Path_true_all[subgroup,:len(identical_ind),pred_agents,:nto_i] = path_true_all[:,:,:nto_i].transpose(1,0,2,3)
-            
-        return Path_true_all, Subgroup_full[self.Index_curr]
-            
+        return Path_true_all, Subgroup
     
-    def _check_predictions(self, Output_pred):
-        # Get output_data_train           
-        if self.get_output_type()[:4] == 'path':
-            [Pred_index, Output_path_pred] = Output_pred
-            # reorder columns if needed
-            Output_path_pred = Output_path_pred[self.Output_path_full.columns]
-            for i, i_full in enumerate(Pred_index):                
-                test_length = len(self.Output_T_full[i_full])
-                for j in range(Output_path_pred.shape[1]):
-                    # Ensure that prediction has corresponding ground truth
-                    if not isinstance(Output_path_pred.iloc[i,j], np.ndarray):
-                        assert not self.Pred_agents_full[i,j], "Desired agent is missing"
-                        continue
-                    
-                    Output_path_pred.iloc[i,j] = Output_path_pred.iloc[i,j][:,:test_length]
-                    if self.Pred_agents_full[i,j]:
-                        assert np.isfinite(Output_path_pred.iloc[i,j]).all(), "NaN positions are predicted."
-                        
-            Predictions = [Output_path_pred]
-        elif self.get_output_type() == 'class_and_time':
-            [Pred_index, Output_A_pred, Output_T_E_pred] = Output_pred
+    #%% Actual evaluation functions
+    def _set_current_data(self, Output_pred):
+        Pred_index = Output_pred[0]
+        
+        # TODO: get index on predicted_agents
+        match = Pred_index[np.newaxis,:] == self.Index_curr[:,np.newaxis]
+        
+        if not (match.sum(1) == 1).all():
+            return False
+        
+        self.Index_curr_pred = match.argmax(1)
+        
+        if self.get_output_type()[:5] == 'class':
+            # Get label predictions
+            Output_A_pred = Output_pred[1]
+            columns = self.Output_A_full.columns
             
-            # reorder columns if needed
-            Output_A_pred   = Output_A_pred[self.Output_A_full.columns]
-            Output_T_E_pred = Output_T_E_pred[self.Output_A_full.columns]
+            self.Output_A_pred = Output_A_pred[columns].iloc[self.Index_curr_pred]
+            self.Output_A      = self.Output_A_full.iloc[self.Index_curr]
             
-            Predictions = [Output_A_pred, Output_T_E_pred]
             
-        elif self.get_output_type() == 'class':
-            [Pred_index, Output_A_pred] = Output_pred
-            
-            # reorder columns if needed
-            Output_A_pred = Output_A_pred[self.Output_A_full.columns]
-            
-            Predictions = [Output_A_pred]
+            if self.get_output_type() == 'class_and_time':
+                Output_T_E_pred = Output_pred[2]
+                
+                # reorder columns if needed
+                self.Output_T_E      = self.Output_T_E_full[self.Index_curr]
+                self.Output_T_E_pred = Output_T_E_pred[columns].iloc[self.Index_curr_pred]
+        
         else:
-            raise AttributeError("This type of prediction is not implemented")
+            self.Output_path_pred = Output_pred[1]
         
-        return Predictions, Pred_index
+        return True
         
         
+    def _evaluate_on_subset(self, Output_pred, create_plot):
+        if len(self.Index_curr) == 0:
+            return None
+        
+        available = self._set_current_data(Output_pred)
+        if available:
+            results = self.evaluate_prediction_method()
+        
+            if create_plot:
+                self.create_plot(results, self.metric_file)
+        else:
+            results = None
+        
+        return results
+    
         
     def evaluate_prediction(self, Output_pred, create_plot_if_possible = False):
         if self.depict_results:
@@ -422,17 +255,11 @@ class evaluation_template():
             
             if (Results[0] is None) and self.model.evaluate_on_train_set:
                 # Get train results
-                Predictions, Pred_index = self._check_predictions(Output_pred)
-                self._set_current_data(self.splitter.Train_index)
-                Results[0] = self.evaluate_prediction_method()
-                
-            if create_plot_if_possible:
-                self.create_plot(Results[1], self.metric_file)
+                self.Index_curr = (self.splitter.Train_index)
+                Results[0] = self._evaluate_on_subset(Output_pred, create_plot_if_possible)
      
             return Results
         else:
-            # Get output_data_train           
-            Predictions, Pred_index = self._check_predictions(Output_pred)
             
             Results = []
             # Evaluate the model both on the training set and the testing set
@@ -440,24 +267,18 @@ class evaluation_template():
                                   np.unique(self.splitter.Test_index)):
                 
                 # check what predictions are available
-                if np.all(np.unique(Pred_index) == np.unique(self.splitter.Test_index)):
-                    Indeces = [[], Pred_index]
+                if self.model.evaluate_on_train_set:
+                    Indices = [self.splitter.Train_index, self.splitter.Test_index]
                 else:
-                    assert np.all(np.unique(Pred_index) == np.arange(len(self.Output_T_full))), "There are missing predictions."
-                    Indeces = [self.splitter.Train_index, self.splitter.Test_index]
-                
-                for self.Index_curr in Indeces:
-                    if len(self.Index_curr) > 0:
-                        self._set_current_data(self.Index_curr, Predictions)
-                        Results.append(self.evaluate_prediction_method()) # output needs to be a list of components
-                    else:
-                        Results.append(None)
+                    Indices = [np.array([]), self.splitter.Test_index]
+                    
+                    
+                for self.Index_curr in Indices:
+                    Results.append(self._evaluate_on_subset(Output_pred, create_plot_if_possible)) # output needs to be a list of components
             else:
                 self.Index_curr = self.splitter.Test_index
-                self._set_current_data(self.Index_curr)
                 
-                results = self.evaluate_prediction_method()
-                
+                results = self._evaluate_on_subset(Output_pred, create_plot_if_possible)
                 Results.append(results)
                 Results.append(results)
             
