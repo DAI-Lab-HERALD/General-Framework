@@ -52,6 +52,9 @@ class KLD_traj_indep(evaluation_template):
         # Consider agents separately
         Pred_agents = Pred_steps.any(-1)
         
+        # Get maximum number representing a distribution
+        max_samples = Path_true_all.shape[1]
+        
         # Combine agent and samples separately (differentiate between agents)
         agent_indicator = np.linspace(0.1,0.9, Pred_agents.shape[1])
         subgroups = subgroups[:,np.newaxis] + agent_indicator[np.newaxis,:]
@@ -76,40 +79,36 @@ class KLD_traj_indep(evaluation_template):
             
             # get the predicted paths for all samples with similar input
             samples_pred = Path_pred[indices]
+            
             # Combine samples and prediction into one dimension
             samples_pred = samples_pred.reshape(-1, *samples_pred.shape[2:]) 
             
-            # Get individual kld values over timestep
-            kld_timesteps = np.zeros(samples_pred.shape[-2])
+            # Select number of representative samples
+            if len(samples_pred) > max_samples:
+                idx = np.random.choice(len(samples_pred), max_samples, replace = False)
+                samples_pred = samples_pred[idx]
             
-            for t_ind in range(samples_pred.shape[-2]):
-                # Get position at current timestep
-                s_true = samples_true[...,t_ind, :]
-                s_pred = samples_pred[...,t_ind, :]
-                
-                # Exclude samples where 
-                s_true = s_true[np.isfinite(s_true).all(1)]
-                s_pred = s_pred[np.isfinite(s_pred).all(1)]
-                
-                
-                # Train kde models on true and predicted samples
-                # kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_true)
-                # kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(s_pred)
+            # Combine agents and dimensions
+            samples_true = samples_true.reshape(len(samples_true), -1)
+            samples_pred = samples_pred.reshape(len(samples_pred), -1)
+            
+            # Remove samples that are filler
+            samples_true = samples_true[np.isfinite(samples_true).all(1)]
+            
+            # Train kde models on true and predicted samples
+            # kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(samples_true)
+            # kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(samples_pred)
 
-                kde_true = OPTICS_GMM().fit(s_true)
-                kde_pred = OPTICS_GMM().fit(s_pred)
-                
-                # Get the likelihood of the the true samples according to the
-                # true samples. This reflects the fact that we take the 
-                # expected value over the true distribtuion
-                log_like_true = kde_true.score_samples(s_true)
-                log_like_pred = kde_pred.score_samples(s_true)
-                
-                # Calculate KLD at this timestep
-                kld_timesteps[t_ind] = np.mean((log_like_true-log_like_pred))
+            kde_true = OPTICS_GMM().fit(samples_true)
+            kde_pred = OPTICS_GMM().fit(samples_pred)
             
-            # Average KLD of this subgroup over time and add to total
-            KLD += kld_timesteps.mean()
+            # Get the likelihood of the the true samples according to the
+            # true samples. This reflects the fact that we take the 
+            # expected value over the true distribtuion
+            log_like_true = kde_true.score_samples(samples_true)
+            log_like_pred = kde_pred.score_samples(samples_true)
+            
+            KLD += np.mean((log_like_true-log_like_pred))
         
         # Average KLD over subgroups
         KLD /= len(unique_subgroups)
@@ -133,7 +132,8 @@ class KLD_traj_indep(evaluation_template):
         return False
     
     def check_applicability(self):
-        # TODO: Check if there are enough similar predictions
+        if not self.data_set.enforce_num_timesteps_out:
+            return "the metric requires that ouput trajectories are fully observed."
         return None
     
     def requires_preprocessing(self):

@@ -20,7 +20,7 @@ class OPTICS_GMM():
     def fit(self, X):
         assert len(X.shape) == 2
         
-        self.num_parameters = X.shape[1]
+        self.num_features = X.shape[1]
         
         # Get clusters using the OPTICS
         optics = OPTICS(min_samples = 5, min_cluster_size = 3)
@@ -57,7 +57,7 @@ class OPTICS_GMM():
         assert self.fitted, 'The model was not fitted yet'
         
         assert len(X.shape) == 2
-        assert X.shape[1] == self.num_parameters
+        assert X.shape[1] == self.num_features
         
         # calculate logarithmic probability
         prob = np.zeros(len(X))
@@ -80,8 +80,10 @@ class OPTICS_GMM():
         l_probs = - np.ones(probs.shape, dtype = np.float32) * np.inf
         
         # get useful probabilities
-        useful = probs > 0
+        useful = (probs > 0) & (probs < np.inf) 
         l_probs[useful] = np.log(probs[useful])
+        
+        # Get edge cases
         l_probs = np.maximum(l_probs, log_probs.max(1))
         
         return l_probs
@@ -99,7 +101,7 @@ class OPTICS_GMM():
             X_label = self.GMMs[label].sample(num)
             
             assert len(X_label.shape) == 2
-            assert X_label.shape[1] == self.num_parameters
+            assert X_label.shape[1] == self.num_features
             
             samples.append(self.GMMs[label].sample(num))
             
