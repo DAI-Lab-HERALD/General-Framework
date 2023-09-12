@@ -1257,13 +1257,8 @@ class Experiment():
             t.close()
                 
     #%% Draw singel example
-    def plot_paths(self, load_all = False):
-        assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
-        assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
-        
-        plt.close('all')
-        time.sleep(0.05)
-        
+    
+    def _get_data(self):
         # select dataset if needed:
         if self.num_data_sets > 1:
             print('------------------------------------------------------------------', flush = True)
@@ -1322,7 +1317,6 @@ class Experiment():
             data_param = self.Data_params[0]
         
         # Load predicted data 
-        num_samples_path_pred = self.parameters[1]
         data_set.get_data(**data_param)
         
         if self.num_splitters > 1:
@@ -1415,18 +1409,120 @@ class Experiment():
         
         output_trans_path = data_set.transform_outputs(output, model.get_output_type(), 
                                                        'path_all_wi_pov', model.pred_file)
-        [Pred_index, Output_path_pred] = output_trans_path
+        
+        # Get predictions        
+        Output_path_pred = output_trans_path[1]
+        Pred_index = output_trans_path[0]
+        
+        # Get test index 
+        Test_index = splitter.Test_index
+        
+        # Transform index
+        TP_index = Test_index[:,np.newaxis] == Pred_index[np.newaxis]
+        assert (TP_index.sum(1) == 1).all()
+        TP_index = TP_index.argmax(1)
         
         # Load needed files
-        Input_path  = data_set.Input_path.iloc[splitter.Test_index]
-        Output_path = data_set.Output_path.iloc[splitter.Test_index]
-        Output_A    = data_set.Output_A.iloc[splitter.Test_index]
-        Output_T_E  = data_set.Output_T_E[splitter.Test_index]
-        Domain      = data_set.Domain.iloc[splitter.Test_index]
+        Input_path       = data_set.Input_path.iloc[Test_index]
+        Output_path      = data_set.Output_path.iloc[Test_index]
+        Output_path_pred = Output_path_pred.iloc[TP_index]
+        Output_A         = data_set.Output_A.iloc[Test_index]
+        Output_T_E       = data_set.Output_T_E[Test_index]
+        Domain           = data_set.Domain.iloc[Test_index]
         
         if data_set.includes_images():
             Imgs = data_set.return_batch_images(Domain, None, None, 
                                                 None, None, grayscale = False) 
+        else:
+            Imgs = None
+            
+        return [data_set, data_param, model, 
+                Input_path, Output_path, Output_path_pred, 
+                Output_A, Output_T_E, Imgs, Domain]
+    
+    def _get_data_sample(self, sample_ind, Input_path, Output_path, Output_path_pred, 
+                         Output_A, Output_T_E, Imgs, Domain):
+        
+        input_path       = Input_path.iloc[sample_ind]
+        output_path      = Output_path.iloc[sample_ind]
+        output_path_pred = Output_path_pred.iloc[sample_ind]
+        output_A         = Output_A.iloc[sample_ind]
+        output_T_E       = Output_T_E[sample_ind]
+        domain           = Domain.iloc[sample_ind]
+        
+        if Imgs is not None:
+            img = Imgs[sample_ind] / 255
+        else:
+            img = None
+        
+        # Load raw darta
+        ind_p = np.array([name for name in input_path.index 
+                          if isinstance(input_path[name], np.ndarray)])
+        
+        ind_pp = np.array([name for name in output_path_pred.index 
+                           if isinstance(output_path_pred[name], np.ndarray)])
+        
+        opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+        op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
+        ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
+        
+        max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)), 
+                                    np.max(op, axis = (0,1)),
+                                    np.max(ip, axis = (0,1))], axis = 0), axis = 0)
+        
+        min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)), 
+                                    np.min(op, axis = (0,1)),
+                                    np.min(ip, axis = (0,1))], axis = 0), axis = 0)
+        
+        max_v = np.ceil((max_v + 10) / 10) * 10
+        min_v = np.floor((min_v - 10) / 10) * 10
+        
+        return [opp, op, ip, ind_pp, ind_p, min_v, max_v,
+                output_A, output_T_E, img, domain]
+    
+    
+    def _draw_background(self, ax, data_set, img, domain):
+        # Load line segments of data_set 
+        map_lines_solid, map_lines_dashed = data_set.provide_map_drawing(domain = domain)
+        
+        bcdict = {'red': ((0, 0.0, 0.0),
+                          (1, 0.0, 0.0)),
+               'green': ((0, 0.0, 0.0),
+                         (1, 0.0, 0.0)),
+               'blue': ((0, 0.0, 0.0),
+                        (1, 0.0, 0.0))}
+
+        cmap = LinearSegmentedColormap('custom_cmap_l', bcdict)
+        
+        map_solid = LineCollection(map_lines_solid, cmap=cmap, linewidths=2, linestyle = 'solid')
+        map_solid_colors = list(np.ones(len(map_lines_solid)))
+        map_solid.set_array(np.asarray(map_solid_colors))
+        
+        map_dashed = LineCollection(map_lines_dashed, cmap=cmap, linewidths=1, linestyle = 'dashed')
+        map_dashed_colors = list(np.ones(len(map_lines_dashed)))
+        map_dashed.set_array(np.asarray(map_dashed_colors))
+        
+        # Add background picture
+        if data_set.includes_images():
+            height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain))
+            ax.imshow(img, extent=[-width/2, width/2, -height/2, height/2], interpolation='nearest')
+        
+        # Draw boundaries
+        ax.add_collection(map_solid)
+        ax.add_collection(map_dashed)
+        
+            
+    
+    def plot_paths(self, load_all = False):
+        assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
+        assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
+        
+        plt.close('all')
+        time.sleep(0.05)
+        
+        [data_set, data_param, model, 
+         Input_path, Output_path, Output_path_pred, 
+         Output_A, Output_T_E, Imgs, Domain] = self._get_data()
         
         if not load_all:
             print('------------------------------------------------------------------', flush = True)
@@ -1483,82 +1579,17 @@ class Experiment():
         else:
             sample_inds = np.arange(len(Input_path))
         
-        
         ## Get specific case
         for sample_ind in sample_inds:   
-            input_path       = Input_path.iloc[sample_ind]
-            output_path      = Output_path.iloc[sample_ind]
-            output_A         = Output_A.iloc[sample_ind]
-            output_T_E       = Output_T_E[sample_ind]
-            domain           = Domain.iloc[sample_ind]
-            if data_set.includes_images():
-                img = Imgs[sample_ind] / 255
-                
-            # Get Pred index
-            pred_index = np.where(splitter.Test_index[sample_ind] == Pred_index)[0][0]
-            output_path_pred = Output_path_pred.iloc[pred_index]
-            
-            useful_columns = np.array([isinstance(path, np.ndarray) for path in input_path])
-            
-            input_path = input_path.iloc[useful_columns]
-            output_path = output_path.iloc[useful_columns]
-            
-            
-            ## Load map
-            # Load line segments of data_set 
-            map_lines_solid, map_lines_dashed = data_set.provide_map_drawing(domain = domain)
-            
-            bcdict = {'red': ((0, 0.0, 0.0),
-                              (1, 0.0, 0.0)),
-                   'green': ((0, 0.0, 0.0),
-                             (1, 0.0, 0.0)),
-                   'blue': ((0, 0.0, 0.0),
-                            (1, 0.0, 0.0))}
-    
-            cmap = LinearSegmentedColormap('custom_cmap_l', bcdict)
-            
-            map_solid = LineCollection(map_lines_solid, cmap=cmap, linewidths=2, linestyle = 'solid')
-            map_solid_colors = list(np.ones(len(map_lines_solid)))
-            map_solid.set_array(np.asarray(map_solid_colors))
-            
-            map_dashed = LineCollection(map_lines_dashed, cmap=cmap, linewidths=1, linestyle = 'dashed')
-            map_dashed_colors = list(np.ones(len(map_lines_dashed)))
-            map_dashed.set_array(np.asarray(map_dashed_colors))
-            
-            # Load raw darta
-            ind_p = np.array([name for name in input_path.index 
-                              if isinstance(input_path[name], np.ndarray)])
-            
-            ind_pp = np.array([name for name in output_path_pred.index 
-                               if isinstance(output_path_pred[name], np.ndarray)])
-            
-            opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
-            op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
-            ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
-            
-            max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)), 
-                                        np.max(op, axis = (0,1)),
-                                        np.max(ip, axis = (0,1))], axis = 0), axis = 0)
-            
-            min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)), 
-                                        np.min(op, axis = (0,1)),
-                                        np.min(ip, axis = (0,1))], axis = 0), axis = 0)
-            
-            max_v = np.ceil((max_v + 10) / 10) * 10
-            min_v = np.floor((min_v - 10) / 10) * 10
+            [opp, op, ip, ind_pp, ind_p, min_v, max_v, 
+             output_A, output_T_E, img, domain] = self._get_data(sample_ind, Input_path, Output_path, Output_path_pred, 
+                                                                 Output_A, Output_T_E, Imgs, Domain)
             
             # plot figure
-            # plot map
             fig, ax = plt.subplots(figsize = (10,8))
             
-            # Add background picture
-            if data_set.includes_images():
-                height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain))
-                ax.imshow(img, extent=[-width/2, width/2, -height/2, height/2], interpolation='nearest')
-            
-            # Draw boundaries
-            ax.add_collection(map_solid)
-            ax.add_collection(map_dashed)
+            # plot map
+            self._draw_background(ax, data_set, img, domain)
             
             # plot inputs
             colors = matplotlib.cm.tab20(range(len(ind_p)))
@@ -1572,6 +1603,8 @@ class Experiment():
                     color_pred = np.ones(4, float)
                     color_pred[:3] = 1 - 0.5 * (1 - color[:3])
                     i_agent = np.where(agent == ind_pp)[0][0]
+                    
+                    num_samples_path_pred = self.parameters[1]
                     for j in range(num_samples_path_pred):
                         ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
                                 np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
