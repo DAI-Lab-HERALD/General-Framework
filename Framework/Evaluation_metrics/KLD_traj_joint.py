@@ -104,6 +104,8 @@ class KLD_traj_joint(evaluation_template):
             log_like_true = kde_true.score_samples(samples_true)
             log_like_pred = kde_pred.score_samples(samples_true)
             
+            assert False
+            
             KLD += np.mean((log_like_true-log_like_pred))
             
         

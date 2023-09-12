@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.cluster import OPTICS
-from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import KernelDensity
 
 class OPTICS_GMM():
     '''
@@ -35,15 +35,22 @@ class OPTICS_GMM():
             cluster_size  = cluster_size[1:]
             
         # Fit GMM to each model
-        self.GMMs = []
+        self.KDEs = []
+        self.means = np.zeros((len(unique_labels), self.num_features))
+        self.stds  = np.zeros((len(unique_labels), self.num_features))
         for i, label in enumerate(unique_labels):
             # Get cluster data
             X_label = X[cluster_labels == label]
             assert len(X_label) == cluster_size[i]
             
+            self.means[i] = X_label.mean(0)
+            self.stds[i]  = X_label.std(0)
+            
+            X_label_stand = (X_label - self.means[[i]]) / self.stds[[i]]
+            
             # Fit GMM distribution
-            GMM = GaussianMixture().fit(X_label)
-            self.GMMs.append(GMM)
+            kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_stand)
+            self.KDEs.append(kde)
             
         self.probs = cluster_size / cluster_size.sum()
         self.log_probs = np.log(self.probs)
@@ -62,10 +69,11 @@ class OPTICS_GMM():
         # calculate logarithmic probability
         prob = np.zeros(len(X))
         
-        log_probs = np.zeros((len(X), len(self.GMMs)), dtype = np.float32)
+        log_probs = np.zeros((len(X), len(self.KDEs)), dtype = np.float32)
         
-        for i, GMM in enumerate(self.GMMs):
-            log_probs[:,i] = self.log_probs[i] + GMM.score_samples(X)
+        for i, GMM in enumerate(self.KDEs):
+            X_stand = (X - self.means[[i]]) / self.stds[[i]]
+            log_probs[:,i] = self.log_probs[i] + GMM.score_samples(X_stand) - np.log(self.stds[i]).sum()
             
         prob = np.exp(log_probs).sum(1)
         if return_log:
@@ -92,18 +100,19 @@ class OPTICS_GMM():
     def sample(self, num_samples = 1):
         assert self.fitted, 'The model was not fitted yet'
         
-        labels = np.random.choice(np.arange(len(self.GMMs)), num_samples, p = self.probs)
+        labels = np.random.choice(np.arange(len(self.KDEs)), num_samples, p = self.probs)
         
         samples = []
         
         for label in np.unqiue(labels):
             num = (label == labels).sum()
-            X_label = self.GMMs[label].sample(num)
+            X_label_stand = self.KDEs[label].sample(num)
+            X_label = X_label_stand * self.stds[[label]] + self.means[[label]]
             
             assert len(X_label.shape) == 2
             assert X_label.shape[1] == self.num_features
             
-            samples.append(self.GMMs[label].sample(num))
+            samples.append(self.KDEs[label].sample(num))
             
         samples = np.concatenate(samples, axis = 0)
         
