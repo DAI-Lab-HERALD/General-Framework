@@ -147,7 +147,7 @@ class evaluation_template():
             else:
                 idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
-        self.model._transform_predictions_to_numpy(self.Output_path_pred, self.get_output_type() == 'path_all_wo_pov')
+        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, self.get_output_type() == 'path_all_wo_pov')
         
         Path_true = self.model.Path_true[self.Index_curr_pred]
         Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
@@ -195,10 +195,10 @@ class evaluation_template():
     
     #%% Actual evaluation functions
     def _set_current_data(self, Output_pred):
-        Pred_index = Output_pred[0]
+        self.Pred_index = Output_pred[0]
         
         # TODO: get index on predicted_agents
-        match = Pred_index[np.newaxis,:] == self.Index_curr[:,np.newaxis]
+        match = self.Pred_index[np.newaxis,:] == self.Index_curr[:,np.newaxis]
         
         if not (match.sum(1) == 1).all():
             return False

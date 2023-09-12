@@ -932,7 +932,7 @@ class model_template():
         return self.check_trainability_method()
     
     # %% Method needed for evaluation_template
-    def _transform_predictions_to_numpy(self, Output_path_pred, exclude_ego = False):
+    def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
             return
         
@@ -946,10 +946,10 @@ class model_template():
         
         # Get predicted timesteps
         nto = self.num_timesteps_out
-        Nto_i = np.minimum(nto, self.N_O_data[self.Index_test])
+        Nto_i = np.minimum(nto, self.N_O_data[Pred_index])
         
         # get predicted agents
-        pred_agents = self.data_set.Pred_agents_eval[self.Index_test]
+        pred_agents = self.data_set.Pred_agents_eval[Pred_index]
         
         # exclude ego agent if so desired
         if exclude_ego:
@@ -969,7 +969,7 @@ class model_template():
         self.Pred_step = self.Pred_step[:,np.newaxis] & pred_agents[i_sampl_sort,i_agent_sort,np.newaxis]
         
         # Get true predictions
-        self.Path_true = self.data_set.Y_orig[self.Index_test]
+        self.Path_true = self.data_set.Y_orig[Pred_index]
         self.Path_true = self.Path_true[i_sampl_sort, i_agent_sort, :nto]
         self.Path_true[~self.Pred_step] = 0.0
         self.Path_true = self.Path_true[:,np.newaxis]
@@ -996,7 +996,7 @@ class model_template():
         self.Path_pred = self.Path_pred.transpose(1,0,2,3,4)
         
         # Get agent predictions
-        self.T_pred = self.data_set.Type.iloc[self.Index_test].to_numpy()
+        self.T_pred = self.data_set.Type.iloc[Pred_index].to_numpy()
         self.T_pred = self.T_pred.astype(str)
         self.T_pred[self.T_pred == 'nan'] = '0'
         self.T_pred = self.T_pred[i_sampl_sort, i_agent_sort]
