@@ -37,7 +37,7 @@ class ADE_ML_joint(evaluation_template):
         
         
         Path_pred_ml = np.zeros(Path_pred[:,0].shape)
-        for i_sample in range(len(self.Output_path_pred)):
+        for i_sample in range(len(Path_true)):
             pred_agents = Pred_agents[i_sample]
             std = 1 + (Types[i_sample, pred_agents] != 'P') * 79
             std = std[np.newaxis, :, np.newaxis, np.newaxis]
