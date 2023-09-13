@@ -41,7 +41,7 @@ class Forking_Paths_interactive(data_set_template):
     def create_path_samples(self): 
         # Load raw data
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths_complete' + os.sep + 'FP_comp_processed.pkl')
         # analize raw dara 
         num_tars = len(self.Data)
         self.num_samples = 0 
@@ -110,6 +110,10 @@ class Forking_Paths_interactive(data_set_template):
             domain_init = Domain_init.iloc[i]
         
             other_samples_bool = (Domain_init.scene == domain_init.scene).to_numpy()
+            
+            if other_samples_bool.sum() < 2:
+                continue
+            
             num_T = path_init.shape[0]
             Paths_other = np.zeros((other_samples_bool.sum(), num_T, 2), np.float32)
             Paths_other_df = Path_init.iloc[other_samples_bool]

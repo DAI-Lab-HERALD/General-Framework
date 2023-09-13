@@ -55,6 +55,8 @@ class agent_yuan(model_template):
         # training as possible. However, this comes at a decrease in performance, so for best possible
         # results, switching to self.batch_size = 1 would likely be advisable.
         
+        self.batch_size = 1
+        
         self.sample_number = 10
         
         self.use_map = self.can_use_map and self.has_map

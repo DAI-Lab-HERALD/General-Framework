@@ -366,7 +366,7 @@ class trajectron_salzmann_old(model_template):
         optimizer = dict()
         lr_scheduler = dict()
         for node_type in Pred_types:
-            if node_type  in self.trajectron.hyperparams['pred_state']:
+            if node_type in self.trajectron.hyperparams['pred_state']:
                 optimizer[node_type] = optim.Adam([{'params': self.trajectron.model_registrar.get_all_but_name_match('map_encoder').parameters()},
                                                    {'params': self.trajectron.model_registrar.get_name_match('map_encoder').parameters(), 
                                                     'lr': 0.0008}], 
