@@ -253,7 +253,8 @@ class flomo_schoeller(model_template):
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
 
         # Prepare stuff for Normalization
-        if self.data_set.get_name()['file'] == 'Fork_P_Aug':
+        if (self.data_set.get_name()['file'] == 'Fork_P_Aug' or
+            self.data_set.get_name()['file'] == 'Fork_Paths'):
             X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
             traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
             self.max_pos = np.max(traj_tar)
@@ -313,8 +314,7 @@ class flomo_schoeller(model_template):
             Pred[Ped_agent[:,0]]  *= self.std_pos_ped
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
 
-            if self.data_set.get_name()['file'] == 'Fork_P_Aug':
-                Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
+            Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
             
             torch.cuda.empty_cache()
             
