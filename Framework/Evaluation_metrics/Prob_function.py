@@ -22,11 +22,17 @@ class OPTICS_GMM():
         
         self.num_features = X.shape[1]
         
-        # Get clusters using the OPTICS
-        optics = OPTICS(min_samples = 5, min_cluster_size = 3)
-        optics.fit(X)
-        cluster_labels = optics.labels_
+        num_min_samples = 10
         
+        if len(X) > num_min_samples:
+            # Get clusters using the OPTICS
+            optics = OPTICS(min_samples = num_min_samples, min_cluster_size = num_min_samples)
+            optics.fit(X)
+            cluster_labels = optics.labels_
+        
+        else:
+            cluster_labels = np.zeros(len(X))
+            
         unique_labels, cluster_size = np.unique(cluster_labels, return_counts = True)
         # Check for noise points
         if unique_labels.min() == -1:
@@ -44,7 +50,7 @@ class OPTICS_GMM():
             assert len(X_label) == cluster_size[i]
             
             self.means[i] = X_label.mean(0)
-            self.stds[i]  = X_label.std(0)
+            self.stds[i]  = X_label.std(0) + 0.001 * X_label.std(0).max() + 1e-6
             
             X_label_stand = (X_label - self.means[[i]]) / self.stds[[i]]
             
@@ -69,12 +75,13 @@ class OPTICS_GMM():
         # calculate logarithmic probability
         prob = np.zeros(len(X))
         
-        log_probs = np.zeros((len(X), len(self.KDEs)), dtype = np.float32)
+        log_probs = np.zeros((len(X), len(self.KDEs)), dtype = np.float64)
         
         for i, GMM in enumerate(self.KDEs):
             X_stand = (X - self.means[[i]]) / self.stds[[i]]
             log_probs[:,i] = self.log_probs[i] + GMM.score_samples(X_stand) - np.log(self.stds[i]).sum()
-            
+        
+        # Deal with overflow
         prob = np.exp(log_probs).sum(1)
         if return_log:
             return prob, log_probs
@@ -114,7 +121,7 @@ class OPTICS_GMM():
             X_label = X_label_stand * self.stds[[label]] + self.means[[label]]
             
             
-            samples.append(self.KDEs[label].sample(num))
+            samples.append(X_label)
             
         samples = np.concatenate(samples, axis = 0)
         
