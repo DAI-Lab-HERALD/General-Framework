@@ -1358,6 +1358,41 @@ class Experiment():
         split_name = split_param['Type']
         split_class = getattr(importlib.import_module(split_name), split_name)
         
+        # Use splitting method to get train and test samples
+        if 'repetition' in split_param.keys():
+            split_rep = split_param['repetition']
+        else:
+            split_rep = 0
+            
+        if 'test_part' in split_param.keys():
+            split_tp = split_param['test_part']
+        else:
+            split_tp = 0.2
+        splitter = split_class(data_set, split_tp, split_rep)
+        splitter.split_data() 
+        
+        # Get test index 
+        Test_index = splitter.Test_index
+        
+        # Load needed files
+        Input_path       = data_set.Input_path.iloc[Test_index]
+        Output_path      = data_set.Output_path.iloc[Test_index]
+        Output_A         = data_set.Output_A.iloc[Test_index]
+        Output_T_E       = data_set.Output_T_E[Test_index]
+        Domain           = data_set.Domain.iloc[Test_index]
+        
+        if data_set.includes_images():
+            Imgs = data_set.return_batch_images(Domain, None, None, 
+                                                None, None, grayscale = False) 
+        else:
+            Imgs = None
+            
+        return [data_set, data_param, splitter, 
+                Input_path, Output_path, 
+                Output_A, Output_T_E, Imgs, Domain]
+    
+    
+    def _get_data_pred(self, data_set, splitter):
         if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
@@ -1388,20 +1423,7 @@ class Experiment():
             model_name = self.Models[0]
         
         model_class = getattr(importlib.import_module(model_name), model_name)
-        
-        # Use splitting method to get train and test samples
-        if 'repetition' in split_param.keys():
-            split_rep = split_param['repetition']
-        else:
-            split_rep = 0
-            
-        if 'test_part' in split_param.keys():
-            split_tp = split_param['test_part']
-        else:
-            split_tp = 0.2
-        splitter = split_class(data_set, split_tp, split_rep)
-        splitter.split_data() 
-        
+       
         # Load specific model
         model = model_class(data_set, splitter, self.evaluate_on_train_set)
         model.train()
@@ -1414,38 +1436,21 @@ class Experiment():
         Output_path_pred = output_trans_path[1]
         Pred_index = output_trans_path[0]
         
-        # Get test index 
-        Test_index = splitter.Test_index
-        
         # Transform index
-        TP_index = Test_index[:,np.newaxis] == Pred_index[np.newaxis]
+        TP_index = splitter.Test_index[:,np.newaxis] == Pred_index[np.newaxis]
         assert (TP_index.sum(1) == 1).all()
         TP_index = TP_index.argmax(1)
         
         # Load needed files
-        Input_path       = data_set.Input_path.iloc[Test_index]
-        Output_path      = data_set.Output_path.iloc[Test_index]
         Output_path_pred = Output_path_pred.iloc[TP_index]
-        Output_A         = data_set.Output_A.iloc[Test_index]
-        Output_T_E       = data_set.Output_T_E[Test_index]
-        Domain           = data_set.Domain.iloc[Test_index]
         
-        if data_set.includes_images():
-            Imgs = data_set.return_batch_images(Domain, None, None, 
-                                                None, None, grayscale = False) 
-        else:
-            Imgs = None
-            
-        return [data_set, data_param, model, 
-                Input_path, Output_path, Output_path_pred, 
-                Output_A, Output_T_E, Imgs, Domain]
+        return model, Output_path_pred
     
-    def _get_data_sample(self, sample_ind, Input_path, Output_path, Output_path_pred, 
+    def _get_data_sample(self, sample_ind, Input_path, Output_path, 
                          Output_A, Output_T_E, Imgs, Domain):
         
         input_path       = Input_path.iloc[sample_ind]
         output_path      = Output_path.iloc[sample_ind]
-        output_path_pred = Output_path_pred.iloc[sample_ind]
         output_A         = Output_A.iloc[sample_ind]
         output_T_E       = Output_T_E[sample_ind]
         domain           = Domain.iloc[sample_ind]
@@ -1458,28 +1463,33 @@ class Experiment():
         # Load raw darta
         ind_p = np.array([name for name in input_path.index 
                           if isinstance(input_path[name], np.ndarray)])
+        op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
+        ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
+        
+        max_v = np.nanmax(np.stack([np.max(op, axis = (0,1)),
+                                    np.max(ip, axis = (0,1))], axis = 0), axis = 0)
+        
+        min_v = np.nanmin(np.stack([np.min(op, axis = (0,1)),
+                                    np.min(ip, axis = (0,1))], axis = 0), axis = 0)
+        
+        max_v = np.ceil((max_v + 20) / 10) * 10
+        min_v = np.floor((min_v - 20) / 10) * 10
+        
+        return [op, ip, ind_p, min_v, max_v,
+                output_A, output_T_E, img, domain]
+    
+    
+    def _get_data_sample_pred(self, sample_ind, Output_path_pred):
+        
+        output_path_pred = Output_path_pred.iloc[sample_ind]
+        
         
         ind_pp = np.array([name for name in output_path_pred.index 
                            if isinstance(output_path_pred[name], np.ndarray)])
         
         opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
-        op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
-        ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
         
-        max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)), 
-                                    np.max(op, axis = (0,1)),
-                                    np.max(ip, axis = (0,1))], axis = 0), axis = 0)
-        
-        min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)), 
-                                    np.min(op, axis = (0,1)),
-                                    np.min(ip, axis = (0,1))], axis = 0), axis = 0)
-        
-        max_v = np.ceil((max_v + 10) / 10) * 10
-        min_v = np.floor((min_v - 10) / 10) * 10
-        
-        return [opp, op, ip, ind_pp, ind_p, min_v, max_v,
-                output_A, output_T_E, img, domain]
-    
+        return [opp, ind_pp]
     
     def _draw_background(self, ax, data_set, img, domain):
         # Load line segments of data_set 
@@ -1510,20 +1520,8 @@ class Experiment():
         # Draw boundaries
         ax.add_collection(map_solid)
         ax.add_collection(map_dashed)
-        
-            
     
-    def plot_paths(self, load_all = False):
-        assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
-        assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
-        
-        plt.close('all')
-        time.sleep(0.05)
-        
-        [data_set, data_param, model, 
-         Input_path, Output_path, Output_path_pred, 
-         Output_A, Output_T_E, Imgs, Domain] = self._get_data()
-        
+    def _select_testing_samples(self, load_all, Output_A):
         if not load_all:
             print('------------------------------------------------------------------', flush = True)
             if len(Output_A.columns) > 1:
@@ -1577,13 +1575,33 @@ class Experiment():
             sample_inds = [Chosen_index[ind]]
         
         else:
-            sample_inds = np.arange(len(Input_path))
+            sample_inds = np.arange(len(Output_A))
+            
+        return sample_inds
+            
+    
+    def plot_paths(self, load_all = False):
+        assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
+        assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
+        
+        plt.close('all')
+        time.sleep(0.05)
+        
+        [data_set, data_param, splitter, 
+         Input_path, Output_path, 
+         Output_A, Output_T_E, Imgs, Domain] = self._get_data()
+        
+        model, Output_path_pred = self._get_data_pred(data_set, splitter)
+        
+        sample_inds = self._select_testing_samples(load_all, Output_A)
         
         ## Get specific case
         for sample_ind in sample_inds:   
-            [opp, op, ip, ind_pp, ind_p, min_v, max_v, 
-             output_A, output_T_E, img, domain] = self._get_data(sample_ind, Input_path, Output_path, Output_path_pred, 
-                                                                 Output_A, Output_T_E, Imgs, Domain)
+            [op, ip, ind_p, min_v, max_v, 
+             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, Input_path, Output_path, 
+                                                                        Output_A, Output_T_E, Imgs, Domain)
+                                                                        
+            [opp, ind_pp] = self._get_data_sample_pred(sample_ind, Output_path_pred)
             
             # plot figure
             fig, ax = plt.subplots(figsize = (10,8))

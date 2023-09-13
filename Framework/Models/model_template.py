@@ -221,11 +221,11 @@ class model_template():
             
             # Get number of timesteps per sample that should be saved
             self.data_set._determine_pred_agents()
-            pred_agent_bool = self.data_set.Pred_agents_pred[Pred_index]
-            num_timesteps_pred = self.data_set.N_O_pred_orig[Pred_index]
+            pred_agent_bool = self.data_set.Pred_agents_pred[self.Index_test]
+            num_timesteps_pred = self.data_set.N_O_pred_orig[self.Index_test]
             to_save_timesteps = pred_agent_bool.sum(1) * num_timesteps_pred * self.num_samples_path_pred
             
-            Unsaved_indices = np.arange(len(Pred_index))
+            Unsaved_indices = np.arange(len(self.Index_test))
             save = 0
             while len(Unsaved_indices) > 0:
                 to_save_timesteps_cum = np.cumsum(to_save_timesteps[Unsaved_indices])
@@ -235,7 +235,7 @@ class model_template():
                     num_saved = np.where(to_save_timesteps_cum > savable_timesteps_total)[0][0]
 
                 save_indices = Unsaved_indices[:num_saved]
-                save_data = np.array([Pred_index[save_indices], 
+                save_data = np.array([self.Index_test[save_indices], 
                                       self.Output_path_pred.iloc[save_indices], 
                                       0], object)
                 
