@@ -119,21 +119,7 @@ class data_set_template():
                     raise TypeError("Agent Types should be saved in a pandas data frame")
                 if len(self.Type_old) != self.num_samples:
                     raise TypeError("Type dataframe does not have right number of sampels")
-                
-                if self.includes_images():
-                    if not 'image_id' in self.Domain_old.columns:
-                        raise AttributeError('Image identification is missing')
-                    if not hasattr(self, 'Images'):
-                        raise AttributeError('Images are missing.')
-                    if not hasattr(self.Images, 'Target_MeterPerPx'):
-                        if not hasattr(self, 'Target_MeterPerPx'):
-                            raise AttributeError('Images without Px to Meter scaling are useless.')
-                        else:
-                            self.Images['Target_MeterPerPx'] = self.Target_MeterPerPx
-                else:
-                    self.Images = None
-
-                    
+            
                 if not isinstance(self.T, np.ndarray):
                     raise TypeError("Time points should be saved in a numpy array")
                 if len(self.T) != self.num_samples:
@@ -200,9 +186,21 @@ class data_set_template():
                 np.save(test_file, test_data)
                 
                 if self.includes_images():
+                    if not 'image_id' in self.Domain_old.columns:
+                        raise AttributeError('Image identification is missing')
+                    if not hasattr(self, 'Images'):
+                        raise AttributeError('Images are missing.')
+                    if not hasattr(self.Images, 'Target_MeterPerPx'):
+                        if not hasattr(self, 'Target_MeterPerPx'):
+                            raise AttributeError('Images without Px to Meter scaling are useless.')
+                        else:
+                            self.Images['Target_MeterPerPx'] = self.Target_MeterPerPx
+
                     image_data = np.array([self.Images, 0], object)
                     np.save(image_file, image_data)
-
+                else:
+                    self.Images = None
+                    
             self.raw_data_loaded = True
             self.raw_images_loaded = True
             
@@ -212,7 +210,6 @@ class data_set_template():
                           self.get_name()['print'] + os.sep +
                          'Data' + os.sep +
                          self.get_name()['file'] + '--Images.npy')
-
             if os.path.isfile(image_file):
                 [self.Images, _] = np.load(image_file, allow_pickle=True)
             else:

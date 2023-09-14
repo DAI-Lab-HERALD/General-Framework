@@ -1381,15 +1381,9 @@ class Experiment():
         Output_T_E       = data_set.Output_T_E[Test_index]
         Domain           = data_set.Domain.iloc[Test_index]
         
-        if data_set.includes_images():
-            Imgs = data_set.return_batch_images(Domain, None, None, 
-                                                None, None, grayscale = False) 
-        else:
-            Imgs = None
-            
         return [data_set, data_param, splitter, 
                 Input_path, Output_path, 
-                Output_A, Output_T_E, Imgs, Domain]
+                Output_A, Output_T_E, Domain]
     
     
     def _get_data_pred(self, data_set, splitter):
@@ -1446,19 +1440,15 @@ class Experiment():
         
         return model, Output_path_pred
     
-    def _get_data_sample(self, sample_ind, Input_path, Output_path, 
-                         Output_A, Output_T_E, Imgs, Domain):
+    def _get_data_sample(self, sample_ind, data_set, 
+                         Input_path, Output_path, 
+                         Output_A, Output_T_E, Domain):
         
         input_path       = Input_path.iloc[sample_ind]
         output_path      = Output_path.iloc[sample_ind]
         output_A         = Output_A.iloc[sample_ind]
         output_T_E       = Output_T_E[sample_ind]
         domain           = Domain.iloc[sample_ind]
-        
-        if Imgs is not None:
-            img = Imgs[sample_ind] / 255
-        else:
-            img = None
         
         # Load raw darta
         ind_p = np.array([name for name in input_path.index 
@@ -1475,6 +1465,13 @@ class Experiment():
         max_v = np.ceil((max_v + 20) / 10) * 10
         min_v = np.floor((min_v - 20) / 10) * 10
         
+        if data_set.includes_images():
+            img = data_set.return_batch_images(Domain.iloc[[sample_ind]], None, None, 
+                                               None, None, grayscale = False) 
+            img = img[0] / 255
+        else:
+            img = None
+            
         return [op, ip, ind_p, min_v, max_v,
                 output_A, output_T_E, img, domain]
     
@@ -1490,6 +1487,15 @@ class Experiment():
         opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
         
         return [opp, ind_pp]
+    
+    def _get_data_sample_image(self, data_set, domain):
+        if data_set.includes_images():
+            img = data_set.return_batch_images(domain, None, None, 
+                                                None, None, grayscale = False) 
+            img = img / 255
+        else:
+            img = None
+            
     
     def _draw_background(self, ax, data_set, img, domain):
         # Load line segments of data_set 
@@ -1600,7 +1606,7 @@ class Experiment():
         
         [data_set, data_param, splitter, 
          Input_path, Output_path, 
-         Output_A, Output_T_E, Imgs, Domain] = self._get_data()
+         Output_A, Output_T_E, Domain] = self._get_data()
         
         model, Output_path_pred = self._get_data_pred(data_set, splitter)
         
@@ -1609,10 +1615,12 @@ class Experiment():
         ## Get specific case
         for sample_ind in sample_inds:   
             [op, ip, ind_p, min_v, max_v, 
-             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, Input_path, Output_path, 
-                                                                        Output_A, Output_T_E, Imgs, Domain)
+             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
+                                                                        Input_path, Output_path, 
+                                                                        Output_A, Output_T_E, Domain)
                                                                         
             [opp, ind_pp] = self._get_data_sample_pred(sample_ind, Output_path_pred)
+            
             
             # Check if multiple true input should be drawn
             if plot_similar_futures:

@@ -296,9 +296,9 @@ class data_interface(object):
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
                             grayscale = False, return_resolution = False):
         if target_height is None:
-            target_height = 500
+            target_height = 1250
         if target_width is None:
-            target_width = 500
+            target_width = 1250
             
         if grayscale:
             Imgs = np.zeros((len(domain), target_height, target_width, 1), dtype = 'uint8')
