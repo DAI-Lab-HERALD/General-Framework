@@ -68,7 +68,7 @@ class trajflow_meszaros_varIn(model_template):
             self.sigma = 0.2
 
 
-        self.fut_ae_epochs = 10000
+        self.fut_ae_epochs = 5000
         self.fut_ae_lr = 5e-4
         self.fut_ae_wd = 1e-4
 
@@ -240,9 +240,9 @@ class trajflow_meszaros_varIn(model_template):
                     
                     # Early stopping for AE
                     # Check for convergence
-                    if epoch > 1000:
+                    if epoch > 200:
                         best_val_step = np.argmin(val_losses)
-                        if epoch - best_val_step > 100:
+                        if epoch - best_val_step > 50:
                             converged = True
                     
                 print('Train loss: {:7.5f}; \t Val loss: {:7.5f}'.format(np.mean(train_loss),val_loss.data))
