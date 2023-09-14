@@ -280,6 +280,36 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
 
 ```
 ```
+def get_KDE_probabilities(self, joint_agents = True):
+  '''
+  This return the probabilities asigned to trajectories according to 
+  a Gaussian KDE method.
+
+  Parameters
+  ----------
+  joint_agents : bool, optional
+    This says if the probabilities for the predicted trajectories
+    are to be calculated for all agents jointly. If this is the case,
+    then, :math:`N_{agents}` in the output is 1. The default is True.
+
+  Returns
+  -------
+  KDE_log_prob_true : np.ndarray
+    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    array that includes the probabilities for the true observations according to
+    the KDE model trained on the predicted trajectories.
+  KDE_log_prob_pred : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
+    array that includes the probabilities for the predicted trajectories 
+    according to the KDE model trained on the predicted trajectories.
+
+  '''
+  
+  ...
+  
+  return KDE_log_prob_true, KDE_log_prob_pred
+```
+```
 def get_true_prediction_with_same_input(self):
   '''
   This returns the true trajectories from the current sample as well as all
