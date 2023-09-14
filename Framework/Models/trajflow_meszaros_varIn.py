@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Dec
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_varIn(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -68,7 +68,7 @@ class trajflow_meszaros(model_template):
             self.sigma = 0.2
 
 
-        self.fut_ae_epochs = 5000
+        self.fut_ae_epochs = 10000
         self.fut_ae_lr = 5e-4
         self.fut_ae_wd = 1e-4
 
@@ -79,7 +79,7 @@ class trajflow_meszaros(model_template):
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
 
-        self.vary_input_length = False
+        self.vary_input_length = True
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -240,9 +240,9 @@ class trajflow_meszaros(model_template):
                     
                     # Early stopping for AE
                     # Check for convergence
-                    if epoch > 200:
+                    if epoch > 1000:
                         best_val_step = np.argmin(val_losses)
-                        if epoch - best_val_step > 50:
+                        if epoch - best_val_step > 100:
                             converged = True
                     
                 print('Train loss: {:7.5f}; \t Val loss: {:7.5f}'.format(np.mean(train_loss),val_loss.data))
@@ -552,8 +552,9 @@ class trajflow_meszaros(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                'file': 'TrajFlow_M',
+    
+        names = {'print': 'TrajFlow_varIn',
+                'file': 'TF_M_varIn',
                 'latex': r'\emph{TF}'}
         return names
         

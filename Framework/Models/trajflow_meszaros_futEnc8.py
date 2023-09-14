@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Dec
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_futEnc8(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -44,7 +44,7 @@ class trajflow_meszaros(model_template):
         
         self.hs_rnn = 16
         self.n_layers_rnn = 3
-        self.fut_enc_sz = 4 ## 4-8
+        self.fut_enc_sz = 8 ## 4-8
 
         self.scene_encoding_size = 4
         self.obs_encoding_size = 16 
@@ -552,8 +552,9 @@ class trajflow_meszaros(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                'file': 'TrajFlow_M',
+        
+        names = {'print': 'TrajFlow_fut08',
+                'file': 'TF_M_fut08',
                 'latex': r'\emph{TF}'}
         return names
         
