@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Dec
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_2(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders and allows for an extend prediction horizon.
@@ -79,7 +79,7 @@ class trajflow_meszaros(model_template):
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
 
-        self.vary_input_length = True
+        self.vary_input_length = False
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
