@@ -28,38 +28,30 @@ class ADE_ML_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
         
+        _, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
+        
+        num_samples, num_agents = Path_pred.shape[[0,2]]
+        
+        # Get indices for most likely predictions
+        sample_index = np.tile(np.arange(num_samples)[:,np.newaxis], (1, num_agents))
+        ml_pred_index = np.argmax(KDE_log_prob_pred, axis = 1)
+        agent_index  = np.tile(np.arange(num_agents)[np.newaxis], (num_samples, 1))
+        
+        Path_pred_ml = Path_pred[sample_index, ml_pred_index, agent_index]
+        
         # Combine agent and sample dimension
-        Path_true  = Path_true.transpose(0,2,1,3,4)[Pred_agents]
-        Path_pred  = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
-        Pred_steps = Pred_steps[Pred_agents]
-        Types      = Types[Pred_agents]
+        Path_true    = Path_true[:,0][Pred_agents]
+        Path_pred_ml = Path_pred_ml[Pred_agents]
+        Pred_steps   = Pred_steps[Pred_agents]
         
+        # Get num steps
         Num_steps = Pred_steps.sum(-1)
-        
-        Path_pred_ml = np.zeros(Path_pred[:,0].shape)
-        
-        for i_case in range(len(Path_true)):
-            std = 1 + (Types[i_case] != 'P') * 79
-            
-            nto = Num_steps[i_case]
-            
-            path_pred = Path_pred[i_case,:,:nto]
-            
-            path_pred_comp = (path_pred / std).reshape(-1, nto * 2)
-            
-            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
-            kde = OPTICS_GMM().fit(path_pred_comp)
-            
-            log_prob = kde.score_samples(path_pred_comp)
-            p_ml = np.argmax(log_prob)
-    
-            Path_pred_ml[i_case, :nto] = path_pred[p_ml]       
             
         # Get squared distance    
-        Diff = ((Path_true[:,0] - Path_pred_ml) ** 2).sum(-1)
+        Diff = ((Path_true - Path_pred_ml) ** 2).sum(-1)
         
         # Get absolute distance
         Diff = np.sqrt(Diff)

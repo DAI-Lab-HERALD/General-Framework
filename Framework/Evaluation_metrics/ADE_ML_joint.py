@@ -30,33 +30,24 @@ class ADE_ML_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1) 
+        
+        _, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
+        ml_pred_index = np.argmax(KDE_log_prob_pred, axis = 1)
+        
+        num_samples, num_agents = Path_pred.shape[[0,2]]
+        
+        # Get indices for most likely predictions
+        sample_index = np.arange(num_samples)[:,np.newaxis]
+        ml_pred_index = np.argmax(KDE_log_prob_pred[...,0], axis = 1)
+        
+        Path_pred_ml = Path_pred[sample_index, ml_pred_index]
+        
+        # Get num steps and num agents
         Num_agents = Pred_agents.sum(-1)
         Num_steps = Pred_steps.sum(-1).max(-1)
         
-        
-        Path_pred_ml = np.zeros(Path_pred[:,0].shape)
-        for i_sample in range(len(Path_true)):
-            pred_agents = Pred_agents[i_sample]
-            std = 1 + (Types[i_sample, pred_agents] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
-            
-            nto = Num_steps[i_sample]
-            n_agents = Num_agents[i_sample]
-            
-            path_pred = Path_pred[i_sample][:,pred_agents,:nto]
-            
-            path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
-            
-            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
-            kde = OPTICS_GMM().fit(path_pred_comp)
-
-            log_prob = kde.score_samples(path_pred_comp)
-            p_ml = np.argmax(log_prob)
-
-            Path_pred_ml[i_sample, pred_agents, :nto] = path_pred[p_ml]    
-            
         # Get squared distance
         Diff = ((Path_true[:,0] - Path_pred_ml) ** 2).sum(-1)
         

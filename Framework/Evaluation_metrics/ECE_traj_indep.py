@@ -38,40 +38,16 @@ class ECE_traj_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        # Get predicted agents
+        _, _, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
         
-        # Combine agent and sample dimension
-        Path_true  = Path_true.transpose(0,2,1,3,4)[Pred_agents]
-        Path_pred  = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
-        Pred_steps = Pred_steps[Pred_agents]
-        Types      = Types[Pred_agents]
+        # Get likelihood of having higher probability
+        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
+        M = (KDE_log_prob_pred > KDE_log_prob_true).mean(1) 
+        M = M[Pred_agents]
         
-        Num_steps = Pred_steps.sum(-1)
-        
-        M = []
-        
-        for i_case in range(len(Path_true)):
-            std = 1 + (Types[i_case] != 'P') * 79
-            
-            nto = Num_steps[i_case]
-            
-            path_true = Path_true[i_case,:,:nto]
-            path_pred = Path_pred[i_case,:,:nto]
-            
-            path_true_comp = (path_true / std).reshape(-1, nto * 2)
-            path_pred_comp = (path_pred / std).reshape(-1, nto * 2)
-                    
-            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
-            kde = OPTICS_GMM().fit(path_pred_comp)
-            
-            log_prob_pred = kde.score_samples(path_pred_comp)
-            log_prob_true = kde.score_samples(path_true_comp)
-            
-            M.append((log_prob_pred > log_prob_true).mean())
-        
-        M = np.array(M)
-        
+        # Compare to expectation
         T = np.linspace(0,1,201)
         
         # Mean over predicted agents

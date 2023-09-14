@@ -38,41 +38,15 @@ class ECE_traj_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
-        Pred_agents = Pred_steps.any(-1) 
-        Num_agents = Pred_agents.sum(-1)
-        Num_steps = Pred_steps.sum(-1).max(-1)
-        
-        M = []
-        
-        for i_sample in range(len(Path_true)):
-            pred_agents = Pred_agents[i_sample]
-            std = 1 + (Types[i_sample, pred_agents] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
-            
-            nto = Num_steps[i_sample]
-            n_agents = Num_agents[i_sample]
-            
-            path_true = Path_true[i_sample][:,pred_agents,:nto]
-            path_pred = Path_pred[i_sample][:,pred_agents,:nto]
-            
-            path_true_comp = (path_true / std).reshape(-1, n_agents * nto * 2)
-            path_pred_comp = (path_pred / std).reshape(-1, n_agents * nto * 2)
-            
-            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
-            kde = OPTICS_GMM().fit(path_pred_comp)
-                
-            log_prob_pred = kde.score_samples(path_pred_comp)
-            log_prob_true = kde.score_samples(path_true_comp)
-            
-            M.append((log_prob_pred > log_prob_true).mean())
-        
-        M = np.array(M)
+        # Get likelihood of having higher probability
+        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
+        M = (KDE_log_prob_pred > KDE_log_prob_true).mean(1) 
+        # M.shape: num_samples x 1
         
         T = np.linspace(0,1,201)
         
         # Mean over samples
-        ECE = (M[np.newaxis] > T[:,np.newaxis]).mean(-1)
+        ECE = (M.T > T[:,np.newaxis]).mean(-1)
         
         ece = np.abs(ECE - (1 - T)).mean()
         

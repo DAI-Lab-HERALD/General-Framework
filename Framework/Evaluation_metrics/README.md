@@ -290,17 +290,18 @@ def get_KDE_probabilities(self, joint_agents = True):
   joint_agents : bool, optional
     This says if the probabilities for the predicted trajectories
     are to be calculated for all agents jointly. If this is the case,
-    then, :math:`N_{agents}` in the output is 1. The default is True.
+    then the array dimension :math:`N_{agents}` mentioned in the
+    returns is 1. The default is True.
 
   Returns
   -------
   KDE_log_prob_true : np.ndarray
     This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
-    array that includes the probabilities for the true observations according to
-    the KDE model trained on the predicted trajectories.
+    array that includes the log probabilities for the true observations according
+    to the KDE model trained on the predicted trajectories.
   KDE_log_prob_pred : np.ndarray
     This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
-    array that includes the probabilities for the predicted trajectories 
+    array that includes the log probabilities for the predicted trajectories 
     according to the KDE model trained on the predicted trajectories.
 
   '''
