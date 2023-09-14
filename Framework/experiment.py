@@ -1578,9 +1578,20 @@ class Experiment():
             sample_inds = np.arange(len(Output_A))
             
         return sample_inds
-            
     
-    def plot_paths(self, load_all = False):
+    
+    def _get_similar_inputs(self, data_set, splitter, sample_ind):
+        data_set._extract_identical_inputs()
+        
+        subgroup = data_set.Subgroups[splitter.Test_index[sample_ind]]
+        path_true_all = data_set.Path_true_all[subgroup]
+        
+        path_true_all = path_true_all[np.isfinite(path_true_all).any((1,2,3))]
+        return path_true_all
+        
+    
+    
+    def plot_paths(self, load_all = False, plot_similar_futures = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
         
@@ -1603,8 +1614,14 @@ class Experiment():
                                                                         
             [opp, ind_pp] = self._get_data_sample_pred(sample_ind, Output_path_pred)
             
+            # Check if multiple true input should be drawn
+            if plot_similar_futures:
+                paths_true_all = self._get_similar_inputs(data_set, splitter, sample_ind)
+
+            
+            
             # plot figure
-            fig, ax = plt.subplots(figsize = (10,8))
+            fig, ax = plt.subplots(figsize = (10,8))            
             
             # plot map
             self._draw_background(ax, data_set, img, domain)
@@ -1628,7 +1645,13 @@ class Experiment():
                                 np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
                                 color = color_pred, marker = 'o', ms = 2, linestyle = 'dashed', linewidth = 0.5)
                         
-                # plot true future
+                    # plot true future
+                    if plot_similar_futures:
+                        for j_true in range(len(paths_true_all)):
+                            ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
+                                    color = color, marker = 'o', ms = 3, linewidth = 1)
+
                 ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
                         np.concatenate((ip[i,-1:,1], op[i,:,1])),
                         color = color, marker = 'o', ms = 3, linewidth = 1)
@@ -1641,8 +1664,7 @@ class Experiment():
             ax.set_aspect('equal', adjustable='box') 
             ax.set_xlim([min_v[0],max_v[0]])
             ax.set_ylim([min_v[1],max_v[1]])
-            title = (r'\textbf{Predicted paths}' + 
-                     r'Data set: ' + data_set.get_name()['print'] +  
+            title = (r'Data set: ' + data_set.get_name()['print'] +  
                      r' with $\delta t = ' + str(data_param['dt']) + 
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.index)
