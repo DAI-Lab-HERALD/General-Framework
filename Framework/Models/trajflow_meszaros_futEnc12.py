@@ -93,20 +93,12 @@ class trajflow_meszaros_futEnc12(model_template):
         T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, int(str(T_out.astype(str).dtype)[2:])).astype(np.uint8)[:,:,0]
         T_out = torch.from_numpy(T_out).to(device = self.device)
         
-        # Normalize positions
-        # X = (X - self.min_pos) / (self.max_pos - self.min_pos)
-        # X = X / self.scaling_factor
-
         # Standardize positions
         X[Ped_agents]  /= self.std_pos_ped
         X[~Ped_agents] /= self.std_pos_veh
         X = torch.from_numpy(X).float().to(device = self.device)
         
-        if Y is not None:
-            # Normalize future positions
-            # Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
-            # Y = Y / self.scaling_factor
-            
+        if Y is not None:            
             # Standardize future positions
             Y[Ped_agents]  /= self.std_pos_ped
             Y[~Ped_agents] /= self.std_pos_veh
@@ -431,34 +423,16 @@ class trajflow_meszaros_futEnc12(model_template):
         # Get needed agent types
         T_all = self.provide_all_included_agent_types().astype(str)
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
-        
-        # Prepare stuff for Normalization
-        if (self.data_set.get_name()['file'] == 'Fork_P_Aug' or
-            self.data_set.get_name()['file'] == 'Fork_Paths'):
-            X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
-            # self.max_pos = np.max(traj_tar)
-            # self.min_pos = np.min(traj_tar)
-        #     self.scaling_factor = 104
-        # else:
-        #     self.scaling_factor = 1
-            # self.min_pos = 0.0
-            # self.max_pos = 1.0
-            
+                    
         # Train model components        
         self.fut_model = self.train_futureAE()
         self.flow_dist = self.train_flow(self.fut_model, T_all)
         
         # save weigths 
-        # self.weights_saved = [self.min_pos, self.max_pos]
-        # self.weights_saved = [self.scaling_factor]
         self.weights_saved = []
         
         
-    def load_method(self):
-        # self.min_pos, self.max_pos = self.weights_saved
-        # self.scaling_factor = self.weights_saved
-        
+    def load_method(self):        
         fut_model_file = self.model_file[:-4] + '_AE'
         flow_dist_file = self.model_file[:-4] + '_NF'
         self.fut_model = pickle.load(open(fut_model_file, 'rb'))
@@ -536,9 +510,6 @@ class trajflow_meszaros_futEnc12(model_template):
             
             Pred[Ped_agent[:,0]]  *= self.std_pos_ped
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
-
-            # Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
-            # Pred = Pred*self.scaling_factor
             
             torch.cuda.empty_cache()
             
