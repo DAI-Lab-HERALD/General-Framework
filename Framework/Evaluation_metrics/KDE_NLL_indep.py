@@ -27,38 +27,21 @@ class KDE_NLL_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        _, _, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
         
+        # Get likelihood of having higher probability
+        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
+        
         # Combine agent and sample dimension
-        Path_true  = Path_true.transpose(0,2,1,3,4)[Pred_agents]
-        Path_pred  = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
         Pred_steps = Pred_steps[Pred_agents]
-        Types      = Types[Pred_agents]
+        PLL        = KDE_log_prob_true[:,0][Pred_agents]
         
+        # Scale with number of timesteps
         Num_steps = Pred_steps.sum(-1)
-            
-        NLL = 0
+        NLL = np.log(Num_steps.max() / Num_steps) - PLL 
         
-        for i_case in range(len(Path_true)):
-            std = 1 + (Types[i_case] != 'P') * 79
-            
-            nto = Num_steps[i_case]
-            
-            path_true = Path_true[i_case,:,:nto]
-            path_pred = Path_pred[i_case,:,:nto]
-            
-            path_true_comp = (path_true / std).reshape(-1, nto * 2)
-            path_pred_comp = (path_pred / std).reshape(-1, nto * 2)
-                    
-            # kde = KernelDensity(kernel='gaussian', bandwidth=1).fit(path_pred_comp)
-            kde = OPTICS_GMM().fit(path_pred_comp)
-            
-            log_prob_true = kde.score_samples(path_true_comp)
-            
-            NLL += np.log(Num_steps.max() / nto) - log_prob_true[0]
-        
-        Error = NLL / Pred_agents.sum()
+        Error = NLL.mean()
         return [Error]
     
     def get_output_type(self = None):
