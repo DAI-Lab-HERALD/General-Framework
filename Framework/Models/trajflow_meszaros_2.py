@@ -426,14 +426,14 @@ class trajflow_meszaros_2(model_template):
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
         
         # Prepare stuff for Normalization
-        if self.data_set.get_name()['file'] == 'Fork_P_Aug':
-            X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-            traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
-            self.max_pos = np.max(traj_tar)
-            self.min_pos = np.min(traj_tar)
-        else:
-            self.min_pos = 0.0
-            self.max_pos = 1.0
+        # if self.data_set.get_name()['file'] == 'Fork_P_Aug':
+        #     X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
+        #     traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
+        #     self.max_pos = np.max(traj_tar)
+        #     self.min_pos = np.min(traj_tar)
+        # else:
+        self.min_pos = 0.0
+        self.max_pos = 1.0
         
         # Train model components        
         self.fut_model = self.train_futureAE()

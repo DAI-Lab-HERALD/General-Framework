@@ -95,7 +95,7 @@ class trajflow_meszaros_varIn(model_template):
         
         # Normalize positions
         # X = (X - self.min_pos) / (self.max_pos - self.min_pos)
-        X = X / self.scaling_factor
+        # X = X / self.scaling_factor
 
         # Standardize positions
         X[Ped_agents]  /= self.std_pos_ped
@@ -105,7 +105,7 @@ class trajflow_meszaros_varIn(model_template):
         if Y is not None:
             # Normalize future positions
             # Y = (Y - self.min_pos) / (self.max_pos - self.min_pos)
-            Y = Y / self.scaling_factor
+            # Y = Y / self.scaling_factor
             
             # Standardize future positions
             Y[Ped_agents]  /= self.std_pos_ped
@@ -439,9 +439,9 @@ class trajflow_meszaros_varIn(model_template):
             traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
             # self.max_pos = np.max(traj_tar)
             # self.min_pos = np.min(traj_tar)
-            self.scaling_factor = 104
-        else:
-            self.scaling_factor = 1
+        #     self.scaling_factor = 104
+        # else:
+        #     self.scaling_factor = 1
             # self.min_pos = 0.0
             # self.max_pos = 1.0
             
@@ -451,12 +451,13 @@ class trajflow_meszaros_varIn(model_template):
         
         # save weigths 
         # self.weights_saved = [self.min_pos, self.max_pos]
-        self.weights_saved = [self.scaling_factor]
+        # self.weights_saved = [self.scaling_factor]
+        self.weights_saved = []
         
         
     def load_method(self):
         # self.min_pos, self.max_pos = self.weights_saved
-        self.scaling_factor = self.weights_saved
+        # self.scaling_factor = self.weights_saved
         
         fut_model_file = self.model_file[:-4] + '_AE'
         flow_dist_file = self.model_file[:-4] + '_NF'
@@ -537,7 +538,7 @@ class trajflow_meszaros_varIn(model_template):
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
 
             # Pred = Pred * (self.max_pos - self.min_pos) + self.min_pos
-            Pred = Pred*self.scaling_factor
+            # Pred = Pred*self.scaling_factor
             
             torch.cuda.empty_cache()
             

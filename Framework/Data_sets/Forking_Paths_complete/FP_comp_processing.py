@@ -12,6 +12,7 @@ dataset_paths.sort()
 
 ## TODO check
 framerate = 2.5
+scaling_factor = 104
 
 Final_data = pd.DataFrame(np.zeros((1,6), object), columns = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
 overall_id = 0
@@ -39,8 +40,8 @@ for dataset_path in dataset_paths:
             track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
             track.frame = frame
             track.t = frame / fps #(frame - 1) / framerate
-            track.x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
-            track.y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
+            track.x = (detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2) / scaling_factor
+            track.y = (detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2) / scaling_factor
             track = track.set_index('frame')
 
             data = pd.Series(np.zeros((6), object), index = ['scenario', 'Id', 'type', 'First frame', 'Last frame', 'path'])
@@ -63,8 +64,8 @@ for dataset_path in dataset_paths:
             
             data.path.loc[frame] = pd.Series(np.zeros(3), index = ['t', 'x', 'y'])
             data.path.loc[frame].t = frame / fps #(frame - 1) / framerate
-            data.path.loc[frame].x = detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2
-            data.path.loc[frame].y = detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2
+            data.path.loc[frame].x = (detection[i]['bbox'][0] + detection[i]['bbox'][2] / 2) / scaling_factor
+            data.path.loc[frame].y = (detection[i]['bbox'][1] + detection[i]['bbox'][3] / 2) / scaling_factor
 
             Final_data.loc[index] = data 
     
