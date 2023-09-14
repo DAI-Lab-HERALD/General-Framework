@@ -143,7 +143,7 @@ class evaluation_template():
             idx = np.arange(self.data_set.num_samples_path_pred)
         else:
             if num_preds <= self.data_set.num_samples_path_pred:
-                idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds]#
+                idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds] #
             else:
                 idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
@@ -159,6 +159,52 @@ class evaluation_template():
             return Path_true, Path_pred, Pred_step, Types     
         else:
             return Path_true, Path_pred, Pred_step
+        
+        
+    def get_KDE_probabilities(self, joint_agents = True):
+        '''
+        This return the probabilities asigned to trajectories according to 
+        a Gaussian KDE method.
+
+        Parameters
+        ----------
+        joint_agents : bool, optional
+            This says if the probabilities for the predicted trajectories
+            are to be calcualted for all agents jointly. If this is the case,
+            then, :math:`N_{agents}` in the output is 1. The default is True.
+
+        Returns
+        -------
+        KDE_log_prob_true : np.ndarray
+            This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+            array that includes the probabilites for the true observations according to
+            the KDE model trained on the predicted trajectories.
+        KDE_log_prob_pred : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
+            array that includes the probabilites for the predicted trajectories 
+            according to the KDE model trained on the predicted trajectories.
+
+        '''
+        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
+        
+        if joint_agents:
+            self.model._get_joint_KDE_probabilities(self.Pred_index, self.Output_path_pred, 
+                                                    self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_log_prob_true = self.model.Log_prob_joint_true[:,:,np.newaxis]
+            KDE_log_prob_pred = self.model.Log_prob_joint_pred[:,:,np.newaxis]
+            
+        else:
+            self.model._get_indep_KDE_probabilities(self.Pred_index, self.Output_path_pred, 
+                                                    self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_log_prob_true = self.model.Log_prob_indep_true
+            KDE_log_prob_pred = self.model.Log_prob_indep_pred
+        
+        KDE_log_prob_true = KDE_log_prob_true[self.Index_curr_pred]
+        KDE_log_prob_pred = KDE_log_prob_pred[self.Index_curr_pred]
+        
+        return KDE_log_prob_true, KDE_log_prob_pred
     
     
     def get_true_prediction_with_same_input(self):

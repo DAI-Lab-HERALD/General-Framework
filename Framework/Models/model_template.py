@@ -3,6 +3,7 @@ import numpy as np
 import os
 import torch
 import warnings
+from Prob_function import OPTICS_GMM
 
 class model_template():
     def __init__(self, data_set, splitter, evaluate_on_train_set, behavior = None): 
@@ -146,7 +147,17 @@ class model_template():
         # Delete potential old results
         if hasattr(self, 'Path_pred'):
             del self.Path_pred
+            del self.Path_true
         
+        if hasattr(self, 'Log_prob_joint_pred'):
+            del self.Log_prob_joint_pred
+            del self.Log_prob_joint_true
+        
+        if hasattr(self, 'Log_prob_indep_pred'):
+            del self.Log_prob_indep_pred
+            del self.Log_prob_indep_true
+            
+            
         # check if prediction can be loaded
         self.model_mode = 'pred'
         # perform prediction
@@ -386,7 +397,7 @@ class model_template():
                     img          = img[:,np.newaxis]
                     img_m_per_px = img_m_per_px[:,np.newaxis]
                 else:
-                    Img_needed = T[Sample_id, Agent_id] != 48
+                    Img_needed = self.T != '0'
                     
                     
                     centre = X[Img_needed, -1,:]
@@ -934,7 +945,11 @@ class model_template():
     # %% Method needed for evaluation_template
     def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
-            return
+            if self.excluded_ego == exclude_ego:
+                return
+        
+        # Save last setting 
+        self.excluded_ego = exclude_ego
         
         # Check if data is there
         self.data_set._extract_original_trajectories()
@@ -1002,6 +1017,110 @@ class model_template():
         self.T_pred = self.T_pred[i_sampl_sort, i_agent_sort]
     
     
+    def _get_joint_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
+            if self.excluded_ego == exclude_ego:
+                return
+        
+        # Save last setting 
+        self.excluded_ego = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self.data_set._determine_pred_agents()
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds
+        self.Log_prob_joint_true = np.zeros(self.Path_true.shape[:-3], dtype = np.float32)
+        self.Log_prob_joint_pred = np.zeros(self.Path_pred.shape[:-3], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+        
+        for i_case in range(len(self.Path_true)):
+            # Get predicted agents
+            pred_agents = Pred_agents[i_case]
+            
+            # This is dangerous
+            std = 1 + (self.T_pred[i_case, pred_agents] != 'P') * 79
+            std = std[np.newaxis, :, np.newaxis, np.newaxis]
+            
+            # Get number of timesteps
+            nto = Num_steps[i_case]
+            
+            # Should be shape: num_preds x num_agents x num_T_O x 2
+            paths_true = self.Path_true[i_case][:,pred_agents,:nto]
+            paths_pred = self.Path_pred[i_case][:,pred_agents,:nto]
+            
+            paths_true = (paths_true / std)
+            paths_pred = (paths_pred / std)
+                    
+            # Collapse agents
+            paths_true_comp = paths_true.reshape(-1, pred_agents.sum() * nto * 2)
+            paths_pred_comp = paths_pred.reshape(-1, pred_agents.sum() * nto * 2)
+            
+            kde = OPTICS_GMM().fit(paths_pred_comp)
+            
+            self.Log_prob_joint_true[i_case] = kde.score_samples(paths_true_comp)
+            self.Log_prob_joint_pred[i_case] = kde.score_samples(paths_pred_comp) 
+            
+            
+    def _get_indep_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_indep_pred') and hasattr(self, 'Log_prob_indep_true'):
+            if self.excluded_ego == exclude_ego:
+                return
+        
+        # Save last setting 
+        self.excluded_ego = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self.data_set._determine_pred_agents()
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds x num agents
+        self.Log_prob_indep_true = np.zeros(self.Path_true.shape[:-2], dtype = np.float32)
+        self.Log_prob_indep_pred = np.zeros(self.Path_pred.shape[:-2], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+        
+        for i_case in range(len(self.Path_true)):
+            # Get predicted agents
+            pred_agents = Pred_agents[i_case]
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            # This is dangerous
+            std = 1 + (self.T_pred[i_case, pred_agents_id] != 'P') * 79
+            std = std[np.newaxis, :, np.newaxis, np.newaxis]
+            
+            # Get number of timesteps
+            nto = Num_steps[i_case]
+            
+            # Should be shape: num_preds x num_agents x num_T_O x 2
+            paths_true = self.Path_true[i_case][:,pred_agents_id,:nto]
+            paths_pred = self.Path_pred[i_case][:,pred_agents_id,:nto]
+            
+            paths_true = (paths_true / std)
+            paths_pred = (paths_pred / std)
+            
+            for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                # Get agent
+                paths_true_agent = paths_true[:,i_agent]
+                paths_pred_agent = paths_pred[:,i_agent]
+            
+                # Collapse agents
+                paths_true_agent_comp = paths_true_agent.reshape(-1, nto * 2)
+                paths_pred_agent_comp = paths_pred_agent.reshape(-1, nto * 2)
+                
+                kde = OPTICS_GMM().fit(paths_pred_agent_comp)
+                
+                self.Log_prob_indep_true[i_case,:,i_agent_orig] = kde.score_samples(paths_true_agent_comp)
+                self.Log_prob_indep_pred[i_case,:,i_agent_orig] = kde.score_samples(paths_pred_agent_comp) 
+    
+    #%% 
     #########################################################################################
     #########################################################################################
     ###                                                                                   ###
