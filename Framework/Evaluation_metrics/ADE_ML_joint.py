@@ -36,7 +36,7 @@ class ADE_ML_joint(evaluation_template):
         _, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
         ml_pred_index = np.argmax(KDE_log_prob_pred, axis = 1)
         
-        num_samples, num_agents = Path_pred.shape[[0,2]]
+        num_samples = Path_pred.shape[0]
         
         # Get indices for most likely predictions
         sample_index = np.arange(num_samples)[:,np.newaxis]

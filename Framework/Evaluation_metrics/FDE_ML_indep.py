@@ -31,8 +31,8 @@ class FDE_ML_indep(evaluation_template):
         Pred_agents = Pred_steps.any(-1)
         
         _, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
-        
-        num_samples, num_agents = Path_pred.shape[[0,2]]
+       
+        num_samples, num_agents = Path_pred.shape[0], Path_pred.shape[2]
         
         # Get indices for most likely predictions
         sample_index = np.tile(np.arange(num_samples)[:,np.newaxis], (1, num_agents))
