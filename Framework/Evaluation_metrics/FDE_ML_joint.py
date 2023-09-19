@@ -37,7 +37,7 @@ class FDE_ML_joint(evaluation_template):
         num_samples = Path_pred.shape[0]
         
         # Get indices for most likely predictions
-        sample_index = np.arange(num_samples)[:,np.newaxis]
+        sample_index = np.arange(num_samples)
         ml_pred_index = np.argmax(KDE_log_prob_pred[...,0], axis = 1)
         
         Path_pred_ml = Path_pred[sample_index, ml_pred_index]
