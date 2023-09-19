@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.cluster import OPTICS
 from sklearn.neighbors import KernelDensity
+import scipy as sp
 
 class OPTICS_GMM():
     '''
@@ -91,16 +92,7 @@ class OPTICS_GMM():
     
     def score_samples(self, X):
         probs, log_probs = self.prob(X, return_log = True)
-        
-        l_probs = - np.ones(probs.shape, dtype = np.float32) * np.inf
-        
-        # get useful probabilities
-        useful = (probs > 0) & (probs < np.inf) 
-        l_probs[useful] = np.log(probs[useful])
-        
-        # Get edge cases
-        l_probs = np.maximum(l_probs, log_probs.max(1))
-        
+        l_probs = sp.special.logsumexp(log_probs, axis = -1)
         return l_probs
         
     
