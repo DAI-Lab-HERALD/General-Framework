@@ -1386,7 +1386,7 @@ class Experiment():
                 Output_A, Output_T_E, Domain]
     
     
-    def _get_data_pred(self, data_set, splitter):
+    def _get_model_selection(self, data_set):
         if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
@@ -1415,7 +1415,12 @@ class Experiment():
             model_name = self.Models[i_d]
         else:
             model_name = self.Models[0]
+            
+        return model_name
         
+    
+    
+    def _get_data_pred(self, data_set, splitter, model_name):
         model_class = getattr(importlib.import_module(model_name), model_name)
        
         # Load specific model
@@ -1608,7 +1613,8 @@ class Experiment():
          Input_path, Output_path, 
          Output_A, Output_T_E, Domain] = self._get_data()
         
-        model, Output_path_pred = self._get_data_pred(data_set, splitter)
+        model_name = self._get_model_selection(data_set)
+        model, Output_path_pred = self._get_data_pred(data_set, splitter, model_name)
         
         sample_inds = self._select_testing_samples(load_all, Output_A)
         

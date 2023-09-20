@@ -1361,7 +1361,7 @@ class data_set_template():
     
     # TODO: Rewrite saving method for transformed trajectories
     def path_add_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file, use_model=False):
-        test_file = pred_save_file[:-19] + 'pred_tra_wip_00.npy'
+        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
             output = np.load(test_file, allow_pickle = True)
             
@@ -1447,7 +1447,7 @@ class data_set_template():
         return Output_path_pred_add
 
     def path_remove_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file):
-        test_file = pred_save_file[:-19] + 'pred_tra_wop_00.npy'
+        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wop_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
             output = np.load(test_file, allow_pickle = True)
             
@@ -1506,7 +1506,7 @@ class data_set_template():
                                Output_T_pred, Domain, pred_save_file, save_results=True):
 
         # Remove other prediction method
-        test_file = pred_save_file[:-19] + 'pred_class_time.npy'
+        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
 
         if os.path.isfile(test_file) and not self.overwrite_results:
             [Output_A_pred,
@@ -1543,7 +1543,7 @@ class data_set_template():
 
     def class_to_time(self, Output_A_pred, Pred_index, Domain, pred_save_file):
         # Remove other prediction type
-        test_file = pred_save_file[:-19] + 'pred_class_time.npy'
+        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
             [_, Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
         else:
@@ -1572,7 +1572,7 @@ class data_set_template():
 
     def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Pred_index, Domain, pred_save_file):
         # check if this has already been performed
-        test_file = pred_save_file[:-19] + 'pred_tra_wip_00.npy'
+        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
             output = np.load(test_file, allow_pickle = True)
             
