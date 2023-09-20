@@ -1461,9 +1461,9 @@ class Experiment():
         
         min_v = np.nanmin(np.stack([np.min(op, axis = (0,1)),
                                     np.min(ip, axis = (0,1))], axis = 0), axis = 0)
-        
-        max_v = np.ceil((max_v + 20) / 10) * 10
-        min_v = np.floor((min_v - 20) / 10) * 10
+
+        max_v = np.ceil((max_v + 5) / 5) * 5
+        min_v = np.floor((min_v - 5) / 5) * 5
         
         if data_set.includes_images():
             img = data_set.return_batch_images(Domain.iloc[[sample_ind]], None, None, 
@@ -1639,7 +1639,7 @@ class Experiment():
             for i, agent in enumerate(ind_p):
                 color = colors[i]
                 ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
-                        marker = 'x', ms = 5, label = r'$A_{' + agent + r'}$', linewidth = 1)
+                        marker = 'o', ms = 2.5, label = r'$A_{' + agent + r'}$', linewidth = 0.75)
                 
                 # plot predicted future
                 if agent in ind_pp:
@@ -1651,18 +1651,20 @@ class Experiment():
                     for j in range(num_samples_path_pred):
                         ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
                                 np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
-                                color = color_pred, marker = 'o', ms = 2, linestyle = 'dashed', linewidth = 0.5)
+                                color = color_pred, marker = 'x', ms = 1, markeredgewidth = 0.25, 
+                                linestyle = 'dashed', linewidth = 0.25)
                         
                     # plot true future
                     if plot_similar_futures:
                         for j_true in range(len(paths_true_all)):
                             ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
                                     np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
-                                    color = color, marker = 'o', ms = 3, linewidth = 1)
+                                    color = color, marker = 'x', ms = 1, markeredgewidth = 0.25, linewidth = 0.25)
 
                 ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
                         np.concatenate((ip[i,-1:,1], op[i,:,1])),
-                        color = color, marker = 'o', ms = 3, linewidth = 1)
+                        color = color, marker = 'x', ms = 2.5, 
+                        markeredgewidth = 0.25, linewidth = 0.75)
             
             # allow for latex code
             from matplotlib import rc

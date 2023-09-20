@@ -53,7 +53,7 @@ class KLD_traj_joint(evaluation_template):
         Pred_agents = Pred_steps.any(-1)
         
         # Get maximum number representing a distribution
-        max_samples = Path_true_all.shape[1]
+        max_samples = 2 * Path_true_all.shape[1]
         
         KLD = 0
         unique_subgroups = np.unique(subgroups)
@@ -104,8 +104,9 @@ class KLD_traj_joint(evaluation_template):
             log_like_true = kde_true.score_samples(samples_true)
             log_like_pred = kde_pred.score_samples(samples_true)
             
-            KLD += np.mean((log_like_true-log_like_pred))
+            kld_subgroup = np.mean((log_like_true-log_like_pred))
             
+            KLD += kld_subgroup
         
         # Average KLD over subgroups
         KLD /= len(unique_subgroups)

@@ -23,31 +23,32 @@ class OPTICS_GMM():
         
         self.num_features = X.shape[1]
         
-        num_min_samples = 10
+        num_min_samples = X.shape[0] / 20
+        self.num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))
         
-        if len(X) > num_min_samples:
+        if len(X) > self.num_min_samples:
             # Get clusters using the OPTICS
-            optics = OPTICS(min_samples = num_min_samples, min_cluster_size = num_min_samples)
+            optics = OPTICS(min_samples = self.num_min_samples, 
+                            min_cluster_size = 5)
             optics.fit(X)
-            cluster_labels = optics.labels_
+            self.cluster_labels = optics.labels_
         
         else:
-            cluster_labels = np.zeros(len(X))
+            self.cluster_labels = np.zeros(len(X))
             
-        unique_labels, cluster_size = np.unique(cluster_labels, return_counts = True)
-        # Check for noise points
-        if unique_labels.min() == -1:
-            assert unique_labels[0] == -1
-            unique_labels = unique_labels[1:]
-            cluster_size  = cluster_size[1:]
+        unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
+        
+        assert False
             
         # Fit GMM to each model
-        self.KDEs = []
+        self.KDEs = [None] * len(unique_labels)
         self.means = np.zeros((len(unique_labels), self.num_features))
         self.stds  = np.zeros((len(unique_labels), self.num_features))
         for i, label in enumerate(unique_labels):
+            if label == -1:
+                continue
             # Get cluster data
-            X_label = X[cluster_labels == label]
+            X_label = X[self.cluster_labels == label]
             assert len(X_label) == cluster_size[i]
             
             self.means[i] = X_label.mean(0)
@@ -57,7 +58,22 @@ class OPTICS_GMM():
             
             # Fit GMM distribution
             kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_stand)
-            self.KDEs.append(kde)
+            self.KDEs[i] = kde
+            
+        # consider noise values
+        if unique_labels[0] == -1:
+            X_noise = X[self.cluster_labels == -1]
+            # set noise std
+            self.stds[0] = self.stds[1:].min(0)
+            
+            
+            X_noise_stand = (X_noise - self.means[[0]]) / self.stds[[0]]
+            
+            # Fit GMM distribution
+            # calculate silverman rule assuming only 1 sample 
+            bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
+            kde_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
+            self.KDEs[0] = kde_noise
             
         self.probs = cluster_size / cluster_size.sum()
         self.log_probs = np.log(self.probs)

@@ -133,7 +133,7 @@ class Forking_Paths_augmented(data_set_template):
             s_min = 0.8
             s_max = 1.2
             sigma = 0.2
-            num_samples = 10 #100
+            num_samples = 100
             Factors = scipy.stats.truncnorm.rvs((s_min-1)/sigma, (s_max-1)/sigma, 
                                                 loc=1, scale=sigma, size=num_samples)#.float()
             # Factors = [1.0]

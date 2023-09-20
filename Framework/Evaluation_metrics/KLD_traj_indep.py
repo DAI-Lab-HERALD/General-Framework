@@ -53,7 +53,7 @@ class KLD_traj_indep(evaluation_template):
         Pred_agents = Pred_steps.any(-1)
         
         # Get maximum number representing a distribution
-        max_samples = Path_true_all.shape[1]
+        max_samples = 2 * Path_true_all.shape[1]
         
         # Combine agent and samples separately (differentiate between agents)
         agent_indicator = np.linspace(0.1,0.9, Pred_agents.shape[1])
@@ -108,7 +108,9 @@ class KLD_traj_indep(evaluation_template):
             log_like_true = kde_true.score_samples(samples_true)
             log_like_pred = kde_pred.score_samples(samples_true)
             
-            KLD += np.mean((log_like_true-log_like_pred))
+            kld_subgroup = np.mean((log_like_true-log_like_pred))
+            
+            KLD += kld_subgroup
         
         # Average KLD over subgroups
         KLD /= len(unique_subgroups)
