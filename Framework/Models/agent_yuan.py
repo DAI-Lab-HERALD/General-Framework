@@ -170,16 +170,17 @@ class agent_yuan(model_template):
             
             for file_name_candidate in files:
                 if filename in file_name_candidate:
-                    saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
-                    start_epoch = saved_epoch + 1
-                    cp_path_epoch = cp_path[:-2] + '_{}.p'.format(saved_epoch)
-                    model_cp = torch.load(cp_path_epoch, map_location='cpu')
-                    self.model_vae.load_state_dict(model_cp['model_dict'])
-                    
-                    loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(saved_epoch)
-                    Epoch_loss_vae = list(np.load(loss_epoch_path))
-                    
-                    break
+                    if file_name_candidate[-2:] == '.p':
+                        saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
+                        start_epoch = saved_epoch + 1
+                        cp_path_epoch = cp_path[:-2] + '_{}.p'.format(saved_epoch)
+                        model_cp = torch.load(cp_path_epoch, map_location='cpu')
+                        self.model_vae.load_state_dict(model_cp['model_dict'])
+                        
+                        loss_epoch_path = cp_path[:-2] + '_{}_loss.npy'.format(saved_epoch)
+                        Epoch_loss_vae = list(np.load(loss_epoch_path))
+                        
+                        break
                 
             self.model_vae.set_device(self.device)
             self.model_vae.train()
@@ -325,16 +326,17 @@ class agent_yuan(model_template):
             
             for file_name_candidate in files:
                 if filename in file_name_candidate:
-                    saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
-                    start_epoch = saved_epoch + 1
-                    cp_path_epoch = cp_path_dlow[:-2] + '_{}.p'.format(saved_epoch)
-                    model_cp = torch.load(cp_path_epoch, map_location='cpu')
-                    self.model_dlow.load_state_dict(model_cp['model_dict'])
-                    
-                    loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(saved_epoch)
-                    Epoch_loss_dlow = list(np.load(loss_epoch_path))
-                    
-                    break
+                    if file_name_candidate[-2:] == '.p':
+                        saved_epoch = int(file_name_candidate[len(filename) + 1:-2])
+                        start_epoch = saved_epoch + 1
+                        cp_path_epoch = cp_path_dlow[:-2] + '_{}.p'.format(saved_epoch)
+                        model_cp = torch.load(cp_path_epoch, map_location='cpu')
+                        self.model_dlow.load_state_dict(model_cp['model_dict'])
+                        
+                        loss_epoch_path = cp_path_dlow[:-2] + '_{}_loss.npy'.format(saved_epoch)
+                        Epoch_loss_dlow = list(np.load(loss_epoch_path))
+                        
+                        break
                 
             self.model_dlow.set_device(self.device)
             self.model_dlow.train()
