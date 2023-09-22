@@ -87,7 +87,7 @@ class Critical_split(splitting_template):
         return names
     
     def check_splitability_method(self):
-        if self.data_set.scenario.get_name() != 'Gap acceptance problem':
+        if self.data_set.scenario_name != 'Gap acceptance problem':
             return 'this splitting method can only work on gap acceptance problems.'
         else:
             return None

@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 import importlib
-from scenario_none import scenario_none
 import os
 import warnings
 import networkx as nx
+
 
 class data_interface(object):
     def __init__(self, data_dicts, parameters):
@@ -66,41 +66,62 @@ class data_interface(object):
         self.agents_to_predict         = parameters[6]
         self.overwrite_results         = parameters[7]
         
-        # Get scenario
-        scenario_names = []
-        for data_set in self.Datasets.values():
-            scenario_names.append(data_set.scenario.get_name())
-            
-        if len(np.unique(scenario_names)) == 1:
-            self.scenario = data_set.scenario
-        else:
-            self.scenario = scenario_none()
-        
         # Get relevant scenario information
-        self.Behaviors = np.array(list(self.scenario.give_classifications()[0].keys()))
-        self.behavior_default = self.scenario.give_default_classification()
-        self.classification_useful = len(self.Behaviors) > 1
-
-        # Needed agents
-        self.pov_agent = self.scenario.pov_agent()
-        if self.pov_agent is not None:
-            self.needed_agents = [self.scenario.pov_agent()] + self.scenario.classifying_agents()
-        else:
-            self.needed_agents = self.scenario.classifying_agents()
+        scenario_names = []
+        scenario_general_input = []
         
-        assert len(self.needed_agents) > 0, "There must be predictable agents."
+        scenario_pov_agents = np.empty(len(self.Datasets), object)
+        scenario_needed_agents = np.empty(len(self.Datasets), object)
+        
+        self.classification_possible = False
+        self.scenario_behaviors = []
+        self.Behaviors = []
+        for i, data_set in enumerate(self.Datasets.values()):
+            # Get classifiable behavior
+            self.scenario_behaviors.append(data_set.Behaviors)
+            self.Behaviors = self.Behaviors + list(data_set.Behaviors)
+            
+            # Get pov anf needed agents 
+            scenario_names.append(data_set.scenario.get_name())
+            scenario_general_input.append(data_set.scenario.can_provide_general_input() is not None)
+            pov_agent = data_set.scenario.pov_agent()
+            cl_agents = data_set.scenario.classifying_agents()
+            
+            
+            if pov_agent is not None:
+                needed_agents = [pov_agent] + cl_agents
+            else:
+                needed_agents = cl_agents
+            
+            scenario_pov_agents[i] = pov_agent
+            scenario_needed_agents[i] = needed_agents
+            
+            self.classification_possible = self.classification_possible or data_set.classification_useful 
+            
+        self.Behaviors = np.unique(self.Behaviors)
+        
+        self.unique_scenarios, scenario_index = np.unique(scenario_names, return_index = True) 
+        self.scenario_pov_agents = scenario_pov_agents[scenario_index]
+        self.scenario_needed_agents = scenario_needed_agents[scenario_index]
+        
+        self.classification_useful = len(self.unique_scenarios) == 1 and self.classification_possible
     
         # Check if general input is possible
-        self.general_input_available = (self.scenario.can_provide_general_input() != False and
-                                        self.classification_useful)
+        self.general_input_available = all(scenario_general_input) and self.classification_useful
+        
+        # get scenario name
+        if len(self.unique_scenarios) == 1:
+            self.scenario_name = self.unique_scenarios[0]
+        else:
+            self.scenario_name = 'Combined scenarios'
         
         # Get a needed name:
         if len(np.unique([data_set.t0_type for data_set in self.Datasets.values()])) == 1:
-            t0_type_file_name = {'start':            'start',
-                                 'all':              'all_p',
-                                 'col_equal':        'fix_e',
-                                 'col_set':          'fix_s',
-                                 'crit':             'crit_'}
+            t0_type_file_name = {'start':     'start',
+                                 'all':       'all_p',
+                                 'col_equal': 'fix_e',
+                                 'col_set':   'fix_s',
+                                 'crit':      'crit_'}
             
             self.t0_type = list(self.Datasets.values())[0].t0_type
             self.t0_type_name = t0_type_file_name[self.t0_type]
@@ -132,9 +153,9 @@ class data_interface(object):
             del self.X_orig
             del self.Y_orig
         
-        if hasattr(self, 'Pred_agents_eval') and hasattr(self, 'Pred_agents_pred'):
-            del self.Pred_agents_eval
-            del self.Pred_agents_pred
+        if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
+            del self.Pred_agents_eval_all
+            del self.Pred_agents_pred_all
         
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
             del self.Subgroups
@@ -200,7 +221,7 @@ class data_interface(object):
             if data_failure is not None:
                 complete_failure = data_failure[:-1] + ' (in ' + data_set.get_name()['print'] + ').'
             
-        # Set up ten required attributes resulting from this function
+        # Set up 12 required attributes resulting from this function
         self.Input_prediction = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Input_path       = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Input_T          = np.zeros(0, np.ndarray)
@@ -215,9 +236,10 @@ class data_interface(object):
         self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.Domain           = pd.DataFrame(np.zeros((0,0), np.ndarray))
         
-        self.num_behaviors = np.zeros(len(self.Behaviors), int)
+        self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
         
         for data_set in self.Datasets.values():
+            # Combine datasets
             self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
             self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
             
@@ -228,35 +250,21 @@ class data_interface(object):
             self.Recorded         = pd.concat((self.Recorded, data_set.Recorded))
             self.Domain           = pd.concat((self.Domain, data_set.Domain))
             
-            if self.scenario.get_name() != data_set.scenario.get_name():
-                assert self.scenario.get_name() == 'No specific scenario'
-                
-                num_samples = len(data_set.Output_T)
-                OA = pd.DataFrame(np.ones((num_samples, 1), bool), columns = self.Behaviors)
-                self.Output_A         = pd.concat((self.Output_A, OA))
-                
-                IP = pd.DataFrame(np.ones((num_samples, 1), float) * np.nan, columns = ['empty'])
-                self.Input_prediction = pd.concat((self.Input_prediction, IP))
-                
-                OT  = data_set.Output_T
-                OTP = data_set.Output_T_pred
-                for i in range(num_samples):
-                    OT[i]  = OT[i][:data_set.num_timesteps_out_real]
-                    OTP[i] = OTP[i][:data_set.num_timesteps_out_real]
-                    
-                self.Output_T      = np.concatenate((self.Output_T, OT), axis = 0)
-                self.Output_T_pred = np.concatenate((self.Output_T_pred, OTP), axis = 0)
-                
-                
-                self.num_behaviors += data_set.num_behaviors.sum()
-                
-            else:
-                self.Output_A         = pd.concat((self.Output_A, data_set.Output_A))
-                self.Output_T_pred    = np.concatenate((self.Output_T_pred, data_set.Output_T_pred), axis = 0)
-                self.Output_T         = np.concatenate((self.Output_T, data_set.Output_T), axis = 0)
+            self.Output_T_pred    = np.concatenate((self.Output_T_pred, data_set.Output_T_pred), axis = 0)
+            self.Output_T         = np.concatenate((self.Output_T, data_set.Output_T), axis = 0)
+            
+            self.Output_A         = pd.concat((self.Output_A, data_set.Output_A))
+            
+            # Get num behaviors
+            self.num_behaviors[data_set.Behaviors] += data_set.num_behaviors 
+            
+            # Consider generalized input
+            if self.general_input_available:
                 self.Input_prediction = pd.concat((self.Input_prediction, data_set.Input_prediction))
                 
-                self.num_behaviors += data_set.num_behaviors
+            else:
+                IP = pd.DataFrame(np.ones((len(data_set.Output_T), 1), float) * np.nan, columns = ['empty'])
+                self.Input_prediction = pd.concat((self.Input_prediction, IP))
         
         
         # Ensure that the same order of agents is maintained for input and output paths
@@ -277,9 +285,8 @@ class data_interface(object):
         self.Type        = self.Type[Agents]
         self.Recorded    = self.Recorded[Agents]
         
-        # Ensure behavior stuff is aligned
-        self.Output_A = self.Output_A[self.Behaviors]
-        
+        # Ensure behavior stuff is aligned and fill missing behaviors
+        self.Output_A = self.Output_A[self.Behaviors].fillna(False)
         
         # Set final values
         self.data_loaded = True
@@ -342,64 +349,70 @@ class data_interface(object):
     def transform_outputs(self, output, model_pred_type, metric_pred_type, pred_save_file):
         if not self.data_loaded:
             raise AttributeError("Input and Output data has not yet been specified.")
-        
-        # Set up empty splitting parts
-        output_trans = []
-        Uses = []
-        
-        # Get parts of output
-        output_data  = output[1:]
-        output_index = output[0]
-        
-        # Go through part datasets
-        for i, data_set in enumerate(self.Datasets.values()):
-            # Get predictions from this dataset
-            use = self.Domain['Scenario'].iloc[output_index] == data_set.get_name()['print']
-            Uses.append(use)
             
-            # Get output_data for the specific dataset
-            output_d_data = []
-            for out in output_data:
-                assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-                output_d_data.append(out[use])
+        if self.single_dataset:
+            data_set = list(self.Datasets.values())[0]
+            output_trans_all = data_set.transform_outputs(output, model_pred_type, metric_pred_type, pred_save_file)
             
-            # Get output_d_index
-            dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
-            if np.all(dataset_index == output_index[use.to_numpy()]):
-                output_d_index = np.arange(len(dataset_index))
-            else:
-                match = dataset_index[np.newaxis] == output_index[use.to_numpy(),np.newaxis]
-                assert np.all(match.sum(axis = 1) == 1)
-                output_d_index = match.argmax(axis = 1)
+        else:
+            # Set up empty splitting parts
+            output_trans = []
+            Uses = []
             
-            # assemble output for dataset
-            output_d = [output_d_index] + output_d_data            
+            # Get parts of output
+            output_data  = output[1:]
+            output_index = output[0]
             
-            ds_save_file = pred_save_file.replace(os.sep + self.get_name()['file'], os.sep + data_set.get_name()['file'])
-            output_trans.append(data_set.transform_outputs(output_d, model_pred_type, metric_pred_type, ds_save_file))
-        
-        output_trans_all = [output_index]
-        # Go through all parts of the transformed prediction
-        for j in range(1, len(output_trans[0])):
-            assert isinstance(output_trans[0][j], pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-            # Collect columns
-            columns = []
-            for i, out in enumerate(output_trans):
-                columns.append(out[j].columns)
-            columns = np.unique(np.concatenate(columns))
+            # Go through part datasets
+            for i, data_set in enumerate(self.Datasets.values()):
+                # Get predictions from this dataset
+                use = self.Domain['Scenario'].iloc[output_index] == data_set.get_name()['print']
+                use = np.where(use.to_numpy())[0]
+                Uses.append(use)
+                
+                # Get output_data for the specific dataset
+                output_d_data = []
+                for out in output_data:
+                    assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                    out_data = out.iloc[use]
+                    # check if this is a class thing
+                    if np.in1d(np.array(out_data.columns), self.Behaviors).all():
+                        out_data = out_data[data_set.Behaviors]
+                
+                    output_d_data.append(out_data)
+                # Get output_d_index
+                dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
+                if np.all(dataset_index == output_index[use]):
+                    output_d_index = np.arange(len(dataset_index))
+                else:
+                    match = dataset_index[np.newaxis] == output_index[use, np.newaxis]
+                    assert np.all(match.sum(axis = 1) == 1)
+                    output_d_index = match.argmax(axis = 1)
+                
+                # assemble output for dataset
+                output_d = [output_d_index] + output_d_data            
+                
+                ds_save_file = pred_save_file.replace(os.sep + self.get_name()['file'], os.sep + data_set.get_name()['file'])
+                output_trans.append(data_set.transform_outputs(output_d, model_pred_type, metric_pred_type, ds_save_file))
             
-            array_type = output_trans[0][j].to_numpy().dtype
-            
-            output_trans_all.append(pd.DataFrame(np.zeros((len(output_index), len(columns)), array_type),
-                                                 columns = list(columns), index = output_index))
-            
-            for i, out in enumerate(output_trans):
-                c_index = (out[j].columns.to_numpy()[:,np.newaxis] == columns[np.newaxis]).argmax(axis = - 1)
-                use_index = np.where(Uses[i])[0]
-                try:
-                    output_trans_all[j].iloc[use_index, c_index] = out[j]
-                except:
-                    assert False
+            output_trans_all = [output_index]
+            # Go through all parts of the transformed prediction
+            for j in range(1, len(output_trans[0])):
+                assert isinstance(output_trans[0][j], pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                # Collect columns
+                columns = []
+                for out in output_trans:
+                    columns.append(out[j].columns)
+                columns = np.unique(np.concatenate(columns))
+                
+                array_type = output_trans[0][j].to_numpy().dtype
+                
+                output_trans_all.append(pd.DataFrame(np.zeros((len(output_index), len(columns)), array_type),
+                                                     columns = list(columns), index = output_index))
+                
+                for i, out in enumerate(output_trans):
+                    c_index = (out[j].columns.to_numpy()[:,np.newaxis] == columns[np.newaxis]).argmax(axis = - 1)
+                    output_trans_all[j].iloc[Uses[i], c_index] = out[j]
                 
         return output_trans_all
         
@@ -457,89 +470,137 @@ class data_interface(object):
                     self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
                     
                     
-    def _determine_pred_agents(self):
-        if hasattr(self, 'Pred_agents_eval') and hasattr(self, 'Pred_agents_pred'):
-            return
-        
-        Agents = np.array(self.Recorded.columns)
-        Required_agents = np.array([agent in self.needed_agents for agent in Agents])
-        Required_agents = np.tile(Required_agents[np.newaxis], (len(self.Recorded), 1))
-        
-        # Get path data
-        self._extract_original_trajectories()
-        
-        if self.agents_to_predict == 'predefined':
-            self.Pred_agents_eval = Required_agents
-            self.Pred_agents_pred = Required_agents
-        else:
-            Recorded_agents = np.zeros(Required_agents.shape, bool)
-            for i_sample in range(len(self.Recorded)):
-                R = self.Recorded.iloc[i_sample]
-                for i_agent, agent in enumerate(Agents):
-                    if isinstance(R[agent], np.ndarray):
-                        Recorded_agents[i_sample, i_agent] = np.all(R[agent])
-        
-            # remove non-moving agents
-            Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
-            Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category = RuntimeWarning)
-                Dr = np.nanmax(Dr, (2, 3))
+    def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
+        if not (hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all')):
+            Agents = np.array(self.Recorded.columns)
             
-            # Get moving vehicles
-            Moving_agents = Dr > 0.01
+            # Get unique boolean needed agents
+            Agents = np.array(self.Recorded.columns)
+            needed_agents_bool = []
+            for needed_agents in self.scenario_needed_agents:
+                needed_agents_bool.append(np.in1d(Agents, needed_agents))
+                    
+            needed_agents_bool = np.stack(needed_agents_bool, axis = 0)
             
-            # Get correct type 
-            T = self.Type[Agents].to_numpy()
-            if self.agents_to_predict != 'all':
-                Correct_type_agents = T == self.agents_to_predict
+            # Get the unique scenario id for every sample
+            Scenario = self.Domain.Scenario_type.to_numpy()
+            Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
+            assert np.all(Scenario_id.sum(1) == 1)
+            Scenario_id = Scenario_id.argmax(1)
+            
+            # Get needed agents for all cases
+            Needed_agents = needed_agents_bool[Scenario_id]
+            
+            # Get path data
+            self._extract_original_trajectories()
+            
+            if self.agents_to_predict == 'predefined':
+                self.Pred_agents_eval_all = Needed_agents
+                self.Pred_agents_pred_all = Needed_agents
             else:
-                Correct_type_agents = np.ones(T.shape, bool)
+                Recorded_agents = np.zeros(Needed_agents.shape, bool)
+                for i_sample in range(len(self.Recorded)):
+                    R = self.Recorded.iloc[i_sample]
+                    for i_agent, agent in enumerate(Agents):
+                        if isinstance(R[agent], np.ndarray):
+                            Recorded_agents[i_sample, i_agent] = np.all(R[agent])
             
-            Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
-            
-            self.Pred_agents_eval = (Correct_type_agents & Required_agents) | Extra_agents
-            self.Pred_agents_pred = Required_agents | Extra_agents
-        
-        
-        # NuScenes exemption:
-        if ((self.get_name()['print'] == 'NuScenes') and
-            (self.num_timesteps_in_real == 4) and 
-            (self.num_timesteps_out_real == 12) and
-            (self.dt == 0.5) and 
-            (self.t0_type == 'all')):
-            
-            # Get predefined predicted agents for NuScenes
-            Pred_agents_N = np.zeros(Required_agents.shape, bool)
-            PA = self.Domain.pred_agents
-            PT = self.Domain.pred_timepoints
-            T0 = self.Domain.t_0
-            for i_sample in range(len(self.Recorded)):
-                pt = PT.iloc[i_sample]
-                t0 = T0.iloc[i_sample]
-                i_time = np.argmin(np.abs(t0 - pt))
+                # remove non-moving agents
+                Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
+                Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category = RuntimeWarning)
+                    Dr = np.nanmax(Dr, (2, 3))
                 
-                pas = PA.iloc[i_sample]
-                i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
-                pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                # Get moving vehicles
+                Moving_agents = Dr > 0.01
                 
-                Pred_agents_N[i_sample, i_agents] = pa
+                # Get correct type 
+                T = self.Type[Agents].to_numpy()
+                if self.agents_to_predict != 'all':
+                    Correct_type_agents = T == self.agents_to_predict
+                else:
+                    Correct_type_agents = np.ones(T.shape, bool)
+                
+                Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
+                
+                self.Pred_agents_eval_all = (Correct_type_agents & Needed_agents) | Extra_agents
+                self.Pred_agents_pred_all = Needed_agents | Extra_agents
             
-            self.Pred_agents_eval = Pred_agents_N
-            self.Pred_agents_pred = Pred_agents_N
             
-        # Check if everything needed is there
-        assert not np.isnan(self.X_orig[self.Pred_agents_pred]).all((1,2)).any(), 'A needed agent is not given.'
-        assert not np.isnan(self.Y_orig[self.Pred_agents_pred]).all((1,2)).any(), 'A needed agent is not given.'
+            # NuScenes exemption:
+            if ((self.get_name()['print'] == 'NuScenes') and
+                (self.num_timesteps_in_real == 4) and 
+                (self.num_timesteps_out_real == 12) and
+                (self.dt == 0.5) and 
+                (self.t0_type == 'all')):
+                
+                # Get predefined predicted agents for NuScenes
+                Pred_agents_N = np.zeros(Needed_agents.shape, bool)
+                PA = self.Domain.pred_agents
+                PT = self.Domain.pred_timepoints
+                T0 = self.Domain.t_0
+                for i_sample in range(len(self.Recorded)):
+                    pt = PT.iloc[i_sample]
+                    t0 = T0.iloc[i_sample]
+                    i_time = np.argmin(np.abs(t0 - pt))
+                    
+                    pas = PA.iloc[i_sample]
+                    i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                    pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
+                    
+                    Pred_agents_N[i_sample, i_agents] = pa
+                
+                self.Pred_agents_eval_all = Pred_agents_N
+                self.Pred_agents_pred_all = Pred_agents_N
+                
+            # Check if everything needed is there
+            assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
+            assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
+        
+        if not (pred_pov and eval_pov):
+            if not hasattr(self, 'Not_pov_agent'):
+                
+                # Get unique boolean pov agents
+                Agents = np.array(self.Recorded.columns)
+                pov_agents_bool = []
+                for pov_agent in self.scenario_pov_agents:
+                    if pov_agent is None:
+                        pov_agents_bool.append(np.zeros(len(Agents), bool))
+                    else:
+                        pov_agents_bool.append(Agents == pov_agent)
+                        
+                pov_agents_bool = np.stack(pov_agents_bool, axis = 0)
+                
+                # Get the unique scenario id for every sample
+                Scenario = self.Domain.Scenario_type.to_numpy()
+                Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
+                assert np.all(Scenario_id.sum(1) == 1)
+                Scenario_id = Scenario_id.argmax(1)
+                
+                # Get pov boolean for each agent
+                Pov_agent = pov_agents_bool[Scenario_id]
+                self.Not_pov_agent = np.invert(Pov_agent)
+            
+        if pred_pov:
+            self.Pred_agents_pred = self.Pred_agents_pred_all.copy()
+        else:
+            self.Pred_agents_pred = self.Pred_agents_pred_all & self.Not_pov_agent
+            
+        if eval_pov:
+            self.Pred_agents_eval = self.Pred_agents_eval_all.copy()
+        else:
+            self.Pred_agents_eval = self.Pred_agents_eval_all & self.Not_pov_agent
         
         
-    def _extract_identical_inputs(self):
+        
+    def _extract_identical_inputs(self, eval_pov = True):
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
             return
         
         # get input trajectories
         self._extract_original_trajectories()
-        self._determine_pred_agents()
+        self._determine_pred_agents(eval_pov = eval_pov)
         
         # Get the same entrie in full dataset
         T = self.Type.to_numpy().astype(str)

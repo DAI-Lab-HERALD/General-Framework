@@ -212,8 +212,6 @@ class model_template():
         else:
             raise TypeError("This output type for models is not implemented.")
         
-        
-        
         os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
         
         if self.get_output_type()[:4] != 'path':
@@ -231,7 +229,7 @@ class model_template():
             savable_timesteps_total = max(savable_timesteps_total, 2 ** 27) # 2 ** 27 should be 1 GB
             
             # Get number of timesteps per sample that should be saved
-            self.data_set._determine_pred_agents()
+            self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
             pred_agent_bool = self.data_set.Pred_agents_pred[self.Index_test]
             num_timesteps_pred = self.data_set.N_O_pred_orig[self.Index_test]
             to_save_timesteps = pred_agent_bool.sum(1) * num_timesteps_pred * self.num_samples_path_pred
@@ -291,7 +289,7 @@ class model_template():
             domain_old = self.data_set.Domain
             
             # Determine needed agents
-            self.data_set._determine_pred_agents()
+            self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
             
             # Get agent types
             T = self.data_set.Type.to_numpy()
@@ -455,7 +453,7 @@ class model_template():
         return T_all
     
     def _extract_useful_training_samples(self):
-        I_train = self.Index_train
+        I_train = np.where(np.in1d(self.ID[:,0,0], self.Index_train))[0]
         
         remain_samples = self.N_O_data[I_train] >= self.min_t_O_train
         
@@ -493,7 +491,6 @@ class model_template():
         None.
 
         '''
-        
         assert self.get_output_type()[:4] == 'path'
         if self.predict_single_agent:
             if len(Pred.shape) == 4:
@@ -663,7 +660,8 @@ class model_template():
         if mode == 'pred':
             assert self.model_mode == 'pred', 'During prediction, testing set should be called.'
             if not hasattr(self, 'Ind_pred'):
-                self.Ind_pred = [self.Index_test.copy(), np.array([], int)]
+                I_pred = np.where(np.in1d(self.ID[:,0,0], self.Index_test))[0]
+                self.Ind_pred = [I_pred, np.array([], int)]
                 
             N_O = self.N_O_pred
             Ind_advance = self.Ind_pred
@@ -824,8 +822,7 @@ class model_template():
             D = np.ones(list(D_help.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
             for i_sample in range(D.shape[0]):
                 for i_dist in range(D.shape[1]):
-                    if self.data_set.general_input_available:
-                        D[i_sample, i_dist] = D_help[i_sample, i_dist].astypt(np.float32)
+                    D[i_sample, i_dist] = D_help[i_sample, i_dist].astypt(np.float32)
         else:
             D = np.zeros((len(T),0), dtype = np.float32)
         
@@ -932,8 +929,10 @@ class model_template():
         
         
     def check_trainability(self):
-        if self.get_output_type() == 'path_all_wo_pov':
-            if len(self.data_set.needed_agents) == 1:
+        # Get predicted agents
+        if self.get_output_type()[:4] == 'path':
+            self.data_set._determine_pred_agents(eval_pov = self.get_output_type() == 'path_all_wi_pov')
+            if self.data_set.Pred_agents_eval.sum() == 0:
                 return 'there is no agent of which a trajectory can be predicted.'
             
         if self.get_output_type() in ['class', 'class_and_time']:
@@ -953,7 +952,7 @@ class model_template():
         
         # Check if data is there
         self.data_set._extract_original_trajectories()
-        self.data_set._determine_pred_agents()
+        self.data_set._determine_pred_agents(eval_pov = ~exclude_ego)
         self.prepare_batch_generation()
         
         # Initialize output
@@ -964,24 +963,18 @@ class model_template():
         Nto_i = np.minimum(nto, self.N_O_data[Pred_index])
         
         # get predicted agents
-        pred_agents = self.data_set.Pred_agents_eval[Pred_index]
-        
-        # exclude ego agent if so desired
-        if exclude_ego:
-            Agents = np.array(Output_path_pred.columns)
-            pov_agent = Agents == self.data_set.pov_agent
-            pred_agents[:,pov_agent] = False
+        Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
         
         # Get pred agents
-        max_num_pred_agents = pred_agents.sum(1).max()
+        max_num_pred_agents = Pred_agents.sum(1).max()
         
-        i_agent_sort = np.argsort(-pred_agents.astype(float))
+        i_agent_sort = np.argsort(-Pred_agents.astype(float))
         i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
         # Get predicted timesteps
         self.Pred_step = Nto_i[:,np.newaxis] > np.arange(nto)[np.newaxis]
-        self.Pred_step = self.Pred_step[:,np.newaxis] & pred_agents[i_sampl_sort,i_agent_sort,np.newaxis]
+        self.Pred_step = self.Pred_step[:,np.newaxis] & Pred_agents[i_sampl_sort, i_agent_sort, np.newaxis]
         
         # Get true predictions
         self.Path_true = self.data_set.Y_orig[Pred_index]
@@ -998,7 +991,7 @@ class model_template():
             
             pred_agents = np.where(self.Pred_step[i].any(-1))[0]
             pred_agents_id = i_agent_sort[i, pred_agents]
-            
+
             path_pred_orig = Output_path_pred.iloc[i, pred_agents_id]
             path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
             
@@ -1026,7 +1019,6 @@ class model_template():
         self.excluded_ego = exclude_ego
         
         # Check if dataset has all valuable stuff
-        self.data_set._determine_pred_agents()
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
         
         # get predicted agents
@@ -1075,7 +1067,6 @@ class model_template():
         self.excluded_ego = exclude_ego
         
         # Check if dataset has all valuable stuff
-        self.data_set._determine_pred_agents()
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
         
         # get predicted agents

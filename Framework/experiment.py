@@ -181,17 +181,17 @@ class Experiment():
         
         if data_set.classification_useful:
             sample_string = ''
-            for n_beh, beh in enumerate(data_set.Behaviors):
+            for beh in data_set.Behaviors:
                 if beh != data_set.Behaviors[-1]:
                     if len(data_set.Behaviors) > 2:
                         sample_string += '{}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
-                                                         data_set.num_behaviors[n_beh]) + beh + ', '
+                                                         data_set.num_behaviors[beh]) + beh + ', '
                     else:
                         sample_string += '{}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
-                                                         data_set.num_behaviors[n_beh]) + beh + ' '
+                                                         data_set.num_behaviors[beh]) + beh + ' '
                 else:                            
                     sample_string += 'and {}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
-                                                         data_set.num_behaviors[n_beh]) + beh        
+                                                         data_set.num_behaviors[beh]) + beh        
             sample_string += ' samples are admissible.'
         else:
             if hasattr(data_set, 'Output_T'):
@@ -230,7 +230,7 @@ class Experiment():
             print('', flush = True)
 
     def print_metric_status(self, metric, metric_failure = None):
-        if not metric.data_set.classification_useful:
+        if not metric.data_set.classification_possible:
             if metric.get_output_type()[:5] == 'class':
                 metric_failure = 'the dataset does not allow for classifications.'
         

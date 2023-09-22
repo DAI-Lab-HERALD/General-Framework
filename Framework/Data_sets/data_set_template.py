@@ -597,7 +597,9 @@ class data_set_template():
             
         
         # Update sample if necessary and permittable
-        if not self.enforce_prediction_time and (t0 >= t_start or not self.classification_useful):
+        if (t0 >= t_start and 
+            (((not self.classification_useful and t0 == t[0])) or
+             (not self.enforce_prediction_time))):
             t0 = max(t0, t0_min)
         
         # exclude samples where t0 is not admissible during open gap
@@ -789,7 +791,6 @@ class data_set_template():
                         else:
                             T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, i, behavior)) 
                     
-
                 for ind_t0, t0 in enumerate(T0):
                     if isinstance(t0, str):
                         return t0
@@ -1157,52 +1158,60 @@ class data_set_template():
             print('', flush = True)
             print('start rotating', flush = True)
             n = 250
-            for i in range(0,len(domain), n):
-                torch.cuda.empty_cache()
-                print('rotating images ' + str(i) + ' to ' + str(min(i + n, len(domain)))+ ' of ' + str(len(domain)) + ' total', flush = True)
-    
-                Index = np.arange(i, min(i + n, len(domain)))
-                locations = Locations[Index]
-                Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
+            
+            image_num = 0
+            for location in np.unique(Locations):
+                loc_indices = np.where(Locations == location)[0]
                 
-                M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[locations].to_numpy()).to(device = device)
-                M2px_n = M2px_n.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(dtype = torch.float32)
-                
-                pos_old = Pos_old * M2px_n
-                
-                if first_stage:
-                    pos_old = torch.matmul(pos_old, Rot_matrix[Index_torch].unsqueeze(1))
-                    pos_old = pos_old + center[Index_torch,:].unsqueeze(1).unsqueeze(1)
-                
-                if second_stage:
-                    pos_old = torch.matmul(pos_old, Rot_matrix_old[Index_torch].unsqueeze(1))
-                    pos_old = pos_old + center_old[Index_torch,:].unsqueeze(1).unsqueeze(1)
+                for i in range(0, len(loc_indices), n):
+                    torch.cuda.empty_cache()
+                    Index_local = np.arange(i, min(i + n, len(loc_indices)))
+                    Index = loc_indices[Index_local]
                     
-                pos_old = pos_old / M2px_n
-                
-                pos_old[...,1] *= -1
-                
-                torch.cuda.empty_cache()
-                
-                # Enforce grayscale here using the gpu
-                unique_locations, location_ind = np.unique(locations, return_inverse = True)
-                unique_Images = np.stack(self.Images.Image.loc[unique_locations].to_list(), 0)
-                unique_imgs_n = torch.from_numpy(unique_Images).to(device = device)
-                
-                if grayscale:
-                    imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = unique_imgs_n.dtype, device = device)
-                else:
-                    imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = unique_imgs_n.dtype, device = device)
-                
-                location_ind = torch.from_numpy(location_ind).to(device = device)
-                
-                imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, location_ind)
-                
-                if not rgb:
-                    imgs_rot = 255 * imgs_rot
+                    print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
+                          ' of ' + str(len(domain)) + ' total', flush = True)
+                    image_num = image_num + len(Index)
+                    locations = Locations[Index]
+                    Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
                     
-                torch.cuda.empty_cache()
-                Imgs_rot[Imgs_index[Index]] = imgs_rot.detach().cpu().numpy().astype('uint8')
+                    M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[locations].to_numpy()).to(device = device)
+                    M2px_n = M2px_n.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(dtype = torch.float32)
+                    
+                    pos_old = Pos_old * M2px_n
+                    
+                    if first_stage:
+                        pos_old = torch.matmul(pos_old, Rot_matrix[Index_torch].unsqueeze(1))
+                        pos_old = pos_old + center[Index_torch,:].unsqueeze(1).unsqueeze(1)
+                    
+                    if second_stage:
+                        pos_old = torch.matmul(pos_old, Rot_matrix_old[Index_torch].unsqueeze(1))
+                        pos_old = pos_old + center_old[Index_torch,:].unsqueeze(1).unsqueeze(1)
+                        
+                    pos_old = pos_old / M2px_n
+                    
+                    pos_old[...,1] *= -1
+                    
+                    torch.cuda.empty_cache()
+                    
+                    # Enforce grayscale here using the gpu
+                    unique_locations, location_ind = np.unique(locations, return_inverse = True)
+                    unique_Images = np.stack(self.Images.Image.loc[unique_locations].to_list(), 0)
+                    unique_imgs_n = torch.from_numpy(unique_Images).to(device = device)
+                    
+                    if grayscale:
+                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = unique_imgs_n.dtype, device = device)
+                    else:
+                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = unique_imgs_n.dtype, device = device)
+                    
+                    location_ind = torch.from_numpy(location_ind).to(device = device)
+                    
+                    imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, location_ind)
+                    
+                    if not rgb:
+                        imgs_rot = 255 * imgs_rot
+                        
+                    torch.cuda.empty_cache()
+                    Imgs_rot[Imgs_index[Index]] = imgs_rot.detach().cpu().numpy().astype('uint8')
         
             return Imgs_rot
         else:
@@ -1504,73 +1513,82 @@ class data_set_template():
 
     def path_to_class_and_time(self, Output_path_pred, Pred_index, 
                                Output_T_pred, Domain, pred_save_file, save_results=True):
-
-        # Remove other prediction method
-        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
-
-        if os.path.isfile(test_file) and not self.overwrite_results:
-            [Output_A_pred,
-             Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
+        if self.classification_useful:
+            # Remove other prediction method
+            test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
+    
+            if os.path.isfile(test_file) and not self.overwrite_results:
+                [Output_A_pred,
+                 Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
+            else:
+                Output_A_pred = pd.DataFrame(np.zeros((len(Output_path_pred), len(self.Behaviors)), float),
+                                             columns = self.Behaviors)
+                Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
+                                               columns = self.Behaviors)
+    
+                for i_sample, i_full in enumerate(Pred_index):
+                    paths = Output_path_pred.iloc[i_sample]
+                    t = Output_T_pred[i_full]
+                    domain = Domain.iloc[i_full]
+                    T_class = self.path_to_class_and_time_sample(paths, t, domain)
+    
+                    output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
+    
+                    Output_A_pred.iloc[i_sample] = pd.Series(output_A.mean(axis=0), index=self.Behaviors)
+    
+                    for i_beh, beh in enumerate(self.Behaviors):
+                        T_beh = T_class[output_A[:, i_beh], i_beh]
+                        if len(T_beh) > 0:
+                            Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
+                        else:
+                            Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
+                if save_results:
+                    save_data = np.array(
+                        [Output_A_pred, Output_T_E_pred, 0], object)
+                    os.makedirs(os.path.dirname(test_file), exist_ok=True)
+                    np.save(test_file, save_data)
         else:
-            Output_A_pred = pd.DataFrame(np.zeros((len(Output_path_pred), len(self.Behaviors)), float),
-                                         columns=self.Behaviors)
+            Output_A_pred = pd.DataFrame(np.ones((len(Output_path_pred), len(self.Behaviors)), float),
+                                         columns = self.Behaviors)
             Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
-                                           columns=self.Behaviors)
-
-            for i_sample, i_full in enumerate(Pred_index):
-                paths = Output_path_pred.iloc[i_sample]
-                t = Output_T_pred[i_full]
-                domain = Domain.iloc[i_full]
-                T_class = self.path_to_class_and_time_sample(paths, t, domain)
-
-                output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
-
-                Output_A_pred.iloc[i_sample] = pd.Series(output_A.mean(axis=0), index=self.Behaviors)
-
-                for i_beh, beh in enumerate(self.Behaviors):
-                    T_beh = T_class[output_A[:, i_beh], i_beh]
-                    if len(T_beh) > 0:
-                        Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
-                    else:
-                        Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
-            if save_results:
-                save_data = np.array(
-                    [Output_A_pred, Output_T_E_pred, 0], object)
-                os.makedirs(os.path.dirname(test_file), exist_ok=True)
-                np.save(test_file, save_data)
-
+                                           columns = self.Behaviors)
+            
         return Output_A_pred, Output_T_E_pred
 
     def class_to_time(self, Output_A_pred, Pred_index, Domain, pred_save_file):
         # Remove other prediction type
-        test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
-        if os.path.isfile(test_file) and not self.overwrite_results:
-            [_, Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
+        if self.classification_useful:
+            test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
+            if os.path.isfile(test_file) and not self.overwrite_results:
+                [_, Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
+            else:
+                self.train_path_models()
+    
+                Output_T_E_pred = pd.DataFrame(np.empty((len(Output_A_pred), len(self.Behaviors)), object),
+                                               columns = self.Behaviors)
+                for i_sample, i_full in enumerate(Pred_index):
+                    t = self.Output_T_pred[i_full]
+                    domain = Domain.iloc[i_full]
+                    for i_beh, beh in enumerate(self.Behaviors):
+                        paths_beh = self.path_models_pred[beh].iloc[i_full]
+                        T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
+                        T_beh = T_class_beh[((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
+                                             (T_class_beh[:, i_beh] <= t[-1])), i_beh]
+    
+                        if len(T_beh) > 0:
+                            Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
+                        else:
+                            Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
+    
+                save_data = np.array([Output_A_pred, Output_T_E_pred, 0], object)
+                os.makedirs(os.path.dirname(test_file), exist_ok=True)
+                np.save(test_file, save_data)
         else:
-            self.train_path_models()
-
-            Output_T_E_pred = pd.DataFrame(np.empty((len(Output_A_pred), len(self.Behaviors)), object),
-                                           columns=self.Behaviors)
-            for i_sample, i_full in enumerate(Pred_index):
-                t = self.Output_T_pred[i_full]
-                domain = Domain.iloc[i_full]
-                for i_beh, beh in enumerate(self.Behaviors):
-                    paths_beh = self.path_models_pred[beh].iloc[i_full]
-                    T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
-                    T_beh = T_class_beh[((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
-                                         (T_class_beh[:, i_beh] <= t[-1])), i_beh]
-
-                    if len(T_beh) > 0:
-                        Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
-                    else:
-                        Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
-
-            save_data = np.array([Output_A_pred, Output_T_E_pred, 0], object)
-            os.makedirs(os.path.dirname(test_file), exist_ok=True)
-            np.save(test_file, save_data)
+            Output_T_E_pred = pd.DataFrame(np.empty(Output_A_pred.shape, object), columns = self.Behaviors)
         return Output_T_E_pred
 
     def class_and_time_to_path(self, Output_A_pred, Output_T_E_pred, Pred_index, Domain, pred_save_file):
+        assert self.classification_useful, "For not useful datasets training classification models should be impossible."
         # check if this has already been performed
         test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
@@ -1579,7 +1597,7 @@ class data_set_template():
             Output_path_pred = [output[1]]
             
             save = 1 
-            new_test_file = test_file[:-6] + str(save).zfill(2)+ '.npy'
+            new_test_file = test_file[:-6] + str(save).zfill(2) + '.npy'
             while os.path.isfile(new_test_file):
                 output = np.load(new_test_file, allow_pickle = True)
                 Output_path_pred.append(output[1])

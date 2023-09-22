@@ -65,7 +65,7 @@ class TNR_PR(evaluation_template):
         return False
         
     def check_applicability(self):
-        if self.data_set.scenario.get_name() != 'Gap acceptance problem':
+        if self.data_set.scenario_name != 'Gap acceptance problem':
             return 'this makes sense in the context of gap acceptance problems.'
         
         if self.data_set.t0_type != 'Crit':

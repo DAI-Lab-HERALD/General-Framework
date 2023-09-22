@@ -108,7 +108,7 @@ If the metric can be applied, it should return None, while otherwise, it should 
     '''
     return reason
 ```
-A potential reason why the metric might not be applicable could be the restriction to a certain scenario (see [*self.data_set.scenario.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)) or dataset (see [*self.data_set.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#setting-up-the-class)).
+A potential reason why the metric might not be applicable could be the restriction to a certain scenario (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)) or dataset (see [*self.data_set.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#setting-up-the-class)).
 
 
 Finally, when comparing metrics, it is important to know if a superior model would minimize or maximize them. For this, the method *get_opt_goal()* is used:

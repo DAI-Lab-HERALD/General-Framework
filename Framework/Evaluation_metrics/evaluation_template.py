@@ -12,8 +12,9 @@ class evaluation_template():
             
             self.depict_results = False
             
-            self.Output_A_full         = self.data_set.Output_A
-            self.Output_T_E_full       = self.data_set.Output_T_E
+            self.Output_A_full   = self.data_set.Output_A
+            self.Output_T_E_full = self.data_set.Output_T_E
+            self.Scenario_full   = self.data_set.Domain.Scenario_type
             
             self.t_e_quantile = self.data_set.p_quantile
             
@@ -57,9 +58,30 @@ class evaluation_template():
 
         '''
         assert self.get_output_type()[:5] == 'class', 'This is not a classification metric.'
+        
+        # Get true and predicted probabilities
         P_true = self.Output_A.to_numpy().astype(float)
-        P_pred = self.Output_A_pred.to_numpy().astype(float)
+        P_pred = self.Output_A_pred.fillna(0.0).to_numpy().astype(float)
         Class_names = self.Output_A.columns
+        
+        # Remove cases where there was only on possible case to predict
+        use_column = np.zeros(P_true.shape[1], bool)
+        for i, behs in enumerate(self.data_set.scenario_behaviors):
+            if len(behs) > 1:
+                if self.data_set.unique_scenarios[i] in self.Scenario:
+                    use_column |= np.in1d(Class_names, behs)
+        
+        # Remove useless columns
+        P_true = P_true[:,use_column]
+        P_pred = P_pred[:,use_column]
+        
+        Class_names = Class_names[use_column]
+        
+        # Remove useles rows
+        use_row = P_true.sum(1) == 1
+        
+        P_true = P_true[use_row]
+        P_pred = P_pred[use_row]
         
         return P_true, P_pred, Class_names
     
@@ -96,7 +118,25 @@ class evaluation_template():
         
         for i in range(T_pred.shape[0]):
             for j in range(T_pred.shape[1]):
-                T_pred[i,j] = self.Output_T_E_pred.iloc[i,j]
+                t_pred = self.Output_T_E_pred.iloc[i,j]
+                if isinstance(t_pred, np.ndarray):
+                    T_pred[i,j] = t_pred
+        
+        # Get use column and use row
+        P_true = self.Output_A.to_numpy().astype(float)
+        use_column = np.zeros(P_true.shape[1], bool)
+        for i, behs in enumerate(self.data_set.scenario_behaviors):
+            if len(behs) > 1:
+                if self.data_set.unique_scenarios[i] in self.Scenario:
+                    use_column |= np.in1d(Class_names, behs)
+        
+        P_true = P_true[:,use_column]
+        use_row = P_true.sum(1) == 1
+        
+        # remove useles rows and columns
+        Class_names = Class_names[use_column]
+        T_true = T_true[use_row][:,use_column]
+        T_pred = T_pred[use_row][:,use_column]
         
         return T_true, T_pred, Class_names
     
@@ -233,7 +273,7 @@ class evaluation_template():
             should be chosen.
 
         '''
-        self.data_set._extract_identical_inputs()
+        self.data_set._extract_identical_inputs(eval_pov = self.get_output_type() == 'path_all_wi_pov')
         Subgroup_unique, Subgroup = np.unique(self.data_set.Subgroups[self.Index_curr], return_inverse = True)
         Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
         
@@ -254,11 +294,11 @@ class evaluation_template():
         if self.get_output_type()[:5] == 'class':
             # Get label predictions
             Output_A_pred = Output_pred[1]
-            columns = self.Output_A_full.columns
+            columns = Output_A_pred.columns
             
             self.Output_A_pred = Output_A_pred[columns].iloc[self.Index_curr_pred]
-            self.Output_A      = self.Output_A_full.iloc[self.Index_curr]
-            
+            self.Output_A      = self.Output_A_full[columns].iloc[self.Index_curr]
+            self.Scenario      = np.unique(self.Scenario_full.iloc[self.Index_curr])
             
             if self.get_output_type() == 'class_and_time':
                 Output_T_E_pred = Output_pred[2]
@@ -268,7 +308,8 @@ class evaluation_template():
                 self.Output_T_E_pred = Output_T_E_pred[columns].iloc[self.Index_curr_pred]
         
         else:
-            self.Output_path_pred = Output_pred[1]
+            Agents = np.array(self.data_set.Output_path.columns)
+            self.Output_path_pred = Output_pred[1][Agents]
         
         return True
         

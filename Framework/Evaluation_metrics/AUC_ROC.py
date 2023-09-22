@@ -94,6 +94,6 @@ class AUC_ROC(evaluation_template):
         return False
     
     def check_applicability(self):
-        if not self.data_set.classification_useful:
+        if not self.data_set.classification_possible:
             return 'because a classification metric requires more than one available class.'
         return None
