@@ -30,14 +30,14 @@ class KDE_NLL_joint(evaluation_template):
         _, _, Pred_steps = self.get_true_and_predicted_paths()
         
         # Get likelihood of having higher probability
-        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
+        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
         
         # Scale with number of timesteps
         Num_steps = Pred_steps.sum(-1).max(-1)
         NLL = np.log(Num_steps.max() / Num_steps) - KDE_log_prob_true[:,0,0] 
         
         Error = NLL.mean()
-        return [Error]
+        return [Error, KDE_log_prob_true[:,0,0], KDE_log_prob_pred[:,:,0].max(1), KDE_log_prob_pred[:,:,0].min(1)]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
