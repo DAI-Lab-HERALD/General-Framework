@@ -42,7 +42,7 @@ class KDE_NLL_indep(evaluation_template):
         NLL = np.log(Num_steps.max() / Num_steps) - PLL 
         
         Error = NLL.mean()
-        return [Error]
+        return [Error, PLL, KDE_log_prob_pred.max(1)[Pred_agents], KDE_log_prob_pred.min(1)[Pred_agents]]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
