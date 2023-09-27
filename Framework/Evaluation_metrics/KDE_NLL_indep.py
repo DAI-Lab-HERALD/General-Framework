@@ -31,7 +31,7 @@ class KDE_NLL_indep(evaluation_template):
         Pred_agents = Pred_steps.any(-1)
         
         # Get likelihood of having higher probability
-        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
+        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
         
         # Combine agent and sample dimension
         Pred_steps = Pred_steps[Pred_agents]
