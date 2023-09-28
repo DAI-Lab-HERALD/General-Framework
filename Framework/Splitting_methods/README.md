@@ -47,6 +47,21 @@ Given the settings, it might be possible that only a certain number of unique re
     '''
     return max_repetition_nunmber
 ```
+It might now be possible, that repetitions are passed as strings. The following function then is used to tell the framework if such an input can be processed or not.
+```
+  def can_process_str_nrepetition(self = None):
+    r'''
+    This returns the decision, whether the test set used can be indicated by
+    strings or not.
+
+    Returns
+    -------
+    processing_decision : int
+
+    '''
+
+    return processing_decision
+```
 
 However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
 
