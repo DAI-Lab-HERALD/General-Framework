@@ -49,7 +49,7 @@ Given the settings, it might be possible that only a certain number of unique re
 ```
 It might now be possible, that repetitions are passed as strings. The following function then is used to tell the framework if such an input can be processed or not.
 ```
-  def can_process_str_nrepetition(self = None):
+  def can_process_str_repetition(self = None):
     r'''
     This returns the decision, whether the test set used can be indicated by
     strings or not.
