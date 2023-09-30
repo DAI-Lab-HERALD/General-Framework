@@ -63,7 +63,34 @@ It might now be possible, that repetitions are passed as strings. The following 
     return processing_decision
 ```
 
-However, besides the maximum number of allowable repetitions, other reasons might restrict the applicability of the current splitting method. For an alternative, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
+If this function returns *True*, then it is also necessary to define a following function *transform_str_to_number*, which allows one to process a string to the orignial integer number that would have resultet in teh same test samples to be selected.
+```
+  def tranform_str_to_number(self, rep_str):
+    '''
+    This function tranforms a given string into the corresponding
+    repetition number.
+
+    Parameters
+    ----------
+    rep_str : str
+      This is the given str to be tranformed.
+
+    Returns
+    -------
+    rep_num : int
+      This is the corresponding number that could be given as the
+      repetition to the splitting method and result in the same
+      outcome. If there is no corresponding number, then *None* is
+      returned instead.
+
+    '''
+
+    ...
+
+    return rep_num
+```
+
+While reasons for a repetition to be rejected might be that the given number is higher than the maximum number of allowable repetitions or that the given string is not applicable for the selected dataset, other reasons might restrict the applicability of the current splitting method. For example, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
 
 ```    
   def check_splitability_method(self):
