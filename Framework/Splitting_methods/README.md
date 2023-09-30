@@ -77,11 +77,11 @@ If this function returns *True*, then it is also necessary to define a following
 
     Returns
     -------
-    rep_num : int
-      This is the corresponding number that could be given as the
+    rep_numbers : list
+      This are the corresponding numbers that could be given as the
       repetition to the splitting method and result in the same
-      outcome. If there is no corresponding number, then *None* is
-      returned instead.
+      outcome. The returned list should only return integers. If there
+      is no corresponding number, then an empty list is returned instead.
 
     '''
 
