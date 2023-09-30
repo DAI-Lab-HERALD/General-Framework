@@ -87,7 +87,7 @@ If this function returns *True*, then it is also necessary to define a following
 
     ...
 
-    return rep_num
+    return rep_numbers
 ```
 
 While reasons for a repetition to be rejected might be that the given number is higher than the maximum number of allowable repetitions or that the given string is not applicable for the selected dataset, other reasons might restrict the applicability of the current splitting method. For example, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
