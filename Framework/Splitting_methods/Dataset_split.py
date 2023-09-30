@@ -17,7 +17,7 @@ class Dataset_split(splitting_template):
         Situations = self.Domain['Scenario']
         Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
         
-        Situations_test = Situation_type == self.repetition
+        Situations_test = (Situation_type[:,np.newaxis] == self.repetition[np.newaxis]).any(1)
         
         Index = np.arange(len(Situations))
         Train_index = Index[~Situations_test]
@@ -28,11 +28,12 @@ class Dataset_split(splitting_template):
     def get_name(self):
         Situations = self.Domain['Scenario']
         Situation = np.unique(Situations.to_numpy().astype('str'), axis = 0)
-        scene = Situation[self.repetition]
+        scene = ', '.join(Situation[np.array(self.repetition)])
+        rep_str = str(self.repetition)[1:-1]
         
         names = {'print': 'Dataset splitting (Testing on dataset ' + scene + ')',
                  'file': 'scenes_split',
-                 'latex': r'Dataset split {}'.format(self.repetition + 1)}
+                 'latex': r'Datasets ' + rep_str}
         return names
     
     def check_splitability_method(self):
@@ -46,8 +47,19 @@ class Dataset_split(splitting_template):
             return 0
         else:
             return num_rep
-        
     
+    def can_process_str_repetition(self = None):
+        return True
+        
+    def tranform_str_to_number(self, rep_str):
+        Situations = self.Domain['Scenario']
+        Situation = np.unique(Situations.to_numpy().astype('str'), axis = 0)
+        
+        if rep_str in Situation:
+            return list(np.where(rep_str == Situation)[0])
+        else:
+            return []
+        
         
 
 

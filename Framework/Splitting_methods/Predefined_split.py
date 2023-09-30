@@ -11,6 +11,9 @@ class Predefined_split(splitting_template):
     devided into train and test sets by their creators.
     '''
     def split_data_method(self):
+        # Check assumptions
+        assert self.repetition == [0,]
+        
         Belonging = self.Domain['splitting'].to_numpy()
         
         assert np.all(np.unqiue(Belonging) == np.array(['test', 'train'])), ''
@@ -35,6 +38,10 @@ class Predefined_split(splitting_template):
     
     def repetition_number(self):
         return 1
+    
+    
+    def can_process_str_repetition(self = None):
+        return False
         
     
         

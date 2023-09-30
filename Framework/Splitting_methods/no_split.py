@@ -15,6 +15,9 @@ class no_split(splitting_template):
     repetition.
     '''
     def split_data_method(self):
+        # Check assumptions
+        assert self.repetition == [0,]
+        
         Index = np.arange(len(self.Domain))
         
         Train_index = Index
@@ -33,6 +36,10 @@ class no_split(splitting_template):
     
     def repetition_number(self):
         return 1
+    
+    
+    def can_process_str_repetition(self = None):
+        return False
         
     
         

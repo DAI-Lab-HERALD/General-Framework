@@ -19,8 +19,11 @@ class Critical_split(splitting_template):
     '''
     
     def split_data_method(self):
-        Index = np.arange(len(self.data_set.Output_A))
+        # Check assumptions
+        assert self.repetition == [0,]
         
+        # Get possible indices
+        Index = np.arange(len(self.data_set.Output_A))
         
         # TODO: Redo all this.
         Train_index = []
@@ -96,7 +99,8 @@ class Critical_split(splitting_template):
     def repetition_number(self):
         return 1
     
-        
-
+    
+    def can_process_str_repetition(self = None):
+        return False
 
 

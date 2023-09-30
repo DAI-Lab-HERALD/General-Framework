@@ -103,13 +103,33 @@ class Experiment():
             if 'repetition' in split_dict.keys():
                 reps = split_dict['repetition']
                 if isinstance(reps, list):
-                    for rep in reps:
-                        assert isinstance(rep, int), "Split repetition number must be an integer."
+                    for i, rep in enumerate(reps):
+                        assert (isinstance(rep, int) or
+                                isinstance(rep, str) or
+                                isinstance(rep, tuple)), "Split repetition has a wrong format."
+                        if isinstance(rep, tuple):
+                            assert len(rep) > 0, "Some repetition information must be given."
+                            for rep_part in rep:
+                                assert (isinstance(rep_part, int) or
+                                        isinstance(rep_part, str)), "Split repetition has a wrong format."
+                        else:
+                            reps[i] = (rep)
+                            
                 else:
-                    assert isinstance(reps, int), "Split repetition number must be an integer."
+                    assert (isinstance(reps, int) or
+                            isinstance(reps, str) or
+                            isinstance(reps, tuple)), "Split repetition has a wrong format."
+                    if isinstance(reps, tuple):
+                        assert len(reps) > 0, "Some repetition information must be given."
+                        for rep_part in reps:
+                            assert (isinstance(rep_part, int) or
+                                    isinstance(rep_part, str)), "Split repetition has a wrong format."
+                    else:
+                        reps = (reps)
+                        
                     reps = [reps]
             else:
-                reps = [0]
+                reps = [(0)]
                 
             for rep in reps:
                 new_split_dict = {'Type': splitter_name, 'repetition': rep, 'test_part': splitter_tp}
@@ -440,21 +460,17 @@ class Experiment():
                     data_set.get_data(**data_param)
                     for k, splitter_param in enumerate(self.Splitters):
                         splitter_name = splitter_param['Type']
-                        if 'repetition' in splitter_param.keys():
-                            splitter_rep = splitter_param['repetition']
-                        else:
-                            splitter_rep = 0
-                            
-                        if 'test_part' in splitter_param.keys():
-                            splitter_tp = splitter_param['test_part']
-                        else:
-                            splitter_tp = 0.2
+                        splitter_rep = splitter_param['repetition']
+                        splitter_tp = splitter_param['test_part']
                             
                         splitter_module = importlib.import_module(splitter_name)
                         splitter_class = getattr(splitter_module, splitter_name)
                         
                         splitter = splitter_class(data_set, splitter_tp, splitter_rep)
                         
+                        # Get the name of the splitmethod used.
+                        splitter_str = splitter.get_name()['file'] + splitter.get_rep_str()
+                            
                         create_plot = plot_if_possible and metric.allows_plot()
                         if create_plot:
                             fig, ax = plt.subplots(figsize = (5,5))
@@ -468,7 +484,7 @@ class Experiment():
                             
                             results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
-                                                 splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
+                                                 splitter_str + '--' + 
                                                  # Add model name
                                                  model.get_name()['file']  + '--' + 
                                                  # Add metric name
@@ -508,7 +524,7 @@ class Experiment():
                                 if model.provides_epoch_loss():
                                     train_loss_file_name = (data_set.data_file[:-4] + '--' + 
                                                             # Add splitting method
-                                                            splitter.get_name()['file'] + '_{}'.format(splitter_rep) + '--' + 
+                                                            splitter_str + '--' +  
                                                             # Add model name
                                                             model.get_name()['file']  + '--train_loss.npy')
                                     
@@ -1324,15 +1340,9 @@ class Experiment():
             sample_string = 'In the current experiment, the following splitters are available:'
             for i, s_param in enumerate(self.Splitters):
                 s_name  = s_param['Type']
-                if 'repetition' in s_param.keys():
-                    s_rep = s_param['repetition']
-                else:
-                    s_rep = 0
-                    
-                if 'test_part' in s_param.keys():
-                    s_tp = s_param['test_part']
-                else:
-                    s_tp = 0.2
+                s_rep = s_param['repetition']
+                s_tp = s_param['test_part']
+                
                 s_class = getattr(importlib.import_module(s_name), s_name)
                 s_inst  = s_class(None, s_tp, s_rep)
                 sample_string += '\n{}: '.format(i + 1) + s_inst.get_name()['print']  
@@ -1359,15 +1369,10 @@ class Experiment():
         split_class = getattr(importlib.import_module(split_name), split_name)
         
         # Use splitting method to get train and test samples
-        if 'repetition' in split_param.keys():
-            split_rep = split_param['repetition']
-        else:
-            split_rep = 0
-            
-        if 'test_part' in split_param.keys():
-            split_tp = split_param['test_part']
-        else:
-            split_tp = 0.2
+        split_rep = split_param['repetition']
+        split_tp = split_param['test_part']
+        
+        
         splitter = split_class(data_set, split_tp, split_rep)
         splitter.split_data() 
         

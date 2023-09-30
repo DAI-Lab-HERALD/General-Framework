@@ -20,28 +20,34 @@ class Cross_split(splitting_template):
         test_parts = 1 / num_splits
 
         Index = np.arange(len(self.data_set.Output_A))
-        Index_train = []
+        
         Index_test = []
         for beh in self.data_set.Behaviors:
             Index_beh = Index[self.data_set.Output_A[beh]]
+            np.random.seed(0)
             np.random.shuffle(Index_beh)
             
             roll_value = int(test_parts * len(Index_beh))
-            Index_beh = np.roll(Index_beh, self.repetition * roll_value)
             
-            Index_train.append(Index_beh[roll_value:])
-            Index_test.append(Index_beh[:roll_value])
+            for rep in self.repetition:
+                roll_value_rep = roll_value * rep
+                Index_beh_rolled = np.roll(Index_beh, roll_value_rep)
+                Index_test.append(Index_beh_rolled[:roll_value])
         
-        Train_index = np.concatenate(Index_train, axis = 0)
-        Test_index  = np.concatenate(Index_test, axis = 0)
+        Test_index = np.concatenate(Index_test, axis = 0)
+        Test_index = np.unique(Test_index)
+        
+        Train_index_bool = ~np.in1d(Index, Test_index, assume_unique = True)
+        Train_index = Index[Train_index_bool]
         
         return Train_index, Test_index
     
     def get_name(self):
         num_splits = int(np.ceil(1 / self.test_part))
-        names = {'print': '{} fold Cross validation (Split {})'.format(num_splits, self.repetition + 1),
+        rep_str = str(self.repetition)[1:-1]
+        names = {'print': '{} fold Cross validation (Splits '.format(num_splits) + rep_str + ')',
                  'file': 'crossv_split',
-                 'latex': r'CV - Fold {}'.format(self.repetition + 1)}
+                 'latex': r'CV - Fold ' + rep_str}
         return names
         
     def check_splitability_method(self):
@@ -51,6 +57,10 @@ class Cross_split(splitting_template):
     def repetition_number(self):
         num_splits = int(np.ceil(1 / self.test_part))
         return num_splits
+    
+    
+    def can_process_str_repetition(self = None):
+        return False
         
         
         
