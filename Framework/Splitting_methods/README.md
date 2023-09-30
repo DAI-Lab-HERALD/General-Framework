@@ -33,21 +33,8 @@ def get_name(self):
 ```
 Especially for 'print' and 'latex', it might be possible that one wants different string outputs when using this method repeatedly. In such cases, it might be useful to include the repetition number **self.repetition** in the string.
 
-## Checking applicability
-Given the settings, it might be possible that only a certain number of unique repetitions are possible. For example, when splitting by location, the number of locations might be limited. Similarly, when splitting for cross-validation, the number of repetitions is limited by the preset size of one split. For the framework to determine if the current repetition is admissible, it is important to know what the current number of maximum repetitions is:
-```    
-  def repetition_number(self = None):
-    r'''
-    This is number of how often this method can be applied without repeating results.
-        
-    Returns
-    -------
-    max_repetition_nunmber : int
-        
-    '''
-    return max_repetition_nunmber
-```
-It might now be possible, that repetitions are passed as strings. The following function then is used to tell the framework if such an input can be processed or not.
+## Using strings for splitting datasets
+It might now be possible for certain splitting method, that repetitions can be passed as strings. The following function then is used to tell the framework if such an input can be processed or not.
 ```
   def can_process_str_repetition(self = None):
     r'''
@@ -63,7 +50,7 @@ It might now be possible, that repetitions are passed as strings. The following 
     return processing_decision
 ```
 
-If this function returns *True*, then it is also necessary to define a following function *transform_str_to_number*, which allows one to process a string to the orignial integer number that would have resultet in teh same test samples to be selected.
+If the directly above function returns *True*, then it is also necessary to define a following function *transform_str_to_number*, which allows one to map a string to the orignial integer number that would have resultet in the same test samples to be selected.
 ```
   def tranform_str_to_number(self, rep_str):
     '''
@@ -90,7 +77,22 @@ If this function returns *True*, then it is also necessary to define a following
     return rep_numbers
 ```
 
-While reasons for a repetition to be rejected might be that the given number is higher than the maximum number of allowable repetitions or that the given string is not applicable for the selected dataset, other reasons might restrict the applicability of the current splitting method. For example, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
+## Checking applicability
+Given the settings, it might be possible that only a certain number of unique repetitions are possible. For example, when splitting by location, the number of locations might be limited. Similarly, when splitting for cross-validation, the number of repetitions is limited by the preset size of one split. For the framework to determine if the current repetition is admissible, it is important to know what the current number of maximum repetitions is:
+```    
+  def repetition_number(self = None):
+    r'''
+    This is number of how often this method can be applied without repeating results.
+        
+    Returns
+    -------
+    max_repetition_nunmber : int
+        
+    '''
+    return max_repetition_nunmber
+```
+
+If a given repetition number would be too large, this repetition would be ignored. However, there might be further reasons to exclude a given repetition. For example, the splitting method might be limited to certain scenario types (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)), or a split by location would require at least two locations to be findable in the dataset (see [*self.Domain.location*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods#splitting-method-attributes)). Such requirements can then be set in the *check_splitability_method()*:
 
 ```    
   def check_splitability_method(self):
