@@ -113,7 +113,7 @@ class Experiment():
                                 assert (isinstance(rep_part, int) or
                                         isinstance(rep_part, str)), "Split repetition has a wrong format."
                         else:
-                            reps[i] = (rep)
+                            reps[i] = (rep,)
                             
                 else:
                     assert (isinstance(reps, int) or
@@ -125,7 +125,7 @@ class Experiment():
                             assert (isinstance(rep_part, int) or
                                     isinstance(rep_part, str)), "Split repetition has a wrong format."
                     else:
-                        reps = (reps)
+                        reps = (reps,)
                         
                     reps = [reps]
             else:

@@ -84,6 +84,7 @@ class Location_split(splitting_template):
             index = np.where((Situation[:,0] == dataset_str) &
                              (Situation[:,1] == location))[0]
         else:
+            location = info[0]
             index = np.where(Situation[:,1] == location)[0]
             
         return list(index)
