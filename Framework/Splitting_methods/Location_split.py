@@ -23,7 +23,7 @@ class Location_split(splitting_template):
         Situations = self.Domain[['Scenario', 'location']]
         Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
         
-        Situations_test = (Situation_type[:,np.newaxis] == self.repetition[np.newaxis]).any(1)
+        Situations_test = (Situation_type[:,np.newaxis] == np.array(self.repetition)[np.newaxis]).any(1)
         
         Index = np.arange(len(Situations))
         Train_index = Index[~Situations_test]

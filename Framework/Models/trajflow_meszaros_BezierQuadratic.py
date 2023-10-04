@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
@@ -86,7 +86,9 @@ def bezier_curve(points, nTimes=50):
     xvals = np.dot(xPoints, polynomial_array)
     yvals = np.dot(yPoints, polynomial_array)
 
-    return xvals, yvals
+    traj = np.concatenate((xvals[:,np.newaxis], yvals[:,np.newaxis]), axis=1)
+
+    return traj
 
 
 class trajflow_meszaros_BezierQuadratic(model_template):
@@ -411,18 +413,18 @@ class trajflow_meszaros_BezierQuadratic(model_template):
 
                 samples_rel = samples_rel.view(*(past_traj.size(0)*self.num_samples_path_pred, self.degree, 2))
                 
-                y_hat = torch.concatenate((torch.zeros((samples_rel.shape[0], 1, samples_rel.shape[2])).to(self.device), samples_rel), axis=1)
+                y_hat = torch.concat((torch.zeros((samples_rel.shape[0], 1, samples_rel.shape[2])).to(self.device), samples_rel), axis=1)
                 y_hat = y_hat + x_t
 
                 # invert rotation normalization
                 y_hat = self.flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad.unsqueeze(1))
 
-                y_hat = np.array([bezier_curve(sample, nTimes=self.num_timesteps_out) for sample in y_hat])
-
+                y_hat = np.array([bezier_curve(sample, nTimes=self.num_timesteps_out+1) for sample in y_hat.detach().cpu().numpy()])
+                y_hat = y_hat[:,1:,:]
 
                 y_hat = y_hat.reshape(actual_batch_size, self.num_samples_path_pred, num_steps, 2)
                 
-                Y_pred = y_hat.detach()
+                Y_pred = y_hat
                     
                 # This should not be needed
                 # log_probs = log_probs.detach()
@@ -431,7 +433,7 @@ class trajflow_meszaros_BezierQuadratic(model_template):
                 # prob = torch.tensor(prob)
                     
                     
-            Pred = Y_pred.detach().cpu().numpy()
+            Pred = Y_pred#.detach().cpu().numpy()
             if len(Pred.shape) == 3:
                 Pred = Pred[np.newaxis]
             

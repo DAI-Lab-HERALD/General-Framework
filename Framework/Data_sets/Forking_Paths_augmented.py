@@ -15,6 +15,7 @@ def rotate_track(track, angle, center):
     track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
     return track
 
+
 class Forking_Paths_augmented(data_set_template):
     '''
     The forking paths dataset is an adaption of the ETH/UCY pedestrian dataset.
@@ -106,6 +107,7 @@ class Forking_Paths_augmented(data_set_template):
         Path_init = pd.DataFrame(Path_init)
         T_init = np.array(T_init+[()], np.ndarray)[:-1]
         Domain_init = pd.DataFrame(Domain_init)
+
         
         for i in range(len(Path_init)):
             path_init   = Path_init.iloc[i].tar
@@ -129,21 +131,166 @@ class Forking_Paths_augmented(data_set_template):
             Dist = np.abs(Paths_other - path_init[np.newaxis])
             Dist = np.nanmax(Dist, axis = (0,2))
             ind_split = max(0, np.argmax(Dist > 1e-3) - 1)
+
+            I_t = t_init[ind_split+1:]
             
-            s_min = 0.8
-            s_max = 1.2
-            sigma = 0.2
+            Neighbor = domain_init.neighbors.copy()
+            N_U = (Neighbor.index >= I_t[0])
+            N_ID = np.unique(np.concatenate(Neighbor.iloc[N_U].to_numpy())).astype(int)
+            
+            Pos = np.zeros((len(N_ID), len(I_t), 2))
+            for j, nid in enumerate(N_ID):
+                data_id = self.Data[(self.Data.index == nid) & (self.Data.scenario == domain_init.scene_full)].iloc[0]
+
+                t = data_id.path.t.to_numpy()
+                pos = np.stack([data_id.path.x.to_numpy(), data_id.path.y.to_numpy()], axis = -1)
+                    
+                if len(t) > 1:
+                    for dim in range(2):
+                        Pos[j, :, dim] = interp.interp1d(np.array(t), pos[:,dim], 
+                                                        fill_value = 'extrapolate', assume_sorted = True)(I_t)
+                        
+                else:
+                    Pos[j, :, :] = pos.repeat(len(I_t), axis = 0)[np.newaxis]
+            
+            # Prepare parameters for sampling
+            s_min = 0.9
+            s_max = 1.1
+            s_std = 0.05
+            
+            s_min_ang = -np.pi/72
+            s_max_ang = np.pi/72
+            s_std_ang = np.pi/144
+            
+            num_samples_test = 1000
             num_samples = 100
-            Factors = scipy.stats.truncnorm.rvs((s_min-1)/sigma, (s_max-1)/sigma, 
-                                                loc=1, scale=sigma, size=num_samples)#.float()
-            # Factors = [1.0]
-            for factor in Factors:
+            
+            # Prepare samples trajectories
+            # Traj_new = np.zeros((0, *path_init.shape), float)
+            Traj_new = path_init[np.newaxis]
+
+            P2s = Pos[np.newaxis, :, :-1]
+            P2e = Pos[np.newaxis, :, 1:]
+
+            P1s = Traj_new[:, np.newaxis, ind_split+1:-1] 
+            P1e = Traj_new[:, np.newaxis, ind_split+2:] 
+            
+            # Get dp
+            dP1 = P1e - P1s
+            dP2 = P2e - P2s
+            
+            # Get the factors 
+            A = P1s - P2s
+            B = dP1 - dP2
+            
+            # The distance d(t) can be calculated in the form:
+            # d(t) = ||A + t * B|| = a * t ^ 2 + b * t + c
+            a = (B ** 2).sum(-1)
+            b = 2 * (A * B).sum(-1)
+            c = (A ** 2).sum(-1)
+            
+            # We know that a >= 0, so we can calculate t_min with:
+            # d'(t_min) = 2 * a * t_min + b = 0
+            t_min = - b / 2 * (a + 1e-6)
+            
+            # Constrict t_min to interval between 0 and 1,
+            # As we only compare lines between the points
+            t_min = np.clip(t_min, 0.0, 1.0)
+            
+            # Calculate d(t_min)
+            D_min = a * t_min ** 2 + b * t_min + c
+            
+            # Get D_min over all other agents and timesteps
+            d_min = D_min.min(axis = (1, 2))
+            
+            if d_min.min() < 0.5:
+                d_collision = d_min.min() - 0.01
+            else:
+                d_collision = 0.5
+
+            
+
+            col_cnt = 0
+            while len(Traj_new) < num_samples:
+                # Create new trajectories
+                Traj_test = np.tile(path_init[np.newaxis], (num_samples_test, 1, 1))
+                
+                # Sample random factors
+                s_mean = 1.0
+                Factors = scipy.stats.truncnorm.rvs((s_min - s_mean) / s_std, (s_max - s_mean) / s_std, 
+                                                    loc = s_mean, scale = s_std, 
+                                                    size = num_samples_test)   
+    
+                Angles = scipy.stats.truncnorm.rvs(s_min_ang / s_std_ang, s_max_ang / s_std_ang, 
+                                                   loc = 0.0, scale = s_std_ang, 
+                                                   size = num_samples_test)
+                
+                # Prepare for vectorized operations
+                Angles = Angles[:,np.newaxis]
+                Factors = Factors[:,np.newaxis,np.newaxis]
+                
+                # Rotate and stretch trajectories
+                c, s = np.cos(Angles), np.sin(Angles)
+                Traj_centered = (Traj_test[:,ind_split + 1:] - Traj_test[:,[ind_split]])
+                x_vals, y_vals = Traj_centered[...,0], Traj_centered[...,1]
+                new_x_vals = c * x_vals - s * y_vals # _rotate x
+                new_y_vals = s * x_vals + c * y_vals # _rotate y
+                Traj_centered[...,0] = new_x_vals
+                Traj_centered[...,1] = new_y_vals
+                
+                Traj_test[:, ind_split + 1:] = Traj_centered * Factors + Traj_test[:, [ind_split]]
+                
+                # Get starting and end points
+                P1s = Traj_test[:, np.newaxis, ind_split+1:-1] 
+                P1e = Traj_test[:, np.newaxis, ind_split+2:] 
+                
+                # Get dp
+                dP1 = P1e - P1s
+                dP2 = P2e - P2s
+                
+                # Get the factors 
+                A = P1s - P2s
+                B = dP1 - dP2
+                
+                # The distance d(t) can be calculated in the form:
+                # d(t) = ||A + t * B|| = a * t ^ 2 + b * t + c
+                a = (B ** 2).sum(-1)
+                b = 2 * (A * B).sum(-1)
+                c = (A ** 2).sum(-1)
+                
+                # We know that a >= 0, so we can calculate t_min with:
+                # d'(t_min) = 2 * a * t_min + b = 0
+                t_min = - b / 2 * (a + 1e-6)
+                
+                # Constrict t_min to interval between 0 and 1,
+                # As we only compare lines between the points
+                t_min = np.clip(t_min, 0.0, 1.0)
+                
+                # Calculate d(t_min)
+                D_min = a * t_min ** 2 + b * t_min + c
+                
+                # Get D_min over all other agents and timesteps
+                d_min = D_min.min(axis = (1, 2))
+                
+                # Check if there are collisions
+                no_collision = d_min > d_collision
+                
+                if ~no_collision.all():
+                    col_cnt += 1
+                    print(col_cnt)
+                # Get collision free trajectories
+                Traj_good = Traj_test[no_collision]
+                
+                # Add good collisions to collection
+                Traj_new = np.concatenate((Traj_new, Traj_good), axis = 0)
+            
+            # Only get required number of samples
+            Traj_new = Traj_new[:num_samples]
+            
+            # Save new trajectories
+            for traj in Traj_new:
                 path = pd.Series(np.zeros(0, np.ndarray), index = [])
                 agent_types = pd.Series(np.zeros(0, str), index = [])
-                
-                traj = path_init.copy()
-                
-                traj[ind_split + 1:] = (traj[ind_split + 1:] - traj[[ind_split]]) * factor + traj[[ind_split]] 
                 
                 path['tar'] = traj
                 # should be done based on actual agent types
@@ -296,3 +443,4 @@ class Forking_Paths_augmented(data_set_template):
     
     def includes_images(self = None):
         return False
+

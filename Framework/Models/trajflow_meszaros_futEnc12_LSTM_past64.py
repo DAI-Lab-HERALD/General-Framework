@@ -3,95 +3,11 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow_LSTM.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
-from scipy.special import comb
-
-def get_bezier_parameters(X, Y, degree=3):
-    """ Least square qbezier fit using penrose pseudoinverse.
-
-    Parameters:
-
-    X: array of x data.
-    Y: array of y data. Y[0] is the y point for X[0].
-    degree: degree of the Bézier curve. 2 for quadratic, 3 for cubic.
-
-    Based on https://stackoverflow.com/questions/12643079/b%C3%A9zier-curve-fitting-with-scipy
-    and probably on the 1998 thesis by Tim Andrew Pastva, "Bézier Curve Fitting".
-    """
-    if degree < 1:
-        raise ValueError('degree must be 1 or greater.')
-
-    if len(X) != len(Y):
-        raise ValueError('X and Y must be of the same length.')
-
-    if len(X) < degree + 1:
-        raise ValueError(f'There must be at least {degree + 1} points to '
-                         f'determine the parameters of a degree {degree} curve. '
-                         f'Got only {len(X)} points.')
-
-    def bpoly(n, t, k):
-        """ Bernstein polynomial when a = 0 and b = 1. """
-        return t ** k * (1 - t) ** (n - k) * comb(n, k)
-        #return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
-
-    def bmatrix(T):
-        """ Bernstein matrix for Bézier curves. """
-        return np.matrix([[bpoly(degree, t, k) for k in range(degree + 1)] for t in T])
-
-    def least_square_fit(points, M):
-        M_ = np.linalg.pinv(M)
-        return M_ * points
-
-    T = np.linspace(0, 1, len(X))
-    M = bmatrix(T)
-    points = np.array(list(zip(X, Y)))
-    
-    final = least_square_fit(points, M).tolist()
-    final[0] = [X[0], Y[0]]
-    final[len(final)-1] = [X[len(X)-1], Y[len(Y)-1]]
-    return final
-
-def bernstein_poly(i, n, t):
-    """
-     The Bernstein polynomial of n, i as a function of t
-    """
-    return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
-
-
-def bezier_curve(points, nTimes=50):
-    """
-       Given a set of control points, return the
-       bezier curve defined by the control points.
-
-       points should be a list of lists, or list of tuples
-       such as [ [1,1], 
-                 [2,3], 
-                 [4,5], ..[Xn, Yn] ]
-        nTimes is the number of time steps, defaults to 1000
-
-        See http://processingjs.nihongoresources.com/bezierinfo/
-    """
-
-    nPoints = len(points)
-    xPoints = np.array([p[0] for p in points])
-    yPoints = np.array([p[1] for p in points])
-
-    t = np.linspace(0.0, 1.0, nTimes)
-
-    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
-
-    xvals = np.dot(xPoints, polynomial_array)
-    yvals = np.dot(yPoints, polynomial_array)
-
-    traj = np.concatenate((xvals[:,np.newaxis], yvals[:,np.newaxis]), axis=1)
-
-    return traj
-
-
-class trajflow_meszaros_BezierCubic(model_template):
+class trajflow_meszaros_futEnc12_LSTM_past64(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -102,11 +18,6 @@ class trajflow_meszaros_BezierCubic(model_template):
     Mészáros, A., Alonso-Mora, J., & Kober, J. (2023). Trajflow: Learning the 
     distribution over trajectories. arXiv preprint arXiv:2304.05166.
     '''
-
-
-
-
-
     
     def setup_method(self, seed = 0):        
         # set random seeds
@@ -130,12 +41,13 @@ class trajflow_meszaros_BezierCubic(model_template):
         
         self.norm_rotation = True
         
-        self.degree = 3
-        self.n_layers_rnn = 3
+        
         self.hs_rnn = 16
+        self.n_layers_rnn = 3
+        self.fut_enc_sz = 12 ## 4-8
 
-        self.scene_encoding_size = 16
-        self.obs_encoding_size = 16 
+        self.scene_encoding_size = 4
+        self.obs_encoding_size = 64
         
         if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
@@ -181,21 +93,15 @@ class trajflow_meszaros_BezierCubic(model_template):
         T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, int(str(T_out.astype(str).dtype)[2:])).astype(np.uint8)[:,:,0]
         T_out = torch.from_numpy(T_out).to(device = self.device)
         
-
         # Standardize positions
         X[Ped_agents]  /= self.std_pos_ped
         X[~Ped_agents] /= self.std_pos_veh
         X = torch.from_numpy(X).float().to(device = self.device)
         
-        if Y is not None:
+        if Y is not None:            
             # Standardize future positions
             Y[Ped_agents]  /= self.std_pos_ped
             Y[~Ped_agents] /= self.std_pos_veh
-
-            Y_tmp = np.concatenate((X[:,:,-1:,:].cpu(), Y), axis=2)
-
-
-            Y = np.array([[get_bezier_parameters(agent_pts[:,0], agent_pts[:,1], degree=self.degree) for agent_pts in scene] for scene in Y_tmp])
             Y = torch.from_numpy(Y).float().to(device = self.device)
         
         if img is not None:
@@ -204,13 +110,152 @@ class trajflow_meszaros_BezierCubic(model_template):
         return X, T_out, Y, img
     
     
+    def train_futureAE(self, T_all):
+        hs_rnn = self.hs_rnn
+        obs_encoding_size = self.obs_encoding_size # 4
+        n_layers_rnn = self.n_layers_rnn
+        scene_encoding_size = self.scene_encoding_size # 4
+
+        enc_size = self.fut_enc_sz
+
+        flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
+                                    gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
+                                    obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
+                                    n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
+
+        enc = Future_Encoder(2, enc_size, enc_size, enc_size)
+        dec = Future_Decoder(2, enc_size, enc_size)
+
+        fut_model = Future_Seq2Seq(enc, dec)
+        # Use encoder of noninteractive trajflow model if available, as same training stuff is used
+        fut_model_file = self.model_file[:-4] + '_AE'
+        if os.path.isfile(fut_model_file) and not self.data_set.overwrite_results:
+            fut_model = pickle.load(open(fut_model_file, 'rb'))
+            print('Future AE model loaded')
+
+        else:
+
+            loss_fn = torch.nn.MSELoss()
+            optim = torch.optim.AdamW(fut_model.parameters(), lr=self.fut_ae_lr, weight_decay=self.fut_ae_wd)
+            diz_loss = {'train_loss':[],'val_loss':[]}
+
+            val_losses = []
+            
+            
+            converged = False
+            for epoch in range(self.fut_ae_epochs):
+                print('')
+                rjust_epoch = str(epoch).rjust(len(str(self.fut_ae_epochs)))
+                print('Train TrajFlow Autoencoder: Epoch ' + rjust_epoch + '/{}'.format(self.fut_ae_epochs), flush = True)
+                # Analyize memory:
+                fut_model.to(device = self.device)
+                fut_model.train()
+                train_loss = []
+                
+                train_epoch_done = False
+                while not train_epoch_done:
+                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                           val_split_size = 0.1)
+                    X, T, Y, _ = self.extract_batch_data(X, T, Y)
+                    
+                    # X.shape:   bs x num_agents x num_timesteps_is x 2
+                    # Y.shape:   bs x 1 x num_timesteps_is x 2
+                    # T.shape:   bs x num_agents
+                    # img.shape: bs x 1 x 156 x 257 x 1
+                    
+                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                    loc=1, scale=self.sigma, size=X.shape[0])).float()
+                    scaler = scaler.unsqueeze(1)
+                    scaler = scaler.unsqueeze(2)
+                    scaler = scaler.to(device = self.device)
+
+                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    
+                    tar_pos_past   = X[:,0]
+                    tar_pos_future = Y[:,0]
+                    
+                    mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True)
+                    
+                    shifted_past = tar_pos_past - mean_pos
+                    shifted_future = tar_pos_future - mean_pos
+                        
+                    past_data = shifted_past * scaler + mean_pos
+                    future_data = shifted_future * scaler + mean_pos
+                    
+                    past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
+                     
+                    x_t = past_traj[...,-1:,:]
+                    y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
+                    
+                    future_traj_hat, y_in = fut_model(y_rel)     
+                        
+                    optim.zero_grad()
+                    loss = torch.sqrt(loss_fn(future_traj_hat, y_in))
+                    loss.backward()
+                    optim.step()
+                        
+                    train_loss.append(loss.detach().cpu().numpy())
+                                
+                fut_model.to(device = self.device)
+                fut_model.eval()
+                        
+                with torch.no_grad():
+                    conc_out = []
+                    conc_label = []
+                    
+                    val_epoch_done = False
+                    while not val_epoch_done:
+                        X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                val_split_size = 0.1)
+                        
+                        X, T, Y, _ = self.extract_batch_data(X, T, Y)
+                        
+                        past_data = X[:,0]
+                        future_data = Y[:,0]
+                        
+                        past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
+                        
+                        x_t = past_traj[...,-1:,:]
+                        y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
+                        
+                        future_traj_hat, y_in = fut_model(y_rel)
+                            
+                        conc_out.append(future_traj_hat.cpu())
+                        conc_label.append(y_rel.cpu())
+                            
+                    conc_out = torch.cat(conc_out)
+                    conc_label = torch.cat(conc_label) 
+                        
+                    val_loss = torch.sqrt(loss_fn(conc_out, conc_label))
+
+                    val_losses.append(val_loss.detach().cpu().numpy())
+                    
+                    # Early stopping for AE
+                    # Check for convergence
+                    if epoch > 200:
+                        best_val_step = np.argmin(val_losses)
+                        if epoch - best_val_step > 50:
+                            converged = True
+                    
+                print('Train loss: {:7.5f}; \t Val loss: {:7.5f}'.format(np.mean(train_loss),val_loss.data))
+                diz_loss['train_loss'].append(train_loss)
+                diz_loss['val_loss'].append(val_loss)
+                if converged:
+                    print('Model is converged.')
+                    break
+
+            self.train_loss[0, :len(val_losses)] = np.array(val_losses)
+            os.makedirs(os.path.dirname(fut_model_file), exist_ok=True)
+            pickle.dump(fut_model, open(fut_model_file, 'wb'))
+
+        return fut_model
 
 
-    def train_flow(self, T_all):
+    def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
 
-        self.beta_noise = 0
-        self.gamma_noise = 0
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
 
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
@@ -223,12 +268,16 @@ class trajflow_meszaros_BezierCubic(model_template):
         else:
             scene_encoder = None
         # TODO: Set the gnn parameters
-        flow_dist = TrajFlow_I(pred_steps=self.degree*2, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
+        flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
                                scene_encoder=scene_encoder, norm_rotation=self.norm_rotation, device=self.device,
                                obs_encoding_size=self.obs_encoding_size, scene_encoding_size=self.scene_encoding_size, n_layers_rnn=self.n_layers_rnn, 
                                es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=use_map, 
                                n_layers_gnn=4, es_gnn=32, T_all = T_all)
-                    
+        
+        for param in fut_model.parameters():
+            param.requires_grad = False 
+            param.grad = None
+            
         
         flow_dist_file = self.model_file[:-4] + '_NF'
         
@@ -244,6 +293,7 @@ class trajflow_meszaros_BezierCubic(model_template):
             for step in range(self.flow_epochs):
 
                 flow_dist.train()
+                fut_model.eval()
                 
                 losses_epoch = []
                 val_losses_epoch = []
@@ -259,38 +309,48 @@ class trajflow_meszaros_BezierCubic(model_template):
                     # T.shape:   bs x num_agents
                     # img.shape: bs x 1 x 156 x 257 x 1
                     
-                    # scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
-                    #                                                 loc=1, scale=self.sigma, size=X.shape[0])).float()
-                    # scaler = scaler.unsqueeze(1)
-                    # scaler = scaler.unsqueeze(2)
-                    # scaler = scaler.unsqueeze(3)
-                    # scaler = scaler.to(device = self.device)
+                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                    loc=1, scale=self.sigma, size=X.shape[0])).float()
+                    scaler = scaler.unsqueeze(1)
+                    scaler = scaler.unsqueeze(2)
+                    scaler = scaler.unsqueeze(3)
+                    scaler = scaler.to(device = self.device)
+                    
+                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
 
                     X = X[:,:,-sample_past_length:,:]
                     
-                    past_data = X
-                    future_data = Y
+                    all_pos_past   = X
+                    tar_pos_past   = X[:,0]
+                    all_pos_future = Y
+                    tar_pos_future = Y[:,0]
+                    
+                    mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True).unsqueeze(1)
+                    
+                    shifted_past   = all_pos_past - mean_pos
+                    shifted_future = all_pos_future - mean_pos
+                        
+                    past_data   = shifted_past * scaler + mean_pos
+                    future_data = shifted_future * scaler + mean_pos
                     
                     optimizer.zero_grad()
                     
                     past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data, future_data)
                     
                     x_t   = past_traj[:,[0],-1:,:]
-                    y_rel = fut_traj - x_t
-                    y_rel = y_rel[:,0]
-                    y_rel = y_rel[:,1:,:]
-
-                    y_rel = torch.flatten(y_rel, start_dim=1)
+                    y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
 
+                    out, _ = fut_model.encoder(y_rel[:,0])
+                    out = out[:,-1]
                     # out.shape:       batch size x enc_dims
                     
                     if img is not None:
-                        logprob = flow_dist.log_prob(y_rel, past_data, T, img) #prior_logprob + log_det
+                        logprob = flow_dist.log_prob(out, past_data, T, img) #prior_logprob + log_det
                     else:
-                        logprob = flow_dist.log_prob(y_rel, past_data, T) #prior_logprob + log_det
+                        logprob = flow_dist.log_prob(out, past_data, T) #prior_logprob + log_det
 
                     loss = -torch.mean(logprob) # NLL
                     losses_epoch.append(loss.item())
@@ -300,6 +360,7 @@ class trajflow_meszaros_BezierCubic(model_template):
                     
                     
                 flow_dist.eval()
+                fut_model.eval()
                 with torch.no_grad():
                     val_epoch_done = False
                     while not val_epoch_done:
@@ -313,23 +374,22 @@ class trajflow_meszaros_BezierCubic(model_template):
                         past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data_val, future_data_val)
                         
                         x_t = past_traj[:,[0],-1:,:]
-                        y_rel = fut_traj - x_t
-                        y_rel = y_rel[:,0]
-                        y_rel = y_rel[:,1:,:]
+                        y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
 
-                        y_rel = torch.flatten(y_rel, start_dim=1)
-
+                        
                         if img is not None:
                             img_val = img[:,0].permute(0,3,1,2)
 
+                        out, _ = fut_model.encoder(y_rel[:,0])
+                        out = out[:, -1]
                         # out.shape: batch size x enc_dims
                             
                         optimizer.zero_grad()
 
                         if img is not None:
-                            log_prob = flow_dist.log_prob(y_rel, past_data_val, T, img_val)
+                            log_prob = flow_dist.log_prob(out, past_data_val, T, img_val)
                         else:
-                            log_prob = flow_dist.log_prob(y_rel, past_data_val, T)
+                            log_prob = flow_dist.log_prob(out, past_data_val, T)
                     
                         val_loss = -torch.mean(log_prob)
                         val_losses_epoch.append(val_loss.item())
@@ -365,14 +425,17 @@ class trajflow_meszaros_BezierCubic(model_template):
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
                     
         # Train model components        
-        self.flow_dist = self.train_flow(T_all)
+        self.fut_model = self.train_futureAE(T_all)
+        self.flow_dist = self.train_flow(self.fut_model, T_all)
         
         # save weigths 
         self.weights_saved = []
         
         
     def load_method(self):        
+        fut_model_file = self.model_file[:-4] + '_AE'
         flow_dist_file = self.model_file[:-4] + '_NF'
+        self.fut_model = pickle.load(open(fut_model_file, 'rb'))
         self.flow_dist = pickle.load(open(flow_dist_file, 'rb'))
         
     def _repeat_rowwise(self, x, n):
@@ -410,21 +473,29 @@ class trajflow_meszaros_BezierCubic(model_template):
                     samples_rel, log_probs = self.flow_dist.sample(self.num_samples_path_pred, X, T)
                 
                 samples_rel = samples_rel.squeeze(0)
-
-                samples_rel = samples_rel.view(*(past_traj.size(0)*self.num_samples_path_pred, self.degree, 2))
+                        
+                hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
                 
-                y_hat = torch.concat((torch.zeros((samples_rel.shape[0], 1, samples_rel.shape[2])).to(self.device), samples_rel), axis=1)
-                y_hat = y_hat + x_t
+                # Decoder part
+                x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
+                
+                outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
+                for t in range(0, num_steps):
+
+                    output, hidden = self.fut_model.decoder(x, hidden)
+                    
+                    outputs[:, t, :] = output.squeeze()
+                    
+                    x = hidden[-1].unsqueeze(1)
+                
+                y_hat = self.flow_dist._rel_to_abs(outputs, x_t)
 
                 # invert rotation normalization
                 y_hat = self.flow_dist._rotate(y_hat, x_t, -1 * rot_angles_rad.unsqueeze(1))
 
-                y_hat = np.array([bezier_curve(sample, nTimes=self.num_timesteps_out+1) for sample in y_hat.detach().cpu().numpy()])
-                y_hat = y_hat[:,1:,:]
-
                 y_hat = y_hat.reshape(actual_batch_size, self.num_samples_path_pred, num_steps, 2)
                 
-                Y_pred = y_hat
+                Y_pred = y_hat.detach()
                     
                 # This should not be needed
                 # log_probs = log_probs.detach()
@@ -433,7 +504,7 @@ class trajflow_meszaros_BezierCubic(model_template):
                 # prob = torch.tensor(prob)
                     
                     
-            Pred = Y_pred#.detach().cpu().numpy()
+            Pred = Y_pred.detach().cpu().numpy()
             if len(Pred.shape) == 3:
                 Pred = Pred[np.newaxis]
             
@@ -453,8 +524,9 @@ class trajflow_meszaros_BezierCubic(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                'file': 'TF_BezCube',
+        
+        names = {'print': 'TrajFlow_fut12_LSTM_past64',
+                'file': 'TF_f12Lp64',
                 'latex': r'\emph{TF}'}
         return names
         
