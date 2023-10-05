@@ -1716,8 +1716,13 @@ class Experiment():
             plt.tight_layout()
             plt.show()
             
+            if self.plot_train:
+                fig_str = 'traj_plot_test__'
+            else:
+                fig_str = 'traj_plot_train_'
+            
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           'traj_plot_{}'.format(sample_ind), '.pdf')
+                                                           fig_str + '{}'.format(sample_ind), '.pdf')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
