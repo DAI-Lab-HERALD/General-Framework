@@ -9,19 +9,19 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'Lyft_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'Forking_Paths_interactive', 'max_num_agents': None, 't0_type': 'start', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
-Data_params = [{'dt': 0.5, 'num_timesteps_in': (4, 4), 'num_timesteps_out': (12, 12)}] 
+Data_params = [{'dt': 0.4, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)}] 
 
 # Select the spitting methods to be considered
-Splitters = [{'Type': 'Cross_split', 'repetition': [0], 'test_part': 0.2}]
+Splitters = [{'Type': 'Location_split', 'repetition': ['zara01']}]
 
 # Select the models to be trained
-Models = ['trajectron_salzmann_old']
+Models = ['trajflow_meszaros']
 
 # Select the metrics to be used
-Metrics = ['ADE_joint']
+Metrics = ['ADE_joint', 'KDE_NLL_indep', 'KDE_NLL_joint']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 
@@ -34,7 +34,7 @@ enforce_prediction_times = True
 
 # determine if the upper bound for n_O should be enforced, or if prediction can be made without
 # underlying output data (might cause training problems)
-enforce_num_timesteps_out = False
+enforce_num_timesteps_out = True
 
 # Determine if the useless prediction (i.e, prediction you cannot act anymore)
 # should be exclude from the dataset
@@ -44,7 +44,7 @@ exclude_post_crit = True
 allow_extrapolation = True
 
 # Use all available agents for predictions
-agents_to_predict = 'all'
+agents_to_predict = 'predefined'
 
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = False
@@ -59,6 +59,7 @@ new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred,
                               enforce_num_timesteps_out, enforce_prediction_times, 
                               exclude_post_crit, allow_extrapolation, 
                               agents_to_predict, overwrite_results, evaluate_on_train_set)
+
 
 #%% Run experiment
 new_experiment.run()                  

@@ -19,7 +19,7 @@ class splitting_template():
         self.repetition = []
         for rep in repetition:
             # Avoid duplications
-            if rep in self.repetition():
+            if rep in self.repetition:
                 continue
             
             # Check type 
@@ -29,7 +29,7 @@ class splitting_template():
                 if self.can_process_str_repetition():
                     rep_numbers = self.tranform_str_to_number(rep)
                     error_str = 'self.transform_str_to_number should return a list of integers.'
-                    assert all(isinstance(x, int) for x in rep_numbers), error_str
+                    assert all((isinstance(x, np.int64) or isinstance(x, int)) for x in rep_numbers), error_str
                     self.repetition += rep_numbers
             else:
                 raise TypeError('Repetitions must be integers or strings.')
