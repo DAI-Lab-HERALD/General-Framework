@@ -1377,14 +1377,17 @@ class Experiment():
         splitter.split_data() 
         
         # Get test index 
-        Test_index = splitter.Test_index
+        if self.plot_train:
+            Index = splitter.Train_index
+        else:
+            Index = splitter.Test_index
         
         # Load needed files
-        Input_path       = data_set.Input_path.iloc[Test_index]
-        Output_path      = data_set.Output_path.iloc[Test_index]
-        Output_A         = data_set.Output_A.iloc[Test_index]
-        Output_T_E       = data_set.Output_T_E[Test_index]
-        Domain           = data_set.Domain.iloc[Test_index]
+        Input_path       = data_set.Input_path.iloc[Index]
+        Output_path      = data_set.Output_path.iloc[Index]
+        Output_A         = data_set.Output_A.iloc[Index]
+        Output_T_E       = data_set.Output_T_E[Index]
+        Domain           = data_set.Domain.iloc[Index]
         
         return [data_set, data_param, splitter, 
                 Input_path, Output_path, 
@@ -1441,7 +1444,12 @@ class Experiment():
         Pred_index = output_trans_path[0]
         
         # Transform index
-        TP_index = splitter.Test_index[:,np.newaxis] == Pred_index[np.newaxis]
+        if self.plot_train:
+            Index = splitter.Train_index
+        else:
+            Index = splitter.Test_index
+            
+        TP_index = Index[:,np.newaxis] == Pred_index[np.newaxis]
         assert (TP_index.sum(1) == 1).all()
         TP_index = TP_index.argmax(1)
         
@@ -1599,7 +1607,12 @@ class Experiment():
     def _get_similar_inputs(self, data_set, splitter, sample_ind):
         data_set._extract_identical_inputs()
         
-        subgroup = data_set.Subgroups[splitter.Test_index[sample_ind]]
+        if self.plot_train:
+            Index = splitter.Train_index
+        else:
+            Index = splitter.Test_index
+        
+        subgroup = data_set.Subgroups[Index[sample_ind]]
         path_true_all = data_set.Path_true_all[subgroup]
         
         path_true_all = path_true_all[np.isfinite(path_true_all).any((1,2,3))]
@@ -1607,9 +1620,15 @@ class Experiment():
         
     
     
-    def plot_paths(self, load_all = False, plot_similar_futures = False):
+    def plot_paths(self, load_all = False, 
+                   plot_similar_futures = False, 
+                   plot_train = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
+        
+        self.plot_train = plot_train
+        if self.plot_train:
+            assert self.evaluate_on_train_set, "Training samples need to be predicted if they are to be plotted."
         
         plt.close('all')
         time.sleep(0.05)
