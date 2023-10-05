@@ -129,7 +129,7 @@ class Experiment():
                         
                     reps = [reps]
             else:
-                reps = [(0)]
+                reps = [(0,)]
                 
             for rep in reps:
                 new_split_dict = {'Type': splitter_name, 'repetition': rep, 'test_part': splitter_tp}
