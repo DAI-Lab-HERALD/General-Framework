@@ -2,6 +2,8 @@
 __pycache__/
 python_packages/
 
+HRI_presentation.py
+
 # ignore raw data files
 *.pkl
 *.csv
