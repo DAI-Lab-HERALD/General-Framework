@@ -179,8 +179,8 @@ The most important part of the dataset module is to provide access to training a
       The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
       :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
       padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-      position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left
-      corner of the image. 
+      position :math:`(0,0)` that is recorded in the trajectories in **self.Path** corresponds to the upper left
+      corner of the image, while the position :math:`(s \cdot W, - s \cdot H)` would be the lower right corner.
                 
       If this is not the case, due to some translation and subsequent rotation 
       of the recorded positions, the corresponding information has to be recorded in columns of 
@@ -203,7 +203,7 @@ The most important part of the dataset module is to provide access to training a
       have to be set. Otherwise, a missing attribute error will be thrown.
 
       The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
-      that gives us the scaling of the images in the unit :math:`m /` Px. 
+      :math:`s` that gives us the scaling of the images in the unit :math:`m /` Px. 
 
     '''
 
