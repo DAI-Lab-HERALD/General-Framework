@@ -1,3 +1,4 @@
+import glob
 import numpy as np
 import pandas as pd
 from data_set_template import data_set_template
@@ -5,6 +6,8 @@ from scenario_none import scenario_none
 import os
 import scipy
 import torch
+
+from PIL import Image
 from scipy import interpolate as interp
 
 pd.set_option('mode.chained_assignment',None)
@@ -21,6 +24,28 @@ class CommonRoad(data_set_template):
     '''
     def set_scenario(self):
         self.scenario = scenario_none()
+
+        # extension = 'csv'
+        # os.chdir(self.path + os.sep + 'Data_sets' + os.sep + 
+        #                            'CommonRoad' + os.sep + 'data')
+        # result = glob.glob('*.{}'.format(extension))
+        
+        # os.chdir(self.path)
+
+        # Loc_data_pix = pd.DataFrame(np.zeros((len(result),4),float), columns = ['xCenter', 'yCenter', 'r'])
+        # self.Loc_scale = {}
+        # self.Loc_data = {}
+
+        # for i in range(len(result)):
+        #     Meta_data=pd.read_csv(self.path + os.sep + 'Data_sets' + os.sep + 
+        #                            'CommonRoad' + os.sep + 'data' + os.sep + result[i] + '.csv')
+        #     Loc_data_pix.xCenter.iloc[i] = Meta_data['x_center']
+        #     Loc_data_pix.yCenter.iloc[i] = Meta_data['y_center']
+        #     Loc_data_pix.r.iloc[i] = Meta_data['rot_angle']
+
+        #     self.Loc_scale[i] = Meta_data['MeterToPx']
+        #     self.Loc_data.iloc[i] = Loc_data_pix.iloc[i] * (1/self.Loc_scale[i])
+
         
         
     def create_path_samples(self): 
@@ -34,9 +59,15 @@ class CommonRoad(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
+
+        self.Images = pd.DataFrame(np.zeros((len(self.Data), 1), object), 
+                            index = self.Data.index, columns = ['Image', 'Target_MeterPerPx'])
+        
         
         # extract raw samples
         max_number_other = 0
+        max_width = 0
+        max_height = 0
         for i in range(num_tars):
             data_i = self.Data.iloc[i]
              
@@ -50,13 +81,29 @@ class CommonRoad(data_set_template):
             other_agents = self.Data.loc[other_agents_bool]
             
             self.Data.iloc[i].path['CN'] = np.empty((len(data_i.path), 0)).tolist()
+
+            img_file = (self.path + os.sep + 'Data_sets' + os.sep + 
+                        'CommonRoad' + os.sep + 'data' + os.sep + 
+                        self.Data.scenario + '.png')
+            
+            Meta_data = (self.path + os.sep + 'Data_sets' + os.sep + 
+                        'CommonRoad' + os.sep + 'data' + os.sep + 
+                        self.Data.scenario + '.csv')
+            
+            img = Image.open(img_file)
+            self.Images.loc[i].Image = np.array(img)
+            self.Images.loc[i].Target_MeterPerPx = Meta_data['MeterToPx']
+
+
+            max_width = max(img.width, max_width)
+            max_height = max(img.height, max_height)
             
             for j, frame in enumerate(data_i.path.index):
                 useful = (other_agents['Last frame'] >= frame) & (other_agents['First frame'] <= frame)
                 self.Data.iloc[i].path.CN.iloc[j] = list(other_agents.index[useful])
                 max_number_other = max(max_number_other, useful.sum())
                 
-            
+    
             # find crossing point
             track_all = data_i.path.copy(deep = True)
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
@@ -66,19 +113,33 @@ class CommonRoad(data_set_template):
             agent_types['tar'] = data_i.type
 
             t = track_all.t.to_numpy()
+
             
-            domain = pd.Series(np.zeros(4, object), index = ['location', 'neighbors', 'name', 'type'])
+            domain = pd.Series(np.zeros(8, object), 
+                               index = ['location', 'neighbors', 'name', 'type', 'image_id', 'rot_angle', 'x_center', 'y_center'])
             domain.location = data_i.scenario
+            domain.image_id = data_i.scenario
             domain.name = data_i.name
             track_all = track_all.set_index('t')
             domain.neighbors = track_all.CN
             domain.type = data_i.type
+            domain.x_center = Meta_data['x_center']
+            domain.y_center = Meta_data['y_center']
+            domain.rot_angle = Meta_data['rot_angle']
 
             self.Path.append(path)
             self.Type_old.append(agent_types)
             self.T.append(t)
             self.Domain_old.append(domain)
             self.num_samples = self.num_samples + 1
+
+                        # pad images to max size
+        for i in range(num_tars):
+            img = self.Images.loc[i].Image
+            img_pad = np.pad(img, ((0, max_height - img.shape[0]),
+                                   (0, max_width  - img.shape[1]),
+                                   (0,0)), 'constant', constant_values=0)
+            self.Images.Image.loc[i] = img_pad 
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
@@ -209,4 +270,4 @@ class CommonRoad(data_set_template):
     
     
     def includes_images(self = None):
-        return False
+        return True

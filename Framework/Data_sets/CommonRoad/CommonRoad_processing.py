@@ -1,9 +1,77 @@
 #%%
+import copy
+import csv
+import cv2
+import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
 
 from commonroad.common.file_reader import CommonRoadFileReader
+from commonroad.visualization.draw_dispatch_cr import draw_object
+
+import os
+
+px = 256
+# Draw scene
+def generate_scimg(
+    lanelet_network, now_point, theta, time_step, watch_radius=64, draw_shape=True
+):
+    """Generate image input for neural network
+
+    Arguments:
+        scenario {[Commonroad scenario]} -- [Scenario object from CommonRoad]
+        now_point {[list]} -- [[x,y] coordinates of vehicle right now that will be predicted]
+        theta {[float]} -- [orientation of the vehicle that will be predicted]
+        time_step {[float]} -- [Global time step of scenario]
+
+    Keyword Arguments:
+        draw_shape {bool} -- [Draw shapes of dynamic obstacles in image] (default: {True})
+
+    Returns:
+        img_gray [np.array] -- [Black and white image with 256 x 256 pixels of the scene]
+    """
+    my_dpi = 300
+    draw_fig = plt.figure(figsize=(px / my_dpi, px / my_dpi), dpi=my_dpi)
+    
+
+    if theta > 2 * np.pi:
+        theta -= 2 * np.pi
+    elif theta < -(2 * np.pi):
+        theta += 2 * np.pi
+
+    lanelet_network.translate_rotate(np.array(-now_point), -theta)
+
+    draw_params = {
+        "time_begin": time_step,
+        "lanelet_network": {"traffic_light": {"draw_traffic_lights": False}},
+    }
+
+    draw_object(
+        lanelet_network,
+        draw_params=draw_params,
+    )
+
+    plt.gca().set_axis_off()
+    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.gca().set_aspect("equal")
+    plt.xlim(-watch_radius, watch_radius)
+    plt.ylim(-watch_radius, watch_radius)
+
+    draw_fig.canvas.draw()
+    plt.close(draw_fig)
+
+    # convert canvas to image
+    img = np.fromstring(draw_fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
+    img = img.reshape(draw_fig.canvas.get_width_height()[::-1] + (3,))
+
+    img_gray = ~cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+    return img_gray
+
+
+
 
 path = os.path.dirname(os.path.realpath(__file__))
 dataset_paths = os.listdir(path + os.sep + 'data' + os.sep)
@@ -24,6 +92,7 @@ agent_type_mapping = {
 }
 
 for dataset_path in dataset_paths:
+    if not dataset_path.endswith('.xml'): continue
     print("Loading dataset {}".format(dataset_path))
     data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path
     scenario, planning_problem_set = CommonRoadFileReader(data_path_expanded).open()
@@ -74,7 +143,38 @@ for dataset_path in dataset_paths:
         data.path = data.path.sort_index()
         Final_data.loc[index] = data
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
+
+    draw_network = copy.deepcopy(scenario.lanelet_network)
+    translation = np.array([0,0])
+    theta = 0
+    watch_radius = 0
+    for i in range(len(draw_network.lanelets)):
+        a=draw_network.lanelets[i]
+        if watch_radius < np.max(np.abs(a.center_vertices)):
+            watch_radius = np.max(np.abs(a.center_vertices))
+
+    watch_radius = math.ceil(watch_radius / 10.0) * 10
+
+    timestep = 0
+    gray_img = generate_scimg(draw_network,
+                            translation,
+                            theta,
+                            timestep,
+                            watch_radius)
+    
+    
+    cv2.imwrite(path + os.sep + 'data' + os.sep + data.scenario + '.png', gray_img)
+
+    with open(path + os.sep + 'data' + os.sep + data.scenario + '.csv', 'w') as f:
+        writer = csv.writer(f)
+
+        writer.writerow(['MeterToPx', 'x_center', 'y_center', 'rot_angle'])
+        writer.writerow([(2*watch_radius)/px, (px/2), -(px/2), 0])
+
         
 
 # Save data
 Final_data.to_pickle(path + os.sep + "CommonRoad_processed.pkl")
+
+# scaling = px/(2*watch_radius)
+# plt.plot((np.array(Final_data.loc[3].path[0:20].x))*(scaling)+(px/2), (-np.array(Final_data.loc[3].path[0:20].y))*(scaling)+(px/2))
