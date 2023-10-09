@@ -183,13 +183,24 @@ The most important part of the dataset module is to provide access to training a
       corner of the image. 
                 
       If this is not the case, due to some translation and subsequent rotation 
-      of the recoded positions, the corresponding information has to be recorded in columns of 
+      of the recorded positions, the corresponding information has to be recorded in columns of 
       **self.Domain_old**, with the column names 'x_center' and 'y_center'. When we take a trajectory saved in
-      self.Path_old, then rotate it counter clockwise by 'rot_angle', and then add 'x_center' and
+      self.Path_old, then rotate it counterclockwise by 'rot_angle', and then add 'x_center' and
       'y_center' to the rotated trajectory, the resulting trajectory would then be in the described coordinate
       system where (0,0) would be on the upper left corner of the corresponding image.
-      NOTE: if any one of the values 'x_center', 'y_center' or 'rot_angle' is set, then the other two values also 
-      have to be set. Otherwise a missing attribute error will be thrown.
+
+      Given a value :math:`\Delta x` for 'x_center' and :math:`\Delta y` for 'y_center',
+      and :math:`\theta` for 'rot_angle', the relationship between a position :math:`(x,y)` in the trajectory
+      included in **self.Path_old** and the same point :math:`(\hat{x}, \hat{y})` in the coordinate system aligned
+      with the image would be the following.
+      
+      .. math::
+          \begin{pmatrix} \hat{x} \\ \hat{y} \end{pmatrix} = \begin{pmatrix} \Delta x \\ \Delta y \end{pmatrix} +
+          \begin{pmatrix} \cos \theta & -\sin \theta \\ \sin \theta & \cos \theta \end{pmatrix} 
+          \begin{pmatrix} x \\ y \end{pmatrix}
+
+      NOTE: if any one of the values 'x_center', 'y_center', or 'rot_angle' is set, then the other two values also 
+      have to be set. Otherwise, a missing attribute error will be thrown.
 
       The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
       that gives us the scaling of the images in the unit :math:`m /` Px. 
