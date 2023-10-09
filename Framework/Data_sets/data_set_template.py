@@ -1876,13 +1876,15 @@ class data_set_template():
                       
             If this is not the case, due to some translation and subsequent rotation 
             of the recorded positions, the corresponding information has to be recorded in columns of 
-            **self.Domain_old**, with the column names 'x_center' and 'y_center'. These columns record the position,
-            that the origin of the current coordinate system used to record trajectories in **self.Path_old** would
-            have according to a coordinate system where the origin was placed at the left upper corner of the image.  
-            Meanwhile, a separate column 'rot_angle' is used to record the angle by which the current coordinate system 
-            was rotated clockwise afterward. Given a value :math:`\Delta x` for 'x_center' and :math:`\Delta y` for 'y_center',
-            and :math:`\theta` for 'rot_angle', the relationship between a point :math:`(x,y)` in the current coordinate
-            system and the same point :math:`(\hat{x}, \hat{y})` would be the following.
+            **self.Domain_old**, with the column names 'x_center' and 'y_center'. When we take a trajectory saved in
+            self.Path_old, then rotate it counterclockwise by 'rot_angle', and then add 'x_center' and
+            'y_center' to the rotated trajectory, the resulting trajectory would then be in the described coordinate
+            system where (0,0) would be on the upper left corner of the corresponding image.
+        
+            Given a value :math:`\Delta x` for 'x_center' and :math:`\Delta y` for 'y_center',
+            and :math:`\theta` for 'rot_angle', the relationship between a position :math:`(x,y)` in the trajectory
+            included in **self.Path_old** and the same point :math:`(\hat{x}, \hat{y})` in the coordinate system aligned
+            with the image would be the following.
             
             .. math::
                 \begin{pmatrix} \hat{x} \\ \hat{y} \end{pmatrix} = \begin{pmatrix} \Delta x \\ \Delta y \end{pmatrix} +
