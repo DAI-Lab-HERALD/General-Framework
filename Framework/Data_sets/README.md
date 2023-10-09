@@ -184,11 +184,11 @@ The most important part of the dataset module is to provide access to training a
                 
       If this is not the case, due to some translation and subsequent rotation 
       of the recoded positions, the corresponding information has to be recorded in columns of 
-      **self.Domain_old**, with the column names 'x_center' and 'y_center'. These columns record the position of the origin (0,0)   
-      of the trajectories with respect to the image coordinate system , and 'rot_angle' is 
+      **self.Domain_old**, with the column names 'x_center' and 'y_center'. These columns record the position   
+      of the origin (0,0) of the trajectories with respect to the image coordinate system , and 'rot_angle' is 
       the angle by which the coordinate system was rotated clockwise afterwards.
-      NOTE: if any one of the values 'x_center', 'y_center' or 'rot_angle' is set, then the other two values also have to be set.
-      Otherwise a missing attribute error will be thrown.
+      NOTE: if any one of the values 'x_center', 'y_center' or 'rot_angle' is set, then the other two values also 
+      have to be set. Otherwise a missing attribute error will be thrown.
 
       The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
       that gives us the scaling of the images in the unit :math:`m /` Px. 
