@@ -180,7 +180,8 @@ The most important part of the dataset module is to provide access to training a
       :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
       padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
       position :math:`(0,0)` that is recorded in the trajectories in **self.Path** corresponds to the upper left
-      corner of the image, while the position :math:`(s \cdot W, - s \cdot H)` would be the lower right corner.
+      corner (that is *.Image[0, 0]) of the image, while the position :math:`(s \cdot W, - s \cdot H)` would be
+      the lower right corner (that is *.Image[H - 1, W - 1]).
                 
       If this is not the case, due to some translation and subsequent rotation 
       of the recorded positions, the corresponding information has to be recorded in columns of 
