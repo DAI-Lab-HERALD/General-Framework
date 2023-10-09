@@ -184,9 +184,10 @@ The most important part of the dataset module is to provide access to training a
                 
       If this is not the case, due to some translation and subsequent rotation 
       of the recoded positions, the corresponding information has to be recorded in columns of 
-      **self.Domain_old**, with the column names 'x_center' and 'y_center'. These columns record the position   
-      of the origin (0,0) of the trajectories with respect to the image coordinate system , and 'rot_angle' is 
-      the angle by which the coordinate system was rotated clockwise afterwards.
+      **self.Domain_old**, with the column names 'x_center' and 'y_center'. When we take a trajectory saved in
+      self.Path_old, then rotate it counter clockwise by 'rot_angle', and then add 'x_center' and
+      'y_center' to the rotated trajectory, the resulting trajectory would then be in the described coordinate
+      system where (0,0) would be on the upper left corner of the corresponding image.
       NOTE: if any one of the values 'x_center', 'y_center' or 'rot_angle' is set, then the other two values also 
       have to be set. Otherwise a missing attribute error will be thrown.
 
