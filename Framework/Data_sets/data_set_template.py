@@ -1811,67 +1811,90 @@ class data_set_template():
 
     def create_path_samples(self):
         r'''
-        Loads the original path data in its recorded form from wherever it is saved.
+        Loads the original trajectory data from wherever it is saved.
         Then, this function has to extract for each potential test case in the data set 
         some required information. This information has to be collected in the following attributes, 
-        which do not have to be returned, but only defined in this function.
-            **self.Path**          
-                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
-                Here, each row :math:`i` represents one recorded sample, while each column includes the 
-                trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
-                It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
-                sample overall recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
-                the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
-                aforementioned numpy array.
-                
-                The name of each column corresponds to the name of the corresponding
-                agent whose trajectory is covered. The name of such agents are relevant, as the selected scenario requires 
-                some agents with a specific name to be present. The names of those relevant agents can be found in 
-                self.scenario.pov_agent() and self.scenario.classifying_agents().
-                
-            **self.Type_old**
-                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical
-                to the column names of **self.Path**. Each corresponding entry contains the type of the agent whose 
-                path is recorded at the same location in *self.Path**. For example, a "V" stands for a vehicle,
-                while a "P" stands for a pedestrian.
-            
-            **self.T**
-                A numpy array (dtype = object) of length :math:`N_{samples}`. Each row :math:`i` contains the timepoints 
-                of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
-                
-            **self.Domain_old**
-                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
-                In this dataframe, one can collect any ancillary metadata that might be needed
-                in the future. An example might be the location at which a sample was recorded
-                or the subject id involved, which might be needed later to construct the training
-                and testing set. Another useful idea might be to record the place in the raw data the sample
-                originated from, as might be used later to extract surrounding agents from this raw data.
-                
-            **self.num_samples**
-                A scalar integer value, which gives the number of samples :math:`N_{samples}`. 
-                It should be noted that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
+        which do not have to be returned, but only defined in this function:
+    
+        **self.Path** : pandas.DataFrame          
+              A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
+              Here, each row :math:`i` represents one recorded sample, while each column includes the 
+              trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
+              It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
+              sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
+              the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
+              aforementioned numpy array. It is also possible that positional data for an agent is only available
+              at parts of the required time points, in which cases, the missing positions should be filled up with
+              (np.nan, np.nan).
+                        
+              The name of each column corresponds to the name of the corresponding
+              agent whose trajectory is covered. The name of such agents is relevant, as the selected scenario requires 
+              some agents with a specific name to be present. The names of those relevant agents can be found in 
+              self.scenario.pov_agent() and self.scenario.classifying_agents().
+                    
+        **self.Type_old** : pandas.DataFrame  
+            A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are
+            identical to the column names of **self.Path**. Each corresponding entry contains the type of the agent
+            whose path is recorded at the same location in *self.Path**.
         
-        It might be possible that the selected dataset can provide images. In this case, it is
-        paramount that **self.Domain_old** entails a column named 'image_id', so that images can
-        be assigned to each sample without having to save large amounts of data. 
-        Two further attributes have to be created as well:
-            **self.Images**
-                A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 2\}`.
-                In the first column, named 'Image', the images for each location are saved. It is paramount that the 
-                indices of this dataframe are equivalent to the unique values found in **self.Domain_old**.image_id. 
-                The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
-                :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
-                padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-                position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left corner of the image. 
+            Currently, four types of agents are implemented:
+                - 'V': Vehicles like cars and trucks
+                - 'M': Motorcycles
+                - 'B': Bicycles
+                - 'P': Pedestrians
                 
-                If this is not the case, due to some translation and subsequent rotation 
-                of the recoded positions, the corresponding information has to be recorded in columns of 
-                **self.Domain_old**, where the columns 'x_center' and 'y_center' record the position in the 
-                original coordinate system at which the current origin (0,0) now lies, and 'rot_angle' is 
-                the angle by which the coordinate system was rotated afterward clockwise.
-
-                The second column of the dataframe, named 'Target_MeterPerPx', contains a scalar float value
-                that gives us the scaling of the images in the unit :math:`m /` Px. 
+        **self.T** : np.ndarray
+            A numpy array (dtype = object) of length :math:`N_{samples}`. Each row :math:`i` contains the timepoints 
+            of the data collected in **self.Path** in a tensor of length :math:`\vert T_i \vert`.
+                    
+        **self.Domain_old** : pandas.DataFrame  
+            A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} (N_{info})\}`.
+            In this DataFrame, one can collect any ancillary metadata that might be needed
+            in the future. An example might be the location at which a sample was recorded
+            or the subject id involved, which might be needed later to construct the training
+            and testing set. Another useful idea might be to record the place in the raw data the sample
+            originated from, as might be used later to extract surrounding agents from this raw data.
+                    
+        **self.num_samples** : int
+            A scalar integer value, which gives the number of samples :math:`N_{samples}`. It should be noted 
+            that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
+            
+        It might be possible that the selected dataset can provide images. In this case, it is
+        paramount that **self.Domain_old** contains a column named 'image_id', so that images can
+        be assigned to each sample with only having to save one image for each location instead for
+        each sample:
+    
+        **self.Images** : pandas.DataFrame  
+            A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 2\}`.
+            In the first column, named 'Image', the images for each location are saved. It is paramount that the 
+            indices of this DataFrame are equivalent to the unique values found in **self.Domain_old**['image_id']. 
+            The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
+            :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
+            padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
+            position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left
+            corner of the image. 
+                      
+            If this is not the case, due to some translation and subsequent rotation 
+            of the recorded positions, the corresponding information has to be recorded in columns of 
+            **self.Domain_old**, with the column names 'x_center' and 'y_center'. These columns record the position,
+            that the origin of the current coordinate system used to record trajectories in **self.Path_old** would
+            have according to a coordinate system where the origin was placed at the left upper corner of the image.  
+            Meanwhile, a separate column 'rot_angle' is used to record the angle by which the current coordinate system 
+            was rotated clockwise afterward. Given a value :math:`\Delta x` for 'x_center' and :math:`\Delta y` for 'y_center',
+            and :math:`\theta` for 'rot_angle', the relationship between a point :math:`(x,y)` in the current coordinate
+            system and the same point :math:`(\hat{x}, \hat{y})` would be the following.
+            
+            .. math::
+                \begin{pmatrix} \hat{x} \\ \hat{y} \end{pmatrix} = \begin{pmatrix} \Delta x \\ \Delta y \end{pmatrix} +
+                \begin{pmatrix} \cos \theta & -\sin \theta \\ \sin \theta & \cos \theta \end{pmatrix} 
+                \begin{pmatrix} x \\ y \end{pmatrix}
+      
+            NOTE: if any one of the values 'x_center', 'y_center', or 'rot_angle' is set, then the other two values also 
+            have to be set. Otherwise, a missing attribute error will be thrown.
+      
+            The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
+            that gives us the scaling of the images in the unit :math:`m /` Px. 
+    
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 

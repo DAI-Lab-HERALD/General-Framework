@@ -249,7 +249,7 @@ class RounD_round_about(data_set_template):
 
             # angle along this route
             original_angle = np.angle((tar_track.x.iloc[0] - tar_track.x.iloc[frame_entry]) + 
-                                       (tar_track.y.iloc[0] - tar_track.y.iloc[frame_entry]) * 1j,deg = False)
+                                      (tar_track.y.iloc[0] - tar_track.y.iloc[frame_entry]) * 1j, deg = False)
             
             
             tar_track = rotate_track(tar_track, original_angle, Rot_center)
