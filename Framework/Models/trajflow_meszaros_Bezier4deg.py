@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
@@ -91,7 +91,7 @@ def bezier_curve(points, nTimes=50):
     return traj
 
 
-class trajflow_meszaros_BezierCubic(model_template):
+class trajflow_meszaros_Bezier4deg(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.

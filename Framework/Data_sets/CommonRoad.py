@@ -1,3 +1,4 @@
+import cv2
 import glob
 import numpy as np
 import pandas as pd
@@ -61,9 +62,9 @@ class CommonRoad(data_set_template):
         self.Domain_old = []
 
         self.Images = pd.DataFrame(np.zeros((len(self.Data), 1), object), 
-                            index = self.Data.index, columns = ['Image', 'Target_MeterPerPx'])
+                            index = self.Data.index, columns = ['Image'])
         
-        
+        self.Images['Target_MeterPerPx'] = 0.0
         # extract raw samples
         max_number_other = 0
         max_width = 0
@@ -84,19 +85,22 @@ class CommonRoad(data_set_template):
 
             img_file = (self.path + os.sep + 'Data_sets' + os.sep + 
                         'CommonRoad' + os.sep + 'data' + os.sep + 
-                        self.Data.scenario + '.png')
+                        data_i.scenario + '.png')
             
-            Meta_data = (self.path + os.sep + 'Data_sets' + os.sep + 
+            Meta_data = pd.read_csv(self.path + os.sep + 'Data_sets' + os.sep + 
                         'CommonRoad' + os.sep + 'data' + os.sep + 
-                        self.Data.scenario + '.csv')
+                        data_i.scenario + '.csv')
             
-            img = Image.open(img_file)
-            self.Images.loc[i].Image = np.array(img)
-            self.Images.loc[i].Target_MeterPerPx = Meta_data['MeterToPx']
+            # img = Image.open(img_file)
+            img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            self.Images.Image.loc[i] = np.array(img)
+            self.Images.Target_MeterPerPx.loc[i] = Meta_data['MeterToPx'][0]
+            self.Images.rename(index={i: data_i.scenario}, inplace=True)
 
 
-            max_width = max(img.width, max_width)
-            max_height = max(img.height, max_height)
+            max_width = max(img.shape[0], max_width)
+            max_height = max(img.shape[1], max_height)
             
             for j, frame in enumerate(data_i.path.index):
                 useful = (other_agents['Last frame'] >= frame) & (other_agents['First frame'] <= frame)
@@ -123,9 +127,9 @@ class CommonRoad(data_set_template):
             track_all = track_all.set_index('t')
             domain.neighbors = track_all.CN
             domain.type = data_i.type
-            domain.x_center = Meta_data['x_center']
-            domain.y_center = Meta_data['y_center']
-            domain.rot_angle = Meta_data['rot_angle']
+            domain.x_center = Meta_data['x_center'][0]
+            domain.y_center = Meta_data['y_center'][0]
+            domain.rot_angle = Meta_data['rot_angle'][0]
 
             self.Path.append(path)
             self.Type_old.append(agent_types)
@@ -133,9 +137,13 @@ class CommonRoad(data_set_template):
             self.Domain_old.append(domain)
             self.num_samples = self.num_samples + 1
 
-                        # pad images to max size
+        # Remove duplicate image indices
+        self.Images = self.Images[~self.Images.index.duplicated(keep='first')]
+
+        # pad images to max size
         for i in range(num_tars):
-            img = self.Images.loc[i].Image
+            data_i = self.Data.iloc[i]
+            img = self.Images.loc[data_i.scenario].Image
             img_pad = np.pad(img, ((0, max_height - img.shape[0]),
                                    (0, max_width  - img.shape[1]),
                                    (0,0)), 'constant', constant_values=0)

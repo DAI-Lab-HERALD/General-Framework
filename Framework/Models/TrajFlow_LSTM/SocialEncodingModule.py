@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 
 class TrajRNN(nn.Module):
     """ 
-    LSTM based recurrent neural network. 
+    GRU based recurrent neural network. 
     Used for encoding past trajectories.
     """
 
@@ -28,7 +28,7 @@ class TrajRNN(nn.Module):
         self.cuda(self.device)
         
         self.embedding = nn.Linear(nin, es)
-        self.lstm = nn.LSTM(input_size=es, hidden_size=hs, num_layers=nl, batch_first=True)
+        self.gru = nn.GRU(input_size=es, hidden_size=hs, num_layers=nl, batch_first=True)
         self.output_layer = nn.Linear(hs, nout)
         
         self.dropout = nn.Dropout(0.2)
@@ -38,7 +38,7 @@ class TrajRNN(nn.Module):
         x = F.tanh(self.embedding(x))
         x = self.dropout(x)
         # x = self.embedding(x)
-        x, hidden = self.lstm(x, hidden)
+        x, hidden = self.gru(x, hidden)
         x = self.dropout(x)
         # x = F.relu(self.output_layer(x))
         x = F.tanh(self.output_layer(x))
