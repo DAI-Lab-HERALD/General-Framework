@@ -144,21 +144,9 @@ class Lyft_interactive(data_set_template):
         self.Images.Target_MeterPerPx = 1 / px_per_meter
         
         # cycle through images
-        max_height = 0
-        max_width = 0
         for map_key in self.Images.index:
             img = map_api.maps[map_key].rasterize(px_per_meter)
-            self.Images.Image.loc[map_key] = img
-            max_width = max(img.shape[1], max_width)
-            max_height = max(img.shape[0], max_height)
-                
-        # pad images
-        for loc_id in self.Images.index:
-            img = self.Images.Image.loc[loc_id]
-            img_pad = np.pad(img, ((0, max_height - img.shape[0]),
-                                   (0, max_width  - img.shape[1]),
-                                   (0,0)), 'constant', constant_values=0)
-            self.Images.Image.loc[loc_id] = img_pad        
+            self.Images.Image.loc[map_key] = img       
 
         # deletet cached data
         shutil.rmtree(cache_path)

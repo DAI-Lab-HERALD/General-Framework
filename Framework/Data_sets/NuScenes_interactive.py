@@ -68,8 +68,6 @@ class NuScenes_interactive(data_set_template):
         map_files = os.listdir(image_path_full)
         px_per_meter = 2
         
-        max_width = 0
-        max_height = 0
         for map_file in map_files:
             if map_file.endswith('.json'):
                 map_name = map_file[:-5]
@@ -78,16 +76,6 @@ class NuScenes_interactive(data_set_template):
                 populate_vector_map(vector_map, map_image)
                 bit_map = vector_map.rasterize(resolution = px_per_meter)
                 self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
-                max_width = max(bit_map.shape[1], max_width)
-                max_height = max(bit_map.shape[0], max_height)
-        
-        # pad images
-        for loc_id in self.Images.index:
-            img = self.Images.loc[loc_id].Image
-            img_pad = np.pad(img, ((0, max_height - img.shape[0]),
-                                   (0, max_width  - img.shape[1]),
-                                   (0,0)), 'constant', constant_values=0)
-            self.Images.Image.loc[loc_id] = img_pad 
 
         nuscenes_dt = 0.5
 
