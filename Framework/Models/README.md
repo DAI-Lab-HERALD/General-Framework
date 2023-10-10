@@ -393,7 +393,7 @@ To use those functions, the following attributes have to be set in [*setup_metho
 - **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
 - **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
 
-For a given sample, the extracted images are centered around the last observed position of an agent, which is driving to the right at this moment, with **self.target_width** $W_T$ and **self.target_height** $H_T$ (However, the positions of vehicles are still provided in the agent-independent coordinate system $(\bm{e}_x, \bm{e}_y)$). Here, $s$ is the scaling factor in $m/$Px, which is already set in the dataset.
+For a given sample, the extracted images are centered around the last observed position of an agent, which is driving to the right at this moment, with **self.target_width** $W_T$ and **self.target_height** $H_T$ (the positions of vehicles are, however, still provided in the agent-independent coordinate system $(\bm{e}_x, \bm{e}_y)$). Here, $s$ is the scaling factor in $m/\text{Px}$, which is already set in the dataset.
 
 <img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_fully.svg" alt="Extraction of agent centered images." width="100%">
 
