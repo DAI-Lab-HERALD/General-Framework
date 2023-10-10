@@ -52,6 +52,7 @@ remove_files.py
 Results/
 *.zarr/
 Data_sets/NuScenes/v1.0-mini/
+Data_sets/Waymo/data/
 simulations*.py
 
 
