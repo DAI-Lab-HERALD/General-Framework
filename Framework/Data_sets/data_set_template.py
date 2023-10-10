@@ -1863,11 +1863,11 @@ class data_set_template():
             In the first column, named 'Image', the images for each location are saved. It is paramount that the 
             indices of this DataFrame are equivalent to the unique values found in **self.Domain_old**['image_id']. 
             The entry for each cell of the column meanwhile should be a numpy array of dtype np.uint8 and shape
-            :math:`\{H {\times} W \times 3\}`. All images need to be of the same size. If this is not the case, zero
-            padding to the right and bottom should be used to obtain the desired dimensions. It is assumed that a 
-            position (0,0) that is recorded in the trajectories in **self.Path** corresponds to the upper left
-            corner of the image. 
-                      
+            :math:`\{H {\times} W \times 3\}`. It is assumed that a position :math:`(0,0)` that is recorded
+            in the trajectories in **self.Path** corresponds to the upper left corner (that is self.Images.*.Image[0, 0])
+            of the image, while the position :math:`(s \cdot W, - s \cdot H)` would be the lower right corner
+            (that is self.Images.*.Image[H - 1, W - 1]).
+            
             If this is not the case, due to some translation and subsequent rotation 
             of the recorded positions, the corresponding information has to be recorded in columns of 
             **self.Domain_old**, with the column names 'x_center' and 'y_center'. When we take a trajectory saved in
