@@ -1,0 +1,1673 @@
+\documentclass[journal]{standalone} 
+ 
+\input{header} 
+\begin{document} 
+\begin{tikzpicture} 
+    \definecolor{lowcolor}{RGB}{94,60,153} 
+    \definecolor{highcolor}{RGB}{253,184,99} 
+ 
+    % Draw the metric min ADE (20 samples, joint prediction) 
+ 
+    % Draw the metric min ADE (20 samples, joint prediction) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{semilogyaxis}[ 
+        at = {(1.500cm, 17.600cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 0.100, 
+        ymax = 1.000, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.50875) -- (0.214, 0.49113); 
+        \draw[lowcolor!50!white, very thin] (0.071, 0.49986) -- (0.357, 0.49986); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.45084) -- (0.357, 0.43523); 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.44296) -- (0.500, 0.44296); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.49498) -- (0.500, 0.47784); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.48633) -- (0.643, 0.48633); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.44685) -- (0.643, 0.43138); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.43905) -- (0.786, 0.43905); 
+        \draw[lowcolor!50!white, very thin] (0.786, 0.49372) -- (0.786, 0.47662); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.48510) -- (0.929, 0.48510); 
+        \draw[lowcolor, thin] (0.500, 0.48754) -- (0.500, 0.45436); 
+        \draw[lowcolor, thin] (0.214, 0.47066) -- (0.786, 0.47066); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.40549) -- (1.214, 0.39145); 
+        \draw[lowcolor!50!white, very thin] (1.071, 0.39840) -- (1.357, 0.39840); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.40857) -- (1.357, 0.39442); 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.40143) -- (1.500, 0.40143); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.38287) -- (1.500, 0.36961); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.37618) -- (1.643, 0.37618); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.41443) -- (1.643, 0.40008); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.40719) -- (1.786, 0.40719); 
+        \draw[lowcolor!50!white, very thin] (1.786, 0.41529) -- (1.786, 0.40091); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.40804) -- (1.929, 0.40804); 
+        \draw[lowcolor, thin] (1.500, 0.41254) -- (1.500, 0.38446); 
+        \draw[lowcolor, thin] (1.214, 0.39825) -- (1.786, 0.39825); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.32600) -- (2.214, 0.31471); 
+        \draw[lowcolor!50!white, very thin] (2.071, 0.32031) -- (2.357, 0.32031); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.34516) -- (2.357, 0.33321); 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.33913) -- (2.500, 0.33913); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.43969) -- (2.500, 0.42446); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.43201) -- (2.643, 0.43201); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.41004) -- (2.643, 0.39584); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.40288) -- (2.786, 0.40288); 
+        \draw[lowcolor!50!white, very thin] (2.786, 0.58910) -- (2.786, 0.56870); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.57881) -- (2.929, 0.57881); 
+        \draw[lowcolor, thin] (2.500, 0.42950) -- (2.500, 0.40027); 
+        \draw[lowcolor, thin] (2.214, 0.41463) -- (2.786, 0.41463); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.42021) -- (3.214, 0.40566); 
+        \draw[lowcolor!50!white, very thin] (3.071, 0.41287) -- (3.357, 0.41287); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.32330) -- (3.357, 0.31210); 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.31765) -- (3.500, 0.31765); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.34548) -- (3.500, 0.33352); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.33945) -- (3.643, 0.33945); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.34438) -- (3.643, 0.33245); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.33836) -- (3.786, 0.33836); 
+        \draw[lowcolor!50!white, very thin] (3.786, 0.36502) -- (3.786, 0.35238); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.35865) -- (3.929, 0.35865); 
+        \draw[lowcolor, thin] (3.500, 0.36607) -- (3.500, 0.34116); 
+        \draw[lowcolor, thin] (3.214, 0.35340) -- (3.786, 0.35340); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.30864) -- (4.214, 0.29795); 
+        \draw[lowcolor!50!white, very thin] (4.071, 0.30325) -- (4.357, 0.30325); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.30560) -- (4.357, 0.29501); 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.30026) -- (4.500, 0.30026); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.34867) -- (4.500, 0.33659); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.34258) -- (4.643, 0.34258); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.35018) -- (4.643, 0.33805); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.34406) -- (4.786, 0.34406); 
+        \draw[lowcolor!50!white, very thin] (4.786, 0.33054) -- (4.786, 0.31909); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.32477) -- (4.929, 0.32477); 
+        \draw[lowcolor, thin] (4.500, 0.33457) -- (4.500, 0.31180); 
+        \draw[lowcolor, thin] (4.214, 0.32298) -- (4.786, 0.32298); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.36081) -- (5.214, 0.34832); 
+        \draw[lowcolor!50!white, very thin] (5.071, 0.35451) -- (5.357, 0.35451); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.38582) -- (5.357, 0.37246); 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.37908) -- (5.500, 0.37908); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.35406) -- (5.500, 0.34180); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.34788) -- (5.643, 0.34788); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.36026) -- (5.643, 0.34778); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.35396) -- (5.786, 0.35396); 
+        \draw[lowcolor!50!white, very thin] (5.786, 0.34654) -- (5.786, 0.33454); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.34049) -- (5.929, 0.34049); 
+        \draw[lowcolor, thin] (5.500, 0.36793) -- (5.500, 0.34289); 
+        \draw[lowcolor, thin] (5.214, 0.35519) -- (5.786, 0.35519); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.35863) -- (6.214, 0.34621); 
+        \draw[lowcolor!50!white, very thin] (6.071, 0.35236) -- (6.357, 0.35236); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.34720) -- (6.357, 0.33517); 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.34113) -- (6.500, 0.34113); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.34700) -- (6.500, 0.33499); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.34094) -- (6.643, 0.34094); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.33584) -- (6.643, 0.32421); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.32997) -- (6.786, 0.32997); 
+        \draw[lowcolor!50!white, very thin] (6.786, 0.35919) -- (6.786, 0.34675); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.35292) -- (6.929, 0.35292); 
+        \draw[lowcolor, thin] (6.500, 0.35579) -- (6.500, 0.33157); 
+        \draw[lowcolor, thin] (6.214, 0.34347) -- (6.786, 0.34347); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.37308) -- (7.214, 0.36016); 
+        \draw[lowcolor!50!white, very thin] (7.071, 0.36656) -- (7.357, 0.36656); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.36973) -- (7.357, 0.35693); 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.36327) -- (7.500, 0.36327); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.35634) -- (7.500, 0.34400); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.35012) -- (7.643, 0.35012); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.35798) -- (7.643, 0.34559); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.35173) -- (7.786, 0.35173); 
+        \draw[lowcolor!50!white, very thin] (7.786, 0.38155) -- (7.786, 0.36833); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.37488) -- (7.929, 0.37488); 
+        \draw[lowcolor, thin] (7.500, 0.37427) -- (7.500, 0.34880); 
+        \draw[lowcolor, thin] (7.214, 0.36131) -- (7.786, 0.36131); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.37954) -- (8.214, 0.36640); 
+        \draw[lowcolor!50!white, very thin] (8.071, 0.37291) -- (8.357, 0.37291); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.35280) -- (8.357, 0.34058); 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.34664) -- (8.500, 0.34664); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.34323) -- (8.500, 0.33134); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.33724) -- (8.643, 0.33724); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.36542) -- (8.643, 0.35277); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.35904) -- (8.786, 0.35904); 
+        \draw[lowcolor!50!white, very thin] (8.786, 0.37000) -- (8.786, 0.35719); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.36354) -- (8.929, 0.36354); 
+        \draw[lowcolor, thin] (8.500, 0.36864) -- (8.500, 0.34355); 
+        \draw[lowcolor, thin] (8.214, 0.35587) -- (8.786, 0.35587); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.45443) -- (9.214, 0.43869); 
+        \draw[lowcolor!50!white, very thin] (9.071, 0.44649) -- (9.357, 0.44649); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.36202) -- (9.357, 0.34949); 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.35570) -- (9.500, 0.35570); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.33850) -- (9.500, 0.32678); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.33259) -- (9.643, 0.33259); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.32929) -- (9.643, 0.31789); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.32354) -- (9.786, 0.32354); 
+        \draw[lowcolor!50!white, very thin] (9.786, 0.32829) -- (9.786, 0.31692); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.32255) -- (9.929, 0.32255); 
+        \draw[lowcolor, thin] (9.500, 0.36895) -- (9.500, 0.34384); 
+        \draw[lowcolor, thin] (9.214, 0.35618) -- (9.786, 0.35618); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.36159) -- (10.214, 0.34907); 
+        \draw[lowcolor!50!white, very thin] (10.071, 0.35527) -- (10.357, 0.35527); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.33349) -- (10.357, 0.32194); 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.32766) -- (10.500, 0.32766); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.37110) -- (10.500, 0.35824); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.36461) -- (10.643, 0.36461); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.33301) -- (10.643, 0.32147); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.32719) -- (10.786, 0.32719); 
+        \draw[lowcolor!50!white, very thin] (10.786, 0.36023) -- (10.786, 0.34775); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.35394) -- (10.929, 0.35394); 
+        \draw[lowcolor, thin] (10.500, 0.35814) -- (10.500, 0.33376); 
+        \draw[lowcolor, thin] (10.214, 0.34573) -- (10.786, 0.34573); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.34221) -- (11.214, 0.33036); 
+        \draw[lowcolor!50!white, very thin] (11.071, 0.33623) -- (11.357, 0.33623); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.36283) -- (11.357, 0.35027); 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.35650) -- (11.500, 0.35650); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.34970) -- (11.500, 0.33759); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.34360) -- (11.643, 0.34360); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.32427) -- (11.643, 0.31304); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.31861) -- (11.786, 0.31861); 
+        \draw[lowcolor!50!white, very thin] (11.786, 0.32919) -- (11.786, 0.31779); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.32344) -- (11.929, 0.32344); 
+        \draw[lowcolor, thin] (11.500, 0.34772) -- (11.500, 0.32405); 
+        \draw[lowcolor, thin] (11.214, 0.33567) -- (11.786, 0.33567); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.33232) -- (12.214, 0.32081); 
+        \draw[lowcolor!50!white, very thin] (12.071, 0.32652) -- (12.357, 0.32652); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.35363) -- (12.357, 0.34138); 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.34745) -- (12.500, 0.34745); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.35352) -- (12.500, 0.34127); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.34734) -- (12.643, 0.34734); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.34441) -- (12.643, 0.33248); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.33840) -- (12.786, 0.33840); 
+        \draw[lowcolor!50!white, very thin] (12.786, 0.34183) -- (12.786, 0.32999); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.33586) -- (12.929, 0.33586); 
+        \draw[lowcolor, thin] (12.500, 0.35128) -- (12.500, 0.32737); 
+        \draw[lowcolor, thin] (12.214, 0.33911) -- (12.786, 0.33911); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.41332) -- (13.214, 0.39901); 
+        \draw[lowcolor!50!white, very thin] (13.071, 0.40610) -- (13.357, 0.40610); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.48946) -- (13.357, 0.47251); 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.48091) -- (13.500, 0.48091); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.49918) -- (13.500, 0.48189); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.49046) -- (13.643, 0.49046); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.44313) -- (13.643, 0.42779); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.43539) -- (13.786, 0.43539); 
+        \draw[lowcolor!50!white, very thin] (13.786, 0.59328) -- (13.786, 0.57274); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.58292) -- (13.929, 0.58292); 
+        \draw[lowcolor, thin] (13.500, 0.49634) -- (13.500, 0.46256); 
+        \draw[lowcolor, thin] (13.214, 0.47916) -- (13.786, 0.47916); 
+    \end{semilogyaxis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 17.600) {$10^{-1}$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 19.600) {$10^{0}$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 18.600) {\emph{min ADE$_{20, joint}$ [m]}}; 
+ 
+    % Draw the metric min FDE (20 samples, joint prediction) 
+ 
+    % Draw the metric min FDE (20 samples, joint prediction) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{semilogyaxis}[ 
+        at = {(1.500cm, 15.300cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 0.100, 
+        ymax = 10.000, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.91050) -- (0.214, 0.84853); 
+        \draw[lowcolor!50!white, very thin] (0.071, 0.87897) -- (0.357, 0.87897); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.77029) -- (0.357, 0.71786); 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.74362) -- (0.500, 0.74362); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.89241) -- (0.500, 0.83167); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.86151) -- (0.643, 0.86151); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.76473) -- (0.643, 0.71268); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.73825) -- (0.786, 0.73825); 
+        \draw[lowcolor!50!white, very thin] (0.786, 0.87280) -- (0.786, 0.81339); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.84257) -- (0.929, 0.84257); 
+        \draw[lowcolor, thin] (0.500, 0.87235) -- (0.500, 0.75765); 
+        \draw[lowcolor, thin] (0.214, 0.81298) -- (0.786, 0.81298); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.64264) -- (1.214, 0.59890); 
+        \draw[lowcolor!50!white, very thin] (1.071, 0.62038) -- (1.357, 0.62038); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.64981) -- (1.357, 0.60558); 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.62731) -- (1.500, 0.62731); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.60905) -- (1.500, 0.56759); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.58795) -- (1.643, 0.58795); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.63266) -- (1.643, 0.58960); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.61076) -- (1.786, 0.61076); 
+        \draw[lowcolor!50!white, very thin] (1.786, 0.64827) -- (1.786, 0.60415); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.62582) -- (1.929, 0.62582); 
+        \draw[lowcolor, thin] (1.500, 0.65932) -- (1.500, 0.57262); 
+        \draw[lowcolor, thin] (1.214, 0.61444) -- (1.786, 0.61444); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.50271) -- (2.214, 0.46850); 
+        \draw[lowcolor!50!white, very thin] (2.071, 0.48530) -- (2.357, 0.48530); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.52343) -- (2.357, 0.48781); 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.50530) -- (2.500, 0.50530); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.78984) -- (2.500, 0.73608); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.76248) -- (2.643, 0.76248); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.68156) -- (2.643, 0.63517); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.65796) -- (2.786, 0.65796); 
+        \draw[lowcolor!50!white, very thin] (2.786, 1.23870) -- (2.786, 1.15440); 
+        \draw[lowcolor!50!white, very thin] (2.643, 1.19581) -- (2.929, 1.19581); 
+        \draw[lowcolor, thin] (2.500, 0.77405) -- (2.500, 0.67227); 
+        \draw[lowcolor, thin] (2.214, 0.72137) -- (2.786, 0.72137); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.68401) -- (3.214, 0.63746); 
+        \draw[lowcolor!50!white, very thin] (3.071, 0.66032) -- (3.357, 0.66032); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.47711) -- (3.357, 0.44464); 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.46059) -- (3.500, 0.46059); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.52098) -- (3.500, 0.48552); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.50294) -- (3.643, 0.50294); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.51697) -- (3.643, 0.48179); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.49907) -- (3.786, 0.49907); 
+        \draw[lowcolor!50!white, very thin] (3.786, 0.58730) -- (3.786, 0.54733); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.56696) -- (3.929, 0.56696); 
+        \draw[lowcolor, thin] (3.500, 0.57727) -- (3.500, 0.50136); 
+        \draw[lowcolor, thin] (3.214, 0.53798) -- (3.786, 0.53798); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.47048) -- (4.214, 0.43846); 
+        \draw[lowcolor!50!white, very thin] (4.071, 0.45419) -- (4.357, 0.45419); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.46583) -- (4.357, 0.43413); 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.44970) -- (4.500, 0.44970); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.54925) -- (4.500, 0.51187); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.53023) -- (4.643, 0.53023); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.53592) -- (4.643, 0.49945); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.51736) -- (4.786, 0.51736); 
+        \draw[lowcolor!50!white, very thin] (4.786, 0.50168) -- (4.786, 0.46754); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.48431) -- (4.929, 0.48431); 
+        \draw[lowcolor, thin] (4.500, 0.52274) -- (4.500, 0.45400); 
+        \draw[lowcolor, thin] (4.214, 0.48716) -- (4.786, 0.48716); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.52883) -- (5.214, 0.49284); 
+        \draw[lowcolor!50!white, very thin] (5.071, 0.51052) -- (5.357, 0.51052); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.61059) -- (5.357, 0.56903); 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.58944) -- (5.500, 0.58944); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.52769) -- (5.500, 0.49178); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.50942) -- (5.643, 0.50942); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.53549) -- (5.643, 0.49904); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.51694) -- (5.786, 0.51694); 
+        \draw[lowcolor!50!white, very thin] (5.786, 0.50641) -- (5.786, 0.47194); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.48887) -- (5.929, 0.48887); 
+        \draw[lowcolor, thin] (5.500, 0.56124) -- (5.500, 0.48744); 
+        \draw[lowcolor, thin] (5.214, 0.52304) -- (5.786, 0.52304); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.53423) -- (6.214, 0.49787); 
+        \draw[lowcolor!50!white, very thin] (6.071, 0.51573) -- (6.357, 0.51573); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.49231) -- (6.357, 0.45880); 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.47526) -- (6.500, 0.47526); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.52426) -- (6.500, 0.48858); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.50610) -- (6.643, 0.50610); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.49215) -- (6.643, 0.45865); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.47510) -- (6.786, 0.47510); 
+        \draw[lowcolor!50!white, very thin] (6.786, 0.55595) -- (6.786, 0.51812); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.53670) -- (6.929, 0.53670); 
+        \draw[lowcolor, thin] (6.500, 0.53843) -- (6.500, 0.46763); 
+        \draw[lowcolor, thin] (6.214, 0.50178) -- (6.786, 0.50178); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.56302) -- (7.214, 0.52470); 
+        \draw[lowcolor!50!white, very thin] (7.071, 0.54352) -- (7.357, 0.54352); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.52333) -- (7.357, 0.48771); 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.50521) -- (7.500, 0.50521); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.52109) -- (7.500, 0.48563); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.50305) -- (7.643, 0.50305); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.50682) -- (7.643, 0.47233); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.48927) -- (7.786, 0.48927); 
+        \draw[lowcolor!50!white, very thin] (7.786, 0.55114) -- (7.786, 0.51363); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.53206) -- (7.929, 0.53206); 
+        \draw[lowcolor, thin] (7.500, 0.55220) -- (7.500, 0.47959); 
+        \draw[lowcolor, thin] (7.214, 0.51462) -- (7.786, 0.51462); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.58061) -- (8.214, 0.54109); 
+        \draw[lowcolor!50!white, very thin] (8.071, 0.56050) -- (8.357, 0.56050); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.52960) -- (8.357, 0.49356); 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.51126) -- (8.500, 0.51126); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.53983) -- (8.500, 0.50309); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.52114) -- (8.643, 0.52114); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.54233) -- (8.643, 0.50542); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.52355) -- (8.786, 0.52355); 
+        \draw[lowcolor!50!white, very thin] (8.786, 0.58817) -- (8.786, 0.54814); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.56780) -- (8.929, 0.56780); 
+        \draw[lowcolor, thin] (8.500, 0.57606) -- (8.500, 0.50031); 
+        \draw[lowcolor, thin] (8.214, 0.53685) -- (8.786, 0.53685); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.75221) -- (9.214, 0.70101); 
+        \draw[lowcolor!50!white, very thin] (9.071, 0.72616) -- (9.357, 0.72616); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.56384) -- (9.357, 0.52546); 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.54431) -- (9.500, 0.54431); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.51000) -- (9.500, 0.47529); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.49234) -- (9.643, 0.49234); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.49851) -- (9.643, 0.46458); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.48125) -- (9.786, 0.48125); 
+        \draw[lowcolor!50!white, very thin] (9.786, 0.49545) -- (9.786, 0.46173); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.47829) -- (9.929, 0.47829); 
+        \draw[lowcolor, thin] (9.500, 0.58423) -- (9.500, 0.50741); 
+        \draw[lowcolor, thin] (9.214, 0.54447) -- (9.786, 0.54447); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.52743) -- (10.214, 0.49154); 
+        \draw[lowcolor!50!white, very thin] (10.071, 0.50917) -- (10.357, 0.50917); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.48497) -- (10.357, 0.45196); 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.46817) -- (10.500, 0.46817); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.58723) -- (10.500, 0.54726); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.56689) -- (10.643, 0.56689); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.50129) -- (10.643, 0.46717); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.48393) -- (10.786, 0.48393); 
+        \draw[lowcolor!50!white, very thin] (10.786, 0.56547) -- (10.786, 0.52698); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.54589) -- (10.929, 0.54589); 
+        \draw[lowcolor, thin] (10.500, 0.55241) -- (10.500, 0.47977); 
+        \draw[lowcolor, thin] (10.214, 0.51481) -- (10.786, 0.51481); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.52011) -- (11.214, 0.48471); 
+        \draw[lowcolor!50!white, very thin] (11.071, 0.50210) -- (11.357, 0.50210); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.53368) -- (11.357, 0.49736); 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.51520) -- (11.500, 0.51520); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.52130) -- (11.500, 0.48582); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.50325) -- (11.643, 0.50325); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.48358) -- (11.643, 0.45066); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.46683) -- (11.786, 0.46683); 
+        \draw[lowcolor!50!white, very thin] (11.786, 0.49034) -- (11.786, 0.45697); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.47336) -- (11.929, 0.47336); 
+        \draw[lowcolor, thin] (11.500, 0.52809) -- (11.500, 0.45865); 
+        \draw[lowcolor, thin] (11.214, 0.49215) -- (11.786, 0.49215); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.48831) -- (12.214, 0.45507); 
+        \draw[lowcolor!50!white, very thin] (12.071, 0.47140) -- (12.357, 0.47140); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.55960) -- (12.357, 0.52152); 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.54022) -- (12.500, 0.54022); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.52330) -- (12.500, 0.48768); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.50518) -- (12.643, 0.50518); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.48638) -- (12.643, 0.45328); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.46954) -- (12.786, 0.46954); 
+        \draw[lowcolor!50!white, very thin] (12.786, 0.50757) -- (12.786, 0.47302); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.48999) -- (12.929, 0.48999); 
+        \draw[lowcolor, thin] (12.500, 0.53144) -- (12.500, 0.46156); 
+        \draw[lowcolor, thin] (12.214, 0.49527) -- (12.786, 0.49527); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.61467) -- (13.214, 0.57284); 
+        \draw[lowcolor!50!white, very thin] (13.071, 0.59339) -- (13.357, 0.59339); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.77386) -- (13.357, 0.72119); 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.74706) -- (13.500, 0.74706); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.82517) -- (13.500, 0.76901); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.79660) -- (13.643, 0.79660); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.71296) -- (13.643, 0.66444); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.68827) -- (13.786, 0.68827); 
+        \draw[lowcolor!50!white, very thin] (13.786, 0.89371) -- (13.786, 0.83288); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.86276) -- (13.929, 0.86276); 
+        \draw[lowcolor, thin] (13.500, 0.79148) -- (13.500, 0.68741); 
+        \draw[lowcolor, thin] (13.214, 0.73762) -- (13.786, 0.73762); 
+    \end{semilogyaxis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 15.300) {$10^{-1}$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 17.300) {$10^{1}$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 16.300) {\emph{min FDE$_{20, joint}$ [m]}}; 
+ 
+    % Draw the metric ADE_ML (joint prediction) 
+ 
+    % Draw the metric ADE_ML (joint prediction) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{semilogyaxis}[ 
+        at = {(1.500cm, 13.000cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 0.100, 
+        ymax = 10.000, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.90731) -- (0.214, 0.84556); 
+        \draw[lowcolor!50!white, very thin] (0.071, 0.87589) -- (0.357, 0.87589); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.86568) -- (0.357, 0.80677); 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.83571) -- (0.500, 0.83571); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.88849) -- (0.500, 0.82802); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.85772) -- (0.643, 0.85772); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.87252) -- (0.643, 0.81313); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.84230) -- (0.786, 0.84230); 
+        \draw[lowcolor!50!white, very thin] (0.786, 0.89913) -- (0.786, 0.83793); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.86799) -- (0.929, 0.86799); 
+        \draw[lowcolor, thin] (0.500, 0.91843) -- (0.500, 0.79767); 
+        \draw[lowcolor, thin] (0.214, 0.85592) -- (0.786, 0.85592); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 1.29696) -- (1.214, 1.20869); 
+        \draw[lowcolor!50!white, very thin] (1.071, 1.25205) -- (1.357, 1.25205); 
+        \draw[lowcolor!50!white, very thin] (1.357, 1.39402) -- (1.357, 1.29914); 
+        \draw[lowcolor!50!white, very thin] (1.214, 1.34574) -- (1.500, 1.34574); 
+        \draw[lowcolor!50!white, very thin] (1.500, 1.24084) -- (1.500, 1.15639); 
+        \draw[lowcolor!50!white, very thin] (1.357, 1.19787) -- (1.643, 1.19787); 
+        \draw[lowcolor!50!white, very thin] (1.643, 1.23731) -- (1.643, 1.15310); 
+        \draw[lowcolor!50!white, very thin] (1.500, 1.19446) -- (1.786, 1.19446); 
+        \draw[lowcolor!50!white, very thin] (1.786, 1.27953) -- (1.786, 1.19244); 
+        \draw[lowcolor!50!white, very thin] (1.643, 1.23522) -- (1.929, 1.23522); 
+        \draw[lowcolor, thin] (1.500, 1.33600) -- (1.500, 1.16033); 
+        \draw[lowcolor, thin] (1.214, 1.24507) -- (1.786, 1.24507); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 1.16616) -- (2.214, 1.08679); 
+        \draw[lowcolor!50!white, very thin] (2.071, 1.12578) -- (2.357, 1.12578); 
+        \draw[lowcolor!50!white, very thin] (2.357, 1.23595) -- (2.357, 1.15183); 
+        \draw[lowcolor!50!white, very thin] (2.214, 1.19315) -- (2.500, 1.19315); 
+        \draw[lowcolor!50!white, very thin] (2.500, 1.15171) -- (2.500, 1.07332); 
+        \draw[lowcolor!50!white, very thin] (2.357, 1.11183) -- (2.643, 1.11183); 
+        \draw[lowcolor!50!white, very thin] (2.643, 1.13487) -- (2.643, 1.05763); 
+        \draw[lowcolor!50!white, very thin] (2.500, 1.09556) -- (2.786, 1.09556); 
+        \draw[lowcolor!50!white, very thin] (2.786, 1.35979) -- (2.786, 1.26725); 
+        \draw[lowcolor!50!white, very thin] (2.643, 1.31270) -- (2.929, 1.31270); 
+        \draw[lowcolor, thin] (2.500, 1.25309) -- (2.500, 1.08832); 
+        \draw[lowcolor, thin] (2.214, 1.16780) -- (2.786, 1.16780); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 1.35823) -- (3.214, 1.26578); 
+        \draw[lowcolor!50!white, very thin] (3.071, 1.31119) -- (3.357, 1.31119); 
+        \draw[lowcolor!50!white, very thin] (3.357, 1.10892) -- (3.357, 1.03344); 
+        \draw[lowcolor!50!white, very thin] (3.214, 1.07052) -- (3.500, 1.07052); 
+        \draw[lowcolor!50!white, very thin] (3.500, 1.21111) -- (3.500, 1.12868); 
+        \draw[lowcolor!50!white, very thin] (3.357, 1.16917) -- (3.643, 1.16917); 
+        \draw[lowcolor!50!white, very thin] (3.643, 1.21064) -- (3.643, 1.12825); 
+        \draw[lowcolor!50!white, very thin] (3.500, 1.16872) -- (3.786, 1.16872); 
+        \draw[lowcolor!50!white, very thin] (3.786, 1.19629) -- (3.786, 1.11487); 
+        \draw[lowcolor!50!white, very thin] (3.643, 1.15486) -- (3.929, 1.15486); 
+        \draw[lowcolor, thin] (3.500, 1.26069) -- (3.500, 1.09493); 
+        \draw[lowcolor, thin] (3.214, 1.17489) -- (3.786, 1.17489); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 1.20123) -- (4.214, 1.11947); 
+        \draw[lowcolor!50!white, very thin] (4.071, 1.15963) -- (4.357, 1.15963); 
+        \draw[lowcolor!50!white, very thin] (4.357, 1.19166) -- (4.357, 1.11056); 
+        \draw[lowcolor!50!white, very thin] (4.214, 1.15039) -- (4.500, 1.15039); 
+        \draw[lowcolor!50!white, very thin] (4.500, 1.16946) -- (4.500, 1.08987); 
+        \draw[lowcolor!50!white, very thin] (4.357, 1.12896) -- (4.643, 1.12896); 
+        \draw[lowcolor!50!white, very thin] (4.643, 1.35038) -- (4.643, 1.25848); 
+        \draw[lowcolor!50!white, very thin] (4.500, 1.30362) -- (4.786, 1.30362); 
+        \draw[lowcolor!50!white, very thin] (4.786, 1.16209) -- (4.786, 1.08299); 
+        \draw[lowcolor!50!white, very thin] (4.643, 1.12184) -- (4.929, 1.12184); 
+        \draw[lowcolor, thin] (4.500, 1.25855) -- (4.500, 1.09306); 
+        \draw[lowcolor, thin] (4.214, 1.17289) -- (4.786, 1.17289); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 1.24306) -- (5.214, 1.15845); 
+        \draw[lowcolor!50!white, very thin] (5.071, 1.20001) -- (5.357, 1.20001); 
+        \draw[lowcolor!50!white, very thin] (5.357, 1.38338) -- (5.357, 1.28922); 
+        \draw[lowcolor!50!white, very thin] (5.214, 1.33547) -- (5.500, 1.33547); 
+        \draw[lowcolor!50!white, very thin] (5.500, 1.30332) -- (5.500, 1.21462); 
+        \draw[lowcolor!50!white, very thin] (5.357, 1.25819) -- (5.643, 1.25819); 
+        \draw[lowcolor!50!white, very thin] (5.643, 1.27124) -- (5.643, 1.18472); 
+        \draw[lowcolor!50!white, very thin] (5.500, 1.22722) -- (5.786, 1.22722); 
+        \draw[lowcolor!50!white, very thin] (5.786, 1.23875) -- (5.786, 1.15444); 
+        \draw[lowcolor!50!white, very thin] (5.643, 1.19585) -- (5.929, 1.19585); 
+        \draw[lowcolor, thin] (5.500, 1.33415) -- (5.500, 1.15872); 
+        \draw[lowcolor, thin] (5.214, 1.24335) -- (5.786, 1.24335); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 1.21236) -- (6.214, 1.12984); 
+        \draw[lowcolor!50!white, very thin] (6.071, 1.17037) -- (6.357, 1.17037); 
+        \draw[lowcolor!50!white, very thin] (6.357, 1.21580) -- (6.357, 1.13305); 
+        \draw[lowcolor!50!white, very thin] (6.214, 1.17370) -- (6.500, 1.17370); 
+        \draw[lowcolor!50!white, very thin] (6.500, 1.23173) -- (6.500, 1.14790); 
+        \draw[lowcolor!50!white, very thin] (6.357, 1.18908) -- (6.643, 1.18908); 
+        \draw[lowcolor!50!white, very thin] (6.643, 1.22714) -- (6.643, 1.14362); 
+        \draw[lowcolor!50!white, very thin] (6.500, 1.18465) -- (6.786, 1.18465); 
+        \draw[lowcolor!50!white, very thin] (6.786, 1.12449) -- (6.786, 1.04795); 
+        \draw[lowcolor!50!white, very thin] (6.643, 1.08555) -- (6.929, 1.08555); 
+        \draw[lowcolor, thin] (6.500, 1.24543) -- (6.500, 1.08167); 
+        \draw[lowcolor, thin] (6.214, 1.16067) -- (6.786, 1.16067); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 1.14997) -- (7.214, 1.07170); 
+        \draw[lowcolor!50!white, very thin] (7.071, 1.11015) -- (7.357, 1.11015); 
+        \draw[lowcolor!50!white, very thin] (7.357, 1.35362) -- (7.357, 1.26149); 
+        \draw[lowcolor!50!white, very thin] (7.214, 1.30675) -- (7.500, 1.30675); 
+        \draw[lowcolor!50!white, very thin] (7.500, 1.25600) -- (7.500, 1.17051); 
+        \draw[lowcolor!50!white, very thin] (7.357, 1.21250) -- (7.643, 1.21250); 
+        \draw[lowcolor!50!white, very thin] (7.643, 1.27239) -- (7.643, 1.18579); 
+        \draw[lowcolor!50!white, very thin] (7.500, 1.22833) -- (7.786, 1.22833); 
+        \draw[lowcolor!50!white, very thin] (7.786, 1.30162) -- (7.786, 1.21304); 
+        \draw[lowcolor!50!white, very thin] (7.643, 1.25655) -- (7.929, 1.25655); 
+        \draw[lowcolor, thin] (7.500, 1.31216) -- (7.500, 1.13963); 
+        \draw[lowcolor, thin] (7.214, 1.22285) -- (7.786, 1.22285); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 1.16116) -- (8.214, 1.08213); 
+        \draw[lowcolor!50!white, very thin] (8.071, 1.12095) -- (8.357, 1.12095); 
+        \draw[lowcolor!50!white, very thin] (8.357, 1.28587) -- (8.357, 1.19836); 
+        \draw[lowcolor!50!white, very thin] (8.214, 1.24134) -- (8.500, 1.24134); 
+        \draw[lowcolor!50!white, very thin] (8.500, 1.25629) -- (8.500, 1.17079); 
+        \draw[lowcolor!50!white, very thin] (8.357, 1.21278) -- (8.643, 1.21278); 
+        \draw[lowcolor!50!white, very thin] (8.643, 1.33494) -- (8.643, 1.24408); 
+        \draw[lowcolor!50!white, very thin] (8.500, 1.28871) -- (8.786, 1.28871); 
+        \draw[lowcolor!50!white, very thin] (8.786, 1.12694) -- (8.786, 1.05024); 
+        \draw[lowcolor!50!white, very thin] (8.643, 1.08791) -- (8.929, 1.08791); 
+        \draw[lowcolor, thin] (8.500, 1.27727) -- (8.500, 1.10932); 
+        \draw[lowcolor, thin] (8.214, 1.19034) -- (8.786, 1.19034); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 1.41732) -- (9.214, 1.32086); 
+        \draw[lowcolor!50!white, very thin] (9.071, 1.36824) -- (9.357, 1.36824); 
+        \draw[lowcolor!50!white, very thin] (9.357, 1.30583) -- (9.357, 1.21695); 
+        \draw[lowcolor!50!white, very thin] (9.214, 1.26061) -- (9.500, 1.26061); 
+        \draw[lowcolor!50!white, very thin] (9.500, 1.23969) -- (9.500, 1.15532); 
+        \draw[lowcolor!50!white, very thin] (9.357, 1.19676) -- (9.643, 1.19676); 
+        \draw[lowcolor!50!white, very thin] (9.643, 1.25262) -- (9.643, 1.16736); 
+        \draw[lowcolor!50!white, very thin] (9.500, 1.20924) -- (9.786, 1.20924); 
+        \draw[lowcolor!50!white, very thin] (9.786, 1.24495) -- (9.786, 1.16022); 
+        \draw[lowcolor!50!white, very thin] (9.643, 1.20184) -- (9.929, 1.20184); 
+        \draw[lowcolor, thin] (9.500, 1.33843) -- (9.500, 1.16244); 
+        \draw[lowcolor, thin] (9.214, 1.24734) -- (9.786, 1.24734); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 1.20889) -- (10.214, 1.12661); 
+        \draw[lowcolor!50!white, very thin] (10.071, 1.16702) -- (10.357, 1.16702); 
+        \draw[lowcolor!50!white, very thin] (10.357, 1.23411) -- (10.357, 1.15011); 
+        \draw[lowcolor!50!white, very thin] (10.214, 1.19137) -- (10.500, 1.19137); 
+        \draw[lowcolor!50!white, very thin] (10.500, 1.22141) -- (10.500, 1.13828); 
+        \draw[lowcolor!50!white, very thin] (10.357, 1.17912) -- (10.643, 1.17912); 
+        \draw[lowcolor!50!white, very thin] (10.643, 1.10146) -- (10.643, 1.02650); 
+        \draw[lowcolor!50!white, very thin] (10.500, 1.06332) -- (10.786, 1.06332); 
+        \draw[lowcolor!50!white, very thin] (10.786, 1.28343) -- (10.786, 1.19608); 
+        \draw[lowcolor!50!white, very thin] (10.643, 1.23898) -- (10.929, 1.23898); 
+        \draw[lowcolor, thin] (10.500, 1.25326) -- (10.500, 1.08847); 
+        \draw[lowcolor, thin] (10.214, 1.16796) -- (10.786, 1.16796); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 1.18433) -- (11.214, 1.10372); 
+        \draw[lowcolor!50!white, very thin] (11.071, 1.14332) -- (11.357, 1.14332); 
+        \draw[lowcolor!50!white, very thin] (11.357, 1.08159) -- (11.357, 1.00798); 
+        \draw[lowcolor!50!white, very thin] (11.214, 1.04414) -- (11.500, 1.04414); 
+        \draw[lowcolor!50!white, very thin] (11.500, 1.14875) -- (11.500, 1.07056); 
+        \draw[lowcolor!50!white, very thin] (11.357, 1.10897) -- (11.643, 1.10897); 
+        \draw[lowcolor!50!white, very thin] (11.643, 1.16210) -- (11.643, 1.08301); 
+        \draw[lowcolor!50!white, very thin] (11.500, 1.12186) -- (11.786, 1.12186); 
+        \draw[lowcolor!50!white, very thin] (11.786, 1.18027) -- (11.786, 1.09994); 
+        \draw[lowcolor!50!white, very thin] (11.643, 1.13939) -- (11.929, 1.13939); 
+        \draw[lowcolor, thin] (11.500, 1.19271) -- (11.500, 1.03588); 
+        \draw[lowcolor, thin] (11.214, 1.11153) -- (11.786, 1.11153); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 1.23208) -- (12.214, 1.14823); 
+        \draw[lowcolor!50!white, very thin] (12.071, 1.18942) -- (12.357, 1.18942); 
+        \draw[lowcolor!50!white, very thin] (12.357, 1.26442) -- (12.357, 1.17836); 
+        \draw[lowcolor!50!white, very thin] (12.214, 1.22063) -- (12.500, 1.22063); 
+        \draw[lowcolor!50!white, very thin] (12.500, 1.27294) -- (12.500, 1.18630); 
+        \draw[lowcolor!50!white, very thin] (12.357, 1.22886) -- (12.643, 1.22886); 
+        \draw[lowcolor!50!white, very thin] (12.643, 1.19454) -- (12.643, 1.11324); 
+        \draw[lowcolor!50!white, very thin] (12.500, 1.15317) -- (12.786, 1.15317); 
+        \draw[lowcolor!50!white, very thin] (12.786, 1.13800) -- (12.786, 1.06055); 
+        \draw[lowcolor!50!white, very thin] (12.643, 1.09859) -- (12.929, 1.09859); 
+        \draw[lowcolor, thin] (12.500, 1.26417) -- (12.500, 1.09795); 
+        \draw[lowcolor, thin] (12.214, 1.17813) -- (12.786, 1.17813); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 1.48645) -- (13.214, 1.38528); 
+        \draw[lowcolor!50!white, very thin] (13.071, 1.43497) -- (13.357, 1.43497); 
+        \draw[lowcolor!50!white, very thin] (13.357, 1.70494) -- (13.357, 1.58890); 
+        \draw[lowcolor!50!white, very thin] (13.214, 1.64589) -- (13.500, 1.64589); 
+        \draw[lowcolor!50!white, very thin] (13.500, 1.64859) -- (13.500, 1.53639); 
+        \draw[lowcolor!50!white, very thin] (13.357, 1.59150) -- (13.643, 1.59150); 
+        \draw[lowcolor!50!white, very thin] (13.643, 1.22847) -- (13.643, 1.14486); 
+        \draw[lowcolor!50!white, very thin] (13.500, 1.18593) -- (13.786, 1.18593); 
+        \draw[lowcolor!50!white, very thin] (13.786, 2.16302) -- (13.786, 2.01581); 
+        \draw[lowcolor!50!white, very thin] (13.643, 2.08812) -- (13.929, 2.08812); 
+        \draw[lowcolor, thin] (13.500, 1.70535) -- (13.500, 1.48112); 
+        \draw[lowcolor, thin] (13.214, 1.58928) -- (13.786, 1.58928); 
+    \end{semilogyaxis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 13.000) {$10^{-1}$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 15.000) {$10^{1}$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 14.000) {\emph{ADE$_{ML, joint}$ [m]}}; 
+ 
+    % Draw the metric FDE_ML (joint prediction) 
+ 
+    % Draw the metric FDE_ML (joint prediction) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{semilogyaxis}[ 
+        at = {(1.500cm, 10.700cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 1.000, 
+        ymax = 10.000, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 1.74659) -- (0.214, 1.68611); 
+        \draw[lowcolor!50!white, very thin] (0.071, 1.71608) -- (0.357, 1.71608); 
+        \draw[lowcolor!50!white, very thin] (0.357, 1.66856) -- (0.357, 1.61077); 
+        \draw[lowcolor!50!white, very thin] (0.214, 1.63941) -- (0.500, 1.63941); 
+        \draw[lowcolor!50!white, very thin] (0.500, 1.73256) -- (0.500, 1.67257); 
+        \draw[lowcolor!50!white, very thin] (0.357, 1.70230) -- (0.643, 1.70230); 
+        \draw[lowcolor!50!white, very thin] (0.643, 1.66986) -- (0.643, 1.61203); 
+        \draw[lowcolor!50!white, very thin] (0.500, 1.64069) -- (0.786, 1.64069); 
+        \draw[lowcolor!50!white, very thin] (0.786, 1.74620) -- (0.786, 1.68573); 
+        \draw[lowcolor!50!white, very thin] (0.643, 1.71570) -- (0.929, 1.71570); 
+        \draw[lowcolor, thin] (0.500, 1.74320) -- (0.500, 1.62456); 
+        \draw[lowcolor, thin] (0.214, 1.68284) -- (0.786, 1.68284); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 2.66950) -- (1.214, 2.57705); 
+        \draw[lowcolor!50!white, very thin] (1.071, 2.62287) -- (1.357, 2.62287); 
+        \draw[lowcolor!50!white, very thin] (1.357, 2.84606) -- (1.357, 2.74750); 
+        \draw[lowcolor!50!white, very thin] (1.214, 2.79635) -- (1.500, 2.79635); 
+        \draw[lowcolor!50!white, very thin] (1.500, 2.53259) -- (1.500, 2.44489); 
+        \draw[lowcolor!50!white, very thin] (1.357, 2.48835) -- (1.643, 2.48835); 
+        \draw[lowcolor!50!white, very thin] (1.643, 2.49729) -- (1.643, 2.41081); 
+        \draw[lowcolor!50!white, very thin] (1.500, 2.45367) -- (1.786, 2.45367); 
+        \draw[lowcolor!50!white, very thin] (1.786, 2.60468) -- (1.786, 2.51448); 
+        \draw[lowcolor!50!white, very thin] (1.643, 2.55919) -- (1.929, 2.55919); 
+        \draw[lowcolor, thin] (1.500, 2.67678) -- (1.500, 2.49460); 
+        \draw[lowcolor, thin] (1.214, 2.58408) -- (1.786, 2.58408); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 2.40279) -- (2.214, 2.31958); 
+        \draw[lowcolor!50!white, very thin] (2.071, 2.36082) -- (2.357, 2.36082); 
+        \draw[lowcolor!50!white, very thin] (2.357, 2.54267) -- (2.357, 2.45462); 
+        \draw[lowcolor!50!white, very thin] (2.214, 2.49826) -- (2.500, 2.49826); 
+        \draw[lowcolor!50!white, very thin] (2.500, 2.39446) -- (2.500, 2.31154); 
+        \draw[lowcolor!50!white, very thin] (2.357, 2.35263) -- (2.643, 2.35263); 
+        \draw[lowcolor!50!white, very thin] (2.643, 2.32145) -- (2.643, 2.24105); 
+        \draw[lowcolor!50!white, very thin] (2.500, 2.28090) -- (2.786, 2.28090); 
+        \draw[lowcolor!50!white, very thin] (2.786, 2.86252) -- (2.786, 2.76339); 
+        \draw[lowcolor!50!white, very thin] (2.643, 2.81252) -- (2.929, 2.81252); 
+        \draw[lowcolor, thin] (2.500, 2.54931) -- (2.500, 2.37580); 
+        \draw[lowcolor, thin] (2.214, 2.46103) -- (2.786, 2.46103); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 2.78634) -- (3.214, 2.68985); 
+        \draw[lowcolor!50!white, very thin] (3.071, 2.73767) -- (3.357, 2.73767); 
+        \draw[lowcolor!50!white, very thin] (3.357, 2.23085) -- (3.357, 2.15360); 
+        \draw[lowcolor!50!white, very thin] (3.214, 2.19188) -- (3.500, 2.19188); 
+        \draw[lowcolor!50!white, very thin] (3.500, 2.48694) -- (3.500, 2.40082); 
+        \draw[lowcolor!50!white, very thin] (3.357, 2.44350) -- (3.643, 2.44350); 
+        \draw[lowcolor!50!white, very thin] (3.643, 2.43513) -- (3.643, 2.35081); 
+        \draw[lowcolor!50!white, very thin] (3.500, 2.39260) -- (3.786, 2.39260); 
+        \draw[lowcolor!50!white, very thin] (3.786, 2.45376) -- (3.786, 2.36878); 
+        \draw[lowcolor!50!white, very thin] (3.643, 2.41090) -- (3.929, 2.41090); 
+        \draw[lowcolor, thin] (3.500, 2.52267) -- (3.500, 2.35098); 
+        \draw[lowcolor, thin] (3.214, 2.43531) -- (3.786, 2.43531); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 2.46728) -- (4.214, 2.38184); 
+        \draw[lowcolor!50!white, very thin] (4.071, 2.42418) -- (4.357, 2.42418); 
+        \draw[lowcolor!50!white, very thin] (4.357, 2.44406) -- (4.357, 2.35942); 
+        \draw[lowcolor!50!white, very thin] (4.214, 2.40136) -- (4.500, 2.40136); 
+        \draw[lowcolor!50!white, very thin] (4.500, 2.41586) -- (4.500, 2.33220); 
+        \draw[lowcolor!50!white, very thin] (4.357, 2.37366) -- (4.643, 2.37366); 
+        \draw[lowcolor!50!white, very thin] (4.643, 2.60998) -- (4.643, 2.51959); 
+        \draw[lowcolor!50!white, very thin] (4.500, 2.56439) -- (4.786, 2.56439); 
+        \draw[lowcolor!50!white, very thin] (4.786, 2.41645) -- (4.786, 2.33277); 
+        \draw[lowcolor!50!white, very thin] (4.643, 2.37424) -- (4.929, 2.37424); 
+        \draw[lowcolor, thin] (4.500, 2.51465) -- (4.500, 2.34350); 
+        \draw[lowcolor, thin] (4.214, 2.42757) -- (4.786, 2.42757); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 2.46146) -- (5.214, 2.37622); 
+        \draw[lowcolor!50!white, very thin] (5.071, 2.41847) -- (5.357, 2.41847); 
+        \draw[lowcolor!50!white, very thin] (5.357, 2.77466) -- (5.357, 2.67857); 
+        \draw[lowcolor!50!white, very thin] (5.214, 2.72619) -- (5.500, 2.72619); 
+        \draw[lowcolor!50!white, very thin] (5.500, 2.64101) -- (5.500, 2.54955); 
+        \draw[lowcolor!50!white, very thin] (5.357, 2.59488) -- (5.643, 2.59488); 
+        \draw[lowcolor!50!white, very thin] (5.643, 2.53807) -- (5.643, 2.45017); 
+        \draw[lowcolor!50!white, very thin] (5.500, 2.49373) -- (5.786, 2.49373); 
+        \draw[lowcolor!50!white, very thin] (5.786, 2.47441) -- (5.786, 2.38872); 
+        \draw[lowcolor!50!white, very thin] (5.643, 2.43119) -- (5.929, 2.43119); 
+        \draw[lowcolor, thin] (5.500, 2.62375) -- (5.500, 2.44518); 
+        \draw[lowcolor, thin] (5.214, 2.53289) -- (5.786, 2.53289); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 2.49779) -- (6.214, 2.41129); 
+        \draw[lowcolor!50!white, very thin] (6.071, 2.45416) -- (6.357, 2.45416); 
+        \draw[lowcolor!50!white, very thin] (6.357, 2.41960) -- (6.357, 2.33581); 
+        \draw[lowcolor!50!white, very thin] (6.214, 2.37733) -- (6.500, 2.37733); 
+        \draw[lowcolor!50!white, very thin] (6.500, 2.46847) -- (6.500, 2.38299); 
+        \draw[lowcolor!50!white, very thin] (6.357, 2.42535) -- (6.643, 2.42535); 
+        \draw[lowcolor!50!white, very thin] (6.643, 2.47394) -- (6.643, 2.38827); 
+        \draw[lowcolor!50!white, very thin] (6.500, 2.43072) -- (6.786, 2.43072); 
+        \draw[lowcolor!50!white, very thin] (6.786, 2.33913) -- (6.786, 2.25812); 
+        \draw[lowcolor!50!white, very thin] (6.643, 2.29827) -- (6.929, 2.29827); 
+        \draw[lowcolor, thin] (6.500, 2.48316) -- (6.500, 2.31415); 
+        \draw[lowcolor, thin] (6.214, 2.39717) -- (6.786, 2.39717); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 2.29128) -- (7.214, 2.21193); 
+        \draw[lowcolor!50!white, very thin] (7.071, 2.25126) -- (7.357, 2.25126); 
+        \draw[lowcolor!50!white, very thin] (7.357, 2.70226) -- (7.357, 2.60868); 
+        \draw[lowcolor!50!white, very thin] (7.214, 2.65505) -- (7.500, 2.65505); 
+        \draw[lowcolor!50!white, very thin] (7.500, 2.48865) -- (7.500, 2.40246); 
+        \draw[lowcolor!50!white, very thin] (7.357, 2.44518) -- (7.643, 2.44518); 
+        \draw[lowcolor!50!white, very thin] (7.643, 2.50217) -- (7.643, 2.41552); 
+        \draw[lowcolor!50!white, very thin] (7.500, 2.45847) -- (7.786, 2.45847); 
+        \draw[lowcolor!50!white, very thin] (7.786, 2.52280) -- (7.786, 2.43544); 
+        \draw[lowcolor!50!white, very thin] (7.643, 2.47873) -- (7.929, 2.47873); 
+        \draw[lowcolor, thin] (7.500, 2.54590) -- (7.500, 2.37263); 
+        \draw[lowcolor, thin] (7.214, 2.45774) -- (7.786, 2.45774); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 2.31156) -- (8.214, 2.23151); 
+        \draw[lowcolor!50!white, very thin] (8.071, 2.27118) -- (8.357, 2.27118); 
+        \draw[lowcolor!50!white, very thin] (8.357, 2.59730) -- (8.357, 2.50735); 
+        \draw[lowcolor!50!white, very thin] (8.214, 2.55193) -- (8.500, 2.55193); 
+        \draw[lowcolor!50!white, very thin] (8.500, 2.54552) -- (8.500, 2.45736); 
+        \draw[lowcolor!50!white, very thin] (8.357, 2.50105) -- (8.643, 2.50105); 
+        \draw[lowcolor!50!white, very thin] (8.643, 2.58594) -- (8.643, 2.49639); 
+        \draw[lowcolor!50!white, very thin] (8.500, 2.54077) -- (8.786, 2.54077); 
+        \draw[lowcolor!50!white, very thin] (8.786, 2.27737) -- (8.786, 2.19851); 
+        \draw[lowcolor!50!white, very thin] (8.643, 2.23759) -- (8.929, 2.23759); 
+        \draw[lowcolor, thin] (8.500, 2.50733) -- (8.500, 2.33668); 
+        \draw[lowcolor, thin] (8.214, 2.42051) -- (8.786, 2.42051); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 2.85189) -- (9.214, 2.75313); 
+        \draw[lowcolor!50!white, very thin] (9.071, 2.80208) -- (9.357, 2.80208); 
+        \draw[lowcolor!50!white, very thin] (9.357, 2.63203) -- (9.357, 2.54088); 
+        \draw[lowcolor!50!white, very thin] (9.214, 2.58605) -- (9.500, 2.58605); 
+        \draw[lowcolor!50!white, very thin] (9.500, 2.54747) -- (9.500, 2.45925); 
+        \draw[lowcolor!50!white, very thin] (9.357, 2.50297) -- (9.643, 2.50297); 
+        \draw[lowcolor!50!white, very thin] (9.643, 2.53250) -- (9.643, 2.44480); 
+        \draw[lowcolor!50!white, very thin] (9.500, 2.48826) -- (9.786, 2.48826); 
+        \draw[lowcolor!50!white, very thin] (9.786, 2.45007) -- (9.786, 2.36523); 
+        \draw[lowcolor!50!white, very thin] (9.643, 2.40728) -- (9.929, 2.40728); 
+        \draw[lowcolor, thin] (9.500, 2.64906) -- (9.500, 2.46877); 
+        \draw[lowcolor, thin] (9.214, 2.55733) -- (9.786, 2.55733); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 2.37940) -- (10.214, 2.29700); 
+        \draw[lowcolor!50!white, very thin] (10.071, 2.33784) -- (10.357, 2.33784); 
+        \draw[lowcolor!50!white, very thin] (10.357, 2.49416) -- (10.357, 2.40779); 
+        \draw[lowcolor!50!white, very thin] (10.214, 2.45060) -- (10.500, 2.45060); 
+        \draw[lowcolor!50!white, very thin] (10.500, 2.52174) -- (10.500, 2.43441); 
+        \draw[lowcolor!50!white, very thin] (10.357, 2.47769) -- (10.643, 2.47769); 
+        \draw[lowcolor!50!white, very thin] (10.643, 2.20918) -- (10.643, 2.13268); 
+        \draw[lowcolor!50!white, very thin] (10.500, 2.17059) -- (10.786, 2.17059); 
+        \draw[lowcolor!50!white, very thin] (10.786, 2.61996) -- (10.786, 2.52923); 
+        \draw[lowcolor!50!white, very thin] (10.643, 2.57419) -- (10.929, 2.57419); 
+        \draw[lowcolor, thin] (10.500, 2.48835) -- (10.500, 2.31899); 
+        \draw[lowcolor, thin] (10.214, 2.40218) -- (10.786, 2.40218); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 2.39756) -- (11.214, 2.31453); 
+        \draw[lowcolor!50!white, very thin] (11.071, 2.35568) -- (11.357, 2.35568); 
+        \draw[lowcolor!50!white, very thin] (11.357, 2.19926) -- (11.357, 2.12310); 
+        \draw[lowcolor!50!white, very thin] (11.214, 2.16084) -- (11.500, 2.16084); 
+        \draw[lowcolor!50!white, very thin] (11.500, 2.29828) -- (11.500, 2.21869); 
+        \draw[lowcolor!50!white, very thin] (11.357, 2.25813) -- (11.643, 2.25813); 
+        \draw[lowcolor!50!white, very thin] (11.643, 2.32319) -- (11.643, 2.24274); 
+        \draw[lowcolor!50!white, very thin] (11.500, 2.28261) -- (11.786, 2.28261); 
+        \draw[lowcolor!50!white, very thin] (11.786, 2.39612) -- (11.786, 2.31314); 
+        \draw[lowcolor!50!white, very thin] (11.643, 2.35427) -- (11.929, 2.35427); 
+        \draw[lowcolor, thin] (11.500, 2.36418) -- (11.500, 2.20327); 
+        \draw[lowcolor, thin] (11.214, 2.28231) -- (11.786, 2.28231); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 2.50617) -- (12.214, 2.41939); 
+        \draw[lowcolor!50!white, very thin] (12.071, 2.46240) -- (12.357, 2.46240); 
+        \draw[lowcolor!50!white, very thin] (12.357, 2.58078) -- (12.357, 2.49141); 
+        \draw[lowcolor!50!white, very thin] (12.214, 2.53570) -- (12.500, 2.53570); 
+        \draw[lowcolor!50!white, very thin] (12.500, 2.58604) -- (12.500, 2.49649); 
+        \draw[lowcolor!50!white, very thin] (12.357, 2.54087) -- (12.643, 2.54087); 
+        \draw[lowcolor!50!white, very thin] (12.643, 2.39053) -- (12.643, 2.30775); 
+        \draw[lowcolor!50!white, very thin] (12.500, 2.34878) -- (12.786, 2.34878); 
+        \draw[lowcolor!50!white, very thin] (12.786, 2.34108) -- (12.786, 2.26001); 
+        \draw[lowcolor!50!white, very thin] (12.643, 2.30019) -- (12.929, 2.30019); 
+        \draw[lowcolor, thin] (12.500, 2.52503) -- (12.500, 2.35317); 
+        \draw[lowcolor, thin] (12.214, 2.43759) -- (12.786, 2.43759); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 3.01213) -- (13.214, 2.90782); 
+        \draw[lowcolor!50!white, very thin] (13.071, 2.95952) -- (13.357, 2.95952); 
+        \draw[lowcolor!50!white, very thin] (13.357, 3.36367) -- (13.357, 3.24718); 
+        \draw[lowcolor!50!white, very thin] (13.214, 3.30491) -- (13.500, 3.30491); 
+        \draw[lowcolor!50!white, very thin] (13.500, 3.31389) -- (13.500, 3.19913); 
+        \draw[lowcolor!50!white, very thin] (13.357, 3.25600) -- (13.643, 3.25600); 
+        \draw[lowcolor!50!white, very thin] (13.643, 2.45363) -- (13.643, 2.36866); 
+        \draw[lowcolor!50!white, very thin] (13.500, 2.41077) -- (13.786, 2.41077); 
+        \draw[lowcolor!50!white, very thin] (13.786, 4.29445) -- (13.786, 4.14573); 
+        \draw[lowcolor!50!white, very thin] (13.643, 4.21943) -- (13.929, 4.21943); 
+        \draw[lowcolor, thin] (13.500, 3.34600) -- (13.500, 3.11827); 
+        \draw[lowcolor, thin] (13.214, 3.23013) -- (13.786, 3.23013); 
+    \end{semilogyaxis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 10.700) {$10^{0}$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 12.700) {$10^{1}$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 11.700) {\emph{FDE$_{ML, joint}$ [m]}}; 
+ 
+    % Draw the metric Oracle (joint predictions) 
+ 
+    % Draw the metric Oracle (joint predictions) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{semilogyaxis}[ 
+        at = {(1.500cm, 8.400cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 0.100, 
+        ymax = 1.000, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.63070) -- (0.214, 0.60886); 
+        \draw[lowcolor!50!white, very thin] (0.071, 0.61969) -- (0.357, 0.61969); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.57943) -- (0.357, 0.55936); 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.56931) -- (0.500, 0.56931); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.62608) -- (0.500, 0.60440); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.61514) -- (0.643, 0.61514); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.58879) -- (0.643, 0.56840); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.57851) -- (0.786, 0.57851); 
+        \draw[lowcolor!50!white, very thin] (0.786, 0.62172) -- (0.786, 0.60019); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.61086) -- (0.929, 0.61086); 
+        \draw[lowcolor, thin] (0.500, 0.62018) -- (0.500, 0.57797); 
+        \draw[lowcolor, thin] (0.214, 0.59870) -- (0.786, 0.59870); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.63036) -- (1.214, 0.60853); 
+        \draw[lowcolor!50!white, very thin] (1.071, 0.61935) -- (1.357, 0.61935); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.65134) -- (1.357, 0.62879); 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.63996) -- (1.500, 0.63996); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.58615) -- (1.500, 0.56585); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.57591) -- (1.643, 0.57591); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.63663) -- (1.643, 0.61458); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.62551) -- (1.786, 0.62551); 
+        \draw[lowcolor!50!white, very thin] (1.786, 0.64320) -- (1.786, 0.62092); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.63196) -- (1.929, 0.63196); 
+        \draw[lowcolor, thin] (1.500, 0.64073) -- (1.500, 0.59712); 
+        \draw[lowcolor, thin] (1.214, 0.61854) -- (1.786, 0.61854); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.52616) -- (2.214, 0.50794); 
+        \draw[lowcolor!50!white, very thin] (2.071, 0.51697) -- (2.357, 0.51697); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.55546) -- (2.357, 0.53622); 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.54576) -- (2.500, 0.54576); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.66465) -- (2.500, 0.64164); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.65304) -- (2.643, 0.65304); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.62159) -- (2.643, 0.60006); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.61073) -- (2.786, 0.61073); 
+        \draw[lowcolor!50!white, very thin] (2.786, 0.82488) -- (2.786, 0.79632); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.81047) -- (2.929, 0.81047); 
+        \draw[lowcolor, thin] (2.500, 0.64990) -- (2.500, 0.60567); 
+        \draw[lowcolor, thin] (2.214, 0.62740) -- (2.786, 0.62740); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.67507) -- (3.214, 0.65169); 
+        \draw[lowcolor!50!white, very thin] (3.071, 0.66328) -- (3.357, 0.66328); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.52633) -- (3.357, 0.50810); 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.51714) -- (3.500, 0.51714); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.55229) -- (3.500, 0.53316); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.54264) -- (3.643, 0.54264); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.55031) -- (3.643, 0.53125); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.54070) -- (3.786, 0.54070); 
+        \draw[lowcolor!50!white, very thin] (3.786, 0.57740) -- (3.786, 0.55740); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.56731) -- (3.929, 0.56731); 
+        \draw[lowcolor, thin] (3.500, 0.58652) -- (3.500, 0.54660); 
+        \draw[lowcolor, thin] (3.214, 0.56621) -- (3.786, 0.56621); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.53389) -- (4.214, 0.51540); 
+        \draw[lowcolor!50!white, very thin] (4.071, 0.52456) -- (4.357, 0.52456); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.52307) -- (4.357, 0.50495); 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.51393) -- (4.500, 0.51393); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.56226) -- (4.500, 0.54279); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.55243) -- (4.643, 0.55243); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.57696) -- (4.643, 0.55698); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.56688) -- (4.786, 0.56688); 
+        \draw[lowcolor!50!white, very thin] (4.786, 0.52863) -- (4.786, 0.51032); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.51939) -- (4.929, 0.51939); 
+        \draw[lowcolor, thin] (4.500, 0.55465) -- (4.500, 0.51690); 
+        \draw[lowcolor, thin] (4.214, 0.53544) -- (4.786, 0.53544); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.58116) -- (5.214, 0.56103); 
+        \draw[lowcolor!50!white, very thin] (5.071, 0.57101) -- (5.357, 0.57101); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.62488) -- (5.357, 0.60324); 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.61397) -- (5.500, 0.61397); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.59879) -- (5.500, 0.57806); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.58833) -- (5.643, 0.58833); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.56881) -- (5.643, 0.54911); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.55888) -- (5.786, 0.55888); 
+        \draw[lowcolor!50!white, very thin] (5.786, 0.56118) -- (5.786, 0.54174); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.55137) -- (5.929, 0.55137); 
+        \draw[lowcolor, thin] (5.500, 0.59740) -- (5.500, 0.55674); 
+        \draw[lowcolor, thin] (5.214, 0.57671) -- (5.786, 0.57671); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.58586) -- (6.214, 0.56557); 
+        \draw[lowcolor!50!white, very thin] (6.071, 0.57563) -- (6.357, 0.57563); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.56356) -- (6.357, 0.54404); 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.55371) -- (6.500, 0.55371); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.56587) -- (6.500, 0.54627); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.55599) -- (6.643, 0.55599); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.55691) -- (6.643, 0.53762); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.54718) -- (6.786, 0.54718); 
+        \draw[lowcolor!50!white, very thin] (6.786, 0.57130) -- (6.786, 0.55151); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.56132) -- (6.929, 0.56132); 
+        \draw[lowcolor, thin] (6.500, 0.57881) -- (6.500, 0.53942); 
+        \draw[lowcolor, thin] (6.214, 0.55877) -- (6.786, 0.55877); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.58327) -- (7.214, 0.56307); 
+        \draw[lowcolor!50!white, very thin] (7.071, 0.57308) -- (7.357, 0.57308); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.60276) -- (7.357, 0.58189); 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.59223) -- (7.500, 0.59223); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.57309) -- (7.500, 0.55325); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.56308) -- (7.643, 0.56308); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.57822) -- (7.643, 0.55820); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.56812) -- (7.786, 0.56812); 
+        \draw[lowcolor!50!white, very thin] (7.786, 0.61264) -- (7.786, 0.59143); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.60194) -- (7.929, 0.60194); 
+        \draw[lowcolor, thin] (7.500, 0.60049) -- (7.500, 0.55962); 
+        \draw[lowcolor, thin] (7.214, 0.57969) -- (7.786, 0.57969); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.59907) -- (8.214, 0.57832); 
+        \draw[lowcolor!50!white, very thin] (8.071, 0.58860) -- (8.357, 0.58860); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.60120) -- (8.357, 0.58038); 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.59070) -- (8.500, 0.59070); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.56860) -- (8.500, 0.54891); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.55867) -- (8.643, 0.55867); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.58560) -- (8.643, 0.56532); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.57537) -- (8.786, 0.57537); 
+        \draw[lowcolor!50!white, very thin] (8.786, 0.57377) -- (8.786, 0.55390); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.56375) -- (8.929, 0.56375); 
+        \draw[lowcolor, thin] (8.500, 0.59606) -- (8.500, 0.55549); 
+        \draw[lowcolor, thin] (8.214, 0.57542) -- (8.786, 0.57542); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.74864) -- (9.214, 0.72271); 
+        \draw[lowcolor!50!white, very thin] (9.071, 0.73556) -- (9.357, 0.73556); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.59863) -- (9.357, 0.57790); 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.58817) -- (9.500, 0.58817); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.55627) -- (9.500, 0.53701); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.54656) -- (9.643, 0.54656); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.55169) -- (9.643, 0.53259); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.54206) -- (9.786, 0.54206); 
+        \draw[lowcolor!50!white, very thin] (9.786, 0.55413) -- (9.786, 0.53494); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.54445) -- (9.929, 0.54445); 
+        \draw[lowcolor, thin] (9.500, 0.61257) -- (9.500, 0.57088); 
+        \draw[lowcolor, thin] (9.214, 0.59136) -- (9.786, 0.59136); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.56718) -- (10.214, 0.54754); 
+        \draw[lowcolor!50!white, very thin] (10.071, 0.55728) -- (10.357, 0.55728); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.55609) -- (10.357, 0.53683); 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.54637) -- (10.500, 0.54637); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.59951) -- (10.500, 0.57875); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.58903) -- (10.643, 0.58903); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.53612) -- (10.643, 0.51755); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.52675) -- (10.786, 0.52675); 
+        \draw[lowcolor!50!white, very thin] (10.786, 0.59359) -- (10.786, 0.57304); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.58323) -- (10.929, 0.58323); 
+        \draw[lowcolor, thin] (10.500, 0.58064) -- (10.500, 0.54112); 
+        \draw[lowcolor, thin] (10.214, 0.56053) -- (10.786, 0.56053); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.54419) -- (11.214, 0.52534); 
+        \draw[lowcolor!50!white, very thin] (11.071, 0.53468) -- (11.357, 0.53468); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.56880) -- (11.357, 0.54910); 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.55887) -- (11.500, 0.55887); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.54394) -- (11.500, 0.52510); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.53444) -- (11.643, 0.53444); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.53343) -- (11.643, 0.51495); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.52411) -- (11.786, 0.52411); 
+        \draw[lowcolor!50!white, very thin] (11.786, 0.54242) -- (11.786, 0.52364); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.53295) -- (11.929, 0.53295); 
+        \draw[lowcolor, thin] (11.500, 0.55627) -- (11.500, 0.51841); 
+        \draw[lowcolor, thin] (11.214, 0.53701) -- (11.786, 0.53701); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.54651) -- (12.214, 0.52759); 
+        \draw[lowcolor!50!white, very thin] (12.071, 0.53697) -- (12.357, 0.53697); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.55709) -- (12.357, 0.53780); 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.54736) -- (12.500, 0.54736); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.55881) -- (12.500, 0.53946); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.54905) -- (12.643, 0.54905); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.55586) -- (12.643, 0.53661); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.54615) -- (12.786, 0.54615); 
+        \draw[lowcolor!50!white, very thin] (12.786, 0.54865) -- (12.786, 0.52965); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.53906) -- (12.929, 0.53906); 
+        \draw[lowcolor, thin] (12.500, 0.56322) -- (12.500, 0.52489); 
+        \draw[lowcolor, thin] (12.214, 0.54372) -- (12.786, 0.54372); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.67090) -- (13.214, 0.64767); 
+        \draw[lowcolor!50!white, very thin] (13.071, 0.65918) -- (13.357, 0.65918); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.79944) -- (13.357, 0.77176); 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.78548) -- (13.500, 0.78548); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.80699) -- (13.500, 0.77904); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.79289) -- (13.643, 0.79289); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.67524) -- (13.643, 0.65186); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.66345) -- (13.786, 0.66345); 
+        \draw[lowcolor!50!white, very thin] (13.786, 0.93623) -- (13.786, 0.90381); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.91987) -- (13.929, 0.91987); 
+        \draw[lowcolor, thin] (13.500, 0.79159) -- (13.500, 0.73771); 
+        \draw[lowcolor, thin] (13.214, 0.76417) -- (13.786, 0.76417); 
+    \end{semilogyaxis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 8.400) {$10^{-1}$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 10.400) {$10^{0}$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 9.400) {\emph{Oracle$_{joint}$ [m]}}; 
+ 
+    % Draw the metric KDE_NLL (joint prediction) 
+ 
+    % Draw the metric KDE_NLL (joint prediction) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{axis}[ 
+        at = {(1.500cm, 6.100cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 10.700, 
+        ymax = 325.000, 
+        ytick = {10.700, 89.275, 167.850, 246.425, 325.000}, 
+        scaled y ticks = base 10:0, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 147.81801) -- (0.214, 143.00729); 
+        \draw[lowcolor!50!white, very thin] (0.071, 145.41265) -- (0.357, 145.41265); 
+        \draw[lowcolor!50!white, very thin] (0.357, 103.65156) -- (0.357, 98.84084); 
+        \draw[lowcolor!50!white, very thin] (0.214, 101.24620) -- (0.500, 101.24620); 
+        \draw[lowcolor!50!white, very thin] (0.500, 137.09585) -- (0.500, 132.28514); 
+        \draw[lowcolor!50!white, very thin] (0.357, 134.69050) -- (0.643, 134.69050); 
+        \draw[lowcolor!50!white, very thin] (0.643, 80.97814) -- (0.643, 76.16743); 
+        \draw[lowcolor!50!white, very thin] (0.500, 78.57278) -- (0.786, 78.57278); 
+        \draw[lowcolor!50!white, very thin] (0.786, 122.48717) -- (0.786, 117.67646); 
+        \draw[lowcolor!50!white, very thin] (0.643, 120.08181) -- (0.929, 120.08181); 
+        \draw[lowcolor, thin] (0.500, 120.81150) -- (0.500, 111.19007); 
+        \draw[lowcolor, thin] (0.214, 116.00079) -- (0.786, 116.00079); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 18.25859) -- (1.214, 13.44787); 
+        \draw[lowcolor!50!white, very thin] (1.071, 15.85323) -- (1.357, 15.85323); 
+        \draw[lowcolor!50!white, very thin] (1.357, 15.68853) -- (1.357, 10.87782); 
+        \draw[lowcolor!50!white, very thin] (1.214, 13.28318) -- (1.500, 13.28318); 
+        \draw[lowcolor!50!white, very thin] (1.500, 21.41874) -- (1.500, 16.60802); 
+        \draw[lowcolor!50!white, very thin] (1.357, 19.01338) -- (1.643, 19.01338); 
+        \draw[lowcolor!50!white, very thin] (1.643, 21.69463) -- (1.643, 16.88392); 
+        \draw[lowcolor!50!white, very thin] (1.500, 19.28928) -- (1.786, 19.28928); 
+        \draw[lowcolor!50!white, very thin] (1.786, 23.40529) -- (1.786, 18.59458); 
+        \draw[lowcolor!50!white, very thin] (1.643, 20.99993) -- (1.929, 20.99993); 
+        \draw[lowcolor, thin] (1.500, 22.49851) -- (1.500, 12.87708); 
+        \draw[lowcolor, thin] (1.214, 17.68780) -- (1.786, 17.68780); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 327.36635) -- (2.214, 322.55564); 
+        \draw[lowcolor!50!white, very thin] (2.071, 324.96100) -- (2.357, 324.96100); 
+        \draw[lowcolor!50!white, very thin] (2.357, 215.69969) -- (2.357, 210.88898); 
+        \draw[lowcolor!50!white, very thin] (2.214, 213.29433) -- (2.500, 213.29433); 
+        \draw[lowcolor!50!white, very thin] (2.500, 125.65630) -- (2.500, 120.84558); 
+        \draw[lowcolor!50!white, very thin] (2.357, 123.25094) -- (2.643, 123.25094); 
+        \draw[lowcolor!50!white, very thin] (2.643, 55.68080) -- (2.643, 50.87008); 
+        \draw[lowcolor!50!white, very thin] (2.500, 53.27544) -- (2.786, 53.27544); 
+        \draw[lowcolor!50!white, very thin] (2.786, 249.90586) -- (2.786, 245.09515); 
+        \draw[lowcolor!50!white, very thin] (2.643, 247.50051) -- (2.929, 247.50051); 
+        \draw[lowcolor, thin] (2.500, 197.26716) -- (2.500, 187.64573); 
+        \draw[lowcolor, thin] (2.214, 192.45644) -- (2.786, 192.45644); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 141.30757) -- (3.214, 136.49686); 
+        \draw[lowcolor!50!white, very thin] (3.071, 138.90222) -- (3.357, 138.90222); 
+        \draw[lowcolor!50!white, very thin] (3.357, 84.15124) -- (3.357, 79.34053); 
+        \draw[lowcolor!50!white, very thin] (3.214, 81.74588) -- (3.500, 81.74588); 
+        \draw[lowcolor!50!white, very thin] (3.500, 123.22608) -- (3.500, 118.41537); 
+        \draw[lowcolor!50!white, very thin] (3.357, 120.82073) -- (3.643, 120.82073); 
+        \draw[lowcolor!50!white, very thin] (3.643, 88.39219) -- (3.643, 83.58148); 
+        \draw[lowcolor!50!white, very thin] (3.500, 85.98683) -- (3.786, 85.98683); 
+        \draw[lowcolor!50!white, very thin] (3.786, 125.48403) -- (3.786, 120.67331); 
+        \draw[lowcolor!50!white, very thin] (3.643, 123.07867) -- (3.929, 123.07867); 
+        \draw[lowcolor, thin] (3.500, 114.91758) -- (3.500, 105.29615); 
+        \draw[lowcolor, thin] (3.214, 110.10687) -- (3.786, 110.10687); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 51.39796) -- (4.214, 46.58724); 
+        \draw[lowcolor!50!white, very thin] (4.071, 48.99260) -- (4.357, 48.99260); 
+        \draw[lowcolor!50!white, very thin] (4.357, 81.33600) -- (4.357, 76.52529); 
+        \draw[lowcolor!50!white, very thin] (4.214, 78.93065) -- (4.500, 78.93065); 
+        \draw[lowcolor!50!white, very thin] (4.500, 185.21343) -- (4.500, 180.40272); 
+        \draw[lowcolor!50!white, very thin] (4.357, 182.80808) -- (4.643, 182.80808); 
+        \draw[lowcolor!50!white, very thin] (4.643, 81.02655) -- (4.643, 76.21584); 
+        \draw[lowcolor!50!white, very thin] (4.500, 78.62120) -- (4.786, 78.62120); 
+        \draw[lowcolor!50!white, very thin] (4.786, 122.74176) -- (4.786, 117.93105); 
+        \draw[lowcolor!50!white, very thin] (4.643, 120.33641) -- (4.929, 120.33641); 
+        \draw[lowcolor, thin] (4.500, 106.74850) -- (4.500, 97.12707); 
+        \draw[lowcolor, thin] (4.214, 101.93779) -- (4.786, 101.93779); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 31.51024) -- (5.214, 26.69952); 
+        \draw[lowcolor!50!white, very thin] (5.071, 29.10488) -- (5.357, 29.10488); 
+        \draw[lowcolor!50!white, very thin] (5.357, 36.52591) -- (5.357, 31.71520); 
+        \draw[lowcolor!50!white, very thin] (5.214, 34.12055) -- (5.500, 34.12055); 
+        \draw[lowcolor!50!white, very thin] (5.500, 18.02266) -- (5.500, 13.21195); 
+        \draw[lowcolor!50!white, very thin] (5.357, 15.61730) -- (5.643, 15.61730); 
+        \draw[lowcolor!50!white, very thin] (5.643, 56.38333) -- (5.643, 51.57262); 
+        \draw[lowcolor!50!white, very thin] (5.500, 53.97798) -- (5.786, 53.97798); 
+        \draw[lowcolor!50!white, very thin] (5.786, 37.38201) -- (5.786, 32.57130); 
+        \draw[lowcolor!50!white, very thin] (5.643, 34.97666) -- (5.929, 34.97666); 
+        \draw[lowcolor, thin] (5.500, 38.37019) -- (5.500, 28.74876); 
+        \draw[lowcolor, thin] (5.214, 33.55947) -- (5.786, 33.55947); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 35.35635) -- (6.214, 30.54564); 
+        \draw[lowcolor!50!white, very thin] (6.071, 32.95099) -- (6.357, 32.95099); 
+        \draw[lowcolor!50!white, very thin] (6.357, 40.53066) -- (6.357, 35.71995); 
+        \draw[lowcolor!50!white, very thin] (6.214, 38.12530) -- (6.500, 38.12530); 
+        \draw[lowcolor!50!white, very thin] (6.500, 63.03729) -- (6.500, 58.22658); 
+        \draw[lowcolor!50!white, very thin] (6.357, 60.63193) -- (6.643, 60.63193); 
+        \draw[lowcolor!50!white, very thin] (6.643, 24.13910) -- (6.643, 19.32838); 
+        \draw[lowcolor!50!white, very thin] (6.500, 21.73374) -- (6.786, 21.73374); 
+        \draw[lowcolor!50!white, very thin] (6.786, 79.04377) -- (6.786, 74.23306); 
+        \draw[lowcolor!50!white, very thin] (6.643, 76.63841) -- (6.929, 76.63841); 
+        \draw[lowcolor, thin] (6.500, 50.82679) -- (6.500, 41.20536); 
+        \draw[lowcolor, thin] (6.214, 46.01608) -- (6.786, 46.01608); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 70.12319) -- (7.214, 65.31247); 
+        \draw[lowcolor!50!white, very thin] (7.071, 67.71783) -- (7.357, 67.71783); 
+        \draw[lowcolor!50!white, very thin] (7.357, 38.41033) -- (7.357, 33.59962); 
+        \draw[lowcolor!50!white, very thin] (7.214, 36.00498) -- (7.500, 36.00498); 
+        \draw[lowcolor!50!white, very thin] (7.500, 37.07830) -- (7.500, 32.26758); 
+        \draw[lowcolor!50!white, very thin] (7.357, 34.67294) -- (7.643, 34.67294); 
+        \draw[lowcolor!50!white, very thin] (7.643, 50.72820) -- (7.643, 45.91748); 
+        \draw[lowcolor!50!white, very thin] (7.500, 48.32284) -- (7.786, 48.32284); 
+        \draw[lowcolor!50!white, very thin] (7.786, 27.50396) -- (7.786, 22.69324); 
+        \draw[lowcolor!50!white, very thin] (7.643, 25.09860) -- (7.929, 25.09860); 
+        \draw[lowcolor, thin] (7.500, 47.17415) -- (7.500, 37.55272); 
+        \draw[lowcolor, thin] (7.214, 42.36344) -- (7.786, 42.36344); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 37.50984) -- (8.214, 32.69912); 
+        \draw[lowcolor!50!white, very thin] (8.071, 35.10448) -- (8.357, 35.10448); 
+        \draw[lowcolor!50!white, very thin] (8.357, 13.17280) -- (8.357, 8.36209); 
+        \draw[lowcolor!50!white, very thin] (8.214, 10.76744) -- (8.500, 10.76744); 
+        \draw[lowcolor!50!white, very thin] (8.500, 25.49321) -- (8.500, 20.68250); 
+        \draw[lowcolor!50!white, very thin] (8.357, 23.08786) -- (8.643, 23.08786); 
+        \draw[lowcolor!50!white, very thin] (8.643, 15.51612) -- (8.643, 10.70540); 
+        \draw[lowcolor!50!white, very thin] (8.500, 13.11076) -- (8.786, 13.11076); 
+        \draw[lowcolor!50!white, very thin] (8.786, 54.73198) -- (8.786, 49.92126); 
+        \draw[lowcolor!50!white, very thin] (8.643, 52.32662) -- (8.929, 52.32662); 
+        \draw[lowcolor, thin] (8.500, 31.69015) -- (8.500, 22.06872); 
+        \draw[lowcolor, thin] (8.214, 26.87943) -- (8.786, 26.87943); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 166.71411) -- (9.214, 161.90339); 
+        \draw[lowcolor!50!white, very thin] (9.071, 164.30875) -- (9.357, 164.30875); 
+        \draw[lowcolor!50!white, very thin] (9.357, 21.78852) -- (9.357, 16.97781); 
+        \draw[lowcolor!50!white, very thin] (9.214, 19.38316) -- (9.500, 19.38316); 
+        \draw[lowcolor!50!white, very thin] (9.500, 29.67702) -- (9.500, 24.86630); 
+        \draw[lowcolor!50!white, very thin] (9.357, 27.27166) -- (9.643, 27.27166); 
+        \draw[lowcolor!50!white, very thin] (9.643, 22.29542) -- (9.643, 17.48471); 
+        \draw[lowcolor!50!white, very thin] (9.500, 19.89007) -- (9.786, 19.89007); 
+        \draw[lowcolor!50!white, very thin] (9.786, 30.61551) -- (9.786, 25.80479); 
+        \draw[lowcolor!50!white, very thin] (9.643, 28.21015) -- (9.929, 28.21015); 
+        \draw[lowcolor, thin] (9.500, 56.62347) -- (9.500, 47.00204); 
+        \draw[lowcolor, thin] (9.214, 51.81276) -- (9.786, 51.81276); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 53.17254) -- (10.214, 48.36183); 
+        \draw[lowcolor!50!white, very thin] (10.071, 50.76718) -- (10.357, 50.76718); 
+        \draw[lowcolor!50!white, very thin] (10.357, 16.41819) -- (10.357, 11.60748); 
+        \draw[lowcolor!50!white, very thin] (10.214, 14.01283) -- (10.500, 14.01283); 
+        \draw[lowcolor!50!white, very thin] (10.500, 72.15336) -- (10.500, 67.34264); 
+        \draw[lowcolor!50!white, very thin] (10.357, 69.74800) -- (10.643, 69.74800); 
+        \draw[lowcolor!50!white, very thin] (10.643, 56.30216) -- (10.643, 51.49145); 
+        \draw[lowcolor!50!white, very thin] (10.500, 53.89681) -- (10.786, 53.89681); 
+        \draw[lowcolor!50!white, very thin] (10.786, 50.95900) -- (10.786, 46.14829); 
+        \draw[lowcolor!50!white, very thin] (10.643, 48.55364) -- (10.929, 48.55364); 
+        \draw[lowcolor, thin] (10.500, 52.20641) -- (10.500, 42.58498); 
+        \draw[lowcolor, thin] (10.214, 47.39569) -- (10.786, 47.39569); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 60.52900) -- (11.214, 55.71829); 
+        \draw[lowcolor!50!white, very thin] (11.071, 58.12365) -- (11.357, 58.12365); 
+        \draw[lowcolor!50!white, very thin] (11.357, 61.15169) -- (11.357, 56.34097); 
+        \draw[lowcolor!50!white, very thin] (11.214, 58.74633) -- (11.500, 58.74633); 
+        \draw[lowcolor!50!white, very thin] (11.500, 48.19577) -- (11.500, 43.38505); 
+        \draw[lowcolor!50!white, very thin] (11.357, 45.79041) -- (11.643, 45.79041); 
+        \draw[lowcolor!50!white, very thin] (11.643, 38.01745) -- (11.643, 33.20674); 
+        \draw[lowcolor!50!white, very thin] (11.500, 35.61210) -- (11.786, 35.61210); 
+        \draw[lowcolor!50!white, very thin] (11.786, 46.60190) -- (11.786, 41.79118); 
+        \draw[lowcolor!50!white, very thin] (11.643, 44.19654) -- (11.929, 44.19654); 
+        \draw[lowcolor, thin] (11.500, 53.30452) -- (11.500, 43.68309); 
+        \draw[lowcolor, thin] (11.214, 48.49380) -- (11.786, 48.49380); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 52.96733) -- (12.214, 48.15662); 
+        \draw[lowcolor!50!white, very thin] (12.071, 50.56197) -- (12.357, 50.56197); 
+        \draw[lowcolor!50!white, very thin] (12.357, 71.80644) -- (12.357, 66.99573); 
+        \draw[lowcolor!50!white, very thin] (12.214, 69.40108) -- (12.500, 69.40108); 
+        \draw[lowcolor!50!white, very thin] (12.500, 61.09842) -- (12.500, 56.28770); 
+        \draw[lowcolor!50!white, very thin] (12.357, 58.69306) -- (12.643, 58.69306); 
+        \draw[lowcolor!50!white, very thin] (12.643, 32.86876) -- (12.643, 28.05805); 
+        \draw[lowcolor!50!white, very thin] (12.500, 30.46340) -- (12.786, 30.46340); 
+        \draw[lowcolor!50!white, very thin] (12.786, 33.85131) -- (12.786, 29.04060); 
+        \draw[lowcolor!50!white, very thin] (12.643, 31.44595) -- (12.929, 31.44595); 
+        \draw[lowcolor, thin] (12.500, 52.92381) -- (12.500, 43.30238); 
+        \draw[lowcolor, thin] (12.214, 48.11310) -- (12.786, 48.11310); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 18.61718) -- (13.214, 13.80647); 
+        \draw[lowcolor!50!white, very thin] (13.071, 16.21183) -- (13.357, 16.21183); 
+        \draw[lowcolor!50!white, very thin] (13.357, 20.80559) -- (13.357, 15.99488); 
+        \draw[lowcolor!50!white, very thin] (13.214, 18.40024) -- (13.500, 18.40024); 
+        \draw[lowcolor!50!white, very thin] (13.500, 45.96225) -- (13.500, 41.15154); 
+        \draw[lowcolor!50!white, very thin] (13.357, 43.55689) -- (13.643, 43.55689); 
+        \draw[lowcolor!50!white, very thin] (13.643, 210.01781) -- (13.643, 205.20710); 
+        \draw[lowcolor!50!white, very thin] (13.500, 207.61245) -- (13.786, 207.61245); 
+        \draw[lowcolor!50!white, very thin] (13.786, 63.64737) -- (13.786, 58.83665); 
+        \draw[lowcolor!50!white, very thin] (13.643, 61.24201) -- (13.929, 61.24201); 
+        \draw[lowcolor, thin] (13.500, 74.21540) -- (13.500, 64.59397); 
+        \draw[lowcolor, thin] (13.214, 69.40468) -- (13.786, 69.40468); 
+    \end{axis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 6.100) {$10.7$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 8.100) {$325.0$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 7.100) {\emph{KDE$_{NLL, joint}$}}; 
+ 
+    % Draw the metric ECE (Trajectories, joint predictions) 
+ 
+    % Draw the metric ECE (Trajectories, joint predictions) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{axis}[ 
+        at = {(1.500cm, 3.800cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 0.400, 
+        ymax = 0.500, 
+        ytick = {0.400, 0.425, 0.450, 0.475, 0.500}, 
+        scaled y ticks = base 10:0, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.49579) -- (0.214, 0.49426); 
+        \draw[lowcolor!50!white, very thin] (0.071, 0.49502) -- (0.357, 0.49502); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.49572) -- (0.357, 0.49419); 
+        \draw[lowcolor!50!white, very thin] (0.214, 0.49495) -- (0.500, 0.49495); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.49555) -- (0.500, 0.49402); 
+        \draw[lowcolor!50!white, very thin] (0.357, 0.49478) -- (0.643, 0.49478); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.49511) -- (0.643, 0.49358); 
+        \draw[lowcolor!50!white, very thin] (0.500, 0.49435) -- (0.786, 0.49435); 
+        \draw[lowcolor!50!white, very thin] (0.786, 0.49567) -- (0.786, 0.49414); 
+        \draw[lowcolor!50!white, very thin] (0.643, 0.49490) -- (0.929, 0.49490); 
+        \draw[lowcolor, thin] (0.500, 0.49633) -- (0.500, 0.49327); 
+        \draw[lowcolor, thin] (0.214, 0.49480) -- (0.786, 0.49480); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.48273) -- (1.214, 0.48120); 
+        \draw[lowcolor!50!white, very thin] (1.071, 0.48196) -- (1.357, 0.48196); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.47815) -- (1.357, 0.47662); 
+        \draw[lowcolor!50!white, very thin] (1.214, 0.47738) -- (1.500, 0.47738); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.48103) -- (1.500, 0.47950); 
+        \draw[lowcolor!50!white, very thin] (1.357, 0.48027) -- (1.643, 0.48027); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.48182) -- (1.643, 0.48029); 
+        \draw[lowcolor!50!white, very thin] (1.500, 0.48105) -- (1.786, 0.48105); 
+        \draw[lowcolor!50!white, very thin] (1.786, 0.48256) -- (1.786, 0.48103); 
+        \draw[lowcolor!50!white, very thin] (1.643, 0.48179) -- (1.929, 0.48179); 
+        \draw[lowcolor, thin] (1.500, 0.48202) -- (1.500, 0.47896); 
+        \draw[lowcolor, thin] (1.214, 0.48049) -- (1.786, 0.48049); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.49174) -- (2.214, 0.49021); 
+        \draw[lowcolor!50!white, very thin] (2.071, 0.49098) -- (2.357, 0.49098); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.48542) -- (2.357, 0.48389); 
+        \draw[lowcolor!50!white, very thin] (2.214, 0.48466) -- (2.500, 0.48466); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.48859) -- (2.500, 0.48706); 
+        \draw[lowcolor!50!white, very thin] (2.357, 0.48783) -- (2.643, 0.48783); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.48819) -- (2.643, 0.48666); 
+        \draw[lowcolor!50!white, very thin] (2.500, 0.48742) -- (2.786, 0.48742); 
+        \draw[lowcolor!50!white, very thin] (2.786, 0.49108) -- (2.786, 0.48955); 
+        \draw[lowcolor!50!white, very thin] (2.643, 0.49032) -- (2.929, 0.49032); 
+        \draw[lowcolor, thin] (2.500, 0.48977) -- (2.500, 0.48671); 
+        \draw[lowcolor, thin] (2.214, 0.48824) -- (2.786, 0.48824); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.47503) -- (3.214, 0.47350); 
+        \draw[lowcolor!50!white, very thin] (3.071, 0.47427) -- (3.357, 0.47427); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.47106) -- (3.357, 0.46953); 
+        \draw[lowcolor!50!white, very thin] (3.214, 0.47030) -- (3.500, 0.47030); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.48023) -- (3.500, 0.47870); 
+        \draw[lowcolor!50!white, very thin] (3.357, 0.47946) -- (3.643, 0.47946); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.47527) -- (3.643, 0.47374); 
+        \draw[lowcolor!50!white, very thin] (3.500, 0.47451) -- (3.786, 0.47451); 
+        \draw[lowcolor!50!white, very thin] (3.786, 0.48299) -- (3.786, 0.48146); 
+        \draw[lowcolor!50!white, very thin] (3.643, 0.48223) -- (3.929, 0.48223); 
+        \draw[lowcolor, thin] (3.500, 0.47768) -- (3.500, 0.47462); 
+        \draw[lowcolor, thin] (3.214, 0.47615) -- (3.786, 0.47615); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.45927) -- (4.214, 0.45774); 
+        \draw[lowcolor!50!white, very thin] (4.071, 0.45850) -- (4.357, 0.45850); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.46047) -- (4.357, 0.45894); 
+        \draw[lowcolor!50!white, very thin] (4.214, 0.45970) -- (4.500, 0.45970); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.47970) -- (4.500, 0.47817); 
+        \draw[lowcolor!50!white, very thin] (4.357, 0.47894) -- (4.643, 0.47894); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.47833) -- (4.643, 0.47680); 
+        \draw[lowcolor!50!white, very thin] (4.500, 0.47757) -- (4.786, 0.47757); 
+        \draw[lowcolor!50!white, very thin] (4.786, 0.47075) -- (4.786, 0.46922); 
+        \draw[lowcolor!50!white, very thin] (4.643, 0.46999) -- (4.929, 0.46999); 
+        \draw[lowcolor, thin] (4.500, 0.47047) -- (4.500, 0.46741); 
+        \draw[lowcolor, thin] (4.214, 0.46894) -- (4.786, 0.46894); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.45506) -- (5.214, 0.45352); 
+        \draw[lowcolor!50!white, very thin] (5.071, 0.45429) -- (5.357, 0.45429); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.45748) -- (5.357, 0.45595); 
+        \draw[lowcolor!50!white, very thin] (5.214, 0.45672) -- (5.500, 0.45672); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.45089) -- (5.500, 0.44936); 
+        \draw[lowcolor!50!white, very thin] (5.357, 0.45012) -- (5.643, 0.45012); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.46916) -- (5.643, 0.46763); 
+        \draw[lowcolor!50!white, very thin] (5.500, 0.46839) -- (5.786, 0.46839); 
+        \draw[lowcolor!50!white, very thin] (5.786, 0.46709) -- (5.786, 0.46556); 
+        \draw[lowcolor!50!white, very thin] (5.643, 0.46632) -- (5.929, 0.46632); 
+        \draw[lowcolor, thin] (5.500, 0.46070) -- (5.500, 0.45764); 
+        \draw[lowcolor, thin] (5.214, 0.45917) -- (5.786, 0.45917); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.46712) -- (6.214, 0.46559); 
+        \draw[lowcolor!50!white, very thin] (6.071, 0.46636) -- (6.357, 0.46636); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.47053) -- (6.357, 0.46899); 
+        \draw[lowcolor!50!white, very thin] (6.214, 0.46976) -- (6.500, 0.46976); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.47371) -- (6.500, 0.47218); 
+        \draw[lowcolor!50!white, very thin] (6.357, 0.47294) -- (6.643, 0.47294); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.45639) -- (6.643, 0.45486); 
+        \draw[lowcolor!50!white, very thin] (6.500, 0.45563) -- (6.786, 0.45563); 
+        \draw[lowcolor!50!white, very thin] (6.786, 0.47491) -- (6.786, 0.47338); 
+        \draw[lowcolor!50!white, very thin] (6.643, 0.47415) -- (6.929, 0.47415); 
+        \draw[lowcolor, thin] (6.500, 0.46930) -- (6.500, 0.46624); 
+        \draw[lowcolor, thin] (6.214, 0.46777) -- (6.786, 0.46777); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.48627) -- (7.214, 0.48474); 
+        \draw[lowcolor!50!white, very thin] (7.071, 0.48551) -- (7.357, 0.48551); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.46982) -- (7.357, 0.46829); 
+        \draw[lowcolor!50!white, very thin] (7.214, 0.46905) -- (7.500, 0.46905); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.46205) -- (7.500, 0.46052); 
+        \draw[lowcolor!50!white, very thin] (7.357, 0.46128) -- (7.643, 0.46128); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.47423) -- (7.643, 0.47270); 
+        \draw[lowcolor!50!white, very thin] (7.500, 0.47346) -- (7.786, 0.47346); 
+        \draw[lowcolor!50!white, very thin] (7.786, 0.46889) -- (7.786, 0.46736); 
+        \draw[lowcolor!50!white, very thin] (7.643, 0.46813) -- (7.929, 0.46813); 
+        \draw[lowcolor, thin] (7.500, 0.47302) -- (7.500, 0.46995); 
+        \draw[lowcolor, thin] (7.214, 0.47149) -- (7.786, 0.47149); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.47904) -- (8.214, 0.47751); 
+        \draw[lowcolor!50!white, very thin] (8.071, 0.47827) -- (8.357, 0.47827); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.45690) -- (8.357, 0.45537); 
+        \draw[lowcolor!50!white, very thin] (8.214, 0.45614) -- (8.500, 0.45614); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.46579) -- (8.500, 0.46426); 
+        \draw[lowcolor!50!white, very thin] (8.357, 0.46503) -- (8.643, 0.46503); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.46283) -- (8.643, 0.46129); 
+        \draw[lowcolor!50!white, very thin] (8.500, 0.46206) -- (8.786, 0.46206); 
+        \draw[lowcolor!50!white, very thin] (8.786, 0.47895) -- (8.786, 0.47742); 
+        \draw[lowcolor!50!white, very thin] (8.643, 0.47819) -- (8.929, 0.47819); 
+        \draw[lowcolor, thin] (8.500, 0.46947) -- (8.500, 0.46641); 
+        \draw[lowcolor, thin] (8.214, 0.46794) -- (8.786, 0.46794); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.48440) -- (9.214, 0.48287); 
+        \draw[lowcolor!50!white, very thin] (9.071, 0.48363) -- (9.357, 0.48363); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.46058) -- (9.357, 0.45905); 
+        \draw[lowcolor!50!white, very thin] (9.214, 0.45982) -- (9.500, 0.45982); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.46081) -- (9.500, 0.45928); 
+        \draw[lowcolor!50!white, very thin] (9.357, 0.46004) -- (9.643, 0.46004); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.45676) -- (9.643, 0.45523); 
+        \draw[lowcolor!50!white, very thin] (9.500, 0.45600) -- (9.786, 0.45600); 
+        \draw[lowcolor!50!white, very thin] (9.786, 0.46036) -- (9.786, 0.45883); 
+        \draw[lowcolor!50!white, very thin] (9.643, 0.45959) -- (9.929, 0.45959); 
+        \draw[lowcolor, thin] (9.500, 0.46535) -- (9.500, 0.46228); 
+        \draw[lowcolor, thin] (9.214, 0.46382) -- (9.786, 0.46382); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.48396) -- (10.214, 0.48243); 
+        \draw[lowcolor!50!white, very thin] (10.071, 0.48320) -- (10.357, 0.48320); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.45078) -- (10.357, 0.44925); 
+        \draw[lowcolor!50!white, very thin] (10.214, 0.45002) -- (10.500, 0.45002); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.48284) -- (10.500, 0.48131); 
+        \draw[lowcolor!50!white, very thin] (10.357, 0.48207) -- (10.643, 0.48207); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.47769) -- (10.643, 0.47616); 
+        \draw[lowcolor!50!white, very thin] (10.500, 0.47693) -- (10.786, 0.47693); 
+        \draw[lowcolor!50!white, very thin] (10.786, 0.46439) -- (10.786, 0.46286); 
+        \draw[lowcolor!50!white, very thin] (10.643, 0.46362) -- (10.929, 0.46362); 
+        \draw[lowcolor, thin] (10.500, 0.47270) -- (10.500, 0.46964); 
+        \draw[lowcolor, thin] (10.214, 0.47117) -- (10.786, 0.47117); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.46752) -- (11.214, 0.46599); 
+        \draw[lowcolor!50!white, very thin] (11.071, 0.46675) -- (11.357, 0.46675); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.47643) -- (11.357, 0.47490); 
+        \draw[lowcolor!50!white, very thin] (11.214, 0.47566) -- (11.500, 0.47566); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.47278) -- (11.500, 0.47125); 
+        \draw[lowcolor!50!white, very thin] (11.357, 0.47202) -- (11.643, 0.47202); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.46485) -- (11.643, 0.46332); 
+        \draw[lowcolor!50!white, very thin] (11.500, 0.46408) -- (11.786, 0.46408); 
+        \draw[lowcolor!50!white, very thin] (11.786, 0.47124) -- (11.786, 0.46971); 
+        \draw[lowcolor!50!white, very thin] (11.643, 0.47047) -- (11.929, 0.47047); 
+        \draw[lowcolor, thin] (11.500, 0.47133) -- (11.500, 0.46827); 
+        \draw[lowcolor, thin] (11.214, 0.46980) -- (11.786, 0.46980); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.46393) -- (12.214, 0.46240); 
+        \draw[lowcolor!50!white, very thin] (12.071, 0.46316) -- (12.357, 0.46316); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.47007) -- (12.357, 0.46853); 
+        \draw[lowcolor!50!white, very thin] (12.214, 0.46930) -- (12.500, 0.46930); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.47827) -- (12.500, 0.47674); 
+        \draw[lowcolor!50!white, very thin] (12.357, 0.47750) -- (12.643, 0.47750); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.46672) -- (12.643, 0.46519); 
+        \draw[lowcolor!50!white, very thin] (12.500, 0.46596) -- (12.786, 0.46596); 
+        \draw[lowcolor!50!white, very thin] (12.786, 0.47263) -- (12.786, 0.47110); 
+        \draw[lowcolor!50!white, very thin] (12.643, 0.47186) -- (12.929, 0.47186); 
+        \draw[lowcolor, thin] (12.500, 0.47109) -- (12.500, 0.46803); 
+        \draw[lowcolor, thin] (12.214, 0.46956) -- (12.786, 0.46956); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.46549) -- (13.214, 0.46396); 
+        \draw[lowcolor!50!white, very thin] (13.071, 0.46472) -- (13.357, 0.46472); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.46833) -- (13.357, 0.46680); 
+        \draw[lowcolor!50!white, very thin] (13.214, 0.46757) -- (13.500, 0.46757); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.47370) -- (13.500, 0.47217); 
+        \draw[lowcolor!50!white, very thin] (13.357, 0.47293) -- (13.643, 0.47293); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.49069) -- (13.643, 0.48916); 
+        \draw[lowcolor!50!white, very thin] (13.500, 0.48992) -- (13.786, 0.48992); 
+        \draw[lowcolor!50!white, very thin] (13.786, 0.48309) -- (13.786, 0.48156); 
+        \draw[lowcolor!50!white, very thin] (13.643, 0.48233) -- (13.929, 0.48233); 
+        \draw[lowcolor, thin] (13.500, 0.47702) -- (13.500, 0.47396); 
+        \draw[lowcolor, thin] (13.214, 0.47549) -- (13.786, 0.47549); 
+    \end{axis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 3.800) {$0.4$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 5.800) {$0.5$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 4.800) {\emph{ECE$_{\text{Traj}, joint}$}}; 
+ 
+    % Draw the metric KLD (Trajectories, joint predictions) 
+ 
+    % Draw the metric KLD (Trajectories, joint predictions) for Earliest on dataset Forking Paths (interactive pedestrians - augmented) 
+    \begin{axis}[ 
+        at = {(1.500cm, 1.500cm)}, 
+        width = 1.500cm, 
+        height = 2.000cm, 
+        scale only axis = true, 
+        axis lines = left, 
+        xmin = 0, 
+        xmax = 14, 
+        xtick = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}, 
+        xticklabels = {\emph{T++}, \emph{FM}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}, \emph{TF}}, 
+        x tick label style = {rotate=90, yshift = 0.054cm, xshift = 0.1cm, align = right, font=\tiny}, 
+        xmajorgrids = true, 
+        ymin = 67.500, 
+        ymax = 1495.300, 
+        ytick = {67.500, 424.450, 781.400, 1138.350, 1495.300}, 
+        scaled y ticks = base 10:0, 
+        yticklabels = {\empty}, 
+        ymajorgrids = true, 
+    ] 
+ 
+        \draw[lowcolor!50!white, very thin] (0.214, 95.68409) -- (0.214, 73.83001); 
+        \draw[lowcolor!50!white, very thin] (0.071, 84.75705) -- (0.357, 84.75705); 
+        \draw[lowcolor!50!white, very thin] (0.357, 90.71352) -- (0.357, 68.85944); 
+        \draw[lowcolor!50!white, very thin] (0.214, 79.78648) -- (0.500, 79.78648); 
+        \draw[lowcolor!50!white, very thin] (0.500, 92.64282) -- (0.500, 70.78874); 
+        \draw[lowcolor!50!white, very thin] (0.357, 81.71578) -- (0.643, 81.71578); 
+        \draw[lowcolor!50!white, very thin] (0.643, 89.57702) -- (0.643, 67.72294); 
+        \draw[lowcolor!50!white, very thin] (0.500, 78.64998) -- (0.786, 78.64998); 
+        \draw[lowcolor!50!white, very thin] (0.786, 91.29940) -- (0.786, 69.44532); 
+        \draw[lowcolor!50!white, very thin] (0.643, 80.37236) -- (0.929, 80.37236); 
+        \draw[lowcolor, thin] (0.500, 102.91041) -- (0.500, 59.20225); 
+        \draw[lowcolor, thin] (0.214, 81.05633) -- (0.786, 81.05633); 
+ 
+        \draw[lowcolor!50!white, very thin] (1.214, 90.26374) -- (1.214, 68.40965); 
+        \draw[lowcolor!50!white, very thin] (1.071, 79.33669) -- (1.357, 79.33669); 
+        \draw[lowcolor!50!white, very thin] (1.357, 87.19161) -- (1.357, 65.33753); 
+        \draw[lowcolor!50!white, very thin] (1.214, 76.26457) -- (1.500, 76.26457); 
+        \draw[lowcolor!50!white, very thin] (1.500, 84.70099) -- (1.500, 62.84691); 
+        \draw[lowcolor!50!white, very thin] (1.357, 73.77395) -- (1.643, 73.77395); 
+        \draw[lowcolor!50!white, very thin] (1.643, 87.79646) -- (1.643, 65.94238); 
+        \draw[lowcolor!50!white, very thin] (1.500, 76.86942) -- (1.786, 76.86942); 
+        \draw[lowcolor!50!white, very thin] (1.786, 86.61181) -- (1.786, 64.75773); 
+        \draw[lowcolor!50!white, very thin] (1.643, 75.68477) -- (1.929, 75.68477); 
+        \draw[lowcolor, thin] (1.500, 98.23996) -- (1.500, 54.53180); 
+        \draw[lowcolor, thin] (1.214, 76.38588) -- (1.786, 76.38588); 
+ 
+        \draw[lowcolor!50!white, very thin] (2.214, 1506.17171) -- (2.214, 1484.31763); 
+        \draw[lowcolor!50!white, very thin] (2.071, 1495.24467) -- (2.357, 1495.24467); 
+        \draw[lowcolor!50!white, very thin] (2.357, 1216.48207) -- (2.357, 1194.62799); 
+        \draw[lowcolor!50!white, very thin] (2.214, 1205.55503) -- (2.500, 1205.55503); 
+        \draw[lowcolor!50!white, very thin] (2.500, 130.96482) -- (2.500, 109.11074); 
+        \draw[lowcolor!50!white, very thin] (2.357, 120.03778) -- (2.643, 120.03778); 
+        \draw[lowcolor!50!white, very thin] (2.643, 90.59458) -- (2.643, 68.74050); 
+        \draw[lowcolor!50!white, very thin] (2.500, 79.66754) -- (2.786, 79.66754); 
+        \draw[lowcolor!50!white, very thin] (2.786, 235.37618) -- (2.786, 213.52210); 
+        \draw[lowcolor!50!white, very thin] (2.643, 224.44914) -- (2.929, 224.44914); 
+        \draw[lowcolor, thin] (2.500, 646.84491) -- (2.500, 603.13675); 
+        \draw[lowcolor, thin] (2.214, 624.99083) -- (2.786, 624.99083); 
+ 
+        \draw[lowcolor!50!white, very thin] (3.214, 202.55906) -- (3.214, 180.70498); 
+        \draw[lowcolor!50!white, very thin] (3.071, 191.63202) -- (3.357, 191.63202); 
+        \draw[lowcolor!50!white, very thin] (3.357, 240.69798) -- (3.357, 218.84389); 
+        \draw[lowcolor!50!white, very thin] (3.214, 229.77093) -- (3.500, 229.77093); 
+        \draw[lowcolor!50!white, very thin] (3.500, 233.16122) -- (3.500, 211.30714); 
+        \draw[lowcolor!50!white, very thin] (3.357, 222.23418) -- (3.643, 222.23418); 
+        \draw[lowcolor!50!white, very thin] (3.643, 159.69167) -- (3.643, 137.83759); 
+        \draw[lowcolor!50!white, very thin] (3.500, 148.76463) -- (3.786, 148.76463); 
+        \draw[lowcolor!50!white, very thin] (3.786, 233.30987) -- (3.786, 211.45578); 
+        \draw[lowcolor!50!white, very thin] (3.643, 222.38283) -- (3.929, 222.38283); 
+        \draw[lowcolor, thin] (3.500, 224.81100) -- (3.500, 181.10284); 
+        \draw[lowcolor, thin] (3.214, 202.95692) -- (3.786, 202.95692); 
+ 
+        \draw[lowcolor!50!white, very thin] (4.214, 427.48680) -- (4.214, 405.63271); 
+        \draw[lowcolor!50!white, very thin] (4.071, 416.55975) -- (4.357, 416.55975); 
+        \draw[lowcolor!50!white, very thin] (4.357, 545.67299) -- (4.357, 523.81891); 
+        \draw[lowcolor!50!white, very thin] (4.214, 534.74595) -- (4.500, 534.74595); 
+        \draw[lowcolor!50!white, very thin] (4.500, 543.70272) -- (4.500, 521.84864); 
+        \draw[lowcolor!50!white, very thin] (4.357, 532.77568) -- (4.643, 532.77568); 
+        \draw[lowcolor!50!white, very thin] (4.643, 244.00736) -- (4.643, 222.15328); 
+        \draw[lowcolor!50!white, very thin] (4.500, 233.08032) -- (4.786, 233.08032); 
+        \draw[lowcolor!50!white, very thin] (4.786, 673.59841) -- (4.786, 651.74433); 
+        \draw[lowcolor!50!white, very thin] (4.643, 662.67137) -- (4.929, 662.67137); 
+        \draw[lowcolor, thin] (4.500, 497.82070) -- (4.500, 454.11253); 
+        \draw[lowcolor, thin] (4.214, 475.96662) -- (4.786, 475.96662); 
+ 
+        \draw[lowcolor!50!white, very thin] (5.214, 92.28816) -- (5.214, 70.43408); 
+        \draw[lowcolor!50!white, very thin] (5.071, 81.36112) -- (5.357, 81.36112); 
+        \draw[lowcolor!50!white, very thin] (5.357, 162.37827) -- (5.357, 140.52418); 
+        \draw[lowcolor!50!white, very thin] (5.214, 151.45123) -- (5.500, 151.45123); 
+        \draw[lowcolor!50!white, very thin] (5.500, 93.01413) -- (5.500, 71.16005); 
+        \draw[lowcolor!50!white, very thin] (5.357, 82.08709) -- (5.643, 82.08709); 
+        \draw[lowcolor!50!white, very thin] (5.643, 162.54521) -- (5.643, 140.69113); 
+        \draw[lowcolor!50!white, very thin] (5.500, 151.61817) -- (5.786, 151.61817); 
+        \draw[lowcolor!50!white, very thin] (5.786, 116.46085) -- (5.786, 94.60677); 
+        \draw[lowcolor!50!white, very thin] (5.643, 105.53381) -- (5.929, 105.53381); 
+        \draw[lowcolor, thin] (5.500, 136.26436) -- (5.500, 92.55620); 
+        \draw[lowcolor, thin] (5.214, 114.41028) -- (5.786, 114.41028); 
+ 
+        \draw[lowcolor!50!white, very thin] (6.214, 111.18253) -- (6.214, 89.32845); 
+        \draw[lowcolor!50!white, very thin] (6.071, 100.25549) -- (6.357, 100.25549); 
+        \draw[lowcolor!50!white, very thin] (6.357, 127.70356) -- (6.357, 105.84948); 
+        \draw[lowcolor!50!white, very thin] (6.214, 116.77652) -- (6.500, 116.77652); 
+        \draw[lowcolor!50!white, very thin] (6.500, 203.30173) -- (6.500, 181.44765); 
+        \draw[lowcolor!50!white, very thin] (6.357, 192.37469) -- (6.643, 192.37469); 
+        \draw[lowcolor!50!white, very thin] (6.643, 90.27972) -- (6.643, 68.42564); 
+        \draw[lowcolor!50!white, very thin] (6.500, 79.35268) -- (6.786, 79.35268); 
+        \draw[lowcolor!50!white, very thin] (6.786, 132.77825) -- (6.786, 110.92417); 
+        \draw[lowcolor!50!white, very thin] (6.643, 121.85121) -- (6.929, 121.85121); 
+        \draw[lowcolor, thin] (6.500, 143.97620) -- (6.500, 100.26804); 
+        \draw[lowcolor, thin] (6.214, 122.12212) -- (6.786, 122.12212); 
+ 
+        \draw[lowcolor!50!white, very thin] (7.214, 98.49897) -- (7.214, 76.64489); 
+        \draw[lowcolor!50!white, very thin] (7.071, 87.57193) -- (7.357, 87.57193); 
+        \draw[lowcolor!50!white, very thin] (7.357, 96.52903) -- (7.357, 74.67495); 
+        \draw[lowcolor!50!white, very thin] (7.214, 85.60199) -- (7.500, 85.60199); 
+        \draw[lowcolor!50!white, very thin] (7.500, 125.85221) -- (7.500, 103.99813); 
+        \draw[lowcolor!50!white, very thin] (7.357, 114.92517) -- (7.643, 114.92517); 
+        \draw[lowcolor!50!white, very thin] (7.643, 101.14865) -- (7.643, 79.29457); 
+        \draw[lowcolor!50!white, very thin] (7.500, 90.22161) -- (7.786, 90.22161); 
+        \draw[lowcolor!50!white, very thin] (7.786, 106.81358) -- (7.786, 84.95950); 
+        \draw[lowcolor!50!white, very thin] (7.643, 95.88654) -- (7.929, 95.88654); 
+        \draw[lowcolor, thin] (7.500, 116.69553) -- (7.500, 72.98737); 
+        \draw[lowcolor, thin] (7.214, 94.84145) -- (7.786, 94.84145); 
+ 
+        \draw[lowcolor!50!white, very thin] (8.214, 83.99283) -- (8.214, 62.13875); 
+        \draw[lowcolor!50!white, very thin] (8.071, 73.06579) -- (8.357, 73.06579); 
+        \draw[lowcolor!50!white, very thin] (8.357, 88.27067) -- (8.357, 66.41658); 
+        \draw[lowcolor!50!white, very thin] (8.214, 77.34362) -- (8.500, 77.34362); 
+        \draw[lowcolor!50!white, very thin] (8.500, 94.65197) -- (8.500, 72.79789); 
+        \draw[lowcolor!50!white, very thin] (8.357, 83.72493) -- (8.643, 83.72493); 
+        \draw[lowcolor!50!white, very thin] (8.643, 80.71590) -- (8.643, 58.86182); 
+        \draw[lowcolor!50!white, very thin] (8.500, 69.78886) -- (8.786, 69.78886); 
+        \draw[lowcolor!50!white, very thin] (8.786, 89.10403) -- (8.786, 67.24994); 
+        \draw[lowcolor!50!white, very thin] (8.643, 78.17699) -- (8.929, 78.17699); 
+        \draw[lowcolor, thin] (8.500, 98.27412) -- (8.500, 54.56596); 
+        \draw[lowcolor, thin] (8.214, 76.42004) -- (8.786, 76.42004); 
+ 
+        \draw[lowcolor!50!white, very thin] (9.214, 245.82446) -- (9.214, 223.97038); 
+        \draw[lowcolor!50!white, very thin] (9.071, 234.89742) -- (9.357, 234.89742); 
+        \draw[lowcolor!50!white, very thin] (9.357, 86.08736) -- (9.357, 64.23328); 
+        \draw[lowcolor!50!white, very thin] (9.214, 75.16032) -- (9.500, 75.16032); 
+        \draw[lowcolor!50!white, very thin] (9.500, 95.38914) -- (9.500, 73.53506); 
+        \draw[lowcolor!50!white, very thin] (9.357, 84.46210) -- (9.643, 84.46210); 
+        \draw[lowcolor!50!white, very thin] (9.643, 109.15594) -- (9.643, 87.30186); 
+        \draw[lowcolor!50!white, very thin] (9.500, 98.22890) -- (9.786, 98.22890); 
+        \draw[lowcolor!50!white, very thin] (9.786, 100.84390) -- (9.786, 78.98982); 
+        \draw[lowcolor!50!white, very thin] (9.643, 89.91686) -- (9.929, 89.91686); 
+        \draw[lowcolor, thin] (9.500, 138.38720) -- (9.500, 94.67904); 
+        \draw[lowcolor, thin] (9.214, 116.53312) -- (9.786, 116.53312); 
+ 
+        \draw[lowcolor!50!white, very thin] (10.214, 140.58692) -- (10.214, 118.73284); 
+        \draw[lowcolor!50!white, very thin] (10.071, 129.65988) -- (10.357, 129.65988); 
+        \draw[lowcolor!50!white, very thin] (10.357, 82.26681) -- (10.357, 60.41273); 
+        \draw[lowcolor!50!white, very thin] (10.214, 71.33977) -- (10.500, 71.33977); 
+        \draw[lowcolor!50!white, very thin] (10.500, 138.22874) -- (10.500, 116.37466); 
+        \draw[lowcolor!50!white, very thin] (10.357, 127.30170) -- (10.643, 127.30170); 
+        \draw[lowcolor!50!white, very thin] (10.643, 105.59769) -- (10.643, 83.74361); 
+        \draw[lowcolor!50!white, very thin] (10.500, 94.67065) -- (10.786, 94.67065); 
+        \draw[lowcolor!50!white, very thin] (10.786, 112.32993) -- (10.786, 90.47585); 
+        \draw[lowcolor!50!white, very thin] (10.643, 101.40289) -- (10.929, 101.40289); 
+        \draw[lowcolor, thin] (10.500, 126.72906) -- (10.500, 83.02090); 
+        \draw[lowcolor, thin] (10.214, 104.87498) -- (10.786, 104.87498); 
+ 
+        \draw[lowcolor!50!white, very thin] (11.214, 112.83507) -- (11.214, 90.98099); 
+        \draw[lowcolor!50!white, very thin] (11.071, 101.90803) -- (11.357, 101.90803); 
+        \draw[lowcolor!50!white, very thin] (11.357, 105.91256) -- (11.357, 84.05848); 
+        \draw[lowcolor!50!white, very thin] (11.214, 94.98552) -- (11.500, 94.98552); 
+        \draw[lowcolor!50!white, very thin] (11.500, 107.67433) -- (11.500, 85.82025); 
+        \draw[lowcolor!50!white, very thin] (11.357, 96.74729) -- (11.643, 96.74729); 
+        \draw[lowcolor!50!white, very thin] (11.643, 98.82976) -- (11.643, 76.97568); 
+        \draw[lowcolor!50!white, very thin] (11.500, 87.90272) -- (11.786, 87.90272); 
+        \draw[lowcolor!50!white, very thin] (11.786, 114.53252) -- (11.786, 92.67844); 
+        \draw[lowcolor!50!white, very thin] (11.643, 103.60548) -- (11.929, 103.60548); 
+        \draw[lowcolor, thin] (11.500, 118.88389) -- (11.500, 75.17573); 
+        \draw[lowcolor, thin] (11.214, 97.02981) -- (11.786, 97.02981); 
+ 
+        \draw[lowcolor!50!white, very thin] (12.214, 136.08232) -- (12.214, 114.22824); 
+        \draw[lowcolor!50!white, very thin] (12.071, 125.15528) -- (12.357, 125.15528); 
+        \draw[lowcolor!50!white, very thin] (12.357, 121.12166) -- (12.357, 99.26758); 
+        \draw[lowcolor!50!white, very thin] (12.214, 110.19462) -- (12.500, 110.19462); 
+        \draw[lowcolor!50!white, very thin] (12.500, 148.73213) -- (12.500, 126.87805); 
+        \draw[lowcolor!50!white, very thin] (12.357, 137.80509) -- (12.643, 137.80509); 
+        \draw[lowcolor!50!white, very thin] (12.643, 78.50712) -- (12.643, 56.65304); 
+        \draw[lowcolor!50!white, very thin] (12.500, 67.58008) -- (12.786, 67.58008); 
+        \draw[lowcolor!50!white, very thin] (12.786, 86.84933) -- (12.786, 64.99525); 
+        \draw[lowcolor!50!white, very thin] (12.643, 75.92229) -- (12.929, 75.92229); 
+        \draw[lowcolor, thin] (12.500, 125.18555) -- (12.500, 81.47739); 
+        \draw[lowcolor, thin] (12.214, 103.33147) -- (12.786, 103.33147); 
+ 
+        \draw[lowcolor!50!white, very thin] (13.214, 102.47948) -- (13.214, 80.62540); 
+        \draw[lowcolor!50!white, very thin] (13.071, 91.55244) -- (13.357, 91.55244); 
+        \draw[lowcolor!50!white, very thin] (13.357, 115.08006) -- (13.357, 93.22598); 
+        \draw[lowcolor!50!white, very thin] (13.214, 104.15302) -- (13.500, 104.15302); 
+        \draw[lowcolor!50!white, very thin] (13.500, 125.42093) -- (13.500, 103.56685); 
+        \draw[lowcolor!50!white, very thin] (13.357, 114.49389) -- (13.643, 114.49389); 
+        \draw[lowcolor!50!white, very thin] (13.643, 914.55301) -- (13.643, 892.69893); 
+        \draw[lowcolor!50!white, very thin] (13.500, 903.62597) -- (13.786, 903.62597); 
+        \draw[lowcolor!50!white, very thin] (13.786, 168.41218) -- (13.786, 146.55809); 
+        \draw[lowcolor!50!white, very thin] (13.643, 157.48513) -- (13.929, 157.48513); 
+        \draw[lowcolor, thin] (13.500, 296.11617) -- (13.500, 252.40801); 
+        \draw[lowcolor, thin] (13.214, 274.26209) -- (13.786, 274.26209); 
+    \end{axis} 
+    \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at (1.25, 1.500) {$67.5$}; 
+    \node[black, rotate = 90, inner sep = 0, left, font = \footnotesize] at (1.25, 3.500) {$1495.3$}; 
+    \node[black, rotate = 90, font = \footnotesize] at (0.9, 2.500) {\emph{KLD$_{\text{Traj}, joint}$}}; 
+ 
+    % Draw the legend for data params 
+\end{tikzpicture} 
+\end{document}

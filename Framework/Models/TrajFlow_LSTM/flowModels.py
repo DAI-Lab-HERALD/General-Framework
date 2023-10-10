@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.distributions.normal import Normal
 
 from TrajFlow.spline_flow import NeuralSplineFlow
-from TrajFlow.SocialEncodingModule import SocialInterGNN, TrajRNN
+from TrajFlow_LSTM.SocialEncodingModule import SocialInterGNN, TrajRNN
 from torch_geometric.data import Data
 
 import numpy as np
@@ -21,11 +21,16 @@ class RNN(nn.Module):
         self.device = device
         self.cuda(self.device)
 
-    def forward(self, x, hidden=None):
+    def forward(self, x, hidden=None, cell=None):
         x = F.relu(self.embedding(x))
-        x, hidden = self.LSTM(x, hidden)
+        if (hidden is None) or (cell is None):
+            if not (hidden is None):
+                print('only missing CELL info')
+            x, (hidden, cell) = self.lstm(x)
+        else:    
+            x, (hidden, cell) = self.lstm(x, (hidden, cell))
         x = self.output_layer(x)
-        return x, hidden
+        return x, hidden, cell
     
 
 class Scene_Encoder(nn.Module):
@@ -146,7 +151,7 @@ class TrajFlow_I(nn.Module):
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
             x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
             # target agent is always first agent
-            x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
+            x_tar_enc[t_in[:,0]], _, _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
             
             
         
@@ -351,11 +356,11 @@ class Future_Decoder(nn.Module):
         self.embedding = nn.Linear(es, es)
         self.nl = nl
 
-    def forward(self, x, hidden=None):
+    def forward(self, x, hidden=None, cell=None):
         x = self.embedding(x)
-        x, hidden = self.lstm(x, hidden)
+        x, (hidden, cell) = self.lstm(x, (hidden, cell))
         x = self.output(x)
-        return x, hidden
+        return x, hidden, cell
     
     
 class Future_Seq2Seq(nn.Module):
@@ -378,12 +383,13 @@ class Future_Seq2Seq(nn.Module):
         out = x_enc
                 
         hidden = torch.tile(out[:,-1].unsqueeze(0), (self.decoder.nl,1,1))
+        cell = torch.tile(out[:,-1].unsqueeze(0), (self.decoder.nl,1,1))
         
         # Decoder part
         x = out[:,-1].unsqueeze(1)
                 
         for t in range(0, target_length):
-            output, hidden = self.decoder(x, hidden)
+            output, hidden, cell = self.decoder(x, hidden, cell)
             outputs[:, t, :] = output.squeeze()
             
             x = hidden[-1].unsqueeze(1)
