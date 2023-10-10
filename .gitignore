@@ -52,9 +52,11 @@ remove_files.py
 Results/
 *.zarr/
 Data_sets/NuScenes/v1.0-mini/
-Framework/Data_sets/Waymo/data/
 simulations*.py
-!Framework/Data_sets/Waymo/data/*/.gitkeep
+!Framework/Data_sets/Waymo/data/training/.gitkeep
+!Framework/Data_sets/Waymo/data/testing/.gitkeep
+!Framework/Data_sets/Waymo/data/validation/.gitkeep
+Framework/Data_sets/Waymo/data/
 
 
 # Jupyter Notebook
