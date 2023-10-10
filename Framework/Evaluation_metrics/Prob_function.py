@@ -37,8 +37,6 @@ class OPTICS_GMM():
             self.cluster_labels = np.zeros(len(X))
             
         unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
-        
-        assert False
             
         # Fit GMM to each model
         self.KDEs = [None] * len(unique_labels)
