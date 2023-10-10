@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
@@ -110,7 +110,7 @@ class trajflow_meszaros_2(model_template):
         return X, T_out, Y, img
     
     
-    def train_futureAE(self):
+    def train_futureAE(self, T_all):
         hs_rnn = self.hs_rnn
         obs_encoding_size = self.obs_encoding_size # 4
         n_layers_rnn = self.n_layers_rnn
@@ -118,10 +118,10 @@ class trajflow_meszaros_2(model_template):
 
         enc_size = self.fut_enc_sz
 
-        flow_dist_futMdl = TrajFlow(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
+        flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
                                     gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
                                     obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
-                                    n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn)
+                                    n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
 
         enc = Future_Encoder(2, enc_size, enc_size, enc_size)
         dec = Future_Decoder(2, enc_size, enc_size)
@@ -420,7 +420,7 @@ class trajflow_meszaros_2(model_template):
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
         
         # Train model components        
-        self.fut_model = self.train_futureAE()
+        self.fut_model = self.train_futureAE(T_all)
         self.flow_dist = self.train_flow(self.fut_model, T_all)
         
         # save weigths 

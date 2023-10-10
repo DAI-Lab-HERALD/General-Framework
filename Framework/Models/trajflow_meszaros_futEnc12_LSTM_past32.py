@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow_LSTM.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow_GRU.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
