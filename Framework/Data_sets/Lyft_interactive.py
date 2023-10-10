@@ -60,7 +60,7 @@ class Lyft_interactive(data_set_template):
         cache_path  = data_path + '.unified_data_cache'
         scenes_path = data_path + 'scenes' + os.sep
         
-        dataset = UnifiedDataset(desired_data = ["lyft_sample", "lyft_train", "lyft_val"], #, "lyft_train_full"],
+        dataset = UnifiedDataset(desired_data = ["lyft_sample"], #, "lyft_train", "lyft_val", "lyft_train_full"],
                                  data_dirs = {"lyft_sample":     scenes_path + 'sample.zarr',
                                               "lyft_train":      scenes_path + 'train.zarr',
                                               "lyft_val":        scenes_path + 'validate.zarr',
@@ -100,6 +100,10 @@ class Lyft_interactive(data_set_template):
             # Set trajectories
             trajectories = np.ones((len(scene_agents),scene.length_timesteps, 2), dtype = np.float32) * np.nan
             trajectories[agent_index, times_index] = scene_data.to_numpy()
+            
+            # Adjust to map
+            trajectories -= np.array([[[min_x, min_y]]])
+            trajectories[...,1] *= -1
             
             # Get agent names
             assert scene_agents[0,0] == 'ego'

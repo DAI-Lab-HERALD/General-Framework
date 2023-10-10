@@ -1024,22 +1024,21 @@ class data_set_template():
         return path + os.sep + file
     
     
-    def _interpolate_image(self, imgs_rot, pos_old, unique_imgs_n, location_ind):
+    def _interpolate_image(self, imgs_rot, pos_old, image):
         
-        useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= unique_imgs_n.shape[2] - 1) &
-                  (0 <= pos_old[...,1]) & (pos_old[...,1] <= unique_imgs_n.shape[1] - 1))
+        useful = ((0 <= pos_old[...,0]) & (pos_old[...,0] <= image.shape[1] - 1) &
+                  (0 <= pos_old[...,1]) & (pos_old[...,1] <= image.shape[0] - 1))
         
         useful_ind, useful_row, useful_col = torch.where(useful)
-        useful_loc = location_ind[useful_ind]
         pos_old = pos_old[useful_ind, useful_row, useful_col,:]
         
         pos_up  = torch.ceil(pos_old).to(dtype = torch.int64)
         pos_low = torch.floor(pos_old).to(dtype = torch.int64)
         
-        imgs_rot_uu = unique_imgs_n[useful_loc, pos_up[:,1],  pos_up[:,0]]
-        imgs_rot_ul = unique_imgs_n[useful_loc, pos_up[:,1],  pos_low[:,0]]
-        imgs_rot_lu = unique_imgs_n[useful_loc, pos_low[:,1], pos_up[:,0]]
-        imgs_rot_ll = unique_imgs_n[useful_loc, pos_low[:,1], pos_low[:,0]]
+        imgs_rot_uu = image[pos_up[:,1],  pos_up[:,0]]
+        imgs_rot_ul = image[pos_up[:,1],  pos_low[:,0]]
+        imgs_rot_lu = image[pos_low[:,1], pos_up[:,0]]
+        imgs_rot_ll = image[pos_low[:,1], pos_low[:,0]]
         
         del pos_up, pos_low
         
@@ -1053,9 +1052,9 @@ class data_set_template():
         imgs_rot_v = imgs_rot_u * (pos_fac[:,[1]]) + imgs_rot_l * (1 - pos_fac[:,[1]])
         
         if imgs_rot.shape[-1] == 1:
-            imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = unique_imgs_n.dtype)
+            imgs_rot[useful] = imgs_rot_v.mean(-1, keepdims = True).to(dtype = image.dtype)
         else:
-            imgs_rot[useful] = imgs_rot_v.to(dtype = unique_imgs_n.dtype)
+            imgs_rot[useful] = imgs_rot_v.to(dtype = image.dtype)
         
         return imgs_rot
     
@@ -1100,37 +1099,35 @@ class data_set_template():
                 
             if target_height is None:
                 target_height = max_size
-            
-            if hasattr(domain, 'rot_angle'):
-                second_stage = True
-                print('Second rotation state is available.', flush = True)
-            else: 
-                second_stage = False
                 
             if rot_angle is None:
                 first_stage = False
             else:
                 first_stage = True
             
+            if hasattr(domain, 'rot_angle'):
+                second_stage = True
+                print('Second rotation state is available.', flush = True)
+            else: 
+                second_stage = False
+            
             if first_stage:
                 # Get rotation matrix (R * x is from orignal to current)
                 Rot_matrix = np.array([[np.cos(rot_angle), np.sin(rot_angle)],
                                        [-np.sin(rot_angle), np.cos(rot_angle)]]).transpose(2,0,1)
             
+                Rot_matrix = torch.from_numpy(Rot_matrix).float().to(device = device)
+                center     = torch.from_numpy(center).float().to(device = device)
+                
             if second_stage:
                 Rot_matrix_old = np.array([[np.cos(domain.rot_angle), np.sin(domain.rot_angle)],
                                            [-np.sin(domain.rot_angle), np.cos(domain.rot_angle)]]).transpose(2,0,1)
                 center_old = np.stack([domain.x_center, domain.y_center], -1)
         
-            
-            if first_stage:
-                Rot_matrix = torch.from_numpy(Rot_matrix).float().to(device = device)
-                center     = torch.from_numpy(center).float().to(device = device)
-            if second_stage:
                 Rot_matrix_old = torch.from_numpy(Rot_matrix_old).float().to(device = device)
                 center_old     = torch.from_numpy(center_old).float().to(device = device)
-            # setup meshgrid
             
+            # setup meshgrid
             height_fac = (target_height - 1) / 2 
             width_fac = (target_width - 1) / 2           
             Ypx, Xpx = torch.meshgrid(torch.arange(-height_fac, height_fac + 0.5, device = device), 
@@ -1140,6 +1137,7 @@ class data_set_template():
             Pos_old = torch.stack([Xpx, Ypx], -1).unsqueeze(0)
             
             Pos_old[...,1] *= -1
+            # Pos_old: Position in goal coordinate system in Px.
                 
             # CPU
             print('Reserved memory for rotated images.', flush = True)
@@ -1163,6 +1161,8 @@ class data_set_template():
             for location in np.unique(Locations):
                 loc_indices = np.where(Locations == location)[0]
                 
+                loc_Image = torch.from_numpy(self.Images.Image.loc[location]).to(device = device)
+                loc_M2px  = float(self.Images.Target_MeterPerPx.loc[location])
                 for i in range(0, len(loc_indices), n):
                     torch.cuda.empty_cache()
                     Index_local = np.arange(i, min(i + n, len(loc_indices)))
@@ -1171,41 +1171,35 @@ class data_set_template():
                     print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
                           ' of ' + str(len(domain)) + ' total', flush = True)
                     image_num = image_num + len(Index)
-                    locations = Locations[Index]
                     Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
                     
-                    M2px_n = torch.from_numpy(self.Images.Target_MeterPerPx.loc[locations].to_numpy()).to(device = device)
-                    M2px_n = M2px_n.unsqueeze(1).unsqueeze(1).unsqueeze(1).to(dtype = torch.float32)
+                    # Position in goal coordinate system in Px.
+                    pos_old = Pos_old * loc_M2px
                     
-                    pos_old = Pos_old * M2px_n
-                    
+                    # Get position in the coordinate system in self.paths
                     if first_stage:
                         pos_old = torch.matmul(pos_old, Rot_matrix[Index_torch].unsqueeze(1))
                         pos_old = pos_old + center[Index_torch,:].unsqueeze(1).unsqueeze(1)
                     
+                    # Get position im Image aligned coordinate system
                     if second_stage:
                         pos_old = torch.matmul(pos_old, Rot_matrix_old[Index_torch].unsqueeze(1))
                         pos_old = pos_old + center_old[Index_torch,:].unsqueeze(1).unsqueeze(1)
-                        
-                    pos_old = pos_old / M2px_n
                     
+                    # Get pixel position in Image
+                    pos_old = pos_old / loc_M2px
                     pos_old[...,1] *= -1
                     
                     torch.cuda.empty_cache()
                     
                     # Enforce grayscale here using the gpu
-                    unique_locations, location_ind = np.unique(locations, return_inverse = True)
-                    unique_Images = np.stack(self.Images.Image.loc[unique_locations].to_list(), 0)
-                    unique_imgs_n = torch.from_numpy(unique_Images).to(device = device)
-                    
                     if grayscale:
-                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = unique_imgs_n.dtype, device = device)
+                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = loc_Image.dtype, device = device)
                     else:
-                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = unique_imgs_n.dtype, device = device)
+                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = loc_Image.dtype, device = device)
                     
-                    location_ind = torch.from_numpy(location_ind).to(device = device)
                     
-                    imgs_rot = self._interpolate_image(imgs_rot, pos_old, unique_imgs_n, location_ind)
+                    imgs_rot = self._interpolate_image(imgs_rot, pos_old, loc_Image)
                     
                     if not rgb:
                         imgs_rot = 255 * imgs_rot
@@ -1368,7 +1362,7 @@ class data_set_template():
             T = np.ones((self.num_samples_path_pred, len(self.Behaviors)), float) * t[-1]
         return T
     
-    # TODO: Rewrite saving method for transformed trajectories
+    
     def path_add_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file, use_model=False):
         test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
         if os.path.isfile(test_file) and not self.overwrite_results:
