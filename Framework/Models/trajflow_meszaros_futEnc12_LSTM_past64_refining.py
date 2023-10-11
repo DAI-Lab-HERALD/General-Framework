@@ -47,7 +47,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
         self.fut_enc_sz = 12 ## 4-8
 
         self.scene_encoding_size = 4
-        self.obs_encoding_size = 64
+        self.obs_encoding_size = 64 
         
         if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
@@ -346,7 +346,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
 
-                    out, _ = fut_model.encoder(y_rel[:,0])
+                    out, _, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:,-1]
                     # out.shape:       batch size x enc_dims
                     
@@ -383,7 +383,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                         if img is not None:
                             img_val = img[:,0].permute(0,3,1,2)
 
-                        out, _ = fut_model.encoder(y_rel[:,0])
+                        out, _, _ = fut_model.encoder(y_rel[:,0])
                         out = out[:, -1]
                         # out.shape: batch size x enc_dims
                             
@@ -422,6 +422,9 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
 
 
     def refine_network(self, fut_model, flow_dist):
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
+
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
             sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
@@ -495,7 +498,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                 if img is not None:
                     img = img[:,0].permute(0,3,1,2)
 
-                out, _ = fut_model.encoder(y_rel[:,0])
+                out, _, _ = fut_model.encoder(y_rel[:,0])
                 out = out[:,-1]
                 # out.shape:       batch size x enc_dims
                 
@@ -532,7 +535,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                     if img is not None:
                         img_val = img[:,0].permute(0,3,1,2)
 
-                    out, _ = fut_model.encoder(y_rel[:,0])
+                    out, _, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:, -1]
                     # out.shape: batch size x enc_dims
                         
@@ -564,7 +567,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
 
             self.train_loss[1, :len(val_losses)] = np.array(val_losses)
             os.makedirs(os.path.dirname(ae_file), exist_ok=True)
-            pickle.dump(flow_dist, open(ae_file, 'wb'))
+            pickle.dump(fut_model, open(ae_file, 'wb'))
             os.makedirs(os.path.dirname(flow_dist_file), exist_ok=True)
             pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
 
@@ -581,7 +584,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
         # Train model components        
         self.fut_model = self.train_futureAE(T_all)
         self.flow_dist = self.train_flow(self.fut_model, T_all)
-        self.fut_model, self.flow_dist = self.refine_network(self.fut_model, self.flow_dist)
+        self.fut_model, self.flow_dist = self.refine_network(fut_model = self.fut_model, flow_dist = self.flow_dist)
         
         # save weigths 
         self.weights_saved = []
@@ -630,6 +633,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                 samples_rel = samples_rel.squeeze(0)
                         
                 hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
+                cell = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
                 
                 # Decoder part
                 x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
@@ -637,7 +641,7 @@ class trajflow_meszaros_futEnc12_LSTM_past64_refining(model_template):
                 outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
                 for t in range(0, num_steps):
 
-                    output, hidden = self.fut_model.decoder(x, hidden)
+                    output, hidden, cell = self.fut_model.decoder(x, hidden, cell)
                     
                     outputs[:, t, :] = output.squeeze()
                     

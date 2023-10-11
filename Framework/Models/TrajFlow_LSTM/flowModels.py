@@ -336,11 +336,16 @@ class Future_Encoder(nn.Module):
         self.device = device
         self.cuda(self.device)
 
-    def forward(self, x, hidden=None):
+    def forward(self, x, hidden=None, cell=None):
         x = F.relu(self.embedding(x))
-        x, hidden = self.lstm(x, hidden)
+        if (hidden is None) or (cell is None):
+            if not (hidden is None):
+                print('only missing CELL info')
+            x, (hidden, cell) = self.lstm(x)
+        else:    
+            x, (hidden, cell) = self.lstm(x, (hidden, cell))
         x = self.output_layer(x)
-        return x, hidden
+        return x, hidden, cell
     
     
 class Future_Decoder(nn.Module):
@@ -358,7 +363,12 @@ class Future_Decoder(nn.Module):
 
     def forward(self, x, hidden=None, cell=None):
         x = self.embedding(x)
-        x, (hidden, cell) = self.lstm(x, (hidden, cell))
+        if (hidden is None) or (cell is None):
+            if not (hidden is None):
+                print('only missing CELL info')
+            x, (hidden, cell) = self.lstm(x)
+        else:    
+            x, (hidden, cell) = self.lstm(x, (hidden, cell))
         x = self.output(x)
         return x, hidden, cell
     
@@ -379,7 +389,7 @@ class Future_Seq2Seq(nn.Module):
         
         x_in = traj
         
-        x_enc, hidden = self.encoder(x_in) # encode relative histories
+        x_enc, hidden, cell = self.encoder(x_in) # encode relative histories
         out = x_enc
                 
         hidden = torch.tile(out[:,-1].unsqueeze(0), (self.decoder.nl,1,1))

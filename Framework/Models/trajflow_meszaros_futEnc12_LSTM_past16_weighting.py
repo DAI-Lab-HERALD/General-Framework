@@ -353,7 +353,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_weighting(model_template):
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
 
-                    out, _ = fut_model.encoder(y_rel[:,0])
+                    out, _, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:,-1]
                     # out.shape:       batch size x enc_dims
                     
@@ -390,7 +390,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_weighting(model_template):
                         if img is not None:
                             img_val = img[:,0].permute(0,3,1,2)
 
-                        out, _ = fut_model.encoder(y_rel[:,0])
+                        out, _, _ = fut_model.encoder(y_rel[:,0])
                         out = out[:, -1]
                         # out.shape: batch size x enc_dims
                             
@@ -485,6 +485,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_weighting(model_template):
                 samples_rel = samples_rel.squeeze(0)
                         
                 hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
+                cell = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
                 
                 # Decoder part
                 x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
@@ -492,7 +493,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_weighting(model_template):
                 outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
                 for t in range(0, num_steps):
 
-                    output, hidden = self.fut_model.decoder(x, hidden)
+                    output, hidden, cell = self.fut_model.decoder(x, hidden, cell)
                     
                     outputs[:, t, :] = output.squeeze()
                     

@@ -7,7 +7,7 @@ from TrajFlow_LSTM.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder,
 import pickle
 import os
 
-class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
+class trajflow_meszaros_futEnc12_LSTM_past32_fullRefining(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -47,7 +47,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
         self.fut_enc_sz = 12 ## 4-8
 
         self.scene_encoding_size = 4
-        self.obs_encoding_size = 16 
+        self.obs_encoding_size = 32 
         
         if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
@@ -75,6 +75,9 @@ class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
         self.flow_epochs = 200
         self.flow_lr = 1e-3
         self.flow_wd = 1e-5
+
+        self.refine_epochs = 100
+        self.refining_lr = 5e-5
 
         self.std_pos_ped = 1
         self.std_pos_veh = 1 #80
@@ -415,6 +418,169 @@ class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
             pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
 
         return flow_dist
+    
+
+
+    def refine_network(self, fut_model, flow_dist):
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
+
+        if self.vary_input_length:
+            past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
+            sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
+        else:
+            sample_past_length = self.num_timesteps_in
+        
+
+        for param in fut_model.parameters():
+            param.requires_grad = True 
+            
+        
+        flow_dist_file = self.model_file[:-4] + '_NF'
+        ae_file = self.model_file[:-4] + '_AE'
+             
+        optimizer = torch.optim.AdamW(list(fut_model.parameters()) + list(flow_dist.parameters()), 
+                                      lr=self.refining_lr, weight_decay=self.flow_wd)
+
+        val_losses = []
+        loss_fn = torch.nn.MSELoss()
+
+
+        for step in range(self.refine_epochs):
+
+            flow_dist.train()
+            fut_model.train()
+            
+            losses_epoch = []
+            val_losses_epoch = []
+            
+            train_epoch_done = False
+            while not train_epoch_done:
+                X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                        val_split_size = 0.1)
+                X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+                
+                # X.shape:   bs x num_agents x num_timesteps_is x 2
+                # Y.shape:   bs x num_agents x num_timesteps_is x 2
+                # T.shape:   bs x num_agents
+                # img.shape: bs x 1 x 156 x 257 x 1
+                
+                scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                loc=1, scale=self.sigma, size=X.shape[0])).float()
+                scaler = scaler.unsqueeze(1)
+                scaler = scaler.unsqueeze(2)
+                scaler = scaler.unsqueeze(3)
+                scaler = scaler.to(device = self.device)
+                
+                scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+
+                X = X[:,:,-sample_past_length:,:]
+                
+                all_pos_past   = X
+                tar_pos_past   = X[:,0]
+                all_pos_future = Y
+                tar_pos_future = Y[:,0]
+                
+                mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True).unsqueeze(1)
+                
+                shifted_past   = all_pos_past - mean_pos
+                shifted_future = all_pos_future - mean_pos
+                    
+                past_data   = shifted_past * scaler + mean_pos
+                future_data = shifted_future * scaler + mean_pos
+                
+                optimizer.zero_grad()
+                
+                past_traj, fut_traj, _ = flow_dist._normalize_rotation(past_data, future_data)
+                
+                x_t   = past_traj[:,[0],-1:,:]
+                y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
+
+                if img is not None:
+                    img = img[:,0].permute(0,3,1,2)
+
+                out, _, _ = fut_model.encoder(y_rel[:,0])
+                out = out[:,-1]
+                # out.shape:       batch size x enc_dims
+                
+                if img is not None:
+                    logprob = flow_dist.log_prob(out, past_data, T, img) #prior_logprob + log_det
+                else:
+                    logprob = flow_dist.log_prob(out, past_data, T) #prior_logprob + log_det
+
+                loss = -torch.mean(logprob) # NLL
+                losses_epoch.append(loss.item())
+                
+                loss.backward()
+                optimizer.step()
+
+                
+                future_traj_hat, y_in = fut_model(y_rel[:,0])     
+                    
+                optimizer.zero_grad()
+                loss = torch.sqrt(loss_fn(future_traj_hat, y_in))
+                loss.backward()
+                optimizer.step()
+                
+                
+            flow_dist.eval()
+            fut_model.eval()
+            with torch.no_grad():
+                val_epoch_done = False
+                while not val_epoch_done:
+                    X, Y, T, img, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                            val_split_size = 0.1)
+                    X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+                    
+                    past_data_val = X
+                    future_data_val = Y
+                    
+                    past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data_val, future_data_val)
+                    
+                    x_t = past_traj[:,[0],-1:,:]
+                    y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
+
+                    
+                    if img is not None:
+                        img_val = img[:,0].permute(0,3,1,2)
+
+                    out, _, _ = fut_model.encoder(y_rel[:,0])
+                    out = out[:, -1]
+                    # out.shape: batch size x enc_dims
+                        
+                    optimizer.zero_grad()
+
+                    if img is not None:
+                        log_prob = flow_dist.log_prob(out, past_data_val, T, img_val)
+                    else:
+                        log_prob = flow_dist.log_prob(out, past_data_val, T)
+                
+                    val_loss = -torch.mean(log_prob)
+                    val_losses_epoch.append(val_loss.item())
+                    
+                val_losses.append(np.mean(val_losses_epoch))      
+            
+            # Check for convergence
+            if step > 25:
+                best_val_step = np.argmin(val_losses)
+                if step - best_val_step > 10:
+                    print('Converged')
+                    print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
+                    print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
+                    break
+
+            if step % 10 == 0:
+
+                print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
+                print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
+
+            self.train_loss[1, :len(val_losses)] = np.array(val_losses)
+            os.makedirs(os.path.dirname(ae_file), exist_ok=True)
+            pickle.dump(fut_model, open(ae_file, 'wb'))
+            os.makedirs(os.path.dirname(flow_dist_file), exist_ok=True)
+            pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
+
+        return fut_model, flow_dist
 
 
     def train_method(self):    
@@ -427,6 +593,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
         # Train model components        
         self.fut_model = self.train_futureAE(T_all)
         self.flow_dist = self.train_flow(self.fut_model, T_all)
+        self.fut_model, self.flow_dist = self.refine_network(fut_model = self.fut_model, flow_dist = self.flow_dist)
         
         # save weigths 
         self.weights_saved = []
@@ -526,8 +693,8 @@ class trajflow_meszaros_futEnc12_LSTM_past16(model_template):
     
     def get_name(self = None):
         
-        names = {'print': 'TrajFlow_fut12_LSTM_past16',
-                'file': 'TF_f12Lp16',
+        names = {'print': 'TrajFlow_fut12_L32R',
+                'file': 'T_f12L32FR',
                 'latex': r'\emph{TF}'}
         return names
         
