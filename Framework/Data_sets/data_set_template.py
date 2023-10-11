@@ -587,7 +587,7 @@ class data_set_template():
         
         # Predictions must be possible and useful for further path planning
         if self.exclude_post_crit:
-            t0_max = min(t0_max, t_crit)
+            t0_max = min(t0_max, t_crit - 1e-6)
             
         # All path predictions must be comparable to true trajectories
         if self.enforce_num_timesteps_out:
@@ -603,7 +603,7 @@ class data_set_template():
             t0 = max(t0, t0_min)
         
         # exclude samples where t0 is not admissible during open gap
-        if not (t0_min <= t0 and t0 < t0_max):
+        if not (t0_min <= t0 and t0 <= t0_max):
             return None
         else:
             return t0
