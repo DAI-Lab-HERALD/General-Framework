@@ -9,6 +9,10 @@ class Predefined_split(splitting_template):
     Especially for large dataset, it is often only viable to use a single test 
     set. In this case, it is often common for samples to be already
     devided into train and test sets by their creators.
+    
+    The predifined splitting is set in the *Domain.splitting* column (which needs)
+    to be defined when creating the dataset, where ones either finds the value
+    *'train'* or *'test'*, indicating the final purpose of each sample.
     '''
     def split_data_method(self):
         # Check assumptions

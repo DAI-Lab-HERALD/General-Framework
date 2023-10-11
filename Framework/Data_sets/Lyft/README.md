@@ -6,25 +6,23 @@ Furthermore, the [semantic map](https://d20lyvjneielsk.cloudfront.net/prediction
 
 Those downloads then need then need do be extracted into the *Lyft/data/* folder, where they need to be rearranged to bild the following structure:
 ```
-├── ../Lyft/data
-│   ├── LICENSE
-│   ├── aerial_map
-│   │   ├── aerial_map.png
-│   │   ├── nearmap_images
-│   |   │   ├── ...
-│   ├── feedback.txt
-│   ├── meta.json
-│   ├── scenes
-│   │   ├── sample.zarr
-│   |   │   ├── ...
-│   |   ├── train.zarr
-│   |   │   ├── ...
-│   |   ├── train.zarr
-│   |   │   ├── ...
-│   |   ├── train_full.zarr
-│   |   │   ├── ...
-│   |   ├── validation.zarr
-│   |   │   ├── ...
-│   ├── semantic_map
-│   │   ├── semantic_map.pb
+└── ../Lyft/data
+    ├── LICENSE
+    ├── aerial_map
+    │   ├── aerial_map.png
+    │   └── nearmap_images
+    │       └── ...
+    ├── feedback.txt
+    ├── meta.json
+    ├── scenes
+    │   ├── sample.zarr
+    │   │   └── ...
+    │   ├── train.zarr
+    │   │   └── ...
+    │   ├── train_full.zarr
+    │   │   └── ...
+    │   └── validation.zarr
+    │       └── ...
+    └── semantic_map
+        └── semantic_map.pb
 ```

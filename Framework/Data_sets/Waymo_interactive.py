@@ -14,7 +14,7 @@ from trajdata.data_structures.agent import AgentType
 from trajdata.caching.df_cache import DataFrameCache
 
 
-class Lyft_interactive(data_set_template):
+class Waymo_interactive(data_set_template):
     '''
     The Lyft dataset is recored by an AV driving around a city, including gneral
     human bahavior in various situations.
@@ -31,9 +31,9 @@ class Lyft_interactive(data_set_template):
     '''
     
     def get_name(self = None):
-        names = {'print': 'Lyft Level-5',
-                 'file': 'LyftLevel5',
-                 'latex': '\emph{Lyft}'}
+        names = {'print': 'Waymo Open Motion',
+                 'file': 'Waymo_data',
+                 'latex': '\emph{Waymo}'}
         return names
     
     def future_input(self = None):
@@ -55,20 +55,18 @@ class Lyft_interactive(data_set_template):
         
         # The framed code should be the only dataset specific part whenusing trajdata
         ################################################################################
-        data_path = self.path + os.sep + 'Data_sets' + os.sep + 'Lyft' + os.sep + 'data' + os.sep
+        data_path = self.path + os.sep + 'Data_sets' + os.sep + 'Waymo' + os.sep + 'data' + os.sep
         
         cache_path  = data_path + '.unified_data_cache'
-        scenes_path = data_path + 'scenes' + os.sep
         
-        dataset = UnifiedDataset(desired_data = ["lyft_sample", "lyft_train", "lyft_val"], #, "lyft_train_full"],
-                                 data_dirs = {"lyft_sample":     scenes_path + 'sample.zarr',
-                                              "lyft_train":      scenes_path + 'train.zarr',
-                                              "lyft_val":        scenes_path + 'validate.zarr',
-                                              "lyft_train_full": scenes_path + 'train_full.zarr'},
+        dataset = UnifiedDataset(desired_data = ["waymo_train", "waymo_val", "waymo_test"],
+                                 data_dirs = {"waymo_train": data_path,
+                                              "waymo_val":   data_path,
+                                              "waymo_test":  data_path},
                                  cache_location = cache_path,
                                  verbose = True)
-        
-        testing_env_names = ["lyft_val"]
+        # [waymo_train-train, val-waymo_val, waymo_test-test]
+        testing_env_names = ["waymo_test"]
         ################################################################################
         
         map_api = MapAPI(Path(cache_path))
@@ -157,8 +155,9 @@ class Lyft_interactive(data_set_template):
             img = map_api.maps[map_key].rasterize(px_per_meter)
             self.Images.Image.loc[map_key] = img       
 
-        # # deletet cached data
-        # shutil.rmtree(cache_path)
+        assert False
+        # deletet cached data
+        shutil.rmtree(cache_path)
 
 
         
