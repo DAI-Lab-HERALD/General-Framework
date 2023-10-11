@@ -49,7 +49,7 @@ class model_template():
                 
                 if self.evaluate_on_train_set:
                     # self.Index_test = np.arange(len(self.data_set.Output_T))
-                    self.Index_test = np.unique(np.concatenate(splitter.Test_index, splitter.Train_index))
+                    self.Index_test = np.unique(np.concatenate((splitter.Test_index, splitter.Train_index)))
                 else:
                     self.Index_test  = splitter.Test_index
             
