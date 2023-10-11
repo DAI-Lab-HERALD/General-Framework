@@ -17,28 +17,65 @@ class Cross_split(splitting_template):
     '''
     def split_data_method(self):
         num_splits = int(np.ceil(1 / self.test_part))
-        test_parts = 1 / num_splits
-
-        Index = np.arange(len(self.data_set.Output_A))
         
-        Index_test = []
-        for beh in self.data_set.Behaviors:
-            Index_beh = Index[self.data_set.Output_A[beh]]
-            np.random.seed(0)
-            np.random.shuffle(Index_beh)
+        # Get identical input cases
+        self.data_set._group_indentical_inputs()
+        Subgroups = self.data_set.Subgroups - 1
+        
+        # Get Behaviors, with non appearing ones being neglected
+        Behaviors = np.unique(self.data_set.Output_A.to_numpy().argmax(1), return_inverse = True)[1]
+        
+        
+        # To do: split in n groups, so that in each group each behaviour
+        # is roughly equally represented, while a samples with identical
+        # subgroups should be in one split
+        
+        # Get unique subgroups
+        uni_subgroups, uni_subgroups_samples = np.unique(Subgroups)
+        assert len(uni_subgroups) > num_splits, "Not enough unique input conditions for the desired number of splits."
+        
+        # Get number of behaviors for each subgroup
+        uni_subgroups_beh = np.zeros((len(uni_subgroups), Behaviors.max() + 1))
+        for ind, subgroup in enumerate(uni_subgroups):
+            subgroup_beh = Behaviors[Subgroups == subgroup]
+            beh_included, beh_num = np.unique(subgroup_beh, return_counts = True)
             
-            roll_value = int(test_parts * len(Index_beh))
+            uni_subgroups_beh[ind, beh_included] = beh_num
+        
+        desired_beh = uni_subgroups_beh.sum(0, keepdims = True) / num_splits
+        
+        # Sort by overall number of samples
+        sort_ind = np.argsort(-uni_subgroups_beh.sum(1))
+        
+        # Prepare subgroup
+        sort_subgroups_beh = np.zeros((num_splits, uni_subgroups_beh.shape[1]))
+        
+        splitcase = np.ones(len(uni_subgroups_beh)) * -1
+        Splitcase = np.ones(len(Subgroups))
+        
+        for ind in sort_ind:
+            subgroup_beh_pot = sort_subgroups_beh + uni_subgroups_beh[ind]
+            case_loss_with = ((desired_beh - subgroup_beh_pot) ** 2).sum(1)
+            case_loss_without = ((desired_beh - sort_subgroups_beh) ** 2).sum(1)
             
-            for rep in self.repetition:
-                roll_value_rep = roll_value * rep
-                Index_beh_rolled = np.roll(Index_beh, roll_value_rep)
-                Index_test.append(Index_beh_rolled[:roll_value])
+            loss_decrease = case_loss_without - case_loss_with
+            
+            best_case = np.argmax(loss_decrease)
+            
+            # update current collection
+            sort_subgroups_beh[best_case] += uni_subgroups_beh[ind]
+            
+            
+            splitcase[ind] = best_case
+            Splitcase[Subgroups == uni_subgroups[ind]] = best_case
         
-        Test_index = np.concatenate(Index_test, axis = 0)
-        Test_index = np.unique(Test_index)
+        assert Splitcase.min() >= 0
         
-        Train_index_bool = ~np.in1d(Index, Test_index, assume_unique = True)
-        Train_index = Index[Train_index_bool]
+        Situations_test = (Splitcase[:,np.newaxis] == np.array(self.repetition)[np.newaxis]).any(1)
+        
+        Index = np.arange(len(Subgroups))
+        Train_index = Index[~Situations_test]
+        Test_index  = Index[Situations_test]
         
         return Train_index, Test_index
     
