@@ -36,7 +36,7 @@ HRI_presentation.py
 *.pcd
 *.xcf
 *.pb
-
+*.tfrecords
 
 # C extensions
 *.so
@@ -54,7 +54,7 @@ Results/
 Data_sets/NuScenes/v1.0-mini/
 simulations*.py
 Framework/Data_sets/Waymo/data/*/uncomp*
-
+Framework/Data_sets/*/.unified_data_cache/
 
 # Jupyter Notebook
 .ipynb_checkpoints
