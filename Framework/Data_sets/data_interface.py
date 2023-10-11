@@ -592,15 +592,13 @@ class data_interface(object):
         else:
             self.Pred_agents_eval = self.Pred_agents_eval_all & self.Not_pov_agent
         
-        
-        
-    def _extract_identical_inputs(self, eval_pov = True):
-        if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
-            return
-        
-        # get input trajectories
+    
+    def _group_indentical_inputs(self, eval_pov = True):
         self._extract_original_trajectories()
         self._determine_pred_agents(eval_pov = eval_pov)
+        
+        if hasattr(self, 'Subgroups'):
+            return
         
         # Get the same entrie in full dataset
         T = self.Type.to_numpy().astype(str)
@@ -617,7 +615,6 @@ class data_interface(object):
         
         # Prepare subgroup saving
         self.Subgroups = np.zeros(len(T), int)
-        max_len = 0
         subgroup_index = 1
         
         # go through all potentiall similar entries
@@ -661,10 +658,17 @@ class data_interface(object):
                 
                 # Update parameters
                 subgroup_index += 1
-                max_len = max(max_len, len(subgraph))
         
         # check if all samples are accounted for
         assert self.Subgroups.min() > 0
+    
+        
+    def _extract_identical_inputs(self, eval_pov = True):
+        if hasattr(self, 'Path_true_all'):
+            return
+        
+        # get input trajectories
+        self._group_indentical_inputs(self, eval_pov = eval_pov)
         
         # Get pred agents
         nto = self.num_timesteps_out_real
@@ -684,6 +688,7 @@ class data_interface(object):
         Path_true = self.Y_orig[i_sampl_sort, i_agent_sort, :nto]
         
         # Prepare saving of observerd futures
+        max_len = np.unique(self.Subgroups, return_counts = True)[1].max()
         self.Path_true_all = np.ones((self.Subgroups.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
         
         # Go throug subgroups for data

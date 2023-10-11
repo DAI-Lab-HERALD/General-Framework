@@ -16,7 +16,7 @@ class Case_split(splitting_template):
     '''
     def split_data_method(self):
         # Check assumptions
-        self.data_set._extract_identical_inputs()
+        self.data_set._group_indentical_inputs()
         Subgroups = self.data_set.Subgroups - 1
         repetition = np.array(self.repetition)
         
