@@ -45,15 +45,16 @@ class KLD_traj_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Types = self.get_true_and_predicted_paths(return_types = True)
+        _, _, Pred_steps = self.get_true_and_predicted_paths()
         
         Path_true_all, subgroups = self.get_true_prediction_with_same_input()
         
+        # Get likelihood of true samples according to prediction
+        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
+        KDE_true_log_prob    = self.get_true_likelihood(joint_agents = False)
+        
         # Consider agents separately
         Pred_agents = Pred_steps.any(-1)
-        
-        # Get maximum number representing a distribution
-        max_samples = 2 * Path_true_all.shape[1]
         
         # Combine agent and samples separately (differentiate between agents)
         agent_indicator = np.linspace(0.1,0.9, Pred_agents.shape[1])
@@ -61,52 +62,19 @@ class KLD_traj_indep(evaluation_template):
         subgroups = subgroups[Pred_agents]
         
         # Combine agent and sample dimension
-        Path_pred     = Path_pred.transpose(0,2,1,3,4)[Pred_agents]
-        Pred_steps    = Pred_steps[Pred_agents]
-        Types         = Types[Pred_agents]
+        Log_like_pred = KDE_log_prob_true[:,0][Pred_agents]
+        Log_like_true = KDE_true_log_prob[:,0][Pred_agents]
         
         KLD = 0
         unique_subgroups = np.unique(subgroups)
         for subgroup_agent in np.unique(subgroups):
             indices = np.where(subgroup_agent == subgroups)[0]
             
-            # Get the predicted agent and subgroup of current selection
-            subgroup = int(np.floor(subgroup_agent))
-            agent_id = np.argmin(np.abs(agent_indicator - np.mod(subgroup_agent, 1)))
-            
-            # Get the true futures of the samples with similar input
-            samples_true = Path_true_all[subgroup, :, agent_id]
-            
-            # get the predicted paths for all samples with similar input
-            samples_pred = Path_pred[indices]
-            
-            # Combine samples and prediction into one dimension
-            samples_pred = samples_pred.reshape(-1, *samples_pred.shape[2:]) 
-            
-            # Select number of representative samples
-            if len(samples_pred) > max_samples:
-                idx = np.random.choice(len(samples_pred), max_samples, replace = False)
-                samples_pred = samples_pred[idx]
-            
-            # Combine agents and dimensions
-            samples_true = samples_true.reshape(len(samples_true), -1)
-            samples_pred = samples_pred.reshape(len(samples_pred), -1)
-            
-            # Remove samples that are filler
-            samples_true = samples_true[np.isfinite(samples_true).all(1)]
-            
-            # Train kde models on true and predicted samples
-            # kde_true = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(samples_true)
-            # kde_pred = KernelDensity(kernel='gaussian', bandwidth = 0.2).fit(samples_pred)
-
-            kde_true = OPTICS_GMM().fit(samples_true)
-            kde_pred = OPTICS_GMM().fit(samples_pred)
-            
             # Get the likelihood of the the true samples according to the
             # true samples. This reflects the fact that we take the 
             # expected value over the true distribtuion
-            log_like_true = kde_true.score_samples(samples_true)
-            log_like_pred = kde_pred.score_samples(samples_true)
+            log_like_true = Log_like_true[indices]
+            log_like_pred = Log_like_pred[indices]
             
             kld_subgroup = np.mean((log_like_true-log_like_pred))
             

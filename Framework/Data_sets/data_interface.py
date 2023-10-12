@@ -5,6 +5,8 @@ import os
 import warnings
 import networkx as nx
 
+from Prob_function import OPTICS_GMM
+
 
 class data_interface(object):
     def __init__(self, data_dicts, parameters):
@@ -160,6 +162,12 @@ class data_interface(object):
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
             del self.Subgroups
             del self.Path_true_all
+            
+        if hasattr(self, 'Log_prob_true_joint'):
+            del self.Log_prob_true_joint
+            
+        if hasattr(self, 'Log_prob_true_indep'):
+            del self.Log_prob_true_indep
     
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
         return list(self.Datasets.values())[0].change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
@@ -707,3 +715,126 @@ class data_interface(object):
             
             # For some reason using pred_agents here moves the agent dimension to the front
             self.Path_true_all[subgroup,:len(s_ind)] = path_true
+            
+        # Get agent predictions
+        self.T_array = self.Type.to_numpy()
+        self.T_array = self.T_array.astype(str)
+        self.T_array[self.T_array == 'nan'] = '0'
+        self.T_array = self.T_array[i_sampl_sort, i_agent_sort]
+            
+        
+    def _get_joint_KDE_probabilities(self, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_joint'):
+            if self.excluded_ego_joint == exclude_ego:
+                return
+        
+        # Save last setting 
+        self.excluded_ego_joint = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self._determine_pred_agents(eval_pov = ~exclude_ego)
+        self._extract_identical_inputs(eval_pov = ~exclude_ego)
+        
+        # Shape: Num_samples
+        self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval.shape[0], dtype = np.float32)
+        
+        Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
+        
+        for subgroup in np.unique(self.Subgroups):
+            s_ind = np.where(self.Subgroups == subgroup)[0]
+            
+            assert len(np.unique(self.Pred_agents_eval[s_ind], axis = 0)) == 1
+            pred_agents = self.Pred_agents_eval[s_ind[0]]
+            
+            assert len(np.unique(self.T_array[s_ind], axis = 0)) == 1
+            agent_types = self.T_array[s_ind[0]]
+            
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, :, np.newaxis, np.newaxis] 
+            
+            nto_subgroup = Num_steps[s_ind]
+            Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
+            
+            
+            for nto in np.unique(nto_subgroup):
+                n_ind = np.where(nto == nto_subgroup)[0]
+                nto_index = s_ind[n_ind]
+                
+                # Should be shape: num_subgroup_samples x num_agents x num_T_O x 2
+                paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
+                
+                paths_true = paths_true / std
+                        
+                # Collapse agents
+                num_features = pred_agents.sum() * nto * 2
+                paths_true_comp = paths_true.reshape(*paths_true.shape[:2], num_features)
+                
+                # Collapse agents further
+                paths_true_comp = paths_true_comp.reshape(-1, num_features)
+                
+                # Train model
+                kde = OPTICS_GMM().fit(paths_true_comp)
+                log_prob_true = kde.score_samples(paths_true_comp)
+                
+                self.Log_prob_true_joint[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
+            
+            
+    def _get_indep_KDE_probabilities(self, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_indep'):
+            if self.excluded_ego_indep == exclude_ego:
+                return
+        
+        # Save last setting 
+        self.excluded_ego_indep = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self._determine_pred_agents(eval_pov = ~exclude_ego)
+        self._extract_identical_inputs(eval_pov = ~exclude_ego)
+        
+        # Shape: Num_samples x num agents
+        self.Log_prob_indep_true = np.zeros(self.Pred_agents_eval.shape, dtype = np.float32)
+        
+        Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
+        
+        for subgroup in np.unique(self.Subgroups):
+            s_ind = np.where(self.Subgroups == subgroup)[0]
+            
+            assert len(np.unique(self.Pred_agents_eval[s_ind], axis = 0)) == 1
+            pred_agents = self.Pred_agents_eval[s_ind[0]]
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            assert len(np.unique(self.T_array[s_ind], axis = 0)) == 1
+            agent_types = self.T_array[s_ind[0]]
+            
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, :, np.newaxis, np.newaxis] 
+            
+            nto_subgroup = Num_steps[s_ind]
+            Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
+            
+            for nto in np.unique(nto_subgroup):
+                n_ind = np.where(nto == nto_subgroup)[0]
+                nto_index = s_ind[n_ind]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
+                
+                paths_true = paths_true / std
+                
+                num_features = nto * 2
+                
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    # Get agent
+                    paths_true_agent = paths_true[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_true_agent_comp = paths_true_agent.reshape(*paths_true_agent.shape[:2], num_features)
+                    
+                    # Collapse agents further
+                    paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
+                        
+                    # Train model
+                    kde = OPTICS_GMM().fit(paths_true_agent_comp)
+                    log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
+                    
+                    self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])

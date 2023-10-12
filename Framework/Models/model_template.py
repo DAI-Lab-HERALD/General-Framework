@@ -966,11 +966,10 @@ class model_template():
         nto = self.num_timesteps_out
         Nto_i = np.minimum(nto, self.N_O_data[Pred_index])
         
-        # get predicted agents
+        # Get pred agents
+        max_num_pred_agents = self.data_set.Pred_agents_eval.sum(1).max()
         Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
         
-        # Get pred agents
-        max_num_pred_agents = Pred_agents.sum(1).max()
         
         i_agent_sort = np.argsort(-Pred_agents.astype(float))
         i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
@@ -1016,11 +1015,11 @@ class model_template():
     
     def _get_joint_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
-            if self.excluded_ego == exclude_ego:
+            if self.excluded_ego_joint == exclude_ego:
                 return
         
         # Save last setting 
-        self.excluded_ego = exclude_ego
+        self.excluded_ego_joint = exclude_ego
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
@@ -1105,11 +1104,11 @@ class model_template():
             
     def _get_indep_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_indep_pred') and hasattr(self, 'Log_prob_indep_true'):
-            if self.excluded_ego == exclude_ego:
+            if self.excluded_ego_indep == exclude_ego:
                 return
         
         # Save last setting 
-        self.excluded_ego = exclude_ego
+        self.excluded_ego_indep = exclude_ego
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
