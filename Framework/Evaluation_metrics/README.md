@@ -368,6 +368,34 @@ def get_true_and_predicted_class_probabilities(self):
   return P_true, P_pred, Class_names
 ```
 ```
+def get_true_likelihood(self, joint_agents = True):
+  '''
+  This returns the probabilities assigned to ground truth trajectories 
+  according to a Gaussian KDE method fitted to the ground truth samples
+  with an identical inputs.
+  
+
+  Parameters
+  ----------
+  joint_agents : bool, optional
+    This says if the probabilities for the predicted trajectories
+    are to be calculated for all agents jointly. If this is the case,
+    then, math:`N_{agents}` in the output is 1. The default is True.
+
+  Returns
+  -------
+  KDE_true_log_prob : np.ndarray
+    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    array that includes the probabilities for the true observations according 
+    to the KDE model trained on the grouped true trajectories.
+
+  '''
+  
+  ...
+  
+  return KDE_true_log_prob
+```
+```
 def get_true_and_predicted_class_times(self):
   '''
   This returns the true and predicted classification timepoints, at which a certain
