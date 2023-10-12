@@ -1095,8 +1095,8 @@ class model_template():
                     log_probs_pred[i] = kde.score_samples(paths_pred_comp)
                 
                 
-                log_prob_true = sp.special.logsumexp(log_probs_true, weights)
-                log_prob_pred = sp.special.logsumexp(log_probs_pred, weights)
+                log_prob_true = sp.special.logsumexp(log_probs_true, b = weights, axis = 0)
+                log_prob_pred = sp.special.logsumexp(log_probs_pred, b = weights, axis = 0)
                 
                 self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
@@ -1190,8 +1190,8 @@ class model_template():
                         log_probs_pred_agent[i] = kde.score_samples(paths_pred_agent_comp)
                     
                     
-                    log_prob_true_agent = sp.special.logsumexp(log_probs_true_agent, weights)
-                    log_prob_pred_agent = sp.special.logsumexp(log_probs_pred_agent, weights)
+                    log_prob_true_agent = sp.special.logsumexp(log_probs_true_agent, b = weights, axis = 0)
+                    log_prob_pred_agent = sp.special.logsumexp(log_probs_pred_agent, b = weights, axis = 0)
                     
                     self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
