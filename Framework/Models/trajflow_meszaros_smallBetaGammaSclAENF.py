@@ -343,6 +343,7 @@ class trajflow_meszaros_smallBetaGammaSclAENF(model_template):
                     loss = -torch.mean(logprob) # NLL
                     losses_epoch.append(loss.item())
                     
+                    flow_dist.zero_grad()
                     loss.backward()
                     optimizer.step()
                     
