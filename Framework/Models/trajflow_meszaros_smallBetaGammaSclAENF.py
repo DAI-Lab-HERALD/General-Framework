@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Futu
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_smallBetaGammaSclAENF(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -49,23 +49,13 @@ class trajflow_meszaros(model_template):
         self.scene_encoding_size = 4
         self.obs_encoding_size = 4#16 
         
-        if (self.provide_all_included_agent_types() == 'P').all():
-            self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            
-            self.alpha = 10
-            self.s_min = 0.3
-            self.s_max = 1.7
-            self.sigma = 0.5
-
-        else:
-            self.beta_noise = 0.002
-            self.gamma_noise = 0.002
-            
-            self.alpha = 3
-            self.s_min = 0.8
-            self.s_max = 1.2
-            self.sigma = 0.2
+        self.beta_noise = 0
+        self.gamma_noise = 0 
+        
+        self.alpha = 3
+        self.s_min = 0.8
+        self.s_max = 1.2
+        self.sigma = 0.2
 
 
         self.fut_ae_epochs = 5000
@@ -170,7 +160,7 @@ class trajflow_meszaros(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.to(device = self.device)
 
-                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    # scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
                     
                     tar_pos_past   = X[:,0]
                     tar_pos_future = Y[:,0]
@@ -255,9 +245,6 @@ class trajflow_meszaros(model_template):
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
 
-        self.beta_noise = 0.002
-        self.gamma_noise = 0.002
-
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
             sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
@@ -317,7 +304,7 @@ class trajflow_meszaros(model_template):
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
                     
-                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    # scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
 
                     X = X[:,:,-sample_past_length:,:]
                     
@@ -534,8 +521,8 @@ class trajflow_meszaros(model_template):
     
     def get_name(self = None):
         names = {'print': 'TrajFlow',
-                'file': 'TrajFlow_M',
-                'latex': r'\emph{TF}'}
+                'file': 'TF_smBGsAN',
+                'latex': r'\emph{TF_smBGsAN}'}
         return names
         
     def save_params_in_csv(self = None):

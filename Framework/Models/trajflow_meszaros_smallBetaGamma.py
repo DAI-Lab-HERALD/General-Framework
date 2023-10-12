@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Futu
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+class trajflow_meszaros_smallBetaGamma(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -49,23 +49,13 @@ class trajflow_meszaros(model_template):
         self.scene_encoding_size = 4
         self.obs_encoding_size = 4#16 
         
-        if (self.provide_all_included_agent_types() == 'P').all():
-            self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            
-            self.alpha = 10
-            self.s_min = 0.3
-            self.s_max = 1.7
-            self.sigma = 0.5
-
-        else:
-            self.beta_noise = 0.002
-            self.gamma_noise = 0.002
-            
-            self.alpha = 3
-            self.s_min = 0.8
-            self.s_max = 1.2
-            self.sigma = 0.2
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
+        
+        self.alpha = 3
+        self.s_min = 0.8
+        self.s_max = 1.2
+        self.sigma = 0.2
 
 
         self.fut_ae_epochs = 5000
@@ -534,8 +524,8 @@ class trajflow_meszaros(model_template):
     
     def get_name(self = None):
         names = {'print': 'TrajFlow',
-                'file': 'TrajFlow_M',
-                'latex': r'\emph{TF}'}
+                'file': 'TF_M_smlBG',
+                'latex': r'\emph{TF_smlBG}'}
         return names
         
     def save_params_in_csv(self = None):

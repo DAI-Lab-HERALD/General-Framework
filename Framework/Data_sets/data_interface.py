@@ -668,7 +668,7 @@ class data_interface(object):
             return
         
         # get input trajectories
-        self._group_indentical_inputs(self, eval_pov = eval_pov)
+        self._group_indentical_inputs(eval_pov = eval_pov)
         
         # Get pred agents
         nto = self.num_timesteps_out_real
