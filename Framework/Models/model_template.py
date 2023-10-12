@@ -21,6 +21,7 @@ class model_template():
         
         
         self.data_set = data_set
+        self.splitter = splitter
         
         self.dt = data_set.dt
         self.has_map = self.data_set.includes_images()
@@ -44,14 +45,15 @@ class model_template():
         if behavior == None:
             self.is_data_transformer = False
             
-            if hasattr(splitter, 'Train_index'):
-                self.Index_train = splitter.Train_index
+            if hasattr(self.splitter, 'Train_index'):
+                self.Index_train = self.splitter.Train_index
                 
                 if self.evaluate_on_train_set:
                     # self.Index_test = np.arange(len(self.data_set.Output_T))
-                    self.Index_test = np.unique(np.concatenate((splitter.Test_index, splitter.Train_index)))
+                    self.Index_test = np.unique(np.concatenate((self.splitter.Test_index, 
+                                                                self.splitter.Train_index)))
                 else:
-                    self.Index_test  = splitter.Test_index
+                    self.Index_test = self.splitter.Test_index
             
                 if self.get_output_type() == 'path_all_wi_pov':
                     pred_string = 'pred_tra_wip_'
@@ -1031,32 +1033,56 @@ class model_template():
         
         Num_steps = self.Pred_step.sum(-1).max(-1)
         
-        for i_case in range(len(self.Path_true)):
-            # Get predicted agents
-            pred_agents = Pred_agents[i_case]
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        
+        for subgroup in np.unique(Subgroups):
+            subgroup_index = np.where(Subgroups == subgroup)[0]
             
-            # This is dangerous
-            std = 1 + (self.T_pred[i_case, pred_agents] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
+            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
+            pred_agents = Pred_agents[subgroup_index[0]]
             
-            # Get number of timesteps
-            nto = Num_steps[i_case]
+            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
+            agent_types = self.T_pred[subgroup_index[0]]
             
-            # Should be shape: num_preds x num_agents x num_T_O x 2
-            paths_true = self.Path_true[i_case][:,pred_agents,:nto]
-            paths_pred = self.Path_pred[i_case][:,pred_agents,:nto]
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
             
-            paths_true = (paths_true / std)
-            paths_pred = (paths_pred / std)
-                    
-            # Collapse agents
-            paths_true_comp = paths_true.reshape(-1, pred_agents.sum() * nto * 2)
-            paths_pred_comp = paths_pred.reshape(-1, pred_agents.sum() * nto * 2)
+            nto_subgroup = Num_steps[subgroup_index]
             
-            kde = OPTICS_GMM().fit(paths_pred_comp)
-            
-            self.Log_prob_joint_true[i_case] = kde.score_samples(paths_true_comp)
-            self.Log_prob_joint_pred[i_case] = kde.score_samples(paths_pred_comp) 
+            for nto in np.unique(nto_subgroup):
+                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                paths_true = paths_true / std
+                paths_pred = paths_pred / std
+                        
+                # Collapse agents
+                num_features = pred_agents.sum() * nto * 2
+                paths_true_comp = paths_true.reshape(*paths_true.shape[:2], num_features)
+                paths_pred_comp = paths_pred.reshape(*paths_pred.shape[:2], num_features)
+                
+                # Collapse agents further
+                paths_true_comp = paths_true_comp.reshape(-1, num_features)
+                paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
+                
+                # Only use select number of samples for training kde
+                use_preds = np.arange(len(paths_pred_comp))
+                np.random.seed(0)
+                np.random.shuffle(use_preds)
+                max_preds = max(2 * len(paths_true_comp), 5 * self.num_samples_path_pred)
+                kde = OPTICS_GMM().fit(paths_pred_comp[use_preds[:max_preds]])
+                
+                # Score samples
+                log_prob_true = kde.score_samples(paths_true_comp)
+                log_prob_pred = kde.score_samples(paths_pred_comp)
+                
+                self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
+                self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
             
     def _get_indep_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
@@ -1078,39 +1104,65 @@ class model_template():
         self.Log_prob_indep_pred = np.zeros(self.Path_pred.shape[:-2], dtype = np.float32)
         
         Num_steps = self.Pred_step.sum(-1).max(-1)
+       
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
         
-        for i_case in range(len(self.Path_true)):
-            # Get predicted agents
-            pred_agents = Pred_agents[i_case]
+        for subgroup in np.unique(Subgroups):
+            subgroup_index = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
+            pred_agents = Pred_agents[subgroup_index[0]]
             pred_agents_id = np.where(pred_agents)[0]
             
-            # This is dangerous
-            std = 1 + (self.T_pred[i_case, pred_agents_id] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis]
+            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
+            agent_types = self.T_pred[subgroup_index[0]]
             
-            # Get number of timesteps
-            nto = Num_steps[i_case]
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
             
-            # Should be shape: num_preds x num_agents x num_T_O x 2
-            paths_true = self.Path_true[i_case][:,pred_agents_id,:nto]
-            paths_pred = self.Path_pred[i_case][:,pred_agents_id,:nto]
+            nto_subgroup = Num_steps[subgroup_index]
             
-            paths_true = (paths_true / std)
-            paths_pred = (paths_pred / std)
-            
-            for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                # Get agent
-                paths_true_agent = paths_true[:,i_agent]
-                paths_pred_agent = paths_pred[:,i_agent]
-            
-                # Collapse agents
-                paths_true_agent_comp = paths_true_agent.reshape(-1, nto * 2)
-                paths_pred_agent_comp = paths_pred_agent.reshape(-1, nto * 2)
+            for nto in np.unique(nto_subgroup):
+                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
-                kde = OPTICS_GMM().fit(paths_pred_agent_comp)
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
                 
-                self.Log_prob_indep_true[i_case,:,i_agent_orig] = kde.score_samples(paths_true_agent_comp)
-                self.Log_prob_indep_pred[i_case,:,i_agent_orig] = kde.score_samples(paths_pred_agent_comp) 
+                paths_true = paths_true / std
+                paths_pred = paths_pred / std
+                
+                num_features = nto * 2
+                
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    # Get agent
+                    paths_true_agent = paths_true[:,:,i_agent]
+                    paths_pred_agent = paths_pred[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_true_agent_comp = paths_true_agent.reshape(*paths_true_agent.shape[:2], num_features)
+                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:2], num_features)
+                    
+                    # Collapse agents further
+                    paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
+                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+                    
+                    # Only use select number of samples for training kde
+                    use_preds = np.arange(len(paths_pred_agent_comp))
+                    np.random.seed(0)
+                    np.random.shuffle(use_preds)
+                    max_preds = max(2 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred)
+                    kde = OPTICS_GMM().fit(paths_pred_agent_comp[use_preds[:max_preds]])
+                    
+                    # Score samples
+                    log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
+                    log_prob_pred_agent = kde.score_samples(paths_pred_agent_comp)
+                    
+                    self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
+                    self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
+                
     
     #%% 
     #########################################################################################
