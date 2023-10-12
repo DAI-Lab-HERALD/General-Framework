@@ -1,7 +1,52 @@
 import numpy as np
 from sklearn.cluster import OPTICS
+from sklearn.metrics import silhouette_score
+from sklearn.cluster._optics import cluster_optics_xi, cluster_optics_dbscan
 from sklearn.neighbors import KernelDensity
 import scipy as sp
+
+
+from sklearn.metrics import pairwise_distances
+
+def dunn_index(X, labels):
+    # Calculate cluster centroids and their pairwise distances
+    cluster_distances = []
+    cluster_centers = []
+    for label in np.unique(labels[labels >= 0]):
+        cluster_points = X[labels == label]
+        cluster_centroid = cluster_points.mean(axis=0, keepdims = True)
+        cluster_centers.append(cluster_centroid)
+        centroid_distance = pairwise_distances(cluster_centroid, cluster_points)
+        cluster_distances.append(np.mean(centroid_distance))
+
+    # Calculate the minimum inter-cluster distance
+    max_intra_cluster_distance = np.max(cluster_distances)
+
+    # Calculate the maximum intra-cluster distance
+    cluster_centers = np.concatenate(cluster_centers, axis = 0)
+    noise_points = X[labels == -1]
+    
+    if len(noise_points) > 0:
+        noise_cluster_ditances = pairwise_distances(noise_points, cluster_centers)
+        min_noise_cluster_distance = np.min(noise_cluster_ditances)
+    else:
+        min_noise_cluster_distance = 0.0
+    
+    if len(cluster_centers) > 1:
+        inter_cluster_ditances = pairwise_distances(cluster_centers)
+        min_inter_cluster_distance = np.min(inter_cluster_ditances[inter_cluster_ditances > 0])
+        
+        fac = (labels == -1).mean()
+        
+        min_inter_distance = fac * min_noise_cluster_distance + (1 - fac) * min_inter_cluster_distance
+    else:
+        min_inter_distance = min_noise_cluster_distance
+    
+    # Compute the Dunn Index
+    dunn_index = min_inter_distance / max_intra_cluster_distance
+
+    return dunn_index
+
 
 class OPTICS_GMM():
     '''
@@ -28,13 +73,73 @@ class OPTICS_GMM():
         
         if len(X) > self.num_min_samples:
             # Get clusters using the OPTICS
+            # self.Xi = np.linspace(0.01, 0.99, 99)
+            # self.Num_cluster = np.zeros(len(self.Xi))
+            # self.score       = np.ones(len(self.Xi)) * np.nan
+            # self.dunn_score  = np.ones(len(self.Xi)) * np.nan
+            # for i, xi in enumerate(self.Xi):
+            #     if i == 0:
+            #         self.optics = OPTICS(min_samples = self.num_min_samples, 
+            #                              min_cluster_size = 5, xi = xi)
+            #         self.optics.fit(X)
+            #     else:
+            #         self.optics.labels_, _ = cluster_optics_xi(reachability           = self.optics.reachability_,
+            #                                                    predecessor            = self.optics.predecessor_,
+            #                                                    ordering               = self.optics.ordering_,
+            #                                                    min_samples            = self.optics.min_samples,
+            #                                                    min_cluster_size       = 5,
+            #                                                    xi                     = xi,
+            #                                                    predecessor_correction = self.optics.predecessor_correction)
+                    
+            #     self.cluster_labels = self.optics.labels_
+            #     self.Num_cluster[i] = self.cluster_labels.max() + 1
+            #     if len(np.unique(self.cluster_labels)) > 1:
+            #         self.dunn_score[i] = dunn_index(X, self.cluster_labels)
+            #         self.score[i]      = silhouette_score(X, self.cluster_labels)
+            
+            # reachability = self.optics.reachability_[np.isfinite(self.optics.reachability_)] 
+            # self.Eps = np.linspace(reachability.min(), reachability.max(), 200)
+            # self.Eps_Num_cluster = np.zeros(len(self.Eps))
+            # self.Eps_score       = np.ones(len(self.Eps)) * np.nan
+            # self.Eps_dunn_score  = np.ones(len(self.Eps)) * np.nan
+            # for i, eps in enumerate(self.Eps):
+            #     self.cluster_labels = cluster_optics_dbscan(reachability   = self.optics.reachability_,
+            #                                                 core_distances = self.optics.core_distances_,
+            #                                                 ordering       = self.optics.ordering_,
+            #                                                 eps            = eps)
+                
+            #     self.Eps_Num_cluster[i] = self.cluster_labels.max() + 1
+            #     if len(np.unique(self.cluster_labels)) > 1:
+            #         self.Eps_dunn_score[i] = dunn_index(X, self.cluster_labels)
+            #         self.Eps_score[i]      = silhouette_score(X, self.cluster_labels)
+            
+            # Get reachability plot
             self.optics = OPTICS(min_samples = self.num_min_samples, 
-                            min_cluster_size = 5, xi = 0.5)
+                                          min_cluster_size = 5)
             self.optics.fit(X)
             self.cluster_labels = self.optics.labels_
-        
+            
+            if len(np.unique(self.cluster_labels)) > 1:
+                best_score = silhouette_score(X, self.cluster_labels)
+            else:
+                best_score = -1
+                
+            reachability = self.optics.reachability_[np.isfinite(self.optics.reachability_)] 
+            
+            self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
+            for i, eps in enumerate(self.Eps):
+                test_labels = cluster_optics_dbscan(reachability   = self.optics.reachability_,
+                                                    core_distances = self.optics.core_distances_,
+                                                    ordering       = self.optics.ordering_,
+                                                    eps            = eps)
+            
+                if len(np.unique(test_labels)) > 1:
+                    test_score = silhouette_score(X, test_labels)
+                    if test_score > best_score:
+                        best_score = test_score
+                        self.cluster_labels = test_labels
         else:
-            self.cluster_labels = np.zeros(len(X))
+            self.cluster_labels = -1 * np.ones(len(X))
             
         unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
             

@@ -1079,7 +1079,7 @@ class model_template():
                 
                 # Get complete probability distribution
                 num_reps = int(np.ceil(len(paths_pred_comp) / max_preds))
-                num_reps = min(5, num_reps)
+                num_reps = 1
                 weights = np.zeros((num_reps,1))
                 log_probs_true = np.zeros((num_reps, len(paths_true_comp)))
                 log_probs_pred = np.zeros((num_reps, len(paths_pred_comp)))
@@ -1090,7 +1090,8 @@ class model_template():
                     kde = OPTICS_GMM().fit(path_pred_train)
                     
                     # Score samples
-                    weights[i] = len(path_pred_train) / len(paths_pred_comp)
+                    weights[i] = len(path_pred_train) / min(num_reps * max_preds, 
+                                                            len(paths_pred_comp))
                     log_probs_true[i] = kde.score_samples(paths_true_comp)
                     log_probs_pred[i] = kde.score_samples(paths_pred_comp)
                 
@@ -1175,6 +1176,7 @@ class model_template():
                     # Get complete probability distribution
                     num_reps = int(np.ceil(len(paths_pred_agent_comp) / max_preds))
                     num_reps = min(5, num_reps)
+                    num_reps = 1
                     weights = np.zeros((num_reps,1))
                     log_probs_true_agent = np.zeros((num_reps, len(paths_true_agent_comp)))
                     log_probs_pred_agent = np.zeros((num_reps, len(paths_pred_agent_comp)))
@@ -1183,9 +1185,10 @@ class model_template():
                         path_pred_train = paths_pred_agent_comp[use_preds[i * max_preds : (i + 1) * max_preds]]
                         
                         kde = OPTICS_GMM().fit(path_pred_train)
-                        
                         # Score samples
-                        weights[i] = len(path_pred_train) / len(paths_pred_agent_comp)
+                        weights[i] = len(path_pred_train) / min(num_reps * max_preds, 
+                                                                len(paths_pred_agent_comp))
+                        
                         log_probs_true_agent[i] = kde.score_samples(paths_true_agent_comp)
                         log_probs_pred_agent[i] = kde.score_samples(paths_pred_agent_comp)
                     
