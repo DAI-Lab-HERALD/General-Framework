@@ -28,10 +28,10 @@ class OPTICS_GMM():
         
         if len(X) > self.num_min_samples:
             # Get clusters using the OPTICS
-            optics = OPTICS(min_samples = self.num_min_samples, 
-                            min_cluster_size = 5)
-            optics.fit(X)
-            self.cluster_labels = optics.labels_
+            self.optics = OPTICS(min_samples = self.num_min_samples, 
+                            min_cluster_size = 5, xi = 0.5)
+            self.optics.fit(X)
+            self.cluster_labels = self.optics.labels_
         
         else:
             self.cluster_labels = np.zeros(len(X))
