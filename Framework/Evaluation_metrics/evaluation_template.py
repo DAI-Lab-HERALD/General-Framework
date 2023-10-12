@@ -187,7 +187,8 @@ class evaluation_template():
             else:
                 idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
-        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, self.get_output_type() == 'path_all_wo_pov')
+        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
         
         Path_true = self.model.Path_true[self.Index_curr_pred]
         Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
@@ -278,6 +279,46 @@ class evaluation_template():
         Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
         
         return Path_true_all, Subgroup
+    
+    
+    def get_true_likelihood(self, joint_agents = True):
+        '''
+        This return the probabilities asigned to ground truth trajectories 
+        according to a Gaussian KDE method fitted to the ground truth samples
+        with an identical inputs.
+        
+
+        Parameters
+        ----------
+        joint_agents : bool, optional
+            This says if the probabilities for the predicted trajectories
+            are to be calcualted for all agents jointly. If this is the case,
+            then, :math:`N_{agents}` in the output is 1. The default is True.
+
+        Returns
+        -------
+        KDE_true_log_prob : np.ndarray
+            This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+            array that includes the probabilites for the true observations according 
+            to the KDE model trained on the grouped true trajectories.
+
+        '''
+        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
+        
+        
+        if joint_agents:
+            self.data_set._get_joint_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_true_log_prob = self.data_set.Log_prob_true_joint[:,np.newaxis,np.newaxis]
+            
+        else:
+            self.data_set._get_indep_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_true_log_prob = self.data_set.Log_prob_true_indep[:,np.newaxis,:]
+        
+        KDE_true_log_prob = KDE_true_log_prob[self.Index_curr]
+        
+        return KDE_true_log_prob
     
     #%% Actual evaluation functions
     def _set_current_data(self, Output_pred):
