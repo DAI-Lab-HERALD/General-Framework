@@ -41,7 +41,7 @@ class KLD_traj_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true_all, subgroups = self.get_true_prediction_with_same_input()
+        _, subgroups = self.get_true_prediction_with_same_input()
         
         KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
         KDE_true_log_prob    = self.get_true_likelihood(joint_agents = True)

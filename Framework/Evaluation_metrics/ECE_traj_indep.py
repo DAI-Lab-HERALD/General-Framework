@@ -41,10 +41,27 @@ class ECE_traj_indep(evaluation_template):
         # Get predicted agents
         _, _, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
+        num_agents = Pred_agents.shape[1]
+        
+        # Get identical input subgroups
+        _, subgroups = self.get_true_prediction_with_same_input()
         
         # Get likelihood of having higher probability
         KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
-        M = (KDE_log_prob_pred > KDE_log_prob_true).mean(1) 
+        
+        M = np.zeros(KDE_log_prob_true.shape)[:,0]
+        
+        unique_subgroups = np.unique(subgroups)
+        
+        for subgroup in unique_subgroups:
+            indices = np.where(subgroup == subgroups)[0]
+            
+            LP_pred = KDE_log_prob_pred[indices].reshape(1, -1, num_agents) 
+            LP_true = KDE_log_prob_true[indices]
+            
+            M[indices] = (LP_true < LP_pred).mean(1)
+        
+        # Align all agents from all samples
         M = M[Pred_agents]
         
         # Compare to expectation

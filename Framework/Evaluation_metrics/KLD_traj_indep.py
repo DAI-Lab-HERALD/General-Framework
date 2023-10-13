@@ -43,7 +43,7 @@ class KLD_traj_indep(evaluation_template):
     def evaluate_prediction_method(self):
         _, _, Pred_steps = self.get_true_and_predicted_paths()
         
-        Path_true_all, subgroups = self.get_true_prediction_with_same_input()
+        _, subgroups = self.get_true_prediction_with_same_input()
         
         # Get likelihood of true samples according to prediction
         KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
