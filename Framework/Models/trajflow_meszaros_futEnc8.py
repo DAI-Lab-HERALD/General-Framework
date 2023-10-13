@@ -47,7 +47,7 @@ class trajflow_meszaros_futEnc8(model_template):
         self.fut_enc_sz = 8 ## 4-8
 
         self.scene_encoding_size = 4
-        self.obs_encoding_size = 16 
+        self.obs_encoding_size = 4 
         
         if (self.provide_all_included_agent_types() == 'P').all():
             self.beta_noise = 0.2
