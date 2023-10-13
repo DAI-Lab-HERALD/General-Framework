@@ -4,6 +4,7 @@ import os
 import torch
 import warnings
 from Prob_function import OPTICS_GMM
+import math
 import scipy as sp
 
 class model_template():
@@ -1080,27 +1081,41 @@ class model_template():
                 np.random.shuffle(use_preds)
                 max_preds = max(1 * len(paths_true_comp), 5 * self.num_samples_path_pred)
                 
-                # Get complete probability distribution
-                num_reps = int(np.ceil(len(paths_pred_comp) / max_preds))
-                num_reps = 1
-                weights = np.zeros((num_reps,1))
-                log_probs_true = np.zeros((num_reps, len(paths_true_comp)))
-                log_probs_pred = np.zeros((num_reps, len(paths_pred_comp)))
-                
-                for i in range(num_reps):
-                    path_pred_train = paths_pred_comp[use_preds[i * max_preds : (i + 1) * max_preds]]
+                # Get approximated probability distribution
+                log_probs_true = []
+                log_probs_pred = []
+                log_pred_satisfied = False
+                i = 0
+                while not log_pred_satisfied and (i + 1) * max_preds < len(use_preds):
+                    test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
+                    path_pred_train = paths_pred_comp[test_ind]
                     
                     kde = OPTICS_GMM().fit(path_pred_train)
-                    
                     # Score samples
-                    weights[i] = len(path_pred_train) / min(num_reps * max_preds, 
-                                                            len(paths_pred_comp))
-                    log_probs_true[i] = kde.score_samples(paths_true_comp)
-                    log_probs_pred[i] = kde.score_samples(paths_pred_comp)
+                    
+                    log_probs_true.append(kde.score_samples(paths_true_comp))
+                    log_probs_pred.append(kde.score_samples(paths_pred_comp))
+                    
+                    weights = np.ones((i + 1, 1)) / (i + 1)
+                    # Check if we sufficiently represent predicted distribution
+
+
+                    log_prob_pred = sp.special.logsumexp(np.stack(log_probs_pred, axis = 0), 
+                                                                b = weights, axis = 0)
+                    included   = use_preds[:max_preds * (i + 1)]
+                    unincluded = use_preds[max_preds * (i + 1):]
+
+                    log_pred_satisfied = math.isclose(log_prob_pred[included].mean(), 
+                                                        log_prob_pred[unincluded].mean(), 
+                                                        abs_tol = 0.5)
+
+                    i += 1
+
+                    if i == 5:
+                        break # TODO: think about replacing
                 
-                
-                log_prob_true = sp.special.logsumexp(log_probs_true, b = weights, axis = 0)
-                log_prob_pred = sp.special.logsumexp(log_probs_pred, b = weights, axis = 0)
+                log_prob_true = sp.special.logsumexp(np.stack(log_probs_true, axis = 0), 
+                                                            b = weights, axis = 0)
                 
                 self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
@@ -1176,28 +1191,48 @@ class model_template():
                     np.random.shuffle(use_preds)
                     max_preds = max(1 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred)
                     
-                    # Get complete probability distribution
-                    num_reps = int(np.ceil(len(paths_pred_agent_comp) / max_preds))
-                    num_reps = min(5, num_reps)
-                    num_reps = 1
-                    weights = np.zeros((num_reps,1))
-                    log_probs_true_agent = np.zeros((num_reps, len(paths_true_agent_comp)))
-                    log_probs_pred_agent = np.zeros((num_reps, len(paths_pred_agent_comp)))
-                    
-                    for i in range(num_reps):
-                        path_pred_train = paths_pred_agent_comp[use_preds[i * max_preds : (i + 1) * max_preds]]
-                        
+                    # Get approximated probability distribution
+                    log_probs_true_agent = []
+                    log_probs_pred_agent = []
+
+                    log_pred_satisfied = False
+                    i = 0
+                    while not log_pred_satisfied and (i + 1) * max_preds < len(use_preds):
+                        test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
+                        path_pred_train = paths_pred_agent_comp[test_ind]
+                        print(i)
                         kde = OPTICS_GMM().fit(path_pred_train)
                         # Score samples
-                        weights[i] = len(path_pred_train) / min(num_reps * max_preds, 
-                                                                len(paths_pred_agent_comp))
                         
-                        log_probs_true_agent[i] = kde.score_samples(paths_true_agent_comp)
-                        log_probs_pred_agent[i] = kde.score_samples(paths_pred_agent_comp)
+                        log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))
+                        log_probs_pred_agent.append(kde.score_samples(paths_pred_agent_comp))
+                        
+                        weights = np.ones((i + 1, 1)) / (i + 1)
+                        # Check if we sufficiently represent predicted distribution
+
+
+                        log_prob_pred_agent = sp.special.logsumexp(np.stack(log_probs_pred_agent, axis = 0), 
+                                                                   b = weights, axis = 0)
+                        included   = use_preds[:max_preds * (i + 1)]
+                        unincluded = use_preds[max_preds * (i + 1):]
+
+                        log_pred_satisfied = math.isclose(log_prob_pred_agent[included].mean(), 
+                                                          log_prob_pred_agent[unincluded].mean(), 
+                                                          abs_tol = 0.5)
+                        print(log_prob_pred_agent[included].mean(), 
+                              log_prob_pred_agent[unincluded].mean()
+                              )
+                        
+                        i += 1
+
+                        if i == 5:
+                            break # TODO: think about replacing
+
                     
                     
-                    log_prob_true_agent = sp.special.logsumexp(log_probs_true_agent, b = weights, axis = 0)
-                    log_prob_pred_agent = sp.special.logsumexp(log_probs_pred_agent, b = weights, axis = 0)
+                    log_prob_true_agent = sp.special.logsumexp(np.stack(log_probs_true_agent, axis = 0), 
+                                                               b = weights, axis = 0)
+
                     
                     self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
