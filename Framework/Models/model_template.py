@@ -1074,7 +1074,7 @@ class model_template():
                 use_preds = np.arange(len(paths_pred_comp))
                 np.random.seed(0)
                 np.random.shuffle(use_preds)
-                max_preds = max(2 * len(paths_true_comp), 5 * self.num_samples_path_pred)
+                max_preds = max(1 * len(paths_true_comp), 5 * self.num_samples_path_pred)
                 
                 # Get complete probability distribution
                 num_reps = int(np.ceil(len(paths_pred_comp) / max_preds))
@@ -1170,7 +1170,7 @@ class model_template():
                     use_preds = np.arange(len(paths_pred_agent_comp))
                     np.random.seed(0)
                     np.random.shuffle(use_preds)
-                    max_preds = max(2 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred)
+                    max_preds = max(1 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred)
                     
                     # Get complete probability distribution
                     num_reps = int(np.ceil(len(paths_pred_agent_comp) / max_preds))

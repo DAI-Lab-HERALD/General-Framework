@@ -767,16 +767,13 @@ class data_interface(object):
                         
                 # Collapse agents
                 num_features = pred_agents.sum() * nto * 2
-                paths_true_comp = paths_true.reshape(*paths_true.shape[:2], num_features)
-                
-                # Collapse agents further
-                paths_true_comp = paths_true_comp.reshape(-1, num_features)
+                paths_true_comp = paths_true.reshape(-1, num_features)
                 
                 # Train model
                 kde = OPTICS_GMM().fit(paths_true_comp)
                 log_prob_true = kde.score_samples(paths_true_comp)
                 
-                self.Log_prob_true_joint[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
+                self.Log_prob_true_joint[nto_index] = log_prob_true
             
             
     def _get_indep_KDE_probabilities(self, exclude_ego = False):
@@ -792,7 +789,7 @@ class data_interface(object):
         self._extract_identical_inputs(eval_pov = ~exclude_ego)
         
         # Shape: Num_samples x num agents
-        self.Log_prob_indep_true = np.zeros(self.Pred_agents_eval.shape, dtype = np.float32)
+        self.Log_prob_true_indep = np.zeros(self.Pred_agents_eval.shape, dtype = np.float32)
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
@@ -825,16 +822,13 @@ class data_interface(object):
                 
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
                     # Get agent
-                    paths_true_agent = paths_true[:,:,i_agent]
+                    paths_true_agent = paths_true[:,i_agent]
                 
                     # Collapse agents
-                    paths_true_agent_comp = paths_true_agent.reshape(*paths_true_agent.shape[:2], num_features)
-                    
-                    # Collapse agents further
-                    paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
+                    paths_true_agent_comp = paths_true_agent.reshape(-1, num_features)
                         
                     # Train model
                     kde = OPTICS_GMM().fit(paths_true_agent_comp)
                     log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
+                    self.Log_prob_true_indep[nto_index,i_agent_orig] = log_prob_true_agent
                     
-                    self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])

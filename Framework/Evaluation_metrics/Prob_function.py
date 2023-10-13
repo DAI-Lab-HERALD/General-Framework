@@ -155,7 +155,7 @@ class OPTICS_GMM():
         self.stds_pca  = np.zeros((len(unique_labels), self.num_features))
 
         # check that self.num_features <  len(X_labels) else rot matrix is identity; and self.stds_pca is ones        
-        if self.num_features < len(unique_labels):
+        if self.num_features < len(X):
 
             for i, label in enumerate(unique_labels):
                 if label == -1:
@@ -166,20 +166,21 @@ class OPTICS_GMM():
                 
                 self.means[i] = X_label.mean(0)
                 self.stds[i]  = X_label.std(0) + 0.001 * X_label.std(0).max() + 1e-6
-                
+
                 X_label_stand = (X_label - self.means[[i]]) / self.stds[[i]]
 
                 # calculate PCA on X_label_stand -> get rot matrix and std
                 pca = PCA()
                 pca.fit(X_label_stand)
                 self.rot_mat_pca[i] = pca.components_
-                self.stds_pca[i] = np.sqrt(pca.explained_variance_)
+                pca_std = np.sqrt(pca.explained_variance_)
+                self.stds_pca[i] = pca_std + 0.01 * pca_std.max() + 1e-6
 
                 # Apply rot_matrix on X_label_stand to get X_label_pca
                 X_label_pca = X_label_stand @ self.rot_mat_pca[i].T # @ is matrix multiplication
 
                 # Normalise along principle axes to get X_label_pca_stand
-                X_label_pca_stand = X_label_pca / self.stds_pca[i]
+                X_label_pca_stand = X_label_pca / self.stds_pca[[i]]
                 
                 # Fit GMM distribution
                 kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca_stand) # TODO change to X_label_pca_stand
@@ -239,14 +240,14 @@ class OPTICS_GMM():
             X_pca = X_stand @ self.rot_mat_pca[i].T
 
             # Normalise along principle axes to get X_label_pca_stand
-            X_pca_stand = X_pca / self.stds_pca[i]
+            X_pca_stand = X_pca / self.stds_pca[[i]]
 
-            std_adjust = np.log(self.stds[i]).sum()
-            # calculate std_pca_adjust
+            # calculate std_adjusts
+            std_adjust     = np.log(self.stds[i]).sum()
             std_pca_adjust = np.log(self.stds_pca[i]).sum()
 
             # calculate rot_mat_adjust = -log(det(rot_matrix))
-            rot_mat_adjust = -np.log(np.linalg.det(self.rot_mat_pca[i]))
+            rot_mat_adjust = -np.log(np.abs(np.linalg.det(self.rot_mat_pca[i])))
 
             # TODO subtract the additional adjustment values
             log_probs[:,i] = self.log_probs[i] \
