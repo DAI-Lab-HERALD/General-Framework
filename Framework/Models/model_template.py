@@ -1086,7 +1086,7 @@ class model_template():
                 log_probs_pred = []
                 log_pred_satisfied = False
                 i = 0
-                while not log_pred_satisfied and (i + 1) * max_preds < len(use_preds):
+                while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                     test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                     path_pred_train = paths_pred_comp[test_ind]
                     
@@ -1197,7 +1197,7 @@ class model_template():
 
                     log_pred_satisfied = False
                     i = 0
-                    while not log_pred_satisfied and (i + 1) * max_preds < len(use_preds):
+                    while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                         path_pred_train = paths_pred_agent_comp[test_ind]
                         print(i)
