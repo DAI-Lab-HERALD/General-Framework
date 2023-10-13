@@ -40,9 +40,23 @@ class ECE_traj_joint(evaluation_template):
     def evaluate_prediction_method(self):
         # Get likelihood of having higher probability
         KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
-        M = (KDE_log_prob_pred > KDE_log_prob_true).mean(1) 
-        # M.shape: num_samples x 1
         
+        # Get identical input subgroups
+        _, subgroups = self.get_true_prediction_with_same_input()
+        
+        M = np.zeros((len(KDE_log_prob_true.shape), 1))
+        
+        unique_subgroups = np.unique(subgroups)
+        
+        for subgroup in unique_subgroups:
+            indices = np.where(subgroup == subgroups)[0]
+            
+            LP_pred = KDE_log_prob_pred[indices].reshape(1, -1, 1) 
+            LP_true = KDE_log_prob_true[indices]
+            
+            M[indices] = (LP_true < LP_pred).mean(1)
+        
+        # M.shape: num_samples x 1
         T = np.linspace(0,1,201)
         
         # Mean over samples
