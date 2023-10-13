@@ -24,6 +24,10 @@ class model_template():
         self.data_set = data_set
         self.splitter = splitter
         
+        # Get overwrite decision
+        self.model_overwrite      = self.data_set.overwrite_results in ['model']
+        self.prediction_overwrite = self.data_set.overwrite_results in ['model', 'prediction']
+        
         self.dt = data_set.dt
         self.has_map = self.data_set.includes_images()
         
@@ -99,7 +103,7 @@ class model_template():
     def train(self):
         assert not self.simply_load_results, 'This model instance is nonly for loading results.'
         self.model_mode = 'train'
-        if os.path.isfile(self.model_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(self.model_file) and not self.model_overwrite:
             self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
             self.load_method()
         
@@ -167,7 +171,7 @@ class model_template():
         # perform prediction
         if self.get_output_type()[:4] == 'path':
             test_file = self.pred_file[:-4] + '00.npy'
-            if os.path.isfile(test_file) and not self.data_set.overwrite_results:
+            if os.path.isfile(test_file) and not self.prediction_overwrite:
                 output = np.load(test_file, allow_pickle = True)
                 
                 Pred_index = [output[0]]
@@ -194,7 +198,7 @@ class model_template():
                     return [Pred_index, Output_path]
             
         else:
-            if os.path.isfile(self.pred_file) and not self.data_set.overwrite_results:
+            if os.path.isfile(self.pred_file) and not self.prediction_overwrite:
                 output = list(np.load(self.pred_file, allow_pickle = True)[:-1])
                 return output
         

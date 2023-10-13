@@ -520,4 +520,8 @@ Meanwhile, the following model attributes set by the framework are useful or giv
 **self.general_input_available** : bool
   This is true if generalized distance values are available, if not, it is False.
 
+**self.model_overwrite** : bool
+  This if true if the framework demands that the model is retrained from scratch, so if one customarily
+  saves parts of the model separately, they would need to be retrained as well.
+
 ```

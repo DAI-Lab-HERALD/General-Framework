@@ -9,13 +9,14 @@ new_experiment = Experiment(Experiment_name)
 # Data_sets = [[{'scenario': 'ETH_interactive', 'max_num_agents': 5, 't0_type': 'start', 'conforming_t0_types': []},
 #               {'scenario': 'CoR_left_turns',  'max_num_agents': 5, 't0_type': 'crit', 'conforming_t0_types': []}]]
 
-Data_sets = [{'scenario': 'Forking_Paths_interactive', 'max_num_agents': None, 't0_type': 'start', 'conforming_t0_types': []}]
+Data_sets = [{'scenario': 'Lyft_interactive', 'max_num_agents': None, 't0_type': 'all', 'conforming_t0_types': []}]
 
 # Select the params for the datasets to be considered
 Data_params = [{'dt': 0.4, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)}] 
 
 # Select the spitting methods to be considered
-Splitters = [{'Type': 'Location_split', 'repetition': ['zara01']}]
+Splitters = [{'Type': 'Location_split', 'repetition': ['zara01']},
+             {'Type': 'case_split', 'repetiton': [0,1,2,(0,1),(0,2),(1,2),(0,1,2)]}]
 
 # Select the models to be trained
 Models = ['trajflow_meszaros']
@@ -47,7 +48,7 @@ allow_extrapolation = True
 agents_to_predict = 'predefined'
 
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
-overwrite_results = False
+overwrite_results = 'no'
 
 # Determine if the model should be evaluated on the training set as well
 evaluate_on_train_set = True

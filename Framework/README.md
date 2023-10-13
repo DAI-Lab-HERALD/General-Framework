@@ -135,15 +135,21 @@ There are a number of possibilities to set the string **agents_to_predict** to:
 
 ### Overwrite results
 ```
-overwrite_results = False
+overwrite_results = 'no'
 ```
-It might be possible that one wants to retrain and reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** to *True*. It must however be noted that this does not redo the extraction of the training and testing set.
+It might be possible that one wants to retrain or reevaluate models, without having to delete the original files in their folder. In this case, one can set **overwrite_results** respectively, with the following options:
+- *'no'*: All saved results are used
+- *'metric'*: Only saved metrics are ignored and recalculated.
+- *'prediction'*: Metrics and their underlying predicted trajectories/classification are redone if required.
+- *'model'*: Models are retrained from scratch, the predictions are updated respectively, and new metric values are calculated.
+
+It must however be noted, that one cannot redo the extraction of the training and testing set. If this is desired, one would have to delete/move/rename the respective files.
 
 ### Evaluate overfitting
 ```
 evaluate_on_train_set = True
 ```
-If one wants to test for overfitting in the model, it might be useful to also evaluate it on the training set. However, this omes at a cost in computation and especially memory usage,
+If one wants to test for overfitting in the model, it might be useful to also evaluate it on the training set. However, this comes at a cost in computation and especially memory usage,
 so it can be disabled via this flag as well.
 
 ### Allow for transformations between prediction methods

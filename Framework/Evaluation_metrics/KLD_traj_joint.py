@@ -1,10 +1,6 @@
 import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
-from sklearn.neighbors import KernelDensity
-from scipy.stats import gaussian_kde 
-
-from Prob_function import OPTICS_GMM
 
 class KLD_traj_joint(evaluation_template):
     r'''

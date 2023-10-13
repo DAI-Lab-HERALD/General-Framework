@@ -18,6 +18,8 @@ class evaluation_template():
             
             self.t_e_quantile = self.data_set.p_quantile
             
+            self.metric_override = self.data_set.overwrite_results in ['model', 'prediction', 'metric']
+            
             if self.requires_preprocessing():
                 test_file = self.data_set.change_result_directory(splitter.split_filse,
                                                                   'Metrics', self.get_name()['file'] + '_weights')
@@ -378,7 +380,7 @@ class evaluation_template():
         self.metric_file = self.data_set.change_result_directory(self.model.model_file,
                                                                  'Metrics', self.get_name()['file'])
         
-        if os.path.isfile(self.metric_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(self.metric_file) and not self.metric_override:
             Results = list(np.load(self.metric_file, allow_pickle = True)[:-1])
             
             if (Results[0] is None) and self.model.evaluate_on_train_set:
