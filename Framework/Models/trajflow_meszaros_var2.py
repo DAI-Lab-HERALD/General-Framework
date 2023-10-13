@@ -120,7 +120,7 @@ class trajflow_meszaros_var2(model_template):
         fut_model = Future_Seq2Seq(enc, dec)
         # Use encoder of noninteractive trajflow model if available, as same training stuff is used
         fut_model_file = self.model_file[:-4] + '_AE'
-        if os.path.isfile(fut_model_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(fut_model_file) and not self.model_overwrite:
             fut_model = pickle.load(open(fut_model_file, 'rb'))
             print('Future AE model loaded')
 
@@ -272,7 +272,7 @@ class trajflow_meszaros_var2(model_template):
         
         flow_dist_file = self.model_file[:-4] + '_NF'
         
-        if os.path.isfile(flow_dist_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(flow_dist_file) and not self.model_overwrite:
             flow_dist = pickle.load(open(flow_dist_file, 'rb'))
                           
         else:

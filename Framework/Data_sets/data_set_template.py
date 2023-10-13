@@ -13,7 +13,7 @@ class data_set_template():
                  exclude_post_crit = True,
                  allow_extrapolation = True,
                  agents_to_predict = 'predefined',
-                 overwrite_results = False):
+                 overwrite_results = 'no'):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
 
@@ -75,6 +75,8 @@ class data_set_template():
 
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
+        
+        self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
         
         
         
@@ -1365,7 +1367,7 @@ class data_set_template():
     
     def path_add_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file, use_model=False):
         test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
-        if os.path.isfile(test_file) and not self.overwrite_results:
+        if os.path.isfile(test_file) and not self.prediction_overwrite:
             output = np.load(test_file, allow_pickle = True)
             
             Output_path_pred_add = [output[1]]
@@ -1451,7 +1453,7 @@ class data_set_template():
 
     def path_remove_pov_agent(self, Output_path_pred, Pred_index, Domain, pred_save_file):
         test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wop_00.npy'
-        if os.path.isfile(test_file) and not self.overwrite_results:
+        if os.path.isfile(test_file) and not self.prediction_overwrite:
             output = np.load(test_file, allow_pickle = True)
             
             Output_path_pred_remove = [output[1]]
@@ -1511,7 +1513,7 @@ class data_set_template():
             # Remove other prediction method
             test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
     
-            if os.path.isfile(test_file) and not self.overwrite_results:
+            if os.path.isfile(test_file) and not self.prediction_overwrite:
                 [Output_A_pred,
                  Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
             else:
@@ -1553,7 +1555,7 @@ class data_set_template():
         # Remove other prediction type
         if self.classification_useful:
             test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_class_time.npy'
-            if os.path.isfile(test_file) and not self.overwrite_results:
+            if os.path.isfile(test_file) and not self.prediction_overwrite:
                 [_, Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
             else:
                 self.train_path_models()
@@ -1585,7 +1587,7 @@ class data_set_template():
         assert self.classification_useful, "For not useful datasets training classification models should be impossible."
         # check if this has already been performed
         test_file = '--'.join(pred_save_file.split('--')[:-1]) + '--pred_tra_wip_00.npy'
-        if os.path.isfile(test_file) and not self.overwrite_results:
+        if os.path.isfile(test_file) and not self.prediction_overwrite:
             output = np.load(test_file, allow_pickle = True)
             
             Output_path_pred = [output[1]]

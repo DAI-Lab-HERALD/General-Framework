@@ -232,7 +232,7 @@ class trajflow_meszaros_BezierCubic(model_template):
         
         flow_dist_file = self.model_file[:-4] + '_NF'
         
-        if os.path.isfile(flow_dist_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(flow_dist_file) and not self.model_overwrite:
             flow_dist = pickle.load(open(flow_dist_file, 'rb'))
                           
         else:

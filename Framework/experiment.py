@@ -169,7 +169,16 @@ class Experiment():
         
         assert isinstance(dynamic_prediction_agents, str), "dynamic_prediction_agents should be a string."
         
-        assert isinstance(overwrite_results, bool), "overwrite_results should be a boolean."
+        # make it backward compatiable
+        if isinstance(overwrite_results, bool):
+            if overwrite_results == False:
+                overwrite_results = 'no'
+            else:
+                overwrite_results = 'model'
+        
+        assert isinstance(overwrite_results, str), "overwrite_results should be a string."
+        assert overwrite_results in ['model', 'prediction', 'metric', 'no']
+        
         
         assert isinstance(evaluate_on_train_set, bool), "evaluate_on_train_set should be a boolean."
         

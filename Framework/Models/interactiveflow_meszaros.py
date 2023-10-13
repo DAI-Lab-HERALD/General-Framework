@@ -136,7 +136,7 @@ class interactiveflow_meszaros(model_template):
         future_scene_ae = FutureSceneAE(futureRNNencParams, futureRNNdecParams, futureSocialGNNparams, enc_dim, pos_emb_dim, T_all, device=self.device).to(device = self.device)
 
         fut_model_file = self.model_file[:-16] + '--InteFlow_M_AE'
-        if os.path.isfile(fut_model_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(fut_model_file) and not self.model_overwrite:
             future_scene_ae = pickle.load(open(fut_model_file, 'rb'))
             print('Future AE model loaded')
 
@@ -348,7 +348,7 @@ class interactiveflow_meszaros(model_template):
         
         flow_dist_file = self.model_file[:-16] + '--InteFlow_M_NF'
         
-        if os.path.isfile(flow_dist_file) and not self.data_set.overwrite_results:
+        if os.path.isfile(flow_dist_file) and not self.model_overwrite:
             flow_dist = pickle.load(open(flow_dist_file, 'rb'))
                           
         else:
