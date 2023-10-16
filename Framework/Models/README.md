@@ -37,6 +37,8 @@ class <model_name>(model_template):
 Here, the *get_name()* function creates a dictionary with three keys, the value of each must be a string. The first key is 'print', which will be primarily used to refer to the model in console outputs.
 Meanwhile, the 'file' has to be a string with exactly **10 characters**, that does not include any folder separators (for any operating system), as it is mostly used to indicate that certain result files belong to this model. Finally, the 'latex' key string is used in automatically generated tables and figures for latex, and can include latex commands - such as using '$$' for math notation.  
 
+If you have different versions of your model in which certain hyperparameters have been varied it is advised to make use of the model attribute **self.model_kwargs** which can be passed during the simulation setup (see [Select Modules - Models](https://github.com/julianschumann/General-Framework/tree/main/Framework#models)). Most importantly you can use this to alter the 'file' string in the above dictionary as this determines under which name a model will be saved. Keep in mind that '<modelname>' needs to remain a string of exactly **10 characters**. Note: if you wish to define default hyperparameters for your model, take into consideration that this function might be called before the model's *setup_method()* function.
+
 For this class, a number of other prenamed methods need to be defined as well, via which the model interacts with the rest of the framework.
 
 ## Define model type
@@ -104,7 +106,7 @@ Potential reasons why models might not be applicable include the availability of
 
 
 ## Model Setup
-The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
+The function *setup_method()* is called by the framework during the initialization of the model and is therefore run both before the training of a model as well as before making predictions with a loaded model. It is therefore advisable if the model structure (such as potential neural networks) is set up at this stage and hyperparameters are defined here. These hyperparameters can be provided through the simulation setup (see [Select Modules - Models](https://github.com/julianschumann/General-Framework/tree/main/Framework#models)) in which case the desired values can be accessed from **self.model_kwargs** and written into the corresponding hyperparameter variables. If one wants to use some additional [helper functions](#useful-helper-functions), this might also require the setting of some additional model attributes at this place. If one wants to set random seeds for the model, it is also advantageous to do this here
 
 ```
   def setup_method(self):
@@ -523,5 +525,10 @@ Meanwhile, the following model attributes set by the framework are useful or giv
 **self.model_overwrite** : bool
   This if true if the framework demands that the model is retrained from scratch, so if one customarily
   saves parts of the model separately, they would need to be retrained as well.
+
+**self.model_kwargs** : dict
+  This is a dictionary with all relevant model parameters which you may want to easily vary for example
+  for the sake of model tuning. It is beneficial to use this attribute not only for setting the model
+  hyperparameters but also altering the model's filename to represent specific model characteristics.
 
 ```
