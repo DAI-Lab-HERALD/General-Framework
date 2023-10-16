@@ -165,9 +165,11 @@ class data_interface(object):
             
         if hasattr(self, 'Log_prob_true_joint'):
             del self.Log_prob_true_joint
+            del self.KDE_joint
             
         if hasattr(self, 'Log_prob_true_indep'):
             del self.Log_prob_true_indep
+            del self.KDE_indep
     
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
         return list(self.Datasets.values())[0].change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
@@ -483,7 +485,6 @@ class data_interface(object):
             Agents = np.array(self.Recorded.columns)
             
             # Get unique boolean needed agents
-            Agents = np.array(self.Recorded.columns)
             needed_agents_bool = []
             for needed_agents in self.scenario_needed_agents:
                 needed_agents_bool.append(np.in1d(Agents, needed_agents))
@@ -698,7 +699,7 @@ class data_interface(object):
         # Prepare saving of observerd futures
         max_len = np.unique(self.Subgroups, return_counts = True)[1].max()
         self.Path_true_all = np.ones((self.Subgroups.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
-        
+
         # Go throug subgroups for data
         for subgroup in np.unique(self.Subgroups):
             # get samples with similar inputs
@@ -740,6 +741,7 @@ class data_interface(object):
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
+        self.KDE_joint = {}
         for subgroup in np.unique(self.Subgroups):
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
@@ -755,7 +757,7 @@ class data_interface(object):
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
-            
+            self.KDE_joint[subgroup] = {}
             for nto in np.unique(nto_subgroup):
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
@@ -773,6 +775,7 @@ class data_interface(object):
                 kde = OPTICS_GMM().fit(paths_true_comp)
                 log_prob_true = kde.score_samples(paths_true_comp)
                 
+                self.KDE_joint[subgroup][nto] = kde
                 self.Log_prob_true_joint[nto_index] = log_prob_true
             
             
@@ -780,6 +783,8 @@ class data_interface(object):
         if hasattr(self, 'Log_prob_true_indep'):
             if self.excluded_ego_indep == exclude_ego:
                 return
+        
+        Agents = np.array(self.Input_path.columns)
         
         # Save last setting 
         self.excluded_ego_indep = exclude_ego
@@ -793,6 +798,7 @@ class data_interface(object):
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
+        self.KDE_indep = {}
         for subgroup in np.unique(self.Subgroups):
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
@@ -809,6 +815,7 @@ class data_interface(object):
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
+            self.KDE_indep[subgroup] = {}
             for nto in np.unique(nto_subgroup):
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
@@ -820,7 +827,10 @@ class data_interface(object):
                 
                 num_features = nto * 2
                 
+                self.KDE_indep[subgroup][nto] = {}
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    agent = Agents[i_agent_orig]
+                    
                     # Get agent
                     paths_true_agent = paths_true[:,i_agent]
                 
@@ -830,5 +840,7 @@ class data_interface(object):
                     # Train model
                     kde = OPTICS_GMM().fit(paths_true_agent_comp)
                     log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
+                    
+                    self.KDE_indep[subgroup][nto][agent] = kde
                     self.Log_prob_true_indep[nto_index,i_agent_orig] = log_prob_true_agent
                     

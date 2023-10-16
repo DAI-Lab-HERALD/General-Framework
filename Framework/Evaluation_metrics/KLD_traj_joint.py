@@ -43,8 +43,8 @@ class KLD_traj_joint(evaluation_template):
     def evaluate_prediction_method(self):
         _, subgroups = self.get_true_prediction_with_same_input()
         
-        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
-        KDE_true_log_prob    = self.get_true_likelihood(joint_agents = True)
+        KDE_pred_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
+        KDE_true_log_prob_true, _ = self.get_true_likelihood(joint_agents = True)
         
         KLD = 0
         unique_subgroups = np.unique(subgroups)
@@ -55,8 +55,8 @@ class KLD_traj_joint(evaluation_template):
             # Get the likelihood of the the true samples according to the
             # true samples. This reflects the fact that we take the 
             # expected value over the true distribtuion
-            log_like_true = KDE_true_log_prob[indices,0,0]
-            log_like_pred = KDE_log_prob_true[indices,0,0]
+            log_like_true = KDE_true_log_prob_true[indices,0,0]
+            log_like_pred = KDE_pred_log_prob_true[indices,0,0]
             
             kld_subgroup = np.mean((log_like_true-log_like_pred))
             
