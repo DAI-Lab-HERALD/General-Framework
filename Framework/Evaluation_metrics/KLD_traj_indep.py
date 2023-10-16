@@ -46,8 +46,8 @@ class KLD_traj_indep(evaluation_template):
         _, subgroups = self.get_true_prediction_with_same_input()
         
         # Get likelihood of true samples according to prediction
-        KDE_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
-        KDE_true_log_prob    = self.get_true_likelihood(joint_agents = False)
+        KDE_pred_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = False)
+        KDE_true_log_prob_true, _ = self.get_true_likelihood(joint_agents = False)
         
         # Consider agents separately
         Pred_agents = Pred_steps.any(-1)
@@ -58,8 +58,8 @@ class KLD_traj_indep(evaluation_template):
         subgroups = subgroups[Pred_agents]
         
         # Combine agent and sample dimension
-        Log_like_pred = KDE_log_prob_true[:,0][Pred_agents]
-        Log_like_true = KDE_true_log_prob[:,0][Pred_agents]
+        Log_like_pred = KDE_pred_log_prob_true[:,0][Pred_agents]
+        Log_like_true = KDE_true_log_prob_true[:,0][Pred_agents]
         
         KLD = 0
         unique_subgroups = np.unique(subgroups)

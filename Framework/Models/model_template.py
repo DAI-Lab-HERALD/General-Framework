@@ -171,7 +171,12 @@ class model_template():
         if hasattr(self, 'Log_prob_indep_pred'):
             del self.Log_prob_indep_pred
             del self.Log_prob_indep_true
-            
+        
+        if hasattr(self, 'Log_prob_true_indep_pred'):
+            del self.Log_prob_true_indep_pred
+        
+        if hasattr(self, 'Log_prob_true_joint_pred'):
+            del self.Log_prob_true_joint_pred
             
         # check if prediction can be loaded
         self.model_mode = 'pred'
@@ -1024,7 +1029,7 @@ class model_template():
         self.T_pred = self.T_pred[i_sampl_sort, i_agent_sort]
     
     
-    def _get_joint_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+    def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
             if self.excluded_ego_joint == exclude_ego:
                 return
@@ -1124,7 +1129,7 @@ class model_template():
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
             
-    def _get_indep_KDE_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+    def _get_indep_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_indep_pred') and hasattr(self, 'Log_prob_indep_true'):
             if self.excluded_ego_indep == exclude_ego:
                 return
@@ -1237,7 +1242,134 @@ class model_template():
                     self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
                 
-    
+                
+    def _get_joint_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_joint_pred'):
+            if self.excluded_ego_true_joint == exclude_ego:
+                return
+        
+        # Have the dataset load
+        self.data_set._get_joint_KDE_probabilities(exclude_ego)
+        
+        # Save last setting 
+        self.excluded_ego_true_joint = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds
+        self.Log_prob_true_joint_pred = np.zeros(self.Path_pred.shape[:-3], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+        
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        
+        for subgroup in np.unique(Subgroups):
+            subgroup_index = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
+            pred_agents = Pred_agents[subgroup_index[0]]
+            
+            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
+            agent_types = self.T_pred[subgroup_index[0]]
+            
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
+            
+            nto_subgroup = Num_steps[subgroup_index]
+            
+            for nto in np.unique(nto_subgroup):
+                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                paths_pred = paths_pred / std
+                        
+                # Collapse agents
+                num_features = pred_agents.sum() * nto * 2
+                paths_pred_comp = paths_pred.reshape(*paths_pred.shape[:2], num_features)
+                
+                # Collapse agents further
+                paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
+                
+                # Evaluate trejatories
+                log_prob_pred = self.data_set.KDE_indep[subgroup][nto].score_samples(paths_pred_comp)
+                self.Log_prob_true_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
+            
+            
+    def _get_indep_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_indep_pred'):
+            if self.excluded_ego_true_indep == exclude_ego:
+                return
+        
+        # Have the dataset load
+        self.data_set._get_indep_KDE_probabilities(exclude_ego)
+        
+        # Save last setting 
+        self.excluded_ego_true_indep = exclude_ego
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds x num agents
+        self.Log_prob_true_indep_pred = np.zeros(self.Path_pred.shape[:-2], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+       
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        
+        for subgroup in np.unique(Subgroups):
+            subgroup_index = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
+            pred_agents = Pred_agents[subgroup_index[0]]
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
+            agent_types = self.T_pred[subgroup_index[0]]
+            
+            std = 1 + (agent_types[pred_agents] != 'P') * 79
+            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
+            
+            nto_subgroup = Num_steps[subgroup_index]
+            
+            for nto in np.unique(nto_subgroup):
+                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                paths_pred = paths_pred / std
+                
+                num_features = nto * 2
+                
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    agent = self.input_names_train[i_agent_orig]
+                    
+                    # Get agent
+                    paths_pred_agent = paths_pred[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:2], num_features)
+                    
+                    # Collapse agents further
+                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+                    
+                    log_prob_pred_agent = self.data_set.KDE_indep[subgroup][nto][agent].score_samples(paths_pred_agent_comp)
+
+                    self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
+                
     #%% 
     #########################################################################################
     #########################################################################################

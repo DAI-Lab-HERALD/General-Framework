@@ -936,9 +936,15 @@ class Experiment():
                                           '(1.25, {:0.3f}) '.format(y_value + plot_height) + 
                                           r'{$' + '{}'.format(max_value) + r'$};' + ' \n') 
                     # Add metric name
+                    metric_name_latex = metric_class.get_name()['latex']
+                    if metric_class.get_opt_goal() == 'minimize':
+                        metric_name_latex += r' $\downarrow$'
+                    else:
+                        metric_name_latex += r' $\uparrow'
+                    
                     Figure_string += (r'    \node[black, rotate = 90, font = \footnotesize] at ' + 
                                       '(0.9, {:0.3f}) '.format(y_value + 0.5 * plot_height) + 
-                                      r'{' + metric_class.get_name()['latex'] + r'};' + ' \n')
+                                      r'{' + metric_name_latex + r'};' + ' \n')
                     
                 
                 
@@ -1209,7 +1215,12 @@ class Experiment():
                     else:
                         row_module = importlib.import_module(row_name)
                         row_class  = getattr(row_module, row_name)
+                        
                         row_latexname = row_class.get_name()['latex']
+                        if row_class.get_opt_goal() == 'minimize':
+                            row_latexname += r' $\downarrow$'
+                        else:
+                            row_latexname += r' $\uparrow'
                     
                     if dataset_row:
                         metric_class  = table_class

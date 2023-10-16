@@ -115,23 +115,23 @@ class OPTICS_GMM():
             #         self.Eps_score[i]      = silhouette_score(X, self.cluster_labels)
             
             # Get reachability plot
-            self.optics = OPTICS(min_samples = self.num_min_samples, 
-                                          min_cluster_size = 5)
-            self.optics.fit(X)
-            self.cluster_labels = self.optics.labels_
+            optics = OPTICS(min_samples = self.num_min_samples, 
+                            min_cluster_size = 5)
+            optics.fit(X)
+            self.cluster_labels = optics.labels_
             
             if len(np.unique(self.cluster_labels)) > 1:
                 best_score = silhouette_score(X, self.cluster_labels)
             else:
                 best_score = -1
                 
-            reachability = self.optics.reachability_[np.isfinite(self.optics.reachability_)] 
+            reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
             
             self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
             for i, eps in enumerate(self.Eps):
-                test_labels = cluster_optics_dbscan(reachability   = self.optics.reachability_,
-                                                    core_distances = self.optics.core_distances_,
-                                                    ordering       = self.optics.ordering_,
+                test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
+                                                    core_distances = optics.core_distances_,
+                                                    ordering       = optics.ordering_,
                                                     eps            = eps)
             
                 if len(np.unique(test_labels)) > 1:
