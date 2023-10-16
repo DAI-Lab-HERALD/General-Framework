@@ -60,19 +60,19 @@ class Experiment():
     
     #%% Experiment setup        
     def set_modules(self, Data_sets, Data_params, Splitters, Models, Metrics):
-        assert type(Data_sets) == type([0]), "Data_sets must be a list."
+        assert isinstance(Data_sets, list), "Data_sets must be a list."
         assert len(Data_sets) > 0, "Data_sets must ot be empty."
         
-        assert type(Data_params) == type([0]), "Data_params must be a list."
+        assert isinstance(Data_params, list), "Data_params must be a list."
         assert len(Data_params) > 0, "Data_params must ot be empty."
         
-        assert type(Splitters) == type([0]), "Splitters must be a list."
+        assert isinstance(Splitters, list), "Splitters must be a list."
         assert len(Splitters) > 0, "Splitters must ot be empty."
         
-        assert type(Models) == type([0]), "Models must be a list."
+        assert isinstance(Models, list), "Models must be a list."
         assert len(Models) > 0, "Models must ot be empty."
         
-        assert type(Metrics) == type([0]), "Metrics must be a list."
+        assert isinstance(Metrics, list), "Metrics must be a list."
         assert len(Metrics) > 0, "Metrics must ot be empty."
         
         self.num_data_sets   = len(Data_sets)
@@ -82,7 +82,6 @@ class Experiment():
         
         self.Data_sets   = Data_sets
         self.Data_params = Data_params
-        self.Models      = Models
         self.Metrics     = Metrics
         
         # Check if multiple splitter repetitions have been provided
@@ -137,7 +136,27 @@ class Experiment():
         
         self.num_splitters = len(self.Splitters)
         
+        # Check if Models are all depicted correctly
+        self.Models = []
+        for model in Models:
+            if isinstance(model, str):
+                model_dict = {'model': model, 'kwargs': {}}
+            elif isinstance(model, dict):
+                assert 'model' in model.keys(), "No model name is provided."
+                assert isinstance(model['model'], str), "A model is set as a string."
+                model_dict = model
+                if not 'kwargs' in model.keys():
+                    model_dict['kwargs'] = {}
+                else:
+                    assert isinstance(model_dict['kwargs'], dict), "The kwargs value must be a dictionary."
+            else:
+                raise TypeError("The provided model must be string or dictionary")
+            
+            self.Models.append(model_dict)
+                
+        
         self.provided_modules = True
+        
         
     def set_parameters(self, model_for_path_transform,
                        num_samples_path_pred = 100, 
@@ -347,13 +366,17 @@ class Experiment():
                     splitter.split_data()
                                                                
                     # Go through each model to be trained
-                    for l, model_name in enumerate(self.Models):
+                    for l, model_dict in enumerate(self.Models):
+                        # get model subjects
+                        model_name   = model_dict['model']
+                        model_kwargs = model_dict['kwargs']
+                        
                         # Get model class
                         model_module = importlib.import_module(model_name)
                         model_class = getattr(model_module, model_name)
                         
                         # Initialize the model
-                        model = model_class(data_set, splitter, self.evaluate_on_train_set)
+                        model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
                         
                         # Check if the model can be trained on this dataset
                         model_failure = model.check_trainability()
@@ -484,12 +507,17 @@ class Experiment():
                         if create_plot:
                             fig, ax = plt.subplots(figsize = (5,5))
                         
-                        for l, model_name in enumerate(self.Models):
+                        for l, model_dict in enumerate(self.Models):
+                            # get model subjects
+                            model_name   = model_dict['model']
+                            model_kwargs = model_dict['kwargs']
+                            
+                            # Get model instance
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name)
                             
                             # Initialize the model
-                            model = model_class(data_set, splitter, self.evaluate_on_train_set)
+                            model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
                             
                             results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
@@ -824,10 +852,17 @@ class Experiment():
                 Plot_string += r'        xtick = {' + str([*range(1, self.num_models + 1)])[1:-1] + r'},' + ' \n'
                 Plot_string += r'        xticklabels = {' 
                 if (1 + j) == self.num_metrics: 
-                    for m, model_name in enumerate(self.Models):
+                    for m, model_dict in enumerate(self.Models):
+                        # get model subjects
+                        model_name   = model_dict['model']
+                        model_kwargs = model_dict['kwargs']
+                        
+                        # Get model instance
                         model_module = importlib.import_module(model_name)
                         model_class = getattr(model_module, model_name) 
-                        Plot_string += model_class.get_name()['latex']
+                        model = model_class(model_kwargs, None, None, self.evaluate_on_train_set)
+                        
+                        Plot_string += model.get_name()['latex']
                         if m < self.num_models - 1:
                             Plot_string += ', '
                 Plot_string += r'},' + ' \n' 
@@ -852,7 +887,11 @@ class Experiment():
                     dy = 10 ** (dx * np.log10(max_value / min_value) / y_max)
                 else:
                     dy = dx * (max_value - min_value) / y_max
-                for m, model_name in enumerate(self.Models):
+                for m, model_dict in enumerate(self.Models):
+                    # get model subjects
+                    model_name   = model_dict['model']
+                    model_kwargs = model_dict['kwargs']
+                    
                     for n, data_params in enumerate(self.Data_params):
                         x_pos = m + (n + 1) / (self.num_data_params + 1)
                         results = Results_jk[n,:,m]
@@ -933,10 +972,16 @@ class Experiment():
                     
                     if plot_x_labels and (1 + j) != self.num_metrics:
                         Label_string = r'xticklabels = {'  
-                        for m, model_name in enumerate(self.Models):
+                        for m, model_dict in enumerate(self.Models):
+                            # get model subjects
+                            model_name   = model_dict['model']
+                            model_kwargs = model_dict['kwargs']
+                            
+                            # Get model instance
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name) 
-                            Label_string += model_class.get_name()['latex']
+                            model = model_class(model_kwargs, None, None, self.evaluate_on_train_set)
+                            Label_string += model.get_name()['latex']
                             if m < self.num_models - 1:
                                 Label_string += ', '
                         Label_string += r'}' 
@@ -946,10 +991,16 @@ class Experiment():
                         
                     if not plot_x_labels and  (1 + j) == self.num_metrics:
                         Label_string = r'xticklabels = {' 
-                        for m, model_name in enumerate(self.Models):
+                        for m, model_dict in enumerate(self.Models):
+                            # get model subjects
+                            model_name   = model_dict['model']
+                            model_kwargs = model_dict['kwargs']
+                            
+                            # Get model instance
                             model_module = importlib.import_module(model_name)
                             model_class = getattr(model_module, model_name) 
-                            Label_string += model_class.get_name()['latex']
+                            model = model_class(model_kwargs, None, None, self.evaluate_on_train_set)
+                            Label_string += model.get_name()['latex']
                             if m < self.num_models - 1:
                                 Label_string += ', '
                         Label_string += r'}' 
@@ -1117,10 +1168,17 @@ class Experiment():
                     Output_strings[n] += r'& \multicolumn{{{}}}{{c}}{{\textbf{{Models}}}} \\'.format(models_per_table * nP) 
                     Output_strings[n] += '\n'
                 for model_idx in models_n:
-                    model_name = self.Models[model_idx]
+                    model_dict = self.Models[model_idx]
+                    
+                    # get model subjects
+                    model_name   = model_dict['model']
+                    model_kwargs = model_dict['kwargs']
+                        
+                    # Get model instance
                     model_module = importlib.import_module(model_name)
                     model_class = getattr(model_module, model_name) 
-                    Output_strings[n] += r'& \multicolumn{{{}}}'.format(nP) + r'{c}{' + model_class.get_name()['latex'] + r'}'
+                    model = model_class(model_kwargs, None, None, self.evaluate_on_train_set)
+                    Output_strings[n] += r'& \multicolumn{{{}}}'.format(nP) + r'{c}{' + model.get_name()['latex'] + r'}'
                 Output_strings[n] += r' \\'
                 Output_strings[n] += '\n'
                 Output_strings[n] += r'\midrule[1pt] '
@@ -1407,12 +1465,17 @@ class Experiment():
         if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
-            for i, m_name in enumerate(self.Models):
+            for i, m_dict in enumerate(self.Models):
+                # get model subjects
+                m_name   = m_dict['model']
+                m_kwargs = m_dict['kwargs']
+                
+                # Get model instance
                 m_class = getattr(importlib.import_module(m_name), m_name)
                 try:
                     sample_string += '\n{}: '.format(i + 1) + m_class.get_name()['print']  
                 except:
-                    mm = m_class(data_set, None, self.evaluate_on_train_set)
+                    mm = m_class(m_kwargs, data_set, None, self.evaluate_on_train_set)
                     sample_string += '\n{}: '.format(i + 1) + mm.get_name()['print']  
             print(sample_string, flush = True)  
             print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(self.num_models), flush = True)
@@ -1429,19 +1492,24 @@ class Experiment():
                 except:
                     i_d = -1 
             
-            model_name = self.Models[i_d]
+            model_dict = self.Models[i_d]
         else:
-            model_name = self.Models[0]
+            model_dict = self.Models[0]
             
-        return model_name
+        return model_dict
         
     
     
-    def _get_data_pred(self, data_set, splitter, model_name):
+    def _get_data_pred(self, data_set, splitter, model_dict):
+        # get model subjects
+        model_name   = model_dict['model']
+        model_kwargs = model_dict['kwargs']
+        
+        # Get model class
         model_class = getattr(importlib.import_module(model_name), model_name)
        
         # Load specific model
-        model = model_class(data_set, splitter, self.evaluate_on_train_set)
+        model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
         model.train()
         output = model.predict()
         
@@ -1646,8 +1714,10 @@ class Experiment():
          Input_path, Output_path, 
          Output_A, Output_T_E, Domain] = self._get_data()
         
-        model_name = self._get_model_selection(data_set)
-        model, Output_path_pred = self._get_data_pred(data_set, splitter, model_name)
+        model_dict = self._get_model_selection(data_set)
+        
+        # Get model
+        model, Output_path_pred = self._get_data_pred(data_set, splitter, model_dict)
         
         sample_inds = self._select_testing_samples(load_all, Output_A)
         
@@ -1707,7 +1777,7 @@ class Experiment():
             
             # allow for latex code
             from matplotlib import rc
-            # rc('text', usetex=True)
+            rc('text', usetex=True)
             
             # Format plot
             ax.set_aspect('equal', adjustable='box') 

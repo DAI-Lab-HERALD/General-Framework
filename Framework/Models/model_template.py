@@ -8,98 +8,104 @@ import math
 import scipy as sp
 
 class model_template():
-    def __init__(self, data_set, splitter, evaluate_on_train_set, behavior = None): 
-        # Load gpu
-        if self.requires_torch_gpu():
-            if torch.cuda.is_available():
-                self.device = torch.device('cuda', index=0) 
-                torch.cuda.set_device(0)
-            else:
-                warnings.warn('''No GPU could be found. Program is proccessed on the CPU.
-                              
-                This might lead either to a model failure or significantly decreased
-                training and prediction speed.''')
-                self.device = torch.device('cpu')
-        
-        
-        self.data_set = data_set
-        self.splitter = splitter
-        
-        # Get overwrite decision
-        self.model_overwrite      = self.data_set.overwrite_results in ['model']
-        self.prediction_overwrite = self.data_set.overwrite_results in ['model', 'prediction']
-        
-        self.dt = data_set.dt
-        self.has_map = self.data_set.includes_images()
-        
-        self.num_timesteps_in = data_set.num_timesteps_in_real
-        self.num_timesteps_out = data_set.num_timesteps_out_real
-        
-        self.agents_to_predict = data_set.agents_to_predict
-        self.general_input_available = self.data_set.general_input_available
-        
-        self.input_names_train = np.array(data_set.Input_path.columns)
-        
-        self.t_e_quantile = self.data_set.p_quantile
+    def __init__(self, model_kwargs, data_set, splitter, evaluate_on_train_set, behavior = None):
+        if data_set is not None:
+            # Load gpu
+            if self.requires_torch_gpu():
+                if torch.cuda.is_available():
+                    self.device = torch.device('cuda', index=0) 
+                    torch.cuda.set_device(0)
+                else:
+                    warnings.warn('''No GPU could be found. Program is proccessed on the CPU.
+                                  
+                    This might lead either to a model failure or significantly decreased
+                    training and prediction speed.''')
+                    self.device = torch.device('cpu')
             
-        
-        self.num_samples_path_pred = self.data_set.num_samples_path_pred
-        self.evaluate_on_train_set = evaluate_on_train_set
-        
-        self.setup_method()
-
-        if behavior == None:
-            self.is_data_transformer = False
             
-            if hasattr(self.splitter, 'Train_index'):
-                self.Index_train = self.splitter.Train_index
+            self.data_set = data_set
+            self.splitter = splitter
+            
+            # Get overwrite decision
+            self.model_overwrite      = self.data_set.overwrite_results in ['model']
+            self.prediction_overwrite = self.data_set.overwrite_results in ['model', 'prediction']
+            
+            self.dt = data_set.dt
+            self.has_map = self.data_set.includes_images()
+            
+            self.num_timesteps_in = data_set.num_timesteps_in_real
+            self.num_timesteps_out = data_set.num_timesteps_out_real
+            
+            self.agents_to_predict = data_set.agents_to_predict
+            self.general_input_available = self.data_set.general_input_available
+            
+            self.input_names_train = np.array(data_set.Input_path.columns)
+            
+            self.t_e_quantile = self.data_set.p_quantile
                 
-                if self.evaluate_on_train_set:
-                    # self.Index_test = np.arange(len(self.data_set.Output_T))
-                    self.Index_test = np.unique(np.concatenate((self.splitter.Test_index, 
-                                                                self.splitter.Train_index)))
-                else:
-                    self.Index_test = self.splitter.Test_index
             
-                if self.get_output_type() == 'path_all_wi_pov':
-                    pred_string = 'pred_tra_wip_'
-                elif self.get_output_type() == 'path_all_wo_pov':
-                    pred_string = 'pred_tra_wop_'
-                elif self.get_output_type() == 'class':
-                    pred_string = 'pred_classified'
-                elif self.get_output_type() == 'class_and_time':
-                    pred_string = 'pred_class_time'
-                else:
-                    raise AttributeError("This type of prediction is not implemented")
-                    
-                self.model_file = data_set.change_result_directory(splitter.split_file,
-                                                                   'Models', self.get_name()['file'])
-                self.pred_file  = data_set.change_result_directory(self.model_file,
-                                                                   'Predictions', pred_string)
-                self.simply_load_results = False
-            else:
-                self.simply_load_results = True
+            self.num_samples_path_pred = self.data_set.num_samples_path_pred
+            self.evaluate_on_train_set = evaluate_on_train_set
             
-        else:
-            self.is_data_transformer = True
-            self.simply_load_results = False
-            
-            self.Index_train = np.where(data_set.Output_A[behavior])[0]
-            self.Index_test = np.arange(len(data_set.Output_A))
-            
-            if len(self.Index_train) == 0:
-                # There are no samples of the required behavior class
-                # Use those cases where the other behaviors are the furthers away
-                num_long_index = int(len(data_set.Output_A) / len(data_set.Behaviors))
-                self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
-            
-            self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
-            self.pred_file = self.model_file[:-4] + '-pred_tra_wip_.npy'
-        
-        # Set trained to flase, this prevents a prediction on an untrained model
-        self.trained = False
-        self.extracted_data = False
+            self.setup_method()
     
+            if behavior == None:
+                self.is_data_transformer = False
+                
+                if hasattr(self.splitter, 'Train_index'):
+                    self.Index_train = self.splitter.Train_index
+                    
+                    if self.evaluate_on_train_set:
+                        # self.Index_test = np.arange(len(self.data_set.Output_T))
+                        self.Index_test = np.unique(np.concatenate((self.splitter.Test_index, 
+                                                                    self.splitter.Train_index)))
+                    else:
+                        self.Index_test = self.splitter.Test_index
+                
+                    if self.get_output_type() == 'path_all_wi_pov':
+                        pred_string = 'pred_tra_wip_'
+                    elif self.get_output_type() == 'path_all_wo_pov':
+                        pred_string = 'pred_tra_wop_'
+                    elif self.get_output_type() == 'class':
+                        pred_string = 'pred_classified'
+                    elif self.get_output_type() == 'class_and_time':
+                        pred_string = 'pred_class_time'
+                    else:
+                        raise AttributeError("This type of prediction is not implemented")
+                        
+                    self.model_file = data_set.change_result_directory(splitter.split_file,
+                                                                       'Models', self.get_name()['file'])
+                    self.pred_file  = data_set.change_result_directory(self.model_file,
+                                                                       'Predictions', pred_string)
+                    self.simply_load_results = False
+                else:
+                    self.simply_load_results = True
+                
+            else:
+                self.is_data_transformer = True
+                self.simply_load_results = False
+                
+                self.Index_train = np.where(data_set.Output_A[behavior])[0]
+                self.Index_test = np.arange(len(data_set.Output_A))
+                
+                if len(self.Index_train) == 0:
+                    # There are no samples of the required behavior class
+                    # Use those cases where the other behaviors are the furthers away
+                    num_long_index = int(len(data_set.Output_A) / len(data_set.Behaviors))
+                    self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
+                
+                self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
+                self.pred_file = self.model_file[:-4] + '-pred_tra_wip_.npy'
+            
+            # Set trained to flase, this prevents a prediction on an untrained model
+            self.trained = False
+            self.extracted_data = False
+            self.depict_results = False
+        else:
+            self.depict_results = True
+        
+        self.model_kwargs = model_kwargs
+        
     
     def train(self):
         assert not self.simply_load_results, 'This model instance is nonly for loading results.'
