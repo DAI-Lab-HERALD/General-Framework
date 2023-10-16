@@ -3,11 +3,11 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow_LSTM.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
 import pickle
 import os
 
-class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
+class trajflow_meszaros_futEnc12_past04_refining(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -19,6 +19,71 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
     distribution over trajectories. arXiv preprint arXiv:2304.05166.
     '''
     
+    def define_default_kwargs(self):
+        if not ('batch_size' in self.model_kwargs.keys()):
+            self.model_kwargs['batch_size'] = 128
+
+        if not ('hs_rnn' in self.model_kwargs.keys()):
+            self.model_kwargs['hs_rnn'] = 16
+
+        if not ('n_layers_rnn' in self.model_kwargs.keys()):
+            self.model_kwargs['n_layers_rnn'] = 3
+
+        if not ('fut_enc_sz' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_enc_sz'] = 4
+
+        if not ('scene_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['scene_encoding_size'] = 4
+
+        if not ('obs_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['obs_encoding_size'] = 4
+
+        if not ('beta_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['beta_noise'] = 0 # 0.2 (P) / 0.002
+
+        if not ('gamma_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['gamma_noise'] = 0 # 0.02 (P) / 0.002
+
+        if not ('alpha' in self.model_kwargs.keys()):
+            self.model_kwargs['alpha'] = 3 # 10 (P) / 3
+
+        if not ('s_min' in self.model_kwargs.keys()):
+            self.model_kwargs['s_min'] = 0.8 # 0.3 (P) / 0.8 
+
+        if not ('s_max' in self.model_kwargs.keys()):
+            self.model_kwargs['s_max'] = 1.2 # 1.7 (P) / 1.2
+
+        if not ('sigma' in self.model_kwargs.keys()):  
+            self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
+
+        if not ('fut_ae_epochs' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_epochs'] = 5000
+        
+        if not ('fut_ae_lr' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_lr'] = 5e-4
+
+        if not ('fut_ae_wd' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_wd'] = 1e-4
+
+        if not ('flow_epochs' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_epochs'] = 200
+
+        if not ('flow_lr' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_lr'] = 1e-3
+
+        if not ('flow_wd' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_wd'] = 1e-5
+
+        if not ('vary_input_length' in self.model_kwargs.keys()):
+            self.model_kwargs['vary_input_length'] = False
+
+        if not ('scale_AE' in self.model_kwargs.keys()):
+            self.model_kwargs['scale_AE'] = False
+
+        if not ('scale_NF' in self.model_kwargs.keys()):
+            self.model_kwargs['scale_NF'] = False
+
+    
     def setup_method(self, seed = 0):        
         # set random seeds
         random.seed(seed)
@@ -27,7 +92,9 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
         
-        self.batch_size = 128
+        self.define_default_kwargs()
+
+        self.batch_size = self.model_kwargs['batch_size']
         
         # Required attributes of the model
         self.min_t_O_train = self.num_timesteps_out
@@ -42,47 +109,36 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
         self.norm_rotation = True
         
         
-        self.hs_rnn = 16
-        self.n_layers_rnn = 3
-        self.fut_enc_sz = 12 ## 4-8
+        self.hs_rnn = self.model_kwargs['hs_rnn']
+        self.n_layers_rnn = self.model_kwargs['n_layers_rnn']
+        self.fut_enc_sz = self.model_kwargs['fut_enc_sz'] 
 
-        self.scene_encoding_size = 4
-        self.obs_encoding_size = 16 
+        self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
+        self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
         
-        if (self.provide_all_included_agent_types() == 'P').all():
-            self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            
-            self.alpha = 10
-            self.s_min = 0.3
-            self.s_max = 1.7
-            self.sigma = 0.5
-
-        else:
-            self.beta_noise = 0.002
-            self.gamma_noise = 0.002
-            
-            self.alpha = 3
-            self.s_min = 0.8
-            self.s_max = 1.2
-            self.sigma = 0.2
+        self.beta_noise = self.model_kwargs['beta_noise']
+        self.gamma_noise = self.model_kwargs['gamma_noise']
+        
+        self.alpha = self.model_kwargs['alpha']
+        self.s_min = self.model_kwargs['s_min']
+        self.s_max = self.model_kwargs['s_max']
+        self.sigma = self.model_kwargs['sigma']
 
 
-        self.fut_ae_epochs = 5000
-        self.fut_ae_lr = 5e-4
-        self.fut_ae_wd = 1e-4
+        self.fut_ae_epochs = self.model_kwargs['fut_ae_epochs']
+        self.fut_ae_lr = self.model_kwargs['fut_ae_lr']
+        self.fut_ae_wd = self.model_kwargs['fut_ae_wd']
 
-        self.flow_epochs = 200
-        self.flow_lr = 1e-3
-        self.flow_wd = 1e-5
-
-        self.refine_epochs = 100
-        self.refining_lr = 5e-5
+        self.flow_epochs = self.model_kwargs['flow_epochs']
+        self.flow_lr = self.model_kwargs['flow_lr']
+        self.flow_wd = self.model_kwargs['flow_wd']
 
         self.std_pos_ped = 1
-        self.std_pos_veh = 1 #80
+        self.std_pos_veh = 1 
 
-        self.vary_input_length = False
+        self.vary_input_length = self.model_kwargs['vary_input_length']
+        self.scale_AE = self.model_kwargs['scale_AE']
+        self.scale_NF = self.model_kwargs['scale_NF']
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -172,7 +228,8 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.to(device = self.device)
 
-                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    if not self.scale_AE:
+                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
                     
                     tar_pos_past   = X[:,0]
                     tar_pos_future = Y[:,0]
@@ -319,7 +376,8 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
                     
-                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    if not self.scale_NF:
+                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
 
                     X = X[:,:,-sample_past_length:,:]
                     
@@ -346,7 +404,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                     if img is not None:
                         img = img[:,0].permute(0,3,1,2)
 
-                    out, _, _ = fut_model.encoder(y_rel[:,0])
+                    out, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:,-1]
                     # out.shape:       batch size x enc_dims
                     
@@ -383,7 +441,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                         if img is not None:
                             img_val = img[:,0].permute(0,3,1,2)
 
-                        out, _, _ = fut_model.encoder(y_rel[:,0])
+                        out, _ = fut_model.encoder(y_rel[:,0])
                         out = out[:, -1]
                         # out.shape: batch size x enc_dims
                             
@@ -443,7 +501,6 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                                       lr=self.refining_lr, weight_decay=self.flow_wd)
 
         val_losses = []
-        loss_fn = torch.nn.MSELoss()
 
 
         for step in range(self.refine_epochs):
@@ -472,7 +529,8 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                 scaler = scaler.unsqueeze(3)
                 scaler = scaler.to(device = self.device)
                 
-                scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                if not self.scale_NF:
+                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
 
                 X = X[:,:,-sample_past_length:,:]
                 
@@ -499,7 +557,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                 if img is not None:
                     img = img[:,0].permute(0,3,1,2)
 
-                out, _, _ = fut_model.encoder(y_rel[:,0])
+                out, _ = fut_model.encoder(y_rel[:,0])
                 out = out[:,-1]
                 # out.shape:       batch size x enc_dims
                 
@@ -511,14 +569,6 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                 loss = -torch.mean(logprob) # NLL
                 losses_epoch.append(loss.item())
                 
-                loss.backward()
-                optimizer.step()
-
-                
-                future_traj_hat, y_in = fut_model(y_rel[:,0])     
-                    
-                optimizer.zero_grad()
-                loss = torch.sqrt(loss_fn(future_traj_hat, y_in))
                 loss.backward()
                 optimizer.step()
                 
@@ -544,7 +594,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                     if img is not None:
                         img_val = img[:,0].permute(0,3,1,2)
 
-                    out, _, _ = fut_model.encoder(y_rel[:,0])
+                    out, _ = fut_model.encoder(y_rel[:,0])
                     out = out[:, -1]
                     # out.shape: batch size x enc_dims
                         
@@ -642,7 +692,6 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                 samples_rel = samples_rel.squeeze(0)
                         
                 hidden = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
-                cell = torch.tile(samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(0), (self.fut_model.decoder.nl,1,1))
                 
                 # Decoder part
                 x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
@@ -650,7 +699,7 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
                 outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
                 for t in range(0, num_steps):
 
-                    output, hidden, cell = self.fut_model.decoder(x, hidden, cell)
+                    output, hidden = self.fut_model.decoder(x, hidden)
                     
                     outputs[:, t, :] = output.squeeze()
                     
@@ -692,10 +741,46 @@ class trajflow_meszaros_futEnc12_LSTM_past16_fullRefining(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
+
+        self.define_default_kwargs()
+
         
-        names = {'print': 'TrajFlow_fut12_L16R',
-                'file': 'T_f12L16FR',
-                'latex': r'\emph{TF}'}
+        self.model_kwargs['fut_enc_sz']
+        self.model_kwargs['scene_encoding_size']
+        self.model_kwargs['obs_encoding_size']
+        self.model_kwargs['beta_noise'] 
+        self.model_kwargs['gamma_noise']
+        self.model_kwargs['alpha']
+        self.model_kwargs['s_min']
+        self.model_kwargs['s_max']
+        self.model_kwargs['sigma']
+        self.model_kwargs['vary_input_length']
+
+        kwargs_str = 'fut' + str(self.model_kwargs['fut_enc_sz']) + '_' + \
+                     'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
+                     'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
+                     'alpha' + str(self.model_kwargs['alpha']) + '_' + \
+                     'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
+                     'gamma' + str(self.model_kwargs['gamma_noise']) + '_' + \
+                     'smin' + str(self.model_kwargs['s_min']) + '_' + \
+                     'smax' + str(self.model_kwargs['s_max']) + '_' + \
+                     'sigma' + str(self.model_kwargs['sigma']) 
+                     
+        if self.model_kwargs['vary_input_length']:
+            kwargs_str += '_varyInLen'
+
+        if self.model_kwargs['scale_AE']:
+            kwargs_str += '_sclAE'
+
+        if self.model_kwargs['scale_NF']:
+            kwargs_str += '_sclNF'
+
+        model_str = 'TF_R_' + kwargs_str
+        
+        names = {'print': model_str,
+                'file': model_str,
+                'latex': r'\emph{%s}' % model_str
+                }
         return names
         
     def save_params_in_csv(self = None):

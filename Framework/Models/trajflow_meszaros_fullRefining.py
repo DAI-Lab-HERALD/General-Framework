@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Futu
 import pickle
 import os
 
-class trajflow_meszaros_past_scaleAENF(model_template):
+class trajflow_meszaros_fullRefining(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -18,6 +18,70 @@ class trajflow_meszaros_past_scaleAENF(model_template):
     Mészáros, A., Alonso-Mora, J., & Kober, J. (2023). Trajflow: Learning the 
     distribution over trajectories. arXiv preprint arXiv:2304.05166.
     '''
+    def define_default_kwargs(self):
+        if not ('batch_size' in self.model_kwargs.keys()):
+            self.model_kwargs['batch_size'] = 128
+
+        if not ('hs_rnn' in self.model_kwargs.keys()):
+            self.model_kwargs['hs_rnn'] = 16
+
+        if not ('n_layers_rnn' in self.model_kwargs.keys()):
+            self.model_kwargs['n_layers_rnn'] = 3
+
+        if not ('fut_enc_sz' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_enc_sz'] = 4
+
+        if not ('scene_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['scene_encoding_size'] = 4
+
+        if not ('obs_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['obs_encoding_size'] = 4
+
+        if not ('beta_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['beta_noise'] = 0 # 0.2 (P) / 0.002
+
+        if not ('gamma_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['gamma_noise'] = 0 # 0.02 (P) / 0.002
+
+        if not ('alpha' in self.model_kwargs.keys()):
+            self.model_kwargs['alpha'] = 3 # 10 (P) / 3
+
+        if not ('s_min' in self.model_kwargs.keys()):
+            self.model_kwargs['s_min'] = 0.8 # 0.3 (P) / 0.8 
+
+        if not ('s_max' in self.model_kwargs.keys()):
+            self.model_kwargs['s_max'] = 1.2 # 1.7 (P) / 1.2
+
+        if not ('sigma' in self.model_kwargs.keys()):  
+            self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
+
+        if not ('fut_ae_epochs' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_epochs'] = 5000
+        
+        if not ('fut_ae_lr' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_lr'] = 5e-4
+
+        if not ('fut_ae_wd' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_wd'] = 1e-4
+
+        if not ('flow_epochs' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_epochs'] = 200
+
+        if not ('flow_lr' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_lr'] = 1e-3
+
+        if not ('flow_wd' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_wd'] = 1e-5
+
+        if not ('vary_input_length' in self.model_kwargs.keys()):
+            self.model_kwargs['vary_input_length'] = False
+
+        if not ('scale_AE' in self.model_kwargs.keys()):
+            self.model_kwargs['scale_AE'] = False
+
+        if not ('scale_NF' in self.model_kwargs.keys()):
+            self.model_kwargs['scale_NF'] = False
+
     
     def setup_method(self, seed = 0):        
         # set random seeds
@@ -27,7 +91,9 @@ class trajflow_meszaros_past_scaleAENF(model_template):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
         
-        self.batch_size = 128
+        self.define_default_kwargs()
+
+        self.batch_size = self.model_kwargs['batch_size']
         
         # Required attributes of the model
         self.min_t_O_train = self.num_timesteps_out
@@ -42,44 +108,37 @@ class trajflow_meszaros_past_scaleAENF(model_template):
         self.norm_rotation = True
         
         
-        self.hs_rnn = 16
-        self.n_layers_rnn = 3
-        self.fut_enc_sz = 4 ## 4-8
+        self.hs_rnn = self.model_kwargs['hs_rnn']
+        self.n_layers_rnn = self.model_kwargs['n_layers_rnn']
+        self.fut_enc_sz = self.model_kwargs['fut_enc_sz'] 
 
-        self.scene_encoding_size = 4
-        self.obs_encoding_size = 4#16 
+        self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
+        self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
         
-        if (self.provide_all_included_agent_types() == 'P').all():
-            self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            
-            self.alpha = 10
-            self.s_min = 0.3
-            self.s_max = 1.7
-            self.sigma = 0.5
-
-        else:
-            self.beta_noise = 0.002
-            self.gamma_noise = 0.002
-            
-            self.alpha = 3
-            self.s_min = 0.8
-            self.s_max = 1.2
-            self.sigma = 0.2
+        self.beta_noise = self.model_kwargs['beta_noise']
+        self.gamma_noise = self.model_kwargs['gamma_noise']
+        
+        self.alpha = self.model_kwargs['alpha']
+        self.s_min = self.model_kwargs['s_min']
+        self.s_max = self.model_kwargs['s_max']
+        self.sigma = self.model_kwargs['sigma']
 
 
-        self.fut_ae_epochs = 5000
-        self.fut_ae_lr = 5e-4
-        self.fut_ae_wd = 1e-4
+        self.fut_ae_epochs = self.model_kwargs['fut_ae_epochs']
+        self.fut_ae_lr = self.model_kwargs['fut_ae_lr']
+        self.fut_ae_wd = self.model_kwargs['fut_ae_wd']
 
-        self.flow_epochs = 200
-        self.flow_lr = 1e-3
-        self.flow_wd = 1e-5
+        self.flow_epochs = self.model_kwargs['flow_epochs']
+        self.flow_lr = self.model_kwargs['flow_lr']
+        self.flow_wd = self.model_kwargs['flow_wd']
 
         self.std_pos_ped = 1
-        self.std_pos_veh = 1 #80
+        self.std_pos_veh = 1 
 
-        self.vary_input_length = False
+        self.vary_input_length = self.model_kwargs['vary_input_length']
+        self.scale_AE = self.model_kwargs['scale_AE']
+        self.scale_NF = self.model_kwargs['scale_NF']
+        
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -93,13 +152,12 @@ class trajflow_meszaros_past_scaleAENF(model_template):
         T_out = np.fromstring(T_out.reshape(-1), dtype = np.uint32).reshape(*T_out.shape, int(str(T_out.astype(str).dtype)[2:])).astype(np.uint8)[:,:,0]
         T_out = torch.from_numpy(T_out).to(device = self.device)
         
-
         # Standardize positions
         X[Ped_agents]  /= self.std_pos_ped
         X[~Ped_agents] /= self.std_pos_veh
         X = torch.from_numpy(X).float().to(device = self.device)
         
-        if Y is not None:
+        if Y is not None:            
             # Standardize future positions
             Y[Ped_agents]  /= self.std_pos_ped
             Y[~Ped_agents] /= self.std_pos_veh
@@ -170,7 +228,8 @@ class trajflow_meszaros_past_scaleAENF(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.to(device = self.device)
 
-                    # scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    if not self.scale_AE:
+                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
                     
                     tar_pos_past   = X[:,0]
                     tar_pos_future = Y[:,0]
@@ -255,8 +314,8 @@ class trajflow_meszaros_past_scaleAENF(model_template):
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
 
-        self.beta_noise = 0#.002
-        self.gamma_noise = 0#.002
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
 
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
@@ -317,7 +376,8 @@ class trajflow_meszaros_past_scaleAENF(model_template):
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
                     
-                    # scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                    if not self.scale_NF:
+                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
 
                     X = X[:,:,-sample_past_length:,:]
                     
@@ -416,6 +476,170 @@ class trajflow_meszaros_past_scaleAENF(model_template):
             pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
 
         return flow_dist
+    
+
+
+    def refine_network(self, fut_model, flow_dist):
+        self.beta_noise = 0.002
+        self.gamma_noise = 0.002
+
+        if self.vary_input_length:
+            past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
+            sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
+        else:
+            sample_past_length = self.num_timesteps_in
+        
+
+        for param in fut_model.parameters():
+            param.requires_grad = True 
+            
+        
+        flow_dist_file = self.model_file[:-4] + '_NF'
+        ae_file = self.model_file[:-4] + '_AE'
+             
+        optimizer = torch.optim.AdamW(list(fut_model.parameters()) + list(flow_dist.parameters()), 
+                                      lr=self.refining_lr, weight_decay=self.flow_wd)
+
+        val_losses = []
+        loss_fn = torch.nn.MSELoss()
+
+
+        for step in range(self.refine_epochs):
+
+            flow_dist.train()
+            fut_model.train()
+            
+            losses_epoch = []
+            val_losses_epoch = []
+            
+            train_epoch_done = False
+            while not train_epoch_done:
+                X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                        val_split_size = 0.1)
+                X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+                
+                # X.shape:   bs x num_agents x num_timesteps_is x 2
+                # Y.shape:   bs x num_agents x num_timesteps_is x 2
+                # T.shape:   bs x num_agents
+                # img.shape: bs x 1 x 156 x 257 x 1
+                
+                scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                loc=1, scale=self.sigma, size=X.shape[0])).float()
+                scaler = scaler.unsqueeze(1)
+                scaler = scaler.unsqueeze(2)
+                scaler = scaler.unsqueeze(3)
+                scaler = scaler.to(device = self.device)
+                
+                if not self.scale_NF:
+                    scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+
+                X = X[:,:,-sample_past_length:,:]
+                
+                all_pos_past   = X
+                tar_pos_past   = X[:,0]
+                all_pos_future = Y
+                tar_pos_future = Y[:,0]
+                
+                mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True).unsqueeze(1)
+                
+                shifted_past   = all_pos_past - mean_pos
+                shifted_future = all_pos_future - mean_pos
+                    
+                past_data   = shifted_past * scaler + mean_pos
+                future_data = shifted_future * scaler + mean_pos
+                
+                optimizer.zero_grad()
+                
+                past_traj, fut_traj, _ = flow_dist._normalize_rotation(past_data, future_data)
+                
+                x_t   = past_traj[:,[0],-1:,:]
+                y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
+
+                if img is not None:
+                    img = img[:,0].permute(0,3,1,2)
+
+                out, _ = fut_model.encoder(y_rel[:,0])
+                out = out[:,-1]
+                # out.shape:       batch size x enc_dims
+                
+                if img is not None:
+                    logprob = flow_dist.log_prob(out, past_data, T, img) #prior_logprob + log_det
+                else:
+                    logprob = flow_dist.log_prob(out, past_data, T) #prior_logprob + log_det
+
+                loss = -torch.mean(logprob) # NLL
+                losses_epoch.append(loss.item())
+                
+                loss.backward()
+                optimizer.step()
+
+                
+                future_traj_hat, y_in = fut_model(y_rel[:,0])     
+                    
+                optimizer.zero_grad()
+                loss = torch.sqrt(loss_fn(future_traj_hat, y_in))
+                loss.backward()
+                optimizer.step()
+                
+                
+            flow_dist.eval()
+            fut_model.eval()
+            with torch.no_grad():
+                val_epoch_done = False
+                while not val_epoch_done:
+                    X, Y, T, img, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                            val_split_size = 0.1)
+                    X, T, Y, img = self.extract_batch_data(X, T, Y, img)
+                    
+                    past_data_val = X
+                    future_data_val = Y
+                    
+                    past_traj, fut_traj, rot_angles_rad = flow_dist._normalize_rotation(past_data_val, future_data_val)
+                    
+                    x_t = past_traj[:,[0],-1:,:]
+                    y_rel = flow_dist._abs_to_rel(fut_traj, x_t)
+
+                    
+                    if img is not None:
+                        img_val = img[:,0].permute(0,3,1,2)
+
+                    out, _ = fut_model.encoder(y_rel[:,0])
+                    out = out[:, -1]
+                    # out.shape: batch size x enc_dims
+                        
+                    optimizer.zero_grad()
+
+                    if img is not None:
+                        log_prob = flow_dist.log_prob(out, past_data_val, T, img_val)
+                    else:
+                        log_prob = flow_dist.log_prob(out, past_data_val, T)
+                
+                    val_loss = -torch.mean(log_prob)
+                    val_losses_epoch.append(val_loss.item())
+                    
+                val_losses.append(np.mean(val_losses_epoch))      
+            
+            # Check for convergence
+            if step > 25:
+                best_val_step = np.argmin(val_losses)
+                if step - best_val_step > 10:
+                    print('Converged')
+                    print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
+                    print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
+                    break
+
+            if step % 10 == 0:
+
+                print('step: {}, loss:     {}'.format(step, np.mean(losses_epoch)))
+                print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
+
+            self.train_loss[1, :len(val_losses)] = np.array(val_losses)
+            os.makedirs(os.path.dirname(ae_file), exist_ok=True)
+            pickle.dump(fut_model, open(ae_file, 'wb'))
+            os.makedirs(os.path.dirname(flow_dist_file), exist_ok=True)
+            pickle.dump(flow_dist, open(flow_dist_file, 'wb'))
+
+        return fut_model, flow_dist
 
 
     def train_method(self):    
@@ -424,18 +648,11 @@ class trajflow_meszaros_past_scaleAENF(model_template):
         # Get needed agent types
         T_all = self.provide_all_included_agent_types().astype(str)
         T_all = np.fromstring(T_all, dtype = np.uint32).reshape(len(T_all), int(str(T_all.astype(str).dtype)[2:])).astype(np.uint8)[:,0]
-        
-        # Prepare stuff for Normalization
-        # if (self.data_set.get_name()['file'] == 'Fork_P_Aug' or
-        #     self.data_set.get_name()['file'] == 'Fork_Paths'):
-        #     X, Y, _, _, _, _, _, _ = self.provide_all_training_trajectories()
-        #     traj_tar = np.concatenate((X[:,0], Y[:,0]), axis = 1)
-            # self.max_pos = np.max(traj_tar)
-            # self.min_pos = np.min(traj_tar)
-            
+                    
         # Train model components        
         self.fut_model = self.train_futureAE(T_all)
         self.flow_dist = self.train_flow(self.fut_model, T_all)
+        self.fut_model, self.flow_dist = self.refine_network(fut_model = self.fut_model, flow_dist = self.flow_dist)
         
         # save weigths 
         self.weights_saved = []
@@ -533,9 +750,46 @@ class trajflow_meszaros_past_scaleAENF(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'TrajFlow',
-                'file': 'TF_M_SclP4',
-                'latex': r'\emph{TF_SclP4}'}
+
+        self.define_default_kwargs()
+
+        
+        self.model_kwargs['fut_enc_sz']
+        self.model_kwargs['scene_encoding_size']
+        self.model_kwargs['obs_encoding_size']
+        self.model_kwargs['beta_noise'] 
+        self.model_kwargs['gamma_noise']
+        self.model_kwargs['alpha']
+        self.model_kwargs['s_min']
+        self.model_kwargs['s_max']
+        self.model_kwargs['sigma']
+        self.model_kwargs['vary_input_length']
+
+        kwargs_str = 'fut' + str(self.model_kwargs['fut_enc_sz']) + '_' + \
+                     'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
+                     'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
+                     'alpha' + str(self.model_kwargs['alpha']) + '_' + \
+                     'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
+                     'gamma' + str(self.model_kwargs['gamma_noise']) + '_' + \
+                     'smin' + str(self.model_kwargs['s_min']) + '_' + \
+                     'smax' + str(self.model_kwargs['s_max']) + '_' + \
+                     'sigma' + str(self.model_kwargs['sigma']) 
+                     
+        if self.model_kwargs['vary_input_length']:
+            kwargs_str += '_varyInLen'
+
+        if self.model_kwargs['scale_AE']:
+            kwargs_str += '_sclAE'
+
+        if self.model_kwargs['scale_NF']:
+            kwargs_str += '_sclNF'
+
+        model_str = 'TF_FR_' + kwargs_str
+        
+        names = {'print': model_str,
+                'file': model_str,
+                'latex': r'\emph{%s}' % model_str
+                }
         return names
         
     def save_params_in_csv(self = None):
