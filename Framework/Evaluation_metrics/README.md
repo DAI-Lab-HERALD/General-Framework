@@ -390,7 +390,7 @@ def get_true_likelihood(self, joint_agents = True):
     to the KDE model trained on the grouped true trajectories.
 
   KDE_true_log_prob_pred : np.ndarray
-    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
     array that includes the probabilities for the predicted trajectories
     according to the KDE model trained on the grouped true trajectories.
 
