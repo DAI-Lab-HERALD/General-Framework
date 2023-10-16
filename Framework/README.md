@@ -72,9 +72,9 @@ Again, this is passed as a dictionary with three keys:
 ### Models
 Next, one has to select the models that are to be evaluated in this experiment.
 ```
-Models = ['<Model name 1>', '<Model name 2>', '<Model name 3>']
+Models = ['<Model name 1>', {'model': '<Model name 2>'}, {'model': '<Model name 3>', 'kwargs': {'hyperparam1': h1, 'hyperparam2': h2} }]
 ```
-Different from the previous list, **Models** contains only the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models).
+Different from the previous list, **Models** has two distinct entry types. The first is simply in the form of a *string* with the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models). Alternatively, one can pass a *dictionary* in which it is required to have a key named *model* with the corresponding value being a *string* with the name of an available **.py* file. This dictionary has the optional key *kwargs* which expects a dictionary as its value. The *kwargs* dictionary then contains all relevant model hyperparameters that one may wish to vary and which will be given to the model as the model attribute **model_kwargs** (see [Model attributes](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models#model-attributes))
 
 ### Metrics
 Lastly, one has to select the metrics by which the models are to be evaluated. 

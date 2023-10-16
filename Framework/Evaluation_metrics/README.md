@@ -295,11 +295,11 @@ def get_KDE_probabilities(self, joint_agents = True):
 
   Returns
   -------
-  KDE_log_prob_true : np.ndarray
+  KDE_pred_log_prob_true : np.ndarray
     This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
     array that includes the log probabilities for the true observations according
     to the KDE model trained on the predicted trajectories.
-  KDE_log_prob_pred : np.ndarray
+  KDE_pred_log_prob_pred : np.ndarray
     This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
     array that includes the log probabilities for the predicted trajectories 
     according to the KDE model trained on the predicted trajectories.
@@ -308,7 +308,7 @@ def get_KDE_probabilities(self, joint_agents = True):
   
   ...
   
-  return KDE_log_prob_true, KDE_log_prob_pred
+  return KDE_pred_log_prob_true, KDE_pred_log_prob_pred
 ```
 ```
 def get_true_prediction_with_same_input(self):
@@ -384,16 +384,21 @@ def get_true_likelihood(self, joint_agents = True):
 
   Returns
   -------
-  KDE_true_log_prob : np.ndarray
+  KDE_true_log_prob_true : np.ndarray
     This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
     array that includes the probabilities for the true observations according 
     to the KDE model trained on the grouped true trajectories.
+
+  KDE_true_log_prob_pred : np.ndarray
+    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    array that includes the probabilities for the predicted trajectories
+    according to the KDE model trained on the grouped true trajectories.
 
   '''
   
   ...
   
-  return KDE_true_log_prob
+  return KDE_true_log_prob_true, KDE_true_log_prob_pred
 ```
 ```
 def get_true_and_predicted_class_times(self):
