@@ -4,7 +4,6 @@ from evaluation_template import evaluation_template
 
 class KLD_traj_joint(evaluation_template):
     r'''
-    TODO: 
     The value :math:`F` of the Kullback-Leibler divergence , 
     is calculated in the following way:
         

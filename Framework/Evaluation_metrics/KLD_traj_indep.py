@@ -4,7 +4,6 @@ from evaluation_template import evaluation_template
 
 class KLD_traj_indep(evaluation_template):
     r'''
-    TODO: 
     The value :math:`F` of the Kullback-Leibler divergence , 
     is calculated in the following way:
         
@@ -29,7 +28,7 @@ class KLD_traj_indep(evaluation_template):
         \{\{x_{i,j} (t), y_{i,j} (t)\} \vert \forall t \in T_{O,s}\}
     
     
-    while :math:`P_{KDE,pred,s}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`(i, j) \in S_s`):
+    while :math:`P_{KDE,pred,s}` is trained on all predictions (:math:`p \in P`) for all predicted agents (:math:`(i, j) \in S_s`):
     
     .. math::
         \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \vert \forall t \in T_{O,s}\}
