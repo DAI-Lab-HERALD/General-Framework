@@ -9,6 +9,9 @@ import scipy as sp
 
 class model_template():
     def __init__(self, model_kwargs, data_set, splitter, evaluate_on_train_set, behavior = None):
+        # Set model kwargs
+        self.model_kwargs = model_kwargs
+        
         if data_set is not None:
             # Load gpu
             if self.requires_torch_gpu():
@@ -104,7 +107,6 @@ class model_template():
         else:
             self.depict_results = True
         
-        self.model_kwargs = model_kwargs
         
     
     def train(self):
