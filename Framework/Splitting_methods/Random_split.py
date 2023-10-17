@@ -19,7 +19,7 @@ class Random_split(splitting_template):
         Behaviors = np.unique(self.data_set.Output_A.to_numpy().argmax(1), return_inverse = True)[1]
         
         # Get unique subgroups
-        uni_subgroups, uni_subgroups_samples = np.unique(Subgroups)
+        uni_subgroups = np.unique(Subgroups)
         
         # Get number of behaviors for each subgroup
         uni_subgroups_beh = np.zeros((len(uni_subgroups), Behaviors.max() + 1))

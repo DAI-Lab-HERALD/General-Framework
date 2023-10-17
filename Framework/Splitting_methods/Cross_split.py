@@ -25,13 +25,12 @@ class Cross_split(splitting_template):
         # Get Behaviors, with non appearing ones being neglected
         Behaviors = np.unique(self.data_set.Output_A.to_numpy().argmax(1), return_inverse = True)[1]
         
-        
         # To do: split in n groups, so that in each group each behaviour
         # is roughly equally represented, while a samples with identical
         # subgroups should be in one split
         
         # Get unique subgroups
-        uni_subgroups, uni_subgroups_samples = np.unique(Subgroups)
+        uni_subgroups = np.unique(Subgroups)
         assert len(uni_subgroups) > num_splits, "Not enough unique input conditions for the desired number of splits."
         
         # Get number of behaviors for each subgroup
