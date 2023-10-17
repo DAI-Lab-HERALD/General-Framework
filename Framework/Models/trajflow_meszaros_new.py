@@ -312,10 +312,7 @@ class trajflow_meszaros_new(model_template):
 
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
-
-        # self.beta_noise = 0.002
-        # self.gamma_noise = 0.002
-
+        
         if self.vary_input_length:
             past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
             sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))

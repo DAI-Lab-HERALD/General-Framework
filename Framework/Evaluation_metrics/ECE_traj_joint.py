@@ -44,7 +44,7 @@ class ECE_traj_joint(evaluation_template):
         # Get identical input subgroups
         _, subgroups = self.get_true_prediction_with_same_input()
         
-        M = np.zeros((len(KDE_log_prob_true.shape), 1))
+        M = np.zeros((KDE_log_prob_true.shape[0], 1))
         
         unique_subgroups = np.unique(subgroups)
         

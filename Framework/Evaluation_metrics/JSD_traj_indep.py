@@ -10,10 +10,11 @@ class JSD_traj_indep(evaluation_template):
     is calculated in the following way:
         
     .. math::
-        F = {1 \over {|S|}}\sum\limits_{s = 1}^{|S|} D_{JS,s}
+        F = {1 \over {|S|\ln(2)}}\sum\limits_{s = 1}^{|S|} D_{JS,s}
     
     Here, :math:`S` is the set of subsets :math:`S_s`, which contain the agents :math:`j`
-    for which the initial input to the models was identical.
+    for which the initial input to the models was identical. The division by :math:`\ln(2)`
+    is used to normalise the output values inbetween 0 (identical distributions) and 1.
     
     Each value :math:`D_{JS,s}` is then calcualted in the following way
     (assuming :math:`N_{agents,i}` independent agents :math:`j` for each sample :math:`i`):
@@ -25,7 +26,7 @@ class JSD_traj_indep(evaluation_template):
                            \over{{1 \over {2}} \left( P_{KDE,pred,s} \left(\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right) 
                                                      + P_{KDE,s} \left(\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right)
                                                      \right)}} \right) \\
-        D_{KL,s} & = {1 \over{|S_s| |P|}} \sum\limits_{(i, j) \in S_s}\sum\limits_{p \in P} \ln 
+        D_{KL,s, pred} & = {1 \over{|S_s| |P|}} \sum\limits_{(i, j) \in S_s}\sum\limits_{p \in P} \ln 
                     \left({ P_{KDE,pred,s} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right)   
                            \over{{1 \over {2}} \left( P_{KDE,pred,s} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right) 
                                                      + P_{KDE,s} \left(\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right)
@@ -94,6 +95,7 @@ class JSD_traj_indep(evaluation_template):
         
         # Average JSD over subgroups
         JSD /= len(unique_subgroups)
+        JSD /= np.log(2)
         
         return [JSD]
     
