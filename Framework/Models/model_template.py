@@ -1301,7 +1301,7 @@ class model_template():
                 paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
                 
                 # Evaluate trejatories
-                log_prob_pred = self.data_set.KDE_indep[subgroup][nto].score_samples(paths_pred_comp)
+                log_prob_pred = self.data_set.KDE_joint[subgroup][nto].score_samples(paths_pred_comp)
                 self.Log_prob_true_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
             

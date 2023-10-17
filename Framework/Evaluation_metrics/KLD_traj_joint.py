@@ -11,14 +11,14 @@ class KLD_traj_joint(evaluation_template):
     .. math::
         F = {1 \over {|S|}}\sum\limits_{s = 1}^{|S|} D_{KL,s}
     
-    Here, :math:`S` is the set of subsets :math:`S_s`, which contain the agents :math:`j`
+    Here, :math:`S` is the set of subsets :math:`S_s`, which contain the samples :math:`i`
     for which the initial input to the models was identical.
     
     Each value :math:`D_{KL,s}` is then calcualted in the following way
     (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j` for each sample :math:`i`):
     
     .. math::
-        D_{KL,s} = {1 \over{|S_s|}} \sum\limits_{(i, j) \in S_s} \ln 
+        D_{KL,s} = {1 \over{|S_s|}} \sum\limits_{i \in S_s} \ln 
                     \left({ P_{KDE,s} \left(\{\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \} \right)   
                            \over{P_{KDE,pred,s} \left(\{\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \} \right) }} \right)
                     
