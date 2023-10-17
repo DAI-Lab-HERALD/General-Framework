@@ -22,8 +22,36 @@ class flomo_schoeller(model_template):
     with normalizing flows. In 2021 IEEE/RSJ International Conference on Intelligent 
     Robots and Systems (IROS) (pp. 7977-7984). IEEE.    
     '''
+    def define_default_kwargs(self):
+        
+        if not ('scene_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['scene_encoding_size'] = 4
+
+        if not ('obs_encoding_size' in self.model_kwargs.keys()):
+            self.model_kwargs['obs_encoding_size'] = 16
+
+        if not ('beta_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['beta_noise'] = 0.002 # 0.2 (P) / 0.002
+
+        if not ('gamma_noise' in self.model_kwargs.keys()):
+            self.model_kwargs['gamma_noise'] = 0.002 # 0.02 (P) / 0.002
+
+        if not ('alpha' in self.model_kwargs.keys()):
+            self.model_kwargs['alpha'] = 3 # 10 (P) / 3
+
+        if not ('s_min' in self.model_kwargs.keys()):
+            self.model_kwargs['s_min'] = 0.8 # 0.3 (P) / 0.8 
+
+        if not ('s_max' in self.model_kwargs.keys()):
+            self.model_kwargs['s_max'] = 1.2 # 1.7 (P) / 1.2
+
+        if not ('sigma' in self.model_kwargs.keys()):  
+            self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
+
+        
     
     def setup_method(self, seed = 0):
+
         # set random seeds
         random.seed(seed)
         np.random.seed(seed)
@@ -31,6 +59,8 @@ class flomo_schoeller(model_template):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
+        self.define_default_kwargs()
+        
         self.batch_size = 128
 
         # Required attributes of the model
@@ -49,26 +79,17 @@ class flomo_schoeller(model_template):
         self.n_layers_rnn = 3
         self.fut_enc_sz = 4
 
-        self.scene_encoding_size = 4
-        self.obs_encoding_size = 16 
-        
-        if (self.provide_all_included_agent_types() == 'P').all():
-            self.beta_noise = 0.2
-            self.gamma_noise = 0.02
-            
-            self.alpha = 10
-            self.s_min = 0.3
-            self.s_max = 1.7
-            self.sigma = 0.5
+        self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
+        self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
 
-        else:
-            self.beta_noise = 0.002
-            self.gamma_noise = 0.002
-            
-            self.alpha = 3
-            self.s_min = 0.8
-            self.s_max = 1.2
-            self.sigma = 0.2
+        self.beta_noise = self.model_kwargs['beta_noise']
+        self.gamma_noise = self.model_kwargs['gamma_noise']
+        
+        self.alpha = self.model_kwargs['alpha']
+        self.s_min = self.model_kwargs['s_min']
+        self.s_max = self.model_kwargs['s_max']
+        self.sigma = self.model_kwargs['sigma']
+        
 
         self.flow_epochs = 200
         self.flow_lr = 1e-3
@@ -320,9 +341,24 @@ class flomo_schoeller(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'FloMo',
-                 'file': 'FloMo_traj',
-                 'latex': r'\emph{FM}'}
+
+        self.define_default_kwargs()
+
+        kwargs_str = 'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
+                     'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
+                     'alpha' + str(self.model_kwargs['alpha']) + '_' + \
+                     'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
+                     'gamma' + str(self.model_kwargs['gamma_noise']) + '_' + \
+                     'smin' + str(self.model_kwargs['s_min']) + '_' + \
+                     'smax' + str(self.model_kwargs['s_max']) + '_' + \
+                     'sigma' + str(self.model_kwargs['sigma']) 
+                     
+        model_str = 'FM_' + kwargs_str
+        
+        names = {'print': model_str,
+                'file': model_str,
+                'latex': r'\emph{%s}' % model_str
+                }
         return names
         
     def save_params_in_csv(self = None):
