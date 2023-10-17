@@ -18,22 +18,21 @@ class KLD_traj_indep(evaluation_template):
     (assuming :math:`N_{agents,i}` independent agents :math:`j` for each sample :math:`i`):
     
     .. math::
-        D_{KL,s} = {1 \over{|T_{O,s}|}} \sum\limits_{t \in T_{O,s}} {1 \over{|S_s|}}
-                    \sum\limits_{(i, j) \in S_s} \ln 
-                    \left({ P_{KDE,s, t} \left(\{x_{i,j} (t), y_{i,j} (t)\} \right)   
-                           \over{P_{KDE,pred,s,t} \left(\{x_{i,j} (t), y_{i,j} (t)\} \right) }} \right)
+        D_{KL,s} = {1 \over{|S_s|}} \sum\limits_{(i, j) \in S_s} \ln 
+                    \left({ P_{KDE,s} \left(\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right)   
+                           \over{P_{KDE,pred,s} \left(\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \right) }} \right)
                     
-    Here, :math:`P_{KDE,s,t}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all 
+    Here, :math:`P_{KDE,s}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all 
     predicted agents in each subset (:math:`(i, j) \in S_s`):
     
     .. math::
-        \{x_{i,j} (t), y_{i,j} (t) \} 
+        \{\{x_{i,j} (t), y_{i,j} (t)\} \vert \forall t \in T_{O,s}\}
     
     
-    while :math:`P_{KDE,pred,s,t}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`(i, j) \in S_s`):
+    while :math:`P_{KDE,pred,s}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`(i, j) \in S_s`):
     
     .. math::
-        \{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \}
+        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \vert \forall t \in T_{O,s}\}
     
     '''
     
