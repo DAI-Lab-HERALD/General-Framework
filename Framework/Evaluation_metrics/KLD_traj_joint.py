@@ -18,22 +18,21 @@ class KLD_traj_joint(evaluation_template):
     (assuming :math:`N_{agents,i}` jointly predicted agents :math:`j` for each sample :math:`i`):
     
     .. math::
-        D_{KL,s} = {1 \over{|T_{O,s}|}} \sum\limits_{t \in T_{O,s}} {1 \over{|S_s|}}
-                    \sum\limits_{(i, j) \in S_s} \ln 
-                    \left({ P_{KDE,s, t} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \} \right)   
-                           \over{P_{KDE,pred,s,t} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \} \right) }} \right)
+        D_{KL,s} = {1 \over{|S_s|}} \sum\limits_{(i, j) \in S_s} \ln 
+                    \left({ P_{KDE,s} \left(\{\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \} \right)   
+                           \over{P_{KDE,pred,s} \left(\{\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \} \right) }} \right)
                     
-    Here, :math:`P_{KDE,s,t}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all samples
+    Here, :math:`P_{KDE,s}` is a subset and timepoint specific gaussian Kernel Density Estimate trained on all samples
     in each subset (:math:`i \in S_s`):
     
     .. math::
-        \{\{x_{i,j} (t), y_{i,j} (t) \} \, | \; \forall\, j \}
+        \{\{\{x_{i,j} (t), y_{i,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \}
     
     
-    while :math:`P_{KDE,pred,s,t}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`i \in S_s`):
+    while :math:`P_{KDE,pred,s}` is trained on all predictions (:math:`p \in P`) for all subset samples (:math:`i \in S_s`):
     
     .. math::
-        \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t) \} \, | \; \forall\, j \}
+        \{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \}
     
     '''
     
