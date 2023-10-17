@@ -598,18 +598,6 @@ class trajflow_meszaros_weighting(model_template):
 
         self.define_default_kwargs()
 
-        
-        self.model_kwargs['fut_enc_sz']
-        self.model_kwargs['scene_encoding_size']
-        self.model_kwargs['obs_encoding_size']
-        self.model_kwargs['beta_noise'] 
-        self.model_kwargs['gamma_noise']
-        self.model_kwargs['alpha']
-        self.model_kwargs['s_min']
-        self.model_kwargs['s_max']
-        self.model_kwargs['sigma']
-        self.model_kwargs['vary_input_length']
-
         kwargs_str = 'fut' + str(self.model_kwargs['fut_enc_sz']) + '_' + \
                      'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
                      'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
