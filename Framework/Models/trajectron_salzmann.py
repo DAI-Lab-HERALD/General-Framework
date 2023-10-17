@@ -10,7 +10,7 @@ from Trajectron.trajec_model.datawrapper import AgentBatch, AgentType
 import json
 import os
 
-class trajectron_salzmann_unicycle(model_template):
+class trajectron_salzmann(model_template):
     '''
     This is the updated version of Trajectron++, a single agent prediction model
     that is mainly based on LSTM cells. In its decoder, it just uses a unicycle model 
@@ -43,15 +43,21 @@ class trajectron_salzmann_unicycle(model_template):
         self.grayscale = False
         
         config_path = self.data_set.path + os.sep + 'Models' + os.sep + 'Trajectron' + os.sep + 'config' + os.sep
-        
         if (self.provide_all_included_agent_types() == 'P').all():
             config_file = config_path + 'pedestrian.json' 
-            with open(config_file) as json_file:
-                hyperparams = json.load(json_file)
         else:
-            config_file = config_path + 'nuScenes.json' 
-            with open(config_file) as json_file:
-                hyperparams = json.load(json_file)
+            if not 'control' in self.model_kwargs.keys():
+                self.model_kwargs['control'] = 'unicycle'
+                
+            if self.model_kwargs['control'] == 'unicycle':
+                config_file = config_path + 'nuScenes.json' 
+            elif self.model_kwargs['control'] == 'delta':
+                config_file = config_path + 'nuScenes_state_delta.json' 
+            else:
+                raise TypeError("The current control decoder is not implemented")
+                
+        with open(config_file) as json_file:
+            hyperparams = json.load(json_file)
             
         hyperparams["dec_final_dim"]                 = 32
         
@@ -404,9 +410,20 @@ class trajectron_salzmann_unicycle(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'Trajectron ++ (Dynamic model: Unicycle)',
-                 'file': 'traject_UC',
-                 'latex': r'\emph{T++}'}
+        if not 'control' in self.model_kwargs.keys():
+            self.model_kwargs['control'] = 'unicycle'
+            
+        
+        if self.model_kwargs['control'] == 'unicycle':
+            names = {'print': 'Trajectron ++ (Dynamic model: Unicycle)',
+                     'file': 'traject_UC',
+                     'latex': r'\emph{T++}'}
+        elif self.model_kwargs['control'] == 'delta':
+            names = {'print': 'Trajectron ++ (Dynamic model: Delta)',
+                     'file': 'traject_SD',
+                     'latex': r'\emph{T++}'}
+        else:
+            raise TypeError("The current control decoder is not implemented")
         return names
         
     def save_params_in_csv(self = None):
