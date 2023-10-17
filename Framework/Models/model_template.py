@@ -1061,12 +1061,6 @@ class model_template():
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
             
-            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
-            agent_types = self.T_pred[subgroup_index[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[subgroup_index]
             
             for nto in np.unique(nto_subgroup):
@@ -1075,9 +1069,6 @@ class model_template():
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
                 paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                
-                paths_true = paths_true / std
-                paths_pred = paths_pred / std
                         
                 # Collapse agents
                 num_features = pred_agents.sum() * nto * 2
@@ -1162,12 +1153,6 @@ class model_template():
             pred_agents = Pred_agents[subgroup_index[0]]
             pred_agents_id = np.where(pred_agents)[0]
             
-            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
-            agent_types = self.T_pred[subgroup_index[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[subgroup_index]
             
             for nto in np.unique(nto_subgroup):
@@ -1176,9 +1161,6 @@ class model_template():
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
                 paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                
-                paths_true = paths_true / std
-                paths_pred = paths_pred / std
                 
                 num_features = nto * 2
                 
@@ -1277,12 +1259,6 @@ class model_template():
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
             
-            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
-            agent_types = self.T_pred[subgroup_index[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[subgroup_index]
             
             for nto in np.unique(nto_subgroup):
@@ -1290,8 +1266,6 @@ class model_template():
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                
-                paths_pred = paths_pred / std
                         
                 # Collapse agents
                 num_features = pred_agents.sum() * nto * 2
@@ -1338,12 +1312,6 @@ class model_template():
             pred_agents = Pred_agents[subgroup_index[0]]
             pred_agents_id = np.where(pred_agents)[0]
             
-            assert len(np.unique(self.T_pred[subgroup_index], axis = 0)) == 1
-            agent_types = self.T_pred[subgroup_index[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[subgroup_index]
             
             for nto in np.unique(nto_subgroup):
@@ -1351,8 +1319,6 @@ class model_template():
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                
-                paths_pred = paths_pred / std
                 
                 num_features = nto * 2
                 
