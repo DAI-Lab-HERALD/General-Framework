@@ -717,12 +717,6 @@ class data_interface(object):
             # For some reason using pred_agents here moves the agent dimension to the front
             self.Path_true_all[subgroup,:len(s_ind)] = path_true
             
-        # Get agent predictions
-        self.T_array = self.Type.to_numpy()
-        self.T_array = self.T_array.astype(str)
-        self.T_array[self.T_array == 'nan'] = '0'
-        self.T_array = self.T_array[i_sampl_sort, i_agent_sort]
-            
         
     def _get_joint_KDE_probabilities(self, exclude_ego = False):
         if hasattr(self, 'Log_prob_true_joint'):
@@ -748,12 +742,6 @@ class data_interface(object):
             assert len(np.unique(self.Pred_agents_eval[s_ind], axis = 0)) == 1
             pred_agents = self.Pred_agents_eval[s_ind[0]]
             
-            assert len(np.unique(self.T_array[s_ind], axis = 0)) == 1
-            agent_types = self.T_array[s_ind[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
@@ -764,8 +752,6 @@ class data_interface(object):
                 
                 # Should be shape: num_subgroup_samples x num_agents x num_T_O x 2
                 paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
-                
-                paths_true = paths_true / std
                         
                 # Collapse agents
                 num_features = pred_agents.sum() * nto * 2
@@ -806,12 +792,6 @@ class data_interface(object):
             pred_agents = self.Pred_agents_eval[s_ind[0]]
             pred_agents_id = np.where(pred_agents)[0]
             
-            assert len(np.unique(self.T_array[s_ind], axis = 0)) == 1
-            agent_types = self.T_array[s_ind[0]]
-            
-            std = 1 + (agent_types[pred_agents] != 'P') * 79
-            std = std[np.newaxis, :, np.newaxis, np.newaxis] 
-            
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
@@ -822,8 +802,6 @@ class data_interface(object):
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
-                
-                paths_true = paths_true / std
                 
                 num_features = nto * 2
                 
