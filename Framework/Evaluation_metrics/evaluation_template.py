@@ -331,7 +331,7 @@ class evaluation_template():
         KDE_true_log_prob_true = KDE_true_log_prob_true[self.Index_curr]
         KDE_true_log_prob_pred = KDE_true_log_prob_pred[self.Index_curr_pred]
         
-        return KDE_true_log_prob_true, KDE_true_log_prob_true
+        return KDE_true_log_prob_true, KDE_true_log_prob_pred
     
     #%% Actual evaluation functions
     def _set_current_data(self, Output_pred):
