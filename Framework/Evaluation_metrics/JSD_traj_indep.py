@@ -205,7 +205,7 @@ class JSD_traj_indep(evaluation_template):
         ax.set_ylim(y_lim)
         ax.set_aspect('equal', adjustable='box')
         ax.set_xlabel('$x$ [$m$]')
-        ax.set_xlabel('$y$ [$m$]')
+        ax.set_ylabel('$y$ [$m$]')
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
