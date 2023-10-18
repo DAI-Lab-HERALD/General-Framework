@@ -750,6 +750,7 @@ class data_interface(object):
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 
+                # pred_agents = np.ones(Paths_subgroup.shape[1], bool) # TODO: remove this once actual issue is fixed
                 # Should be shape: num_subgroup_samples x num_agents x num_T_O x 2
                 paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
                         

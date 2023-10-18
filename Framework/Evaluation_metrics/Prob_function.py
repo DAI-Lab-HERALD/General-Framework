@@ -163,15 +163,23 @@ class OPTICS_GMM():
                 # Get cluster data
                 X_label = X[self.cluster_labels == label]
                 assert len(X_label) == cluster_size[i]
+
                 
                 self.means[i] = X_label.mean(0)
                 self.stds[i]  = X_label.std(0) + 0.001 * X_label.std(0).max() + 1e-6
 
+                
                 X_label_stand = (X_label - self.means[[i]]) / self.stds[[i]]
+
+                if len(X_label) < self.num_features:
+                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
+
+                else:
+                    c = X_label_stand
 
                 # calculate PCA on X_label_stand -> get rot matrix and std
                 pca = PCA()
-                pca.fit(X_label_stand)
+                pca.fit(c)
                 self.rot_mat_pca[i] = pca.components_
                 pca_std = np.sqrt(pca.explained_variance_)
                 min_pca_std = np.linspace(0.1,0.05, len(pca_std)) * pca_std.max()
