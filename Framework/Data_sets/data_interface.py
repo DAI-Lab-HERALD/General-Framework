@@ -691,7 +691,7 @@ class data_interface(object):
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
         # reset prediction agents
-        Pred_agents = self.Pred_agents_eval[i_sampl_sort, i_agent_sort]
+        self.Pred_agents_eval_sorted = self.Pred_agents_eval[i_sampl_sort, i_agent_sort]
         
         # Sort future trajectories
         Path_true = self.Y_orig[i_sampl_sort, i_agent_sort, :nto]
@@ -706,7 +706,7 @@ class data_interface(object):
             s_ind = np.where(subgroup == self.Subgroups)[0]
             
             # Get pred agents
-            pred_agents = Pred_agents[s_ind] # shape: len(s_ind) x num_agents
+            pred_agents = self.Pred_agents_eval_sorted[s_ind] # shape: len(s_ind) x num_agents
             
             # Get future pbservations for all agents
             path_true = Path_true[s_ind] # shape: len(s_ind) x max_num_pred_agents x nto x 2
@@ -729,9 +729,10 @@ class data_interface(object):
         # Check if dataset has all valuable stuff
         self._determine_pred_agents(eval_pov = ~exclude_ego)
         self._extract_identical_inputs(eval_pov = ~exclude_ego)
+        Pred_agents = self.Pred_agents_eval_sorted
         
         # Shape: Num_samples
-        self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval.shape[0], dtype = np.float32)
+        self.Log_prob_true_joint = np.zeros(Pred_agents.shape[0], dtype = np.float32)
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
@@ -739,8 +740,8 @@ class data_interface(object):
         for subgroup in np.unique(self.Subgroups):
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
-            assert len(np.unique(self.Pred_agents_eval[s_ind], axis = 0)) == 1
-            pred_agents = self.Pred_agents_eval[s_ind[0]]
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
             
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
@@ -778,9 +779,10 @@ class data_interface(object):
         # Check if dataset has all valuable stuff
         self._determine_pred_agents(eval_pov = ~exclude_ego)
         self._extract_identical_inputs(eval_pov = ~exclude_ego)
+        Pred_agents = self.Pred_agents_eval_sorted
         
         # Shape: Num_samples x num agents
-        self.Log_prob_true_indep = np.zeros(self.Pred_agents_eval.shape, dtype = np.float32)
+        self.Log_prob_true_indep = np.zeros(Pred_agents.shape, dtype = np.float32)
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
@@ -788,8 +790,8 @@ class data_interface(object):
         for subgroup in np.unique(self.Subgroups):
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
-            assert len(np.unique(self.Pred_agents_eval[s_ind], axis = 0)) == 1
-            pred_agents = self.Pred_agents_eval[s_ind[0]]
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
             pred_agents_id = np.where(pred_agents)[0]
             
             nto_subgroup = Num_steps[s_ind]
