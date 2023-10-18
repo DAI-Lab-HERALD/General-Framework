@@ -104,11 +104,11 @@ class JSD_traj_joint(evaluation_template):
             Path_true = results[1]
             Path_in   = results[6]
             
-            Path_combo = np.concatenate((Path_in[np.newaxis, np.newaxis], Path_true[:,0]), 
-                                        axis = -2)
+            Path_combo = np.concatenate((np.tile(Path_in[np.newaxis, np.newaxis], (len(Path_true),1,1,1)), 
+                                         Path_true[:,0]),  axis = -2)
             
-            min_bound = Path_combo.min(axis = np.arange(Path_combo.ndim - 1))
-            max_bound = Path_combo.min(axis = np.arange(Path_combo.ndim + 1))
+            min_bound = Path_combo.min(axis = tuple(np.arange(Path_combo.ndim - 1)))
+            max_bound = Path_combo.max(axis = tuple(np.arange(Path_combo.ndim - 1)))
             
             interval = max_bound - min_bound
             
@@ -139,7 +139,7 @@ class JSD_traj_joint(evaluation_template):
             
             # get model specific test file.
             num = 4 + len(self.get_name()['file'])
-            model_test_file = test_file[:-num] + model.get_file()['file'] + '--' + self.get_name()['file'] + '.pdf'
+            model_test_file = test_file[:-num] + model.get_name()['file'] + '--' + self.get_name()['file'] + '.pdf'
             
             # Laad data
             Path_pred = results[3]
@@ -163,17 +163,11 @@ class JSD_traj_joint(evaluation_template):
         # Path_out.shape = (n_samples * n_preds) x n_O x 2
         
         # plot input
-        ax.plot(Path_in[:,0], Path_out[:,1], linewidth = 1, c = 'k')
+        ax.plot(Path_in[:,0], Path_in[:,1], linewidth = 1, c = 'k')
         
         # concatenate output
-        Path_out = np.concatenate((Path_in[np.newaxis,[-1]], Path_out), axis = -2)
-        
-        # Get colors
-        viridis = cm.get_cmap('viridis', 100)
-        Log_max = 75
-        Log_min = 25
-        Log_adj = (Log - Log_min) / (Log_max - Log_min) - 0.5
-        col_val = 1 / (1 + np.exp(- 5 * Log_adj))
+        Path_out = np.concatenate((np.tile(Path_in[np.newaxis,[-1]], (len(Path_out), 1, 1)), 
+                                   Path_out), axis = -2)
         
         
         # Get random order
@@ -182,8 +176,25 @@ class JSD_traj_joint(evaluation_template):
         np.random.shuffle(Indices)
         Indices = Indices[:max_samples]
         
+        # Sort by log prob values        
+        Log_plot  = Log[Indices]
+        Path_plot = Path_out[Indices]
         
-        for i, path_out in enumerate(Path_out):#[:10]:
+        I_sort = np.argsort(Log_plot)
+        
+        Log_plot  = Log_plot[I_sort]
+        Path_plot = Path_plot[I_sort]
+        
+        # Get colors
+        viridis = cm.get_cmap('viridis', 100)
+        Log_adj = (Log_plot - Log_plot.mean()) / 2
+        col_val = 1 / (1 + np.exp(-Log_adj))
+        
+        # Probabil = np.exp(Log - Log.max())
+        # Prab_adj = Probabil / Probabil.sum()
+        # col_val = 10 * Prab_adj / len(Prab_adj) 
+        
+        for i, path_out in enumerate(Path_plot):#[:10]:
             col = np.array(viridis(col_val[i]))
             ax.plot(path_out[:,0], path_out[:,1], color = col, linewidth = 0.25, alpha = 0.5)
         
@@ -192,6 +203,7 @@ class JSD_traj_joint(evaluation_template):
         ax.set_aspect('equal', adjustable='box')
         ax.set_xlabel('$x$ [$m$]')
         ax.set_ylabel('$y$ [$m$]')
+        ax.set_title('$\ln (p) - {:0.2f}$'.format(Log_plot.mean()))
     
     
     def get_output_type(self = None):
