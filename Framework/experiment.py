@@ -12,6 +12,10 @@ import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 import time
 
+# allow for latex code
+from matplotlib import rc
+rc('text', usetex=True)
+
 # import data_interface
 path = os.path.dirname(os.path.realpath(__file__))
 
@@ -1786,9 +1790,6 @@ class Experiment():
                         color = color, marker = 'x', ms = 2.5, 
                         markeredgewidth = 0.25, linewidth = 0.75)
             
-            # allow for latex code
-            from matplotlib import rc
-            rc('text', usetex=True)
             
             # Format plot
             ax.set_aspect('equal', adjustable='box') 
