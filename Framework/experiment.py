@@ -13,8 +13,8 @@ from matplotlib.colors import LinearSegmentedColormap
 import time
 
 # allow for latex code
-from matplotlib import rc
-rc('text', usetex=True)
+# from matplotlib import rc
+# rc('text', usetex=True)
 
 # import data_interface
 path = os.path.dirname(os.path.realpath(__file__))

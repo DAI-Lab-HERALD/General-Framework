@@ -1106,12 +1106,19 @@ class model_template():
 
                     log_prob_pred = sp.special.logsumexp(np.stack(log_probs_pred, axis = 0), 
                                                                 b = weights, axis = 0)
-                    included   = use_preds[:max_preds * (i + 1)]
                     unincluded = use_preds[max_preds * (i + 1):]
+                    if len(unincluded) == 0:
+                        log_pred_satisfied = True
+                    else:
+                        included = use_preds[:max_preds * (i + 1)]
 
-                    log_pred_satisfied = math.isclose(log_prob_pred[included].mean(), 
-                                                        log_prob_pred[unincluded].mean(), 
-                                                        abs_tol = 0.5)
+                        included_quant = np.quantile(log_prob_pred[included], [0.1, 0.3, 0.5, 0.7, 0.9])
+                        unincluded_quant = np.quantile(log_prob_pred[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+
+                        diff = np.abs(included_quant - unincluded_quant)
+
+                        log_pred_satisfied = np.max(diff) < 0.5
+                        print(np.max(diff))
 
                     i += 1
                 
@@ -1205,15 +1212,21 @@ class model_template():
 
                         log_prob_pred_agent = sp.special.logsumexp(np.stack(log_probs_pred_agent, axis = 0), 
                                                                    b = weights, axis = 0)
-                        included   = use_preds[:max_preds * (i + 1)]
+                        
+                        
                         unincluded = use_preds[max_preds * (i + 1):]
+                        if len(unincluded) == 0:
+                            log_pred_satisfied = True
+                        else:
+                            included = use_preds[:max_preds * (i + 1)]
 
-                        log_pred_satisfied = math.isclose(log_prob_pred_agent[included].mean(), 
-                                                          log_prob_pred_agent[unincluded].mean(), 
-                                                          abs_tol = 0.5)
-                        print(log_prob_pred_agent[included].mean(), 
-                              log_prob_pred_agent[unincluded].mean()
-                              )
+                            included_quant = np.quantile(log_prob_pred_agent[included], [0.1, 0.3, 0.5, 0.7, 0.9])
+                            unincluded_quant = np.quantile(log_prob_pred_agent[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+
+                            diff = np.abs(included_quant - unincluded_quant)
+
+                            log_pred_satisfied = np.max(diff) < 0.5
+                            print(np.max(diff))
                         
                         i += 1
 
