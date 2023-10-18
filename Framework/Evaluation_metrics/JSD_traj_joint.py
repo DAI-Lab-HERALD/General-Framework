@@ -66,16 +66,29 @@ class JSD_traj_joint(evaluation_template):
             # Get the likelihood of the the true samples according to the
             # true samples. This reflects the fact that we take the 
             # expected value over the true distribtuion
-            log_like_trueTrue = KDE_true_log_prob_true[indices,0,0]
-            log_like_predTrue = KDE_pred_log_prob_true[indices,0,0]
+            log_like_trueTrue = KDE_true_log_prob_true[indices,:,0]
+            log_like_predTrue = KDE_pred_log_prob_true[indices,:,0]
             log_like_truePred = KDE_true_log_prob_pred[indices,:,0]
             log_like_predPred = KDE_pred_log_prob_pred[indices,:,0]
 
-            log_like_combinedTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
-            log_like_combinedPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
+            log_like_trueComb = np.concatenate((np.tile(log_like_trueTrue, (1, log_like_truePred.shape[1])), 
+                                                log_like_truePred), axis = 0)
+            log_like_predComb = np.concatenate((np.tile(log_like_predTrue, (1, log_like_truePred.shape[1])), 
+                                                log_like_predPred), axis = 0)
             
-            kld_subgroupTrue = np.mean(log_like_trueTrue-log_like_combinedTrue)
-            kld_subgroupPred = np.mean(log_like_predPred-log_like_combinedPred)
+            log_like_combTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
+            log_like_combPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
+            log_like_combComb = logsumexp(np.stack([log_like_trueComb, log_like_predComb], axis = 0), axis = 0) - np.log(2)
+            
+            # kld_subgroupTrue = np.mean(log_like_trueTrue-log_like_combTrue)
+            # kld_subgroupPred = np.mean(log_like_predPred-log_like_combPred)
+            
+            helpTrue = log_like_trueComb-log_like_combComb
+            kld_subgroupTrue = np.mean(np.exp(helpTrue) * helpTrue)
+            
+            helpPred = log_like_predComb-log_like_combComb
+            kld_subgroupPred = np.mean(np.exp(helpPred) * helpPred)
+            
             
             JSD += 0.5*kld_subgroupPred + 0.5*kld_subgroupTrue
         

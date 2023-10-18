@@ -146,72 +146,63 @@ class OPTICS_GMM():
             
         # Fit GMM to each model
         self.KDEs = [None] * len(unique_labels)
-        self.means = np.zeros((len(unique_labels), self.num_features))
-        self.stds  = np.zeros((len(unique_labels), self.num_features))
-
+        
         # initialise rotation matrix for PCA
-        self.rot_mat_pca = np.zeros((len(unique_labels), self.num_features, self.num_features))
-        # initialise STDs along the principle components
-        self.stds_pca  = np.zeros((len(unique_labels), self.num_features))
+        self.means = np.zeros((len(unique_labels), self.num_features))
+        self.T_mat = np.zeros((len(unique_labels), self.num_features, self.num_features))
+        
+        Stds = np.zeros((len(unique_labels), self.num_features)) 
 
-        # check that self.num_features <  len(X_labels) else rot matrix is identity; and self.stds_pca is ones        
-        if self.num_features < len(X):
+        for i, label in enumerate(unique_labels):
+            if label == -1:
+                continue
+            # Get cluster data
+            X_label = X[self.cluster_labels == label]
+            assert len(X_label) == cluster_size[i]
 
-            for i, label in enumerate(unique_labels):
-                if label == -1:
-                    continue
-                # Get cluster data
-                X_label = X[self.cluster_labels == label]
-                assert len(X_label) == cluster_size[i]
+            
+            self.means[i] = X_label.mean(0)
+            Stds[i]       = X_label.std(0)
 
-                
-                self.means[i] = X_label.mean(0)
-                self.stds[i]  = X_label.std(0) + 0.001 * X_label.std(0).max() + 1e-6
+            
+            X_label_stand = (X_label - self.means[[i]])
 
-                
-                X_label_stand = (X_label - self.means[[i]]) / self.stds[[i]]
+            if len(X_label) < self.num_features:
+                c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
 
-                if len(X_label) < self.num_features:
-                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
+            else:
+                c = X_label_stand
 
-                else:
-                    c = X_label_stand
+            # calculate PCA on X_label_stand -> get rot matrix and std
+            pca = PCA().fit(c)
+            
+            # Apply minimum standard deviation
+            pca_std = np.sqrt(pca.explained_variance_)
+            min_std = 0.1
+            pca_std = min_std + pca_std * (pca_std.max() - min_std) / pca_std.max()
 
-                # calculate PCA on X_label_stand -> get rot matrix and std
-                pca = PCA()
-                pca.fit(c)
-                self.rot_mat_pca[i] = pca.components_
-                pca_std = np.sqrt(pca.explained_variance_)
-                min_pca_std = np.linspace(0.1,0.05, len(pca_std)) * pca_std.max()
-                pca_std = np.maximum(pca_std, min_pca_std)
-                self.stds_pca[i] = pca_std # + 0.01 * pca_std.max() + 1e-6
-
-                # Apply rot_matrix on X_label_stand to get X_label_pca
-                X_label_pca = X_label_stand @ self.rot_mat_pca[i].T # @ is matrix multiplication
-
-                # Normalise along principle axes to get X_label_pca_stand
-                X_label_pca_stand = X_label_pca / self.stds_pca[[i]]
-                
-                # Fit GMM distribution
-                kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca_stand) # TODO change to X_label_pca_stand
-                self.KDEs[i] = kde
-        else:
-            self.rot_mat_pca = np.tile(np.eye(self.num_features), (len(unique_labels), 1, 1))
-            self.stds_pca = np.ones((len(unique_labels), self.num_features))
+            self.T_mat[i] = pca.components_.T / pca_std[np.newaxis]
+            
+            # Apply transformation matrix
+            X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
+            
+            # Fit GMM distribution
+            kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca)
+            self.KDEs[i] = kde
             
         # consider noise values
         if unique_labels[0] == -1:
             X_noise = X[self.cluster_labels == -1]
             # set noise std
-            self.stds[0] = self.stds[1:].min(0)
             
             # set rot_mat_pca[0] to be an identity matrix
-            self.rot_mat_pca[0] = np.eye(self.num_features)
-            # set std_pca[0] to be 1 
-            self.stds_pca[0] = np.ones(self.num_features)
+            if len(self.T_mat) > 1:
+                self.T_mat[0] = np.diag(1 / Stds[1:].mean(0))  
+            else:
+                self.T_mat[0] = np.eye(self.num_features)
 
 
-            X_noise_stand = (X_noise - self.means[[0]]) / self.stds[[0]]
+            X_noise_stand = (X_noise - self.means[[0]]) @ self.T_mat[0] 
             
             # Fit GMM distribution
             # calculate silverman rule assuming only 1 sample 
@@ -239,30 +230,13 @@ class OPTICS_GMM():
         log_probs = np.zeros((len(X), len(self.KDEs)), dtype = np.float64)
         
         for i, KDE in enumerate(self.KDEs):
-            X_stand = (X - self.means[[i]]) / self.stds[[i]]
+            X_stand = (X - self.means[[i]]) @ self.T_mat[i]
 
-            # calculate PCA on X_stand -> get rot matrix and std 
-            # NOTE: it should not be needed to calculate PCA on X_stand; 
-            # it was already calculated during the fitting process (?)
-            
+            # calculate Tmat_adjust = -log(det(T_mat))
+            T_mat_adjust = np.log(np.abs(np.linalg.det(self.T_mat[i])))
 
-            # Apply rot_matrix on X_label_stand to get X_pca
-            X_pca = X_stand @ self.rot_mat_pca[i].T
-
-            # Normalise along principle axes to get X_label_pca_stand
-            X_pca_stand = X_pca / self.stds_pca[[i]]
-
-            # calculate std_adjusts
-            std_adjust     = np.log(self.stds[i]).sum()
-            std_pca_adjust = np.log(self.stds_pca[i]).sum()
-
-            # calculate rot_mat_adjust = -log(det(rot_matrix))
-            rot_mat_adjust = -np.log(np.abs(np.linalg.det(self.rot_mat_pca[i])))
-
-            # TODO subtract the additional adjustment values
-            log_probs[:,i] = self.log_probs[i] \
-                            + KDE.score_samples(X_pca_stand) \
-                            - std_adjust - std_pca_adjust - rot_mat_adjust # TODO: change X_stand to X_pca_stand
+            # get adjusted log prob values
+            log_probs[:,i] = self.log_probs[i] + KDE.score_samples(X_stand) + T_mat_adjust 
         
         # Deal with overflow
         prob = np.exp(log_probs).sum(1)
@@ -287,19 +261,9 @@ class OPTICS_GMM():
         
         for label in np.unqiue(labels):
             num = (label == labels).sum()
-            X_label_pca_stand = self.KDEs[label].sample(num)
-
-            # invert the normalisation with std_pca
-            X_label_pca = X_label_pca_stand * self.stds_pca[[label]]
-
-            # multiply with inverse of rot_mat
-            X_label_stand = X_label_pca @ self.rot_mat_pca[[label]]
+            X_label_stand = self.KDEs[label].sample(num)
             
-            assert len(X_label_stand.shape) == 2
-            assert X_label_stand.shape[1] == self.num_features
-            
-            X_label = X_label_stand * self.stds[[label]] + self.means[[label]]
-            
+            X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
             samples.append(X_label)
             

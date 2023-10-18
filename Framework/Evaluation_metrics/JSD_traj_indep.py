@@ -68,8 +68,8 @@ class JSD_traj_indep(evaluation_template):
         subgroups = subgroups[Pred_agents]
         
         # Combine agent and sample dimension
-        Log_like_predTrue = KDE_pred_log_prob_true[:,0][Pred_agents] # P(X)
-        Log_like_trueTrue = KDE_true_log_prob_true[:,0][Pred_agents] # Q(X)
+        Log_like_predTrue = KDE_pred_log_prob_true.transpose(0,2,1)[Pred_agents] # P(X)
+        Log_like_trueTrue = KDE_true_log_prob_true.transpose(0,2,1)[Pred_agents] # Q(X)
         Log_like_predPred = KDE_pred_log_prob_pred.transpose(0,2,1)[Pred_agents] # P(\hat{X})
         Log_like_truePred = KDE_true_log_prob_pred.transpose(0,2,1)[Pred_agents] # Q(\hat{X})
         
@@ -85,12 +85,25 @@ class JSD_traj_indep(evaluation_template):
             log_like_predTrue = Log_like_predTrue[indices]
             log_like_truePred = Log_like_truePred[indices]
             log_like_predPred = Log_like_predPred[indices]
-
-            log_like_combinedTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
-            log_like_combinedPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
             
-            kld_subgroupTrue = np.mean(log_like_trueTrue-log_like_combinedTrue)
-            kld_subgroupPred = np.mean(log_like_predPred-log_like_combinedPred)
+            log_like_trueComb = np.concatenate((np.tile(log_like_trueTrue, (1, log_like_truePred.shape[1])), 
+                                                log_like_truePred), axis = 0)
+            log_like_predComb = np.concatenate((np.tile(log_like_predTrue, (1, log_like_truePred.shape[1])), 
+                                                log_like_predPred), axis = 0)
+            
+            log_like_combTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
+            log_like_combPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
+            log_like_combComb = logsumexp(np.stack([log_like_trueComb, log_like_predComb], axis = 0), axis = 0) - np.log(2)
+            
+            # kld_subgroupTrue = np.mean(log_like_trueTrue-log_like_combTrue)
+            # kld_subgroupPred = np.mean(log_like_predPred-log_like_combPred)
+            
+            helpTrue = log_like_trueComb-log_like_combComb
+            kld_subgroupTrue = np.mean(np.exp(helpTrue) * helpTrue)
+            
+            helpPred = log_like_predComb-log_like_combComb
+            kld_subgroupPred = np.mean(np.exp(helpPred) * helpPred)
+            
             
             JSD += 0.5*kld_subgroupPred + 0.5*kld_subgroupTrue
         
@@ -201,7 +214,7 @@ class JSD_traj_indep(evaluation_template):
         
         # Get colors
         viridis = cm.get_cmap('viridis', 100)
-        Log_adj = (Log_plot - Log_plot.mean()) / 2
+        Log_adj = (Log_plot - 37.5) / 2
         col_val = 1 / (1 + np.exp(-Log_adj))
         
         # Probabil = np.exp(Log - Log.max())
@@ -217,7 +230,8 @@ class JSD_traj_indep(evaluation_template):
         ax.set_aspect('equal', adjustable='box')
         ax.set_xlabel('$x$ [$m$]')
         ax.set_ylabel('$y$ [$m$]')
-        ax.set_title('$\ln (p) - {:0.2f}$'.format(Log_plot.mean()))
+        ax.set_title('$\ln (p)$')
+        # ax.set_title('$\ln (p) - {:0.2f}$'.format(Log_plot.mean()))
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
