@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from scipy.special import logsumexp
 from evaluation_template import evaluation_template 
+import os
+from matplotlib import cm
 
 class JSD_traj_joint(evaluation_template):
     r'''
@@ -48,7 +50,8 @@ class JSD_traj_joint(evaluation_template):
     def setup_method(self):
         pass
      
-    def evaluate_prediction_method(self):        
+    def evaluate_prediction_method(self):       
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths() 
         _, subgroups = self.get_true_prediction_with_same_input()
         
         # Get likelihood of true samples according to prediction
@@ -80,7 +83,116 @@ class JSD_traj_joint(evaluation_template):
         JSD /= len(unique_subgroups)
         JSD /= np.log(2)
         
-        return [JSD]
+        
+        # prepare to save data
+        if len(unique_subgroups) == 1 and Path_true.shape[2] == 1:
+            input_path = self.data_set.Input_path.iloc[0]
+            useful_agents = [isinstance(p, np.ndarray) for p in input_path]
+            
+            input_path = np.stack(input_path[useful_agents].to_numpy(), axis = 0)[0]
+            
+            return [JSD, Path_true, KDE_true_log_prob_true, Path_pred, KDE_pred_log_prob_pred, Pred_steps, input_path]
+        else:
+            return [JSD]
+    
+    def create_plot(self, results, test_file, fig, ax, save, model):
+        if len(results) > 1:
+            # Delete previous model
+            ax.clear()
+            
+            # Get plot boundaries to be constant over all predictions
+            Path_true = results[1]
+            Path_in   = results[6]
+            
+            Path_combo = np.concatenate((Path_in[np.newaxis, np.newaxis], Path_true[:,0]), 
+                                        axis = -2)
+            
+            min_bound = Path_combo.min(axis = np.arange(Path_combo.ndim - 1))
+            max_bound = Path_combo.min(axis = np.arange(Path_combo.ndim + 1))
+            
+            interval = max_bound - min_bound
+            
+            min_bound = np.floor(min_bound - 0.25 * interval)
+            max_bound = np.ceil(max_bound + 0.25 * interval)
+            
+            x_lim = [min_bound[0], max_bound[0]]
+            y_lim = [min_bound[1], max_bound[1]]
+            
+            # Get number of plottable samples
+            max_samples = Path_true.shape[0]
+            
+            # check if current file has been saved (i.e, the ground truth)
+            if not os.path.isfile(test_file):
+                # Laad data
+                Log_true  = results[2]
+                Pred_step = results[5]
+                
+                # Plot results
+                self.plot_results(Path_in, Path_true, Log_true, Pred_step, ax, x_lim, y_lim, max_samples)
+                fig.show()
+                
+                # Save results
+                fig.savefig(test_file, bbox_inches='tight') 
+                
+                # Clear figure
+                ax.clear()
+            
+            # get model specific test file.
+            num = 4 + len(self.get_name()['file'])
+            model_test_file = test_file[:-num] + model.get_file()['file'] + '--' + self.get_name()['file'] + '.pdf'
+            
+            # Laad data
+            Path_pred = results[3]
+            Log_pred  = results[4]
+            Pred_step = results[5]
+            
+            # Plot results
+            self.plot_results(Path_in, Path_pred, Log_pred, Pred_step, ax, x_lim, y_lim, max_samples)
+            fig.show()
+            
+            # Save results
+            fig.savefig(model_test_file, bbox_inches='tight')
+        
+    
+    def plot_results(self, Path_in, Path_out, Log, Pred_step, ax, x_lim, y_lim, max_samples):
+        # Combine samples and predictions
+        Path_out = Path_out.reshape(-1, *Path_out.shape[2:])[:,0]
+        Log      = Log.reshape(-1, *Log.shape[2:])[:,0]
+        
+        # Path_in.shape  = n_I x 2
+        # Path_out.shape = (n_samples * n_preds) x n_O x 2
+        
+        # plot input
+        ax.plot(Path_in[:,0], Path_out[:,1], linewidth = 1, c = 'k')
+        
+        # concatenate output
+        Path_out = np.concatenate((Path_in[np.newaxis,[-1]], Path_out), axis = -2)
+        
+        # Get colors
+        viridis = cm.get_cmap('viridis', 100)
+        Log_max = 75
+        Log_min = 25
+        Log_adj = (Log - Log_min) / (Log_max - Log_min) - 0.5
+        col_val = 1 / (1 + np.exp(- 5 * Log_adj))
+        
+        
+        # Get random order
+        np.random.seed(0)
+        Indices = np.arange(len(Log))
+        np.random.shuffle(Indices)
+        Indices = Indices[:max_samples]
+        
+        
+        for i, path_out in enumerate(Path_out):#[:10]:
+            col = np.array(viridis(col_val[i]))
+            ax.plot(path_out[:,0], path_out[:,1], color = col, linewidth = 0.25, alpha = 0.5)
+        
+        ax.set_xlim(x_lim)
+        ax.set_ylim(y_lim)
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlabel('$x$ [$m$]')
+        ax.set_xlabel('$y$ [$m$]')
+    
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
@@ -107,4 +219,4 @@ class JSD_traj_joint(evaluation_template):
         return False
     
     def allows_plot(self):
-        return False
+        return True

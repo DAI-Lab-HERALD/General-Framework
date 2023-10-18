@@ -509,7 +509,7 @@ class Experiment():
                             
                         create_plot = plot_if_possible and metric.allows_plot()
                         if create_plot:
-                            fig, ax = plt.subplots(figsize = (5,5))
+                            fig, ax = plt.subplots(figsize = (4,4))
                         
                         for l, model_dict in enumerate(self.Models):
                             # get model subjects
@@ -552,7 +552,7 @@ class Experiment():
                                     figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
                                     
                                     # remove model name from figure file
-                                    num = 16 + len(metric_class.get_name()['file'])
+                                    num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
                                     figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
                                     
                                     os.makedirs(os.path.dirname(figure_file), exist_ok = True)
