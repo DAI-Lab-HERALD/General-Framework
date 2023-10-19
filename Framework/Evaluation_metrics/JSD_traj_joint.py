@@ -76,9 +76,9 @@ class JSD_traj_joint(evaluation_template):
             log_like_predComb = np.concatenate((np.tile(log_like_predTrue, (1, log_like_truePred.shape[1])), 
                                                 log_like_predPred), axis = 0)
             
-            log_like_combTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
-            log_like_combPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
             log_like_combComb = logsumexp(np.stack([log_like_trueComb, log_like_predComb], axis = 0), axis = 0) - np.log(2)
+            # log_like_combTrue = logsumexp(np.stack([log_like_trueTrue, log_like_predTrue], axis = 0), axis = 0) - np.log(2)
+            # log_like_combPred = logsumexp(np.stack([log_like_truePred, log_like_predPred], axis = 0), axis = 0) - np.log(2)
             
             # kld_subgroupTrue = np.mean(log_like_trueTrue-log_like_combTrue)
             # kld_subgroupPred = np.mean(log_like_predPred-log_like_combPred)
@@ -245,3 +245,6 @@ class JSD_traj_joint(evaluation_template):
     
     def allows_plot(self):
         return True
+    
+    def metric_boundaries(self = None):
+        return [0.0, 1.0]

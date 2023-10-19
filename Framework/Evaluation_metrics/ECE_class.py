@@ -175,3 +175,6 @@ class ECE_class(evaluation_template):
         if not self.data_set.classification_possible:
             return 'because a classification metric requires more than one available class.'
         return None
+    
+    def metric_boundaries(self = None):
+        return [0.0, 1.0]

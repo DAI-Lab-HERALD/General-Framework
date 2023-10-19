@@ -86,3 +86,6 @@ class FDE_ML_indep(evaluation_template):
     
     def allows_plot(self):
         return False
+    
+    def metric_boundaries(self = None):
+        return [0.0, None]

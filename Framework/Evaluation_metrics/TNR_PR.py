@@ -71,3 +71,6 @@ class TNR_PR(evaluation_template):
         if self.data_set.t0_type != 'Crit':
             return 'this metric is meaningless for t0_types outside "crit".'
         return None
+    
+    def metric_boundaries(self = None):
+        return [0.0, 1.0]

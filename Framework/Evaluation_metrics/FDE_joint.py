@@ -67,3 +67,6 @@ class FDE_joint(evaluation_template):
     
     def allows_plot(self):
         return False
+    
+    def metric_boundaries(self = None):
+        return [0.0, None]

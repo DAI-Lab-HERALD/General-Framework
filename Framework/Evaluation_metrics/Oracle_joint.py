@@ -109,3 +109,6 @@ class Oracle_joint(evaluation_template):
     
     def allows_plot(self):
         return True
+    
+    def metric_boundaries(self = None):
+        return [0.0, None]

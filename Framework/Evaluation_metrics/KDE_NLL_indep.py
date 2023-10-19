@@ -69,3 +69,6 @@ class KDE_NLL_indep(evaluation_template):
     
     def allows_plot(self):
         return False
+    
+    def metric_boundaries(self = None):
+        return [None, None]

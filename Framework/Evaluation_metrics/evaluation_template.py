@@ -493,6 +493,13 @@ class evaluation_template():
         raise AttributeError('Has to be overridden in actual metric class')
         
         
+    def metric_boundaries(self = None):
+        # Should return a list with two entries. These are the minimum and 
+        # maximum possible values. If no such boundary on potential metric values 
+        # exists, then those values should be none instead
+        raise AttributeError('Has to be overridden in actual metric class')
+        
+        
     def evaluate_prediction_method(self):
         # Takes true outputs and corresponding predictions to calculate some
         # metric to evaluate a model
