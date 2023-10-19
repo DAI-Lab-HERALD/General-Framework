@@ -6,7 +6,7 @@ Go to the section titled **Downloads**.
 
 Under **Map expansion** download *Map expansion pack (v1.3) \[US\]*.
 
-Under **Full dataset (v1.0)** download *Metadata \[US\]*.
+Under **Full dataset (v1.0)**, subsections **Trainval** and **Test** download *Metadata \[US\]*.
 
 The data should be extracted and placed into the following structure:
 
@@ -29,7 +29,21 @@ The data should be extracted and placed into the following structure:
     │   ├── 37819e65e09e5547b8a3ceaefba56bb2.png
     │   ├── 53992ee3023e5494b90c316c183be829.png
     │   └── 93406b464a165eaba6d9de76ca09f5da.png
-    └── v1.0-trainval
+    ├── v1.0-trainval
+    │   ├── attribute.json
+    │   ├── calibrated_sensor.json
+    │   ├── category.json
+    │   ├── ego_pose.json
+    │   ├── instance.json
+    │   ├── log.json
+    │   ├── map.json
+    │   ├── sample.json
+    │   ├── sample_annotation.json
+    │   ├── sample_data.json
+    │   ├── scene.json
+    │   ├── sensor.json
+    │   └── visibility.json
+    └── v1.0-test
         ├── attribute.json
         ├── calibrated_sensor.json
         ├── category.json
