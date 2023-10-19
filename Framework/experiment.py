@@ -941,10 +941,24 @@ class Experiment():
                                           r'{$' + '{}'.format(max_value) + r'$};' + ' \n') 
                     # Add metric name
                     metric_name_latex = metric_class.get_name()['latex']
+                    
                     if metric_class.get_opt_goal() == 'minimize':
-                        metric_name_latex += r' $\downarrow$'
+                        metric_name_latex += r' $\downarrow'
                     else:
                         metric_name_latex += r' $\uparrow'
+                    
+                    metric_bounds = metric_class.metric_boundaries()
+                    if metric_bounds[0] is not None:
+                        metric_name_latex += r'_{' + str(metric_bounds[0]) + r'}'
+                    else:
+                        metric_name_latex += r'_{\hphantom{0}}'
+                    
+                    if metric_bounds[1] is not None:
+                        metric_name_latex += r'^{' + str(metric_bounds[1]) + r'}$'
+                    else:
+                        metric_name_latex += r'^{\hphantom{0}}$'
+                        
+                    
                     
                     Figure_string += (r'    \node[black, rotate = 90, font = \footnotesize] at ' + 
                                       '(0.9, {:0.3f}) '.format(y_value + 0.5 * plot_height) + 
@@ -1222,9 +1236,20 @@ class Experiment():
                         
                         row_latexname = row_class.get_name()['latex']
                         if row_class.get_opt_goal() == 'minimize':
-                            row_latexname += r' $\downarrow$'
+                            row_latexname += r' $\downarrow'
                         else:
                             row_latexname += r' $\uparrow'
+                            
+                        metric_bounds = row_class.metric_boundaries()
+                        if metric_bounds[0] is not None:
+                            row_latexname += r'_{' + str(metric_bounds[0]) + r'}'
+                        else:
+                            row_latexname += r'_{\hphantom{0}}'
+                        
+                        if metric_bounds[1] is not None:
+                            row_latexname += r'^{' + str(metric_bounds[1]) + r'}$'
+                        else:
+                            row_latexname += r'^{\hphantom{0}}$'
                     
                     if dataset_row:
                         metric_class  = table_class
