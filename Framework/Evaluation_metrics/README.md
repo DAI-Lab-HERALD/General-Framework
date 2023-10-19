@@ -120,13 +120,30 @@ Finally, when comparing metrics, it is important to know if a superior model wou
     Returns
     -------
     metric_goal : str
-      This str gives the goal of comparisions. If **metric_goal** = 'minimze', then a lower metric
+      This str gives the goal of comparisons. If **metric_goal** = 'minimize', then a lower metric
       value indicates a better value, while 'maximize' is the other way around. As the framework
       only checks if the return here is 'minimize', any other string would be treated as if it
       was set to 'maximize'.
         
     '''
     return metric_goal
+```
+
+Similarly, it is also the case that metric values can have hard limits on what form they can take, such as for example distance metrics, which should not be lower than 0. These limits are defined in the method *metric_boundaries()*:
+```
+  def metric_boundaries(self = None):
+    r'''
+    This function informs the framework about any boundaries that a metric value might take.
+
+    Returns
+    -------
+    boundaries : list
+      This is a list with two values, namely [min_value, max_value]. If one of those values
+      does not exist, as the metric is unbounded, then one has to set either min_value or
+      max_value (or both) equal to *None*.
+      
+    '''
+    return boundaries
 ```
 
 
