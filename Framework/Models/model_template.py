@@ -1196,11 +1196,12 @@ class model_template():
 
                     log_pred_satisfied = False
                     i = 0
+                    KDEs = []
                     while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                         path_pred_train = paths_pred_agent_comp[test_ind]
-                        print(i)
                         kde = OPTICS_GMM().fit(path_pred_train)
+                        KDEs.append(kde)
                         # Score samples
                         
                         log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))
@@ -1225,8 +1226,11 @@ class model_template():
 
                             diff = np.abs(included_quant - unincluded_quant)
 
-                            log_pred_satisfied = np.max(diff) < 0.5
-                            print(np.max(diff))
+                            # We reject distribution as unequal with 99.9% confidence
+                            t_value = 3.09 * log_prob_pred_agent.std() / np.sqrt(len(use_preds))
+
+                            log_pred_satisfied = np.max(diff) < t_value
+                            print(i, np.max(diff), t_value)
                         
                         i += 1
 
