@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 
 from model_template import model_template
-from PECNet.utils.social_utils import *
-from PECNet.utils.models import *
+from PECNet.social_utils import *
+from PECNet.models import *
 
 class pecnet_mangalam(model_template):
 
