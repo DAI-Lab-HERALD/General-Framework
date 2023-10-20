@@ -332,7 +332,9 @@ class data_interface(object):
         self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
         self.Pred_agents_eval     = self.Pred_agents_eval[Useful_agents]
         self.Pred_agents_pred     = self.Pred_agents_pred[Useful_agents]
-        self.Not_pov_agent        = self.Not_pov_agent[Useful_agents]
+        
+        if hasattr(self, 'Not_pov_agent'):
+            self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
         
         
         return complete_failure
@@ -345,6 +347,7 @@ class data_interface(object):
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
                             grayscale = False, return_resolution = False):
+        
         if target_height is None:
             target_height = 1250
         if target_width is None:
