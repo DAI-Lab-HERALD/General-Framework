@@ -1102,25 +1102,26 @@ class model_template():
                     
                     weights = np.ones((i + 1, 1)) / (i + 1)
                     # Check if we sufficiently represent predicted distribution
-
-
-                    log_prob_pred = sp.special.logsumexp(np.stack(log_probs_pred, axis = 0), 
-                                                                b = weights, axis = 0)
-                    unincluded = use_preds[max_preds * (i + 1):]
-                    if len(unincluded) == 0:
-                        log_pred_satisfied = True
-                    else:
-                        included = use_preds[:max_preds * (i + 1)]
-
-                        included_quant = np.quantile(log_prob_pred[included], [0.1, 0.3, 0.5, 0.7, 0.9])
-                        unincluded_quant = np.quantile(log_prob_pred[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
-
-                        diff = np.abs(included_quant - unincluded_quant)
-
-                        log_pred_satisfied = np.max(diff) < 0.5
-                        print(np.max(diff))
-
+                    print(i)
                     i += 1
+
+
+                log_prob_pred = sp.special.logsumexp(np.stack(log_probs_pred, axis = 0), 
+                                                                b = weights, axis = 0)
+                    # unincluded = use_preds[max_preds * (i + 1):]
+                    # if len(unincluded) == 0:
+                    #     log_pred_satisfied = True
+                    # else:
+                    #     included = use_preds[:max_preds * (i + 1)]
+
+                    #     included_quant = np.quantile(log_prob_pred[included], [0.1, 0.3, 0.5, 0.7, 0.9])
+                    #     unincluded_quant = np.quantile(log_prob_pred[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+
+                    #     diff = np.abs(included_quant - unincluded_quant)
+
+                    #     log_pred_satisfied = np.max(diff) < 0.5
+                    #     print(np.max(diff))
+
                 
                 log_prob_true = sp.special.logsumexp(np.stack(log_probs_true, axis = 0), 
                                                             b = weights, axis = 0)
@@ -1209,30 +1210,31 @@ class model_template():
                         
                         weights = np.ones((i + 1, 1)) / (i + 1)
                         # Check if we sufficiently represent predicted distribution
+                        print(i)
+                        i += 1
 
 
-                        log_prob_pred_agent = sp.special.logsumexp(np.stack(log_probs_pred_agent, axis = 0), 
+                    log_prob_pred_agent = sp.special.logsumexp(np.stack(log_probs_pred_agent, axis = 0), 
                                                                    b = weights, axis = 0)
                         
                         
-                        unincluded = use_preds[max_preds * (i + 1):]
-                        if len(unincluded) == 0:
-                            log_pred_satisfied = True
-                        else:
-                            included = use_preds[:max_preds * (i + 1)]
+                        # unincluded = use_preds[max_preds * (i + 1):]
+                        # if len(unincluded) == 0:
+                        #     log_pred_satisfied = True
+                        # else:
+                        #     included = use_preds[:max_preds * (i + 1)]
 
-                            included_quant = np.quantile(log_prob_pred_agent[included], [0.1, 0.3, 0.5, 0.7, 0.9])
-                            unincluded_quant = np.quantile(log_prob_pred_agent[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+                        #     included_quant = np.quantile(log_prob_pred_agent[included], [0.1, 0.3, 0.5, 0.7, 0.9])
+                        #     unincluded_quant = np.quantile(log_prob_pred_agent[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
 
-                            diff = np.abs(included_quant - unincluded_quant)
+                        #     diff = np.abs(included_quant - unincluded_quant)
 
-                            # We reject distribution as unequal with 99.9% confidence
-                            t_value = 3.09 * log_prob_pred_agent.std() / np.sqrt(len(use_preds))
+                        #     # We reject distribution as unequal with 99.9% confidence
+                        #     t_value = 3.09 * log_prob_pred_agent.std() / np.sqrt(len(use_preds))
 
-                            log_pred_satisfied = np.max(diff) < t_value
-                            print(i, np.max(diff), t_value)
+                        #     log_pred_satisfied = np.max(diff) < t_value
+                        #     print(i, np.max(diff), t_value)
                         
-                        i += 1
 
                     
                     

@@ -1,0 +1,540 @@
+import numpy as np
+import os
+import pickle
+import random
+import torch
+import dill
+from tqdm.auto import tqdm
+from torch import nn, optim
+
+from model_template import model_template
+from MID.evaluation import *
+from MID import mid_model
+from MID.environment import *
+from attrdict import AttrDict
+
+import os.path as osp
+
+
+class mid_gu(model_template):
+
+    def get_name(self = None):
+        names = {'print': 'MDI',
+                    'file': 'MDI',
+                    'latex': r'\emph{MDI}'}
+
+        return names
+
+    def requires_torch_gpu(self = None):
+        return True
+
+    def get_output_type(self = None):
+        return 'path_all_wi_pov'
+    
+    def check_trainability_method(self):
+        return None
+    
+    def setup_method(self, seed = 0):        
+        # set random seeds
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+        self.min_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = self.num_timesteps_out
+        self.predict_single_agent = True
+        self.can_use_map = True
+        # If self.can_use_map = True, the following is also required
+        self.target_width = 175
+        self.target_height = 100
+        self.grayscale = False
+        
+        self.use_map = self.can_use_map and self.has_map        
+
+        self.MID = mid_model.MID()
+        self.MID._build()
+
+        self.epochs = 90
+        self.augment = True
+        self.eval_every = 30
+
+        batch_size = 256
+
+        if (self.provide_all_included_agent_types() == 'P').all():
+            self.hyperparams = {'batch_size': batch_size,
+                           'grad_clip': 1.0,
+                           'learning_rate_style': 'exp',
+                           'learning_rate': 0.001, # for ETH: 0.001 for inD/rounD: 0.003,
+                           'min_learning_rate': 1e-05,
+                           'learning_decay_rate': 0.9999,
+                           'prediction_horizon': self.num_timesteps_out,
+                           'minimum_history_length': 2,
+                           'maximum_history_length': self.num_timesteps_in - 1,
+                           'map_encoder': {'PEDESTRIAN': {'heading_state_index': 6,
+                                                          'patch_size': [50, 10, 50, 90],
+                                                          'map_channels': 3,
+                                                          'hidden_channels': [10, 20, 10, 1],
+                                                          'output_size': 32,
+                                                          "masks": [5, 5, 5, 5], 
+                                                          "strides": [1, 1, 1, 1], 
+                                                          'dropout': 0.5}},
+                           'k': 1,
+                           'k_eval': 25,
+                           'kl_min': 0.07,
+                           'kl_weight': 100.0,
+                           'kl_weight_start': 0,
+                           'kl_decay_rate': 0.99995,
+                           'kl_crossover': 400,
+                           'kl_sigmoid_divisor': 4,
+                           'rnn_kwargs': {'dropout_keep_prob': 0.75},
+                           'MLP_dropout_keep_prob': 0.9,
+                           'enc_rnn_dim_edge': 32,
+                           'enc_rnn_dim_edge_influence': 32,
+                           'enc_rnn_dim_history': 32,
+                           'enc_rnn_dim_future': 32,
+                           'dec_rnn_dim': 128,
+                           'q_z_xy_MLP_dims': None,
+                           'p_z_x_MLP_dims': 32,
+                           'GMM_components': 1,
+                           'log_p_yt_xz_max': 6,
+                           'N': 1, # numbver of states per dimension of conditional distribution
+                           'K': 25, # number of dimension of conditional distribution
+                           'tau_init': 2.0,
+                           'tau_final': 0.05,
+                           'tau_decay_rate': 0.997,
+                           'use_z_logit_clipping': True,
+                           'z_logit_clip_start': 0.05,
+                           'z_logit_clip_final': 5.0,
+                           'z_logit_clip_crossover': 300,
+                           'z_logit_clip_divisor': 5,
+                           "dynamic": {"PEDESTRIAN": {"name": "SingleIntegrator",
+                                                      "distribution": True,
+                                                      "limits": {}}}, 
+                           "state": {"PEDESTRIAN": {"position": ["x", "y"],
+                                                    "velocity": ["x", "y"], 
+                                                    "acceleration": ["x", "y"]}}, 
+                           "pred_state": {"PEDESTRIAN": {"position": ["x", "y"]}},
+                           'log_histograms': False,
+                           'dynamic_edges': 'yes',
+                           'edge_state_combine_method': 'sum',
+                           'edge_influence_combine_method': 'attention',
+                           'edge_addition_filter': [0.25, 0.5, 0.75, 1.0],
+                           'edge_removal_filter': [1.0, 0.0],
+                           'offline_scene_graph': 'yes',
+                           'incl_robot_node': False,
+                           'node_freq_mult_train': False,
+                           'node_freq_mult_eval': False,
+                           'scene_freq_mult_train': False,
+                           'scene_freq_mult_eval': False,
+                           'scene_freq_mult_viz': False,
+                           'edge_encoding': True,
+                           'use_map_encoding': self.use_map,
+                           'augment': True,
+                           'override_attention_radius': []}
+        else:
+            self.hyperparams = {'batch_size': batch_size,
+                           'grad_clip': 1.0,
+                           'learning_rate_style': 'exp',
+                           'learning_rate': 0.003,
+                           'min_learning_rate': 1e-05,
+                           'learning_decay_rate': 0.9999,
+                           'prediction_horizon': self.num_timesteps_out,
+                           'minimum_history_length': 2,
+                           'maximum_history_length': self.num_timesteps_in - 1,
+                           'map_encoder': {'VEHICLE': {'heading_state_index': 6,
+                                                       'patch_size': [50, 10, 50, 90],
+                                                       'map_channels': 3,
+                                                       'hidden_channels': [10, 20, 10, 1],
+                                                       'output_size': 32,
+                                                       'masks': [5, 5, 5, 3],
+                                                       'strides': [2, 2, 1, 1],
+                                                       'dropout': 0.5}},
+                           'k': 1,
+                           'k_eval': 25,
+                           'kl_min': 0.07,
+                           'kl_weight': 100.0,
+                           'kl_weight_start': 0,
+                           'kl_decay_rate': 0.99995,
+                           'kl_crossover': 400,
+                           'kl_sigmoid_divisor': 4,
+                           'rnn_kwargs': {'dropout_keep_prob': 0.75},
+                           'MLP_dropout_keep_prob': 0.9,
+                           'enc_rnn_dim_edge': 32,
+                           'enc_rnn_dim_edge_influence': 32,
+                           'enc_rnn_dim_history': 32,
+                           'enc_rnn_dim_future': 32,
+                           'dec_rnn_dim': 128,
+                           'q_z_xy_MLP_dims': None,
+                           'p_z_x_MLP_dims': 32,
+                           'GMM_components': 1,
+                           'log_p_yt_xz_max': 6,
+                           'N': 1, # numbver of states per dimension of conditional distribution
+                           'K': 25, # number of dimension of conditional distribution
+                           'tau_init': 2.0,
+                           'tau_final': 0.05,
+                           'tau_decay_rate': 0.997,
+                           'use_z_logit_clipping': True,
+                           'z_logit_clip_start': 0.05,
+                           'z_logit_clip_final': 5.0,
+                           'z_logit_clip_crossover': 300,
+                           'z_logit_clip_divisor': 5,
+                           'dynamic': {'PEDESTRIAN': {'name': 'SingleIntegrator',
+                                                      'distribution': True,
+                                                      'limits': {}},
+                                       'VEHICLE': {'name': 'Unicycle',
+                                                   'distribution': True,
+                                                   'limits': {'max_a': 4,
+                                                              'min_a': -5,
+                                                              'max_heading_change': 0.7,
+                                                              'min_heading_change': -0.7}}},
+                           'state': {'PEDESTRIAN': {'position': ['x', 'y'],
+                                                    'velocity': ['x', 'y'],
+                                                    'acceleration': ['x', 'y']},
+                                     'VEHICLE': {'position': ['x', 'y'],
+                                                 'velocity': ['x', 'y'],
+                                                 'acceleration': ['x', 'y'],
+                                                 'heading': ['°', 'd°']}},
+                           'pred_state': {'VEHICLE': {'position': ['x', 'y']},
+                                          'PEDESTRIAN': {'position': ['x', 'y']}},
+                           'log_histograms': False,
+                           'dynamic_edges': 'yes',
+                           'edge_state_combine_method': 'sum',
+                           'edge_influence_combine_method': 'attention',
+                           'edge_addition_filter': [0.25, 0.5, 0.75, 1.0],
+                           'edge_removal_filter': [1.0, 0.0],
+                           'offline_scene_graph': 'yes',
+                           'incl_robot_node': False,
+                           'node_freq_mult_train': False,
+                           'node_freq_mult_eval': False,
+                           'scene_freq_mult_train': False,
+                           'scene_freq_mult_eval': False,
+                           'scene_freq_mult_viz': False,
+                           'edge_encoding': True,
+                           'use_map_encoding': self.use_map,
+                           'augment': True,
+                           'override_attention_radius': []}
+        
+        self.std_pos_ped = 1
+        self.std_vel_ped = 2
+        self.std_acc_ped = 1
+        self.std_pos_veh = 80
+        self.std_vel_veh = 15
+        self.std_acc_veh = 4
+        self.std_hea_veh = np.pi
+        self.std_d_h_veh = 1
+
+
+    def rotate_pos_matrix(self, M, rot_angle):
+        assert M.shape[-1] == 2
+        assert M.shape[0] == len(rot_angle)
+        
+        R = np.array([[np.cos(rot_angle), -np.sin(rot_angle)],
+                      [np.sin(rot_angle),  np.cos(rot_angle)]]).transpose(2,0,1)
+        R = R[:,np.newaxis]
+        
+        M_r = np.matmul(M, R)
+        return M_r            
+
+    def extract_data_batch(self, X, T, Y = None, img = None, num_steps = 10):
+        attention_radius = dict()
+        DIM = {'VEHICLE': 8, 'PEDESTRIAN': 6}
+        
+        if (self.provide_all_included_agent_types() == 'P').all():
+            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 3.0
+        else:
+            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 10.0
+            attention_radius[('PEDESTRIAN', 'VEHICLE')]    = 50.0
+            attention_radius[('VEHICLE',    'PEDESTRIAN')] = 25.0
+            attention_radius[('VEHICLE',    'VEHICLE')]    = 150.0
+            
+        Types = np.empty(T.shape, dtype = object)
+        Types[T == 'P'] = 'PEDESTRIAN'
+        Types[T == 'V'] = 'VEHICLE'
+        Types[T == 'B'] = 'VEHICLE'
+        Types[T == 'M'] = 'VEHICLE'
+        Types = Types.astype(str)
+        
+        center_pos = X[:,0,-1]
+        delta_x = center_pos - X[:,0,-2]
+        rot_angle = np.angle(delta_x[:,0] + 1j * delta_x[:,1])
+
+        center_pos = center_pos[:,np.newaxis,np.newaxis]        
+        X_r = self.rotate_pos_matrix(X - center_pos, rot_angle)
+        
+        
+        V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
+        V = np.concatenate((V[...,[0],:], V), axis = -2)
+       
+        # get accelaration
+        A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
+        A = np.concatenate((A[...,[0],:], A), axis = -2)
+       
+        H = np.arctan2(V[:,:,:,1], V[:,:,:,0])
+        
+        DH = np.unwrap(H, axis = -1) 
+        DH = (DH[:,:,1:] - DH[:,:,:-1]) / self.dt
+        DH = np.concatenate((DH[...,[0]], DH), axis = -1)
+       
+        # final state S
+        S = np.concatenate((X_r, V, A, H[...,np.newaxis], DH[...,np.newaxis]), axis = -1).astype(np.float32)
+        
+        Ped_agents = Types == 'PEDESTRIAN'
+        
+        S_st = S.copy()
+        S_st[Ped_agents,:,0:2]  /= self.std_pos_ped
+        S_st[~Ped_agents,:,0:2] /= self.std_pos_veh
+        S_st[Ped_agents,:,2:4]  /= self.std_vel_ped
+        S_st[~Ped_agents,:,2:4] /= self.std_vel_veh
+        S_st[Ped_agents,:,4:6]  /= self.std_acc_ped
+        S_st[~Ped_agents,:,4:6] /= self.std_acc_veh
+        S_st[~Ped_agents,:,6] /= self.std_hea_veh
+        S_st[~Ped_agents,:,7] /= self.std_d_h_veh
+
+
+        if (self.provide_all_included_agent_types() == 'P').all():
+            S_st[Ped_agents,:,0:2]  = S_st[Ped_agents,:,0:2]*0.6
+            S_st[~Ped_agents,:,0:2] = S_st[~Ped_agents,:,0:2]*0.6
+        else:
+            S_st[Ped_agents,:,0:2]  = S_st[Ped_agents,:,0:2]/50
+            S_st[~Ped_agents,:,0:2] = S_st[~Ped_agents,:,0:2]/50
+        
+        D = np.min(np.sqrt(np.sum((X[:,[0]] - X) ** 2, axis = -1)), axis = - 1)
+        D_max = np.zeros_like(D)
+        for i_sample in range(len(D)):
+            for i_v in range(X.shape[1]):
+                if not Types[i_sample, i_v] == 'None':
+                    D_max[i_sample, i_v] = attention_radius[(Types[i_sample, 0], Types[i_sample, i_v])]
+        
+        # Oneself cannot be own neighbor
+        D_max[:,0] = -10
+        
+        Neighbor_bool = D < D_max
+        
+        # Get Neighbor for each pred value
+        Neighbor = {}
+        Neighbor_edge = {}
+        
+        node_type = str(Types[0, 0])
+        for node_goal in DIM.keys():
+            Dim = DIM[node_goal]
+            
+            key = (node_type, str(node_goal))
+            Neighbor[key] = []
+            Neighbor_edge[key] = []
+            
+            for i_sample in range(S.shape[0]):
+                I_agent_goal = np.where(Neighbor_bool[i_sample] & 
+                                        (Types[i_sample] == node_goal))[0]
+                
+                Neighbor[key].append([])
+                Neighbor_edge[key].append(torch.from_numpy(np.ones(len(I_agent_goal), np.float32))) 
+                for i_agent_goal in I_agent_goal:
+                    Neighbor[key][i_sample].append(torch.from_numpy(S[i_sample, i_agent_goal, :, :Dim]))
+        
+
+        if img is not None:
+            img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
+            img_batch = img_batch.transpose(0,3,1,2) # put channels first
+            img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
+        else:
+            img_batch = None
+            
+        first_h = torch.from_numpy(np.zeros(len(X), np.int32))
+        
+        dim = DIM[node_type]
+        S = torch.from_numpy(S[...,:dim]).to(dtype = torch.float32)
+        S_st = torch.from_numpy(S_st[...,:dim]).to(dtype = torch.float32)
+        
+        if Y is None:
+            return S, S_st, first_h, Neighbor, Neighbor_edge, center_pos, rot_angle
+        else:
+            Y = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
+            
+            Y_st = Y.copy()
+            Y_st[Ped_agents]  /= self.std_pos_ped
+            Y_st[~Ped_agents] /= self.std_pos_veh
+        
+            Y = torch.from_numpy(Y).to(dtype = torch.float32)
+            Y_st = torch.from_numpy(Y_st).to(dtype = torch.float32)
+            return first_h, S, Y, S_st, Y_st, Neighbor, Neighbor_edge, img_batch, node_type
+        
+
+    def train_method(self):
+
+        T_all = self.provide_all_included_agent_types()
+        Pred_types = np.empty(T_all.shape, dtype = object)
+        Pred_types[T_all == 'P'] = 'PEDESTRIAN'
+        Pred_types[T_all == 'V'] = 'VEHICLE'
+        Pred_types[T_all == 'B'] = 'VEHICLE'
+        Pred_types[T_all == 'M'] = 'VEHICLE'
+        Pred_types = np.unique(Pred_types.astype(str))
+
+        # prepare training
+        for epoch in range(1, self.epochs + 1):
+            self.train_dataset_augment = self.augment
+            # print current epoch
+            rjust_epoch = str(epoch).rjust(len(str(self.epochs)))
+            print('Train MID: Epoch ' + rjust_epoch + '/{}'.format(self.epochs))
+
+            epoch_done = False
+            
+            batch_number = 0
+            while not epoch_done:
+                batch_number += 1
+                X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'])
+                
+                S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
+                
+                # Move img to device
+                if img is not None:
+                    img = img.to(self.device)
+                
+                self.MID.optimizer[node_type].zero_grad()
+                
+                # Run forward pass
+                batch = (first_h, S, Y, S_St, Y_st, Neighbor, Neighbor_edge, None, img)
+                train_loss = self.MID.model.get_loss(batch, node_type)
+                
+
+                print(f"Epoch {epoch}, {node_type} MSE: {train_loss.item():.2f}")
+                train_loss.backward()
+                self.MID.optimizer.step()
+
+            self.train_dataset_augment = False
+            if epoch % self.eval_every == 0:
+                self.MID.model.eval()
+
+                eval_ade_batch_errors = []
+                eval_fde_batch_errors = []
+
+                ph = self.hyperparams['prediction_horizon']
+                max_hl = self.hyperparams['maximum_history_length']
+
+                eval_done = False
+                i = 0
+                while not eval_done:
+                    print(f"----- Evaluating Scene {i + 1} -----")
+                    for t in tqdm(range(0, scene.timesteps, 10)):
+                        timesteps = np.arange(t,t+10)
+
+                        X, Y, T, img, _, _, num_steps, eval_done = self.provide_batch_data('val', self.hyperparams['batch_size'])
+                
+                        S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
+
+                        test_batch = (first_h, S, Y, S_St, Y_st, Neighbor, Neighbor_edge, None, img, num_steps)
+
+                        if test_batch is None:
+                            continue
+                        
+                        nodes = node_type
+                        timesteps_o = self.num_timesteps_out
+                        traj_pred = self.MID.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True) # B * 20 * 12 * 2
+
+                        predictions = traj_pred
+                        predictions_dict = {}
+                        for i, ts in enumerate(timesteps_o):
+                            if ts not in predictions_dict.keys():
+                                predictions_dict[ts] = dict()
+                            predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
+
+                        batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
+                                                                            scene.dt,
+                                                                            max_hl=max_hl,
+                                                                            ph=ph,
+                                                                            node_type_enum=node_type,
+                                                                            kde=False,
+                                                                            map=None,
+                                                                            best_of=True,
+                                                                            prune_ph_to_future=True)
+
+                        eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
+                        eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
+
+                    i += 1
+
+
+
+                ade = np.mean(eval_ade_batch_errors)
+                fde = np.mean(eval_fde_batch_errors)
+
+                if (self.provide_all_included_agent_types() == 'P').all():
+                    ade = ade/0.6
+                    fde = fde/0.6
+                else:
+                    ade = ade * 50
+                    fde = fde * 50
+
+
+                print(f"Epoch {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
+
+                # Saving model
+                checkpoint = {
+                    'encoder': self.MID.registrar.model_dict,
+                    'ddpm': self.MID.model.state_dict()
+                }
+                # torch.save(checkpoint, osp.join(self.model_dir, f"{self.dataset}_epoch{epoch}.pt")) # TODO check how to do this nicely
+
+                self.MID.model.train()
+
+            
+        # save weigths 
+        Weights = list(self.MID.registrar.parameters())
+        self.weights_saved = []
+        for weigths in Weights:
+            self.weights_saved.append(weigths.detach().cpu().numpy())
+
+
+    def load_method(self):
+        Weights = list(self.MID.registrar.parameters())
+        with torch.no_grad():
+            for i, weights in enumerate(self.weights_saved):
+                Weights[i][:] = torch.from_numpy(weights)[:]
+
+
+    def predict_method(self):
+        batch_size = max(1, int(self.hyperparams['batch_size'] / 10))
+        
+        prediction_done = False
+        
+        batch_number = 0
+        while not prediction_done:
+            batch_number += 1
+            print('Predict MID: Batch {}'.format(batch_number))
+            X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            S, S_St, first_h, Neighbor, Neighbor_edge, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, num_steps)
+                
+            # Move img to device
+            if img is not None:
+                img = img.to(self.device)
+                
+            torch.cuda.empty_cache()
+            # Run prediction pass
+            self.MID.registrar.to(self.device)
+            test_batch = (first_h, S, S_St, Neighbor, Neighbor_edge, None, img, num_steps)
+            
+            traj_pred = self.MID.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True, sampling='ddim', step=100//5) # B * 20 * 12 * 2
+
+            predictions = traj_pred
+            
+            Pred = predictions.detach().cpu().numpy()
+                
+            # set batchsize first
+            Pred = Pred.transpose(1,0,2,3)
+            
+            # reverse rotation
+            Pred_r = self.rotate_pos_matrix(Pred, -rot_angle)
+            
+            # reverse translation
+            Pred_t = Pred_r + center_pos
+            
+            self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
+            self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
+            
+    def save_params_in_csv(self = None):
+        return False
+    
+
+    def provides_epoch_loss(self = None):
+        return True
