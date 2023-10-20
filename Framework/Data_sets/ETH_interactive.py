@@ -41,56 +41,54 @@ class ETH_interactive(data_set_template):
     def set_scenario(self):
         self.scenario = scenario_none()
         
+        def eth_classifying_agents():
+            return []
+        
+        self.scenario.classifying_agents = eth_classifying_agents
+        
         
     def create_path_samples(self): 
         # Load raw data
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
                                    'ETH_pedestrians' + os.sep + 'ETH_processed.pkl')
-        # analize raw dara 
-        num_tars = len(self.Data)
+        # analize raw data
         self.num_samples = 0 
         self.Path = []
         self.Type_old = []
         self.T = []
         self.Domain_old = []
         
-        # extract raw samples
-        max_number_other = 0
-        for i in range(num_tars):
-            data_i = self.Data.iloc[i]
+        for loc_i, location in enumerate(np.unique(self.Data.scenario)):
+            Loc_data = self.Data[self.Data.scenario == location].copy()
+            first_frame_all = np.min(Loc_data['First frame'])
+            last_frame_all  = np.max(Loc_data['Last frame'])
             
-            # Get other agents
-            other_agents_bool = ((self.Data.index != data_i.name) & 
-                                 (self.Data['First frame'] <= data_i['Last frame']) & 
-                                 (self.Data['Last frame'] >= data_i['First frame']) &
-                                 (self.Data.scenario == data_i.scenario))
+            t = np.arange(first_frame_all, last_frame_all + 1) * 0.4
             
+            Loc_data['First frame'] -= first_frame_all
+            Loc_data['Last frame']  -= first_frame_all
+            num_timesteps = len(t)
             
-            other_agents = self.Data.loc[other_agents_bool]
-            
-            self.Data.iloc[i].path['CN'] = np.empty((len(data_i.path), 0)).tolist()
-            
-            for j, frame in enumerate(data_i.path.index):
-                useful = (other_agents['Last frame'] >= frame) & (other_agents['First frame'] <= frame)
-                self.Data.iloc[i].path.CN.iloc[j] = list(other_agents.index[useful])
-                max_number_other = max(max_number_other, useful.sum())
-                
-            
-            # find crossing point
-            track_all = data_i.path.copy(deep = True)
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
             agent_types = pd.Series(np.zeros(0, str), index = [])
             
-            path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
-            agent_types['tar'] = 'P'
+            for i in range(len(Loc_data)):
+                path_i = Loc_data.iloc[i]
+                
+                traj = np.ones((num_timesteps, 2), float) * np.nan
+                
+                traj_exist = path_i.path[['x', 'y']].to_numpy()
+                
+                traj[path_i['First frame'] : path_i['Last frame'] + 1] = traj_exist
+                
+                name = 'v_' + str(i)
+                
+                path[name] = traj
+                agent_types[name] = 'P'
             
-            t = track_all.t.to_numpy()
-            
-            domain = pd.Series(np.zeros(3, object), index = ['location', 'neighbors', 'name'])
-            domain.location = data_i.scenario
-            domain.name = data_i.name
-            track_all = track_all.set_index('t')
-            domain.neighbors = track_all.CN
+            domain = pd.Series(np.zeros(2, object), index = ['location', 'name'])
+            domain.location = location
+            domain.name     = str(loc_i)
             
             self.Path.append(path)
             self.Type_old.append(agent_types)
@@ -172,32 +170,21 @@ class ETH_interactive(data_set_template):
     
     
     def fill_empty_path(self, path, t, domain, agent_types):
-        I_t = t + domain.t_0
-        
-        n_I = self.num_timesteps_in_real
-        
-        Neighbor = domain.neighbors.copy()
-        N_U = (Neighbor.index >= I_t[0]) & (Neighbor.index <= I_t[n_I])
-        N_ID = np.unique(np.concatenate(Neighbor.iloc[N_U].to_numpy())).astype(int)
-        Own_pos = path.tar[np.newaxis]
-        
-        Pos = np.zeros((len(N_ID), len(I_t),2))
-        for j, nid in enumerate(N_ID):
-            t = self.T[nid]
-            pos = self.Path.iloc[nid,0]
-            for dim in range(2):
-                Pos[j, :, dim] = interp.interp1d(np.array(t), pos[:,dim], 
-                                                 fill_value = 'extrapolate', assume_sorted = True)(I_t)
-        
-        D = np.sqrt(((Pos[:,:n_I] - Own_pos[:,:n_I]) ** 2).sum(-1)).min(-1)
-        
-        Pos = Pos[np.argsort(D)]
-        if self.max_num_addable_agents is not None:
-            Pos = Pos[:self.max_num_addable_agents]
-        for i, pos in enumerate(Pos):
-            name = 'v_{}'.format(i+1)
-            path[name] = pos
-            agent_types[name] = 'P'
+        for agent in path.index:
+            if isinstance(path[agent], float):
+                assert str(path[agent]) == 'nan'
+            else:
+                x = path[agent][:,0]
+                y = path[agent][:,1]
+                
+                rewrite = np.isnan(x)
+                if not rewrite.any():
+                    continue
+                useful = np.invert(rewrite)
+                x = np.interp(t,t[useful],x[useful])
+                y = np.interp(t,t[useful],y[useful])
+            
+                path[agent] = np.stack([x, y], axis = -1)
         
         return path, agent_types
             
