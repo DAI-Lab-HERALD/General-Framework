@@ -362,7 +362,7 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
   ----------
   Pred : np.ndarray
     This is the predicted future observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array
+    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array
     with float values. If an agent is not to be predicted, then this can include np.nan values.
     The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
   Sample_id : np.ndarray, optional
