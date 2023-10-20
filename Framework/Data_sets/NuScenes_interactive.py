@@ -6,6 +6,7 @@ import os
 import json
 from scipy import interpolate as interp
 from pyquaternion import Quaternion
+from NuScenes.data.train_val_split import train, val
 
 
 
@@ -60,26 +61,12 @@ class NuScenes_interactive(data_set_template):
         self.T = []
         self.Domain_old = []
 
-        # prepare images
+        # prepare file path
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
-        image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
-        self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
-
-        map_files = os.listdir(image_path_full)
-        px_per_meter = 2
-        
-        for map_file in map_files:
-            if map_file.endswith('.json'):
-                map_name = map_file[:-5]
-                map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
-                vector_map = VectorMap('placeholder:' + map_name)
-                populate_vector_map(vector_map, map_image)
-                bit_map = vector_map.rasterize(resolution = px_per_meter)
-                self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
-
-        nuscenes_dt = 0.5
 
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
+        
+        nuscenes_dt = 0.5
 
         pred_file = file_path + os.sep + 'maps' + os.sep + 'prediction' + os.sep + 'prediction_scenes.json'
         with open(pred_file, 'r') as f:
@@ -199,19 +186,29 @@ class NuScenes_interactive(data_set_template):
                     path[agent_name] = agent_traj * np.array([[1, -1]]) # Align with Images
                     pred_points[agent_name] = agent_pred
                     agent_id += 1
-
+            
             ego_translations = np.concatenate(ego_translation_list, axis = 0)
             ego_predictions = np.array(ego_prediction_list)
             path['tar'] = ego_translations[:,:2] * np.array([[1, -1]]) # Align with Images
             pred_points['tar'] = ego_predictions
             agent_types['tar'] = 'V'
 
-            domain = pd.Series(np.zeros(5, object), index = ['location', 'scene', 'image_id', 'pred_agents', 'pred_timepoints'])
+            domain = pd.Series(np.zeros(6, object), index = ['location', 'scene', 'image_id', 
+                                                             'pred_agents', 'pred_timepoints', 'splitting'])
             domain.location = scene_location
             domain.scene = scene_name 
             domain.image_id = scene_location
             domain.pred_agents = pred_points
             domain.pred_timepoints = t
+            
+            if scene_name in train:
+                domain.splitting = 'train'
+            elif scene_name in val:
+                domain.splitting = 'val'
+            else:
+                print('This Scene is not sorted into train or testing split.')
+                continue
+            
             print('Number of agents: ' + str(len(path)))
             print('Number of frames: ' + str(len(t)))
             print('Number of predictions: ' + str(np.stack(pred_points.to_numpy()).sum()) + '/' + str(len(scene_preds)))
@@ -225,7 +222,23 @@ class NuScenes_interactive(data_set_template):
         self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
+        
+        # Get images
+        image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
+        self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
+        map_files = os.listdir(image_path_full)
+        px_per_meter = 10
+        
+        for map_file in map_files:
+            if map_file.endswith('.json'):
+                map_name = map_file[:-5]
+                map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
+                vector_map = VectorMap('placeholder:' + map_name)
+                populate_vector_map(vector_map, map_image)
+                bit_map = vector_map.rasterize(resolution = px_per_meter)
+                self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
+    
 
     def calculate_distance(self, path, t, domain):
         return None

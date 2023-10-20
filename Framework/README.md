@@ -131,7 +131,7 @@ In the framework, it is possible that the past and future trajectories of agents
 agents_to_predict = 'predefined'
 ```
 There are a number of possibilities to set the string **agents_to_predict** to:
-- *'predefined'*: In this case, only the [agents needed for classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are predicted and evaluated. While those agents are also predicted under the other settings to allow for the classification, they might not be automatically included in trajectory metrics.
+- *'predefined'*: In this case, only the [agents needed for classification](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#define-important-actors) are predicted and evaluated. While those agents are also predicted under the other settings to allow for the classification, they might not be automatically included in trajectory metrics. It must be noted that if one wants to use trajectory-based metrics for classification models, this setting **must** be used. 
 - *'all'*: All agents in a scene for which the past and future trajectories are fully observed (i.e., no extrapolation is used) are included in trajectory metrics.
 - *'P'*, *'V'*, *'B'*, *'M'*: Only agents of the set [agent type](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#importing-the-raw-data) are included in the trajectory metrics.
 

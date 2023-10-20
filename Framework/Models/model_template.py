@@ -1083,7 +1083,7 @@ class model_template():
                 use_preds = np.arange(len(paths_pred_comp))
                 np.random.seed(0)
                 np.random.shuffle(use_preds)
-                max_preds = max(1 * len(paths_true_comp), 5 * self.num_samples_path_pred, 2500)
+                max_preds = min(max(1 * len(paths_true_comp), 5 * self.num_samples_path_pred, 2500), len(use_preds))
                 
                 # Get approximated probability distribution
                 log_probs_true = []
@@ -1189,7 +1189,7 @@ class model_template():
                     use_preds = np.arange(len(paths_pred_agent_comp))
                     np.random.seed(0)
                     np.random.shuffle(use_preds)
-                    max_preds = max(1 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred, 2500)
+                    max_preds = min(max(1 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred, 2500), len(use_preds))
                     
                     # Get approximated probability distribution
                     log_probs_true_agent = []
@@ -1236,7 +1236,6 @@ class model_template():
                         #     print(i, np.max(diff), t_value)
                         
 
-                    
                     
                     log_prob_true_agent = sp.special.logsumexp(np.stack(log_probs_true_agent, axis = 0), 
                                                                b = weights, axis = 0)

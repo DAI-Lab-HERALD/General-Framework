@@ -158,6 +158,7 @@ class data_interface(object):
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
             del self.Pred_agents_eval_all
             del self.Pred_agents_pred_all
+            del self.Not_pov_agent
         
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
             del self.Subgroups
@@ -280,15 +281,6 @@ class data_interface(object):
         # Ensure that the same order of agents is maintained for input and output paths
         self.Output_path = self.Output_path[self.Input_path.columns]
         
-        # Ensure matching indices
-        self.Input_prediction = self.Input_prediction.reset_index(drop = True)
-        self.Input_path       = self.Input_path.reset_index(drop = True)
-        self.Output_path      = self.Output_path.reset_index(drop = True)
-        self.Output_A         = self.Output_A.reset_index(drop = True)
-        self.Type             = self.Type.reset_index(drop = True)
-        self.Recorded         = self.Recorded.reset_index(drop = True)
-        self.Domain           = self.Domain.reset_index(drop = True)
-        
         # Ensure agent order is the same everywhere
         Agents = np.array(self.Input_path.columns)
         self.Output_path = self.Output_path[Agents]
@@ -302,6 +294,49 @@ class data_interface(object):
         self.data_loaded = True
         self.dt = dt
         
+        # Remove useless samples
+        self._determine_pred_agents()
+        Num_eval_agents   = self.Pred_agents_eval.sum(1)
+        Num_pred_agents   = self.Pred_agents_pred.sum(1)
+        
+        Useful_agents = (Num_eval_agents + Num_pred_agents) > 0 
+        
+        if Useful_agents.sum() < 5:
+            complete_failure = "not enough prediction problems are avialable."
+        
+        # Overwrite
+        self.Input_prediction = self.Input_prediction.iloc[Useful_agents].reset_index(drop = True)
+        self.Input_path       = self.Input_path.iloc[Useful_agents].reset_index(drop = True)
+        self.Input_T          = self.Input_T[Useful_agents]
+
+        self.Output_path      = self.Output_path.iloc[Useful_agents].reset_index(drop = True)
+        self.Output_T         = self.Output_T[Useful_agents]
+        self.Output_T_pred    = self.Output_T_pred[Useful_agents]
+        self.Output_A         = self.Output_A.iloc[Useful_agents].reset_index(drop = True)
+        self.Output_T_E       = self.Output_T_E[Useful_agents]
+
+        self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
+        self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
+        self.Domain           = self.Domain.iloc[Useful_agents].reset_index(drop = True)
+        
+        self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        
+        # Overwrite old saved aspects
+        self.X_orig = self.X_orig[Useful_agents]
+        self.Y_orig = self.Y_orig[Useful_agents]
+        
+        self.N_O_data_orig = self.N_O_data_orig[Useful_agents]
+        self.N_O_pred_orig = self.N_O_pred_orig[Useful_agents]
+        
+        self.Pred_agents_eval_all = self.Pred_agents_eval_all[Useful_agents]
+        self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
+        self.Pred_agents_eval     = self.Pred_agents_eval[Useful_agents]
+        self.Pred_agents_pred     = self.Pred_agents_pred[Useful_agents]
+        
+        if hasattr(self, 'Not_pov_agent'):
+            self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
+        
+        
         return complete_failure
         
         
@@ -312,6 +347,7 @@ class data_interface(object):
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
                             grayscale = False, return_resolution = False):
+        
         if target_height is None:
             target_height = 1250
         if target_width is None:
@@ -513,7 +549,7 @@ class data_interface(object):
                     for i_agent, agent in enumerate(Agents):
                         if isinstance(R[agent], np.ndarray):
                             Recorded_agents[i_sample, i_agent] = np.all(R[agent])
-            
+
                 # remove non-moving agents
                 Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
                 Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
@@ -561,7 +597,7 @@ class data_interface(object):
                     Pred_agents_N[i_sample, i_agents] = pa
                 
                 self.Pred_agents_eval_all = Pred_agents_N
-                self.Pred_agents_pred_all = Pred_agents_N
+                self.Pred_agents_pred_all = Pred_agents_N | Needed_agents
                 
             # Check if everything needed is there
             assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'

@@ -63,8 +63,6 @@ class data_set_template():
         else:
             self.needed_agents = self.scenario.classifying_agents()
         
-        assert len(self.needed_agents) > 0, "There must be predictable agents."
-        
         # Determine if all predicted timesteps must be observable
         self.enforce_num_timesteps_out = enforce_num_timesteps_out
         self.enforce_prediction_time   = enforce_prediction_time
@@ -765,9 +763,9 @@ class data_set_template():
             num_samples = len(self.id)
             for i in range(num_samples):
                 # print progress
-                if np.mod(i, 10) == 0:
-                    print('path ' + str(i).rjust(len(str(num_samples))) +
-                          '/{} divided'.format(num_samples))
+                if np.mod(i, 1) == 0:
+                    print('path ' + str(i + 1).rjust(len(str(num_samples))) +
+                          '/{}: divide'.format(num_samples))
 
                 # load extracted data
                 i_path = self.id[i]
@@ -792,8 +790,13 @@ class data_set_template():
                             raise TypeError("Comparing against the all method is not possible")
                         else:
                             T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, i, behavior)) 
-                    
+                
                 for ind_t0, t0 in enumerate(T0):
+                    if len(T0) > 50:
+                        if np.mod(ind_t0, 10) == 0:
+                            print('path ' + str(i + 1).rjust(len(str(num_samples))) +
+                                  '/{} - prediction time {}/{}: divide'.format(num_samples, ind_t0 + 1, len(T0)))
+
                     if isinstance(t0, str):
                         return t0
                     # Prepare domain
@@ -1394,7 +1397,7 @@ class data_set_template():
             Index_new = []
             
         Index_add = Index_new + list(Index_old)
-        Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), 2 * len(self.needed_agents)), object),
+        Output_path_pred_add = pd.DataFrame(np.empty((len(Output_path_pred), len(Index_add)), object),
                                             columns=Index_add)
 
         to_save_timesteps = np.zeros(len(Output_path_pred))
@@ -1471,7 +1474,7 @@ class data_set_template():
             
             return Output_path_pred_remove
         
-        Index_retain = np.array([name in self.scenario.classifying_agents() for name in Output_path_pred.columns])
+        Index_retain = np.array([(name != self.pov_agent) for name in Output_path_pred.columns])
         Output_path_pred_remove = Output_path_pred.iloc[:, Index_retain]
         
         # Get number of predicted timesteps per trajectory

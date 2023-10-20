@@ -202,6 +202,20 @@ to the dataset on which the model is trained.
 This is both possible for classification models as well as trajectory prediction models.
 
 ### Trajectory prediction models.
+To use the following helper functions, the following attributes have to be set in [*setup_method()*](#model-setup):
+
+- **self.min_t_O_train** (int): This is the number of future timesteps that have to be observed so that a sample can be used for training.
+- **self.max_t_O_train** (int): This is the maximum number of future timesteps to be processed during training. While this will not lead to whole samples being discarded, for samples with more recorded future timesteps than **self.max_t_O_train**, these additional timesteps will not be used for training.
+- **self.predict_single_agent** (bool): This is *True* if the model is unable to make joint predictions and is only able to predict the future trajectory of one agent at a time. For joint prediction models, each scene is then given as a single sample, with a potentially unlimited number of agents, of which [multiple have to be predicted](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#set-the-experiment-hyperparameters) by the model. Meanwhile, for a model making single-agent predictions, each scene is split into multiple samples, wherein each sample has a different agent that has to be predicted, and its surrounding agents are given to the model. The number of surrounding agents is identical to the 'max_num_agents' - 1 given to the [Framework](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#select-modules).
+- **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
+- **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
+- **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
+- **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
+
+For a given sample, the extracted images are centered around the last observed position of an agent, which is driving to the right at this moment, with **self.target_width** $W_T$ and **self.target_height** $H_T$ (the positions $(x, y)$ of vehicles are, however, still provided in the agent-independent coordinate system). Here, $s$ is the scaling factor in $m/\text{Px}$, which is already set in the dataset.
+
+<img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_fully.svg" alt="Extraction of agent centered images." width="100%">
+
 ```
   def provide_all_training_trajectories(self):
     r'''
@@ -362,7 +376,7 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
   ----------
   Pred : np.ndarray
     This is the predicted future observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array
+    :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array
     with float values. If an agent is not to be predicted, then this can include np.nan values.
     The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
   Sample_id : np.ndarray, optional
@@ -384,20 +398,6 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
 
   '''
 ```
-
-To use those functions, the following attributes have to be set in [*setup_method()*](#model-setup):
-
-- **self.min_t_O_train** (int): This is the number of future timesteps that have to be observed so that a sample can be used for training.
-- **self.max_t_O_train** (int): This is the maximum number of future timesteps to be processed during training. While this will not lead to whole samples being discarded, for samples with more recorded future timesteps than **self.max_t_O_train**, these additional timesteps will not be used for training.
-- **self.predict_single_agent** (bool): This is *True* if the model is unable to make joint predictions and is only able to predict the future trajectory of one agent at a time. For joint prediction models, each scene is then given as a single sample, with a potentially unlimited number of agents, of which [multiple have to be predicted](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#set-the-experiment-hyperparameters) by the model. Meanwhile, for a model making single-agent predictions, each scene is split into multiple samples, wherein each sample has a different agent that has to be predicted, and its surrounding agents are given to the model. The number of surrounding agents is identical to the 'max_num_agents' - 1 given to the [Framework](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#select-modules).
-- **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
-- **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
-- **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
-- **self.grayscale** (bool): This is true if the images to be returned are grayscale (number of channels $C = 1$) or colored using RGB values instead ($C = 3$).
-
-For a given sample, the extracted images are centered around the last observed position of an agent, which is driving to the right at this moment, with **self.target_width** $W_T$ and **self.target_height** $H_T$ (the positions $(x, y)$ of vehicles are, however, still provided in the agent-independent coordinate system). Here, $s$ is the scaling factor in $m/\text{Px}$, which is already set in the dataset.
-
-<img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_fully.svg" alt="Extraction of agent centered images." width="100%">
 
 ### Classification models
 ```
