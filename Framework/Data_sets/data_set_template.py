@@ -794,7 +794,7 @@ class data_set_template():
                 for ind_t0, t0 in enumerate(T0):
                     if len(T0) > 50:
                         if np.mod(ind_t0, 10) == 0:
-                            print('path ' + str(i).rjust(len(str(num_samples))) +
+                            print('path ' + str(i + 1).rjust(len(str(num_samples))) +
                                   '/{} - prediction time {}/{}: divide'.format(num_samples, ind_t0 + 1, len(T0)))
 
                     if isinstance(t0, str):

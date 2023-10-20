@@ -158,6 +158,7 @@ class data_interface(object):
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
             del self.Pred_agents_eval_all
             del self.Pred_agents_pred_all
+            del self.Not_pov_agent
         
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
             del self.Subgroups
@@ -294,13 +295,11 @@ class data_interface(object):
         self.dt = dt
         
         # Remove useless samples
-        Needed_agents = self._determine_pred_agents()
-        
-        Num_needed_agents = Needed_agents.sum(1)
+        self._determine_pred_agents()
         Num_eval_agents   = self.Pred_agents_eval.sum(1)
         Num_pred_agents   = self.Pred_agents_pred.sum(1)
         
-        Useful_agents = (Num_needed_agents + Num_eval_agents + Num_pred_agents) > 0 
+        Useful_agents = (Num_eval_agents + Num_pred_agents) > 0 
         
         if Useful_agents.sum() < 5:
             complete_failure = "not enough prediction problems are avialable."
@@ -321,6 +320,20 @@ class data_interface(object):
         self.Domain           = self.Domain.iloc[Useful_agents].reset_index(drop = True)
         
         self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        
+        # Overwrite old saved aspects
+        self.X_orig = self.X_orig[Useful_agents]
+        self.Y_orig = self.Y_orig[Useful_agents]
+        
+        self.N_O_data_orig = self.N_O_data_orig[Useful_agents]
+        self.N_O_pred_orig = self.N_O_pred_orig[Useful_agents]
+        
+        self.Pred_agents_eval_all = self.Pred_agents_eval_all[Useful_agents]
+        self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
+        self.Pred_agents_eval     = self.Pred_agents_eval[Useful_agents]
+        self.Pred_agents_pred     = self.Pred_agents_pred[Useful_agents]
+        self.Not_pov_agent        = self.Not_pov_agent[Useful_agents]
+        
         
         return complete_failure
         
@@ -581,7 +594,7 @@ class data_interface(object):
                     Pred_agents_N[i_sample, i_agents] = pa
                 
                 self.Pred_agents_eval_all = Pred_agents_N
-                self.Pred_agents_pred_all = Pred_agents_N
+                self.Pred_agents_pred_all = Pred_agents_N | Needed_agents
                 
             # Check if everything needed is there
             assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
@@ -620,8 +633,6 @@ class data_interface(object):
             self.Pred_agents_eval = self.Pred_agents_eval_all.copy()
         else:
             self.Pred_agents_eval = self.Pred_agents_eval_all & self.Not_pov_agent
-            
-        return Needed_agents
         
     
     def _group_indentical_inputs(self, eval_pov = True):
