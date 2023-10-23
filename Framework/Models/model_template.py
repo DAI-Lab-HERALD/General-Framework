@@ -1107,7 +1107,7 @@ class model_template():
                     
                     weights = np.ones((i + 1, 1)) / (i + 1)
                     # Check if we sufficiently represent predicted distribution
-                    print('            ' + i)
+                    print('            ' + str(i))
                     i += 1
 
 
@@ -1218,7 +1218,7 @@ class model_template():
                         
                         weights = np.ones((i + 1, 1)) / (i + 1)
                         # Check if we sufficiently represent predicted distribution
-                        print('            ' + i)
+                        print('            ' + str(i))
                         i += 1
 
 
