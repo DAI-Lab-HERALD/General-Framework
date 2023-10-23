@@ -1411,7 +1411,7 @@ class Experiment():
         
         # Prevent model retraining
         parameters = [param for param in self.parameters]
-        parameters[-1] = False
+        parameters[-1] = 'no'
         
         data_set = data_interface(data_set_dict, parameters)
         
