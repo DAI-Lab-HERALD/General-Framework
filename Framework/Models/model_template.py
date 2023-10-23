@@ -1055,7 +1055,9 @@ class model_template():
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
+        print('Calculate joint PDF on predicted probabilities.', flush = True)
         for subgroup in np.unique(Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
@@ -1063,7 +1065,8 @@ class model_template():
             
             nto_subgroup = Num_steps[subgroup_index]
             
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
@@ -1093,8 +1096,10 @@ class model_template():
                 while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                     test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                     path_pred_train = paths_pred_comp[test_ind]
-                    
-                    kde = OPTICS_GMM().fit(path_pred_train)
+                    try:
+                        kde = OPTICS_GMM().fit(path_pred_train)
+                    except:
+                        assert False
                     # Score samples
                     
                     log_probs_true.append(kde.score_samples(paths_true_comp))
@@ -1154,7 +1159,9 @@ class model_template():
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
+        print('Calculate indep PDF on predicted probabilities.', flush = True)
         for subgroup in np.unique(Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
@@ -1163,7 +1170,8 @@ class model_template():
             
             nto_subgroup = Num_steps[subgroup_index]
             
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
