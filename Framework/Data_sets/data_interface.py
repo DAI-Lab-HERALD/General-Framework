@@ -796,7 +796,6 @@ class data_interface(object):
                 paths_true_comp = paths_true.reshape(-1, num_features)
                 
                 # Train model
-                assert np.isfinite(paths_true_comp).all(), 'This should not have happened'  
                 kde = OPTICS_GMM().fit(paths_true_comp)
                 log_prob_true = kde.score_samples(paths_true_comp)
                 

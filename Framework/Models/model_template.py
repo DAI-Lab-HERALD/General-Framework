@@ -185,7 +185,6 @@ class model_template():
         # perform prediction
         if self.get_output_type()[:4] == 'path':
             test_file = self.pred_file[:-4] + '00.npy'
-            print('Loading predicted trajectories from: ', test_file)
             if os.path.isfile(test_file) and not self.prediction_overwrite:
                 output = np.load(test_file, allow_pickle = True)
                 

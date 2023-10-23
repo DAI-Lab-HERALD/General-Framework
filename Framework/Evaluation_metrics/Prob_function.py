@@ -152,6 +152,7 @@ class OPTICS_GMM():
         self.T_mat = np.zeros((len(unique_labels), self.num_features, self.num_features))
         
         Stds = np.zeros((len(unique_labels), self.num_features)) 
+        min_std = 0.1
 
         for i, label in enumerate(unique_labels):
             if label == -1:
@@ -190,7 +191,6 @@ class OPTICS_GMM():
             
             # Apply minimum standard deviation
             pca_std = np.sqrt(pca.explained_variance_)
-            min_std = 0.1
             pca_std = min_std + pca_std * (pca_std.max() - min_std) / pca_std.max()
 
             self.T_mat[i] = pca.components_.T / pca_std[np.newaxis]
@@ -209,7 +209,7 @@ class OPTICS_GMM():
             
             # set rot_mat_pca[0] to be an identity matrix
             if len(self.T_mat) > 1:
-                self.T_mat[0] = np.diag(1 / Stds[1:].mean(0))  
+                self.T_mat[0] = np.diag(1 / np.maximum(Stds[1:].mean(0), min_std))  
             else:
                 self.T_mat[0] = np.eye(self.num_features)
 

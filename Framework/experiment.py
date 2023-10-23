@@ -1797,7 +1797,7 @@ class Experiment():
                     i_agent = np.where(agent == ind_pp)[0][0]
                     
                     num_samples_path_pred = self.parameters[1]
-                    for j in range(num_samples_path_pred):
+                    for j in range(5):#num_samples_path_pred):
                         ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
                                 np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
                                 color = color_pred, marker = 'x', ms = 1, markeredgewidth = 0.25, 
