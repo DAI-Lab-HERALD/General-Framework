@@ -1843,4 +1843,4 @@ class Experiment():
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
             
-            plt.close(fig)
+            # plt.close(fig)

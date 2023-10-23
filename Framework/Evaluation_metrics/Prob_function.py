@@ -174,7 +174,19 @@ class OPTICS_GMM():
                 c = X_label_stand
 
             # calculate PCA on X_label_stand -> get rot matrix and std
-            pca = PCA().fit(c)
+            try:
+                pca = PCA().fit(c)
+            except:
+                print('Error in fitting PCA')
+                print('X_label_stand.shape', X_label_stand.shape)
+                print('X_label_stand is finite:', np.isfinite(X_label_stand).all())
+                print('c shape', c.shape)
+                print('c is finite:', np.isfinite(c).all())
+                print('Num clusters', len(unique_labels) + 1)
+                print('T_mat finite:', np.isfinite(self.T_mat[i]).all())
+                print('Stds finite:', np.isfinite(Stds[i]).all())
+                print('Stds not zero:', (Stds[i] > 0).all()) 
+                assert False
             
             # Apply minimum standard deviation
             pca_std = np.sqrt(pca.explained_variance_)
@@ -207,7 +219,19 @@ class OPTICS_GMM():
             # Fit GMM distribution
             # calculate silverman rule assuming only 1 sample 
             bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
-            kde_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
+            try:
+                kde_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
+            except:
+                print('Error in fitting noise KDE')
+                print('X_noise_stand.shape', X_noise_stand.shape)
+                print('X_noise_stand is finite:', np.isfinite(X_noise_stand).all())
+                print('Num clusters', len(unique_labels) + 1)
+                print('T_mat finite:', np.isfinite(self.T_mat[0]).all())
+                if len(self.T_mat) > 1:
+                    print('Std finite:', np.isfinite(Stds[1:]).all())
+                    print('Std not zero:', (Stds[1:] > 0).all()) 
+                print('bandwidth', bandwidth)
+                assert False
             self.KDEs[0] = kde_noise
             
         self.probs = cluster_size / cluster_size.sum()

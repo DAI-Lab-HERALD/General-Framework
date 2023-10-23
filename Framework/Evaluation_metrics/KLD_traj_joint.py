@@ -41,8 +41,8 @@ class KLD_traj_joint(evaluation_template):
     def evaluate_prediction_method(self):
         _, subgroups = self.get_true_prediction_with_same_input()
         
-        KDE_pred_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
         KDE_true_log_prob_true, _ = self.get_true_likelihood(joint_agents = True)
+        KDE_pred_log_prob_true, _ = self.get_KDE_probabilities(joint_agents = True)
         
         KLD = 0
         unique_subgroups = np.unique(subgroups)

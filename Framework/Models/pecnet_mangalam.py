@@ -85,6 +85,9 @@ class pecnet_mangalam(model_template):
             for step in range(self.hyper_params['num_epochs']):
                 train_epoch_done = False
                 model.train()
+
+                train_mu = torch.zeros(0).to(self.device, dtype=torch.double)
+                train_var = torch.zeros(0).to(self.device, dtype=torch.double)
             
                 t_loss = 0
                 while not train_epoch_done:
@@ -109,7 +112,7 @@ class pecnet_mangalam(model_template):
                     mask = scene[None] == scene[:,None]       
                     mask = mask.to(device = self.device, dtype = torch.double) 
 
-                    traj = torch.concatenate((x, y), dim = 1)
+                    traj = torch.concat((x, y), dim = 1)
                     traj -= traj[:, :1, :]
                     traj *= self.hyper_params["data_scale"]   
 
@@ -137,8 +140,11 @@ class pecnet_mangalam(model_template):
                     total_kld += kld.item()
                     total_adl += adl.item()
                     optimizer.step()
+                    train_mu = torch.concat((train_mu, dest_recon[:,1]))
+                    # train_var = torch.concat((train_var, var.mul(0.5).exp_()))
 
                 train_loss.append(t_loss)
+                
 
                 val_epoch_done = False
                 model.eval()
@@ -167,7 +173,7 @@ class pecnet_mangalam(model_template):
                     mask = scene[None] == scene[:,None]       
                     mask = mask.to(device = self.device, dtype = torch.double) 
 
-                    traj = torch.concatenate((x, y), dim = 1)
+                    traj = torch.concat((x, y), dim = 1)
                     traj -= traj[:, :1, :]
                     traj *= self.hyper_params["data_scale"]   
 
@@ -210,12 +216,16 @@ class pecnet_mangalam(model_template):
 
                 v_loss /= num_val_samples
 
-                print('Epoch: {:7.0f}; \t Train loss: {:7.5f}; \t Val loss: {:7.5f} '.format(step, np.mean(train_loss[-1]), v_loss))
+                print('Epoch: {:7.0f}; \t Train loss: {:7.5f}; \t Val loss: {:7.5f}; \t Mu: {:7.5f}; STD_MU: {:7.5f}'#; \t Var: {:7.5f}; STD_VAR: {:7.5f}'
+                      .format(step, np.mean(train_loss[-1]), v_loss, np.mean(train_mu.cpu().detach().numpy()), 
+                              np.std(train_mu.cpu().detach().numpy())))#, np.mean(train_var.cpu().detach().numpy()), np.std(train_var.cpu().detach().numpy())))
 
 
             self.train_loss[0, :len(train_loss)] = np.array(train_loss)
             os.makedirs(os.path.dirname(model_file), exist_ok=True)
             pickle.dump(model, open(model_file, 'wb'))
+            pickle.dump(train_mu.cpu().detach().numpy(), open(model_file + '_train_var', 'wb'))
+            pickle.dump(train_var.cpu().detach().numpy(), open(model_file + '_train_var', 'wb'))
 
         return model
 
