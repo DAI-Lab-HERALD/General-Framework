@@ -1066,7 +1066,7 @@ class model_template():
             nto_subgroup = Num_steps[subgroup_index]
             
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
-                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
@@ -1107,7 +1107,7 @@ class model_template():
                     
                     weights = np.ones((i + 1, 1)) / (i + 1)
                     # Check if we sufficiently represent predicted distribution
-                    print(i)
+                    print('            ' + i)
                     i += 1
 
 
@@ -1171,7 +1171,7 @@ class model_template():
             nto_subgroup = Num_steps[subgroup_index]
             
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
-                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
@@ -1218,7 +1218,7 @@ class model_template():
                         
                         weights = np.ones((i + 1, 1)) / (i + 1)
                         # Check if we sufficiently represent predicted distribution
-                        print(i)
+                        print('            ' + i)
                         i += 1
 
 

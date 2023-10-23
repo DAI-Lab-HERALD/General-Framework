@@ -786,7 +786,7 @@ class data_interface(object):
             
             self.KDE_joint[subgroup] = {}
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
-                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 
@@ -841,7 +841,7 @@ class data_interface(object):
             
             self.KDE_indep[subgroup] = {}
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
-                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto, len(np.unique(nto_subgroup))), flush = True)
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 
