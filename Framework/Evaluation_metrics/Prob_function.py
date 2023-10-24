@@ -198,15 +198,13 @@ class OPTICS_GMM():
                 if not successful_pca:
                     print('PCA failed, was done again with different random start.')
                 
-                
-            
             # Apply minimum standard deviation
             pca_std = np.sqrt(pca.explained_variance_)
             pca_std = min_std + pca_std * (pca_std.max() - min_std) / pca_std.max()
             
             self.T_mat[i]         = pca.components_.T / pca_std[np.newaxis]
             self.log_det_T_mat[i] = (np.log(np.abs(np.linalg.det(pca.components_.T))) -  
-                                     np.log(pca_std.prod()))
+                                     np.log(pca_std).sum())
             
             # Apply transformation matrix
             X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
