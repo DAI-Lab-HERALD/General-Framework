@@ -274,15 +274,15 @@ class OPTICS_GMM():
             log_probs[:,i] = self.log_probs[i] + KDE.score_samples(X_stand) + self.log_det_T_mat[i] 
         
         # Deal with overflow
-        prob = np.exp(log_probs).sum(1)
         if return_log:
-            return prob, log_probs
+            return log_probs
         else:
+            prob = np.exp(log_probs).sum(1)
             return prob
     
     
     def score_samples(self, X):
-        probs, log_probs = self.prob(X, return_log = True)
+        log_probs = self.prob(X, return_log = True)
         l_probs = sp.special.logsumexp(log_probs, axis = -1)
         return l_probs
         

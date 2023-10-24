@@ -1128,7 +1128,7 @@ class model_template():
                 
                 log_prob_true = sp.special.logsumexp(np.stack(log_probs_true, axis = 0), 
                                                             b = weights, axis = 0)
-                
+            
                 self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
