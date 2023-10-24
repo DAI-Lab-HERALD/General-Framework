@@ -1096,12 +1096,10 @@ class model_template():
                 while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                     test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                     path_pred_train = paths_pred_comp[test_ind]
-                    try:
-                        kde = OPTICS_GMM().fit(path_pred_train)
-                    except:
-                        assert False
+
+                    kde = OPTICS_GMM().fit(path_pred_train)
+
                     # Score samples
-                    
                     log_probs_true.append(kde.score_samples(paths_true_comp))
                     log_probs_pred.append(kde.score_samples(paths_pred_comp))
                     
@@ -1205,14 +1203,12 @@ class model_template():
 
                     log_pred_satisfied = False
                     i = 0
-                    KDEs = []
                     while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                         path_pred_train = paths_pred_agent_comp[test_ind]
                         kde = OPTICS_GMM().fit(path_pred_train)
-                        KDEs.append(kde)
-                        # Score samples
                         
+                        # Score samples
                         log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))
                         log_probs_pred_agent.append(kde.score_samples(paths_pred_agent_comp))
                         

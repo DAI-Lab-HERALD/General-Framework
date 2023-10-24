@@ -159,6 +159,9 @@ class OPTICS_GMM():
         self.means = np.zeros((len(unique_labels), self.num_features))
         self.T_mat = np.zeros((len(unique_labels), self.num_features, self.num_features))
         
+        # Get probability adjustment
+        self.log_det_T_mat = np.zeros(len(unique_labels))
+        
         Stds = np.zeros((len(unique_labels), self.num_features)) 
         min_std = 0.1
 
@@ -183,25 +186,27 @@ class OPTICS_GMM():
                 c = X_label_stand
 
             # calculate PCA on X_label_stand -> get rot matrix and std
-            try:
-                pca = PCA().fit(c)
-            except:
-                print('Error in fitting PCA')
-                print('X_label_stand.shape', X_label_stand.shape)
-                print('X_label_stand is finite:', np.isfinite(X_label_stand).all())
-                print('c shape', c.shape)
-                print('c is finite:', np.isfinite(c).all())
-                print('Num clusters', len(unique_labels) + 1)
-                print('T_mat finite:', np.isfinite(self.T_mat[i]).all())
-                print('Stds finite:', np.isfinite(Stds[i]).all())
-                print('Stds not zero:', (Stds[i] > 0).all()) 
-                assert False
+            rand = 0
+            successful_pca = False
+            while not successful_pca:
+                try:
+                    pca = PCA(random_state = rand).fit(c)
+                    successful_pca = True
+                except:
+                    rand += 1
+                
+                if not successful_pca:
+                    print('PCA failed, was done again with different random start.')
+                
+                
             
             # Apply minimum standard deviation
             pca_std = np.sqrt(pca.explained_variance_)
             pca_std = min_std + pca_std * (pca_std.max() - min_std) / pca_std.max()
-
-            self.T_mat[i] = pca.components_.T / pca_std[np.newaxis]
+            
+            self.T_mat[i]         = pca.components_.T / pca_std[np.newaxis]
+            self.log_det_T_mat[i] = (np.log(np.abs(np.linalg.det(pca.components_.T))) -  
+                                     np.log(pca_std.prod()))
             
             # Apply transformation matrix
             X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
@@ -217,9 +222,12 @@ class OPTICS_GMM():
             
             # set rot_mat_pca[0] to be an identity matrix
             if len(self.T_mat) > 1:
-                self.T_mat[0] = np.diag(1 / np.maximum(Stds[1:].mean(0), min_std))  
+                stds = np.maximum(Stds[1:].mean(0), min_std)
+                self.T_mat[0] = np.diag(1 / stds)
+                self.log_det_T_mat[0] = -np.sum(np.log(stds))
             else:
-                self.T_mat[0] = np.eye(self.num_features)
+                self.T_mat[0]         = np.eye(self.num_features)
+                self.log_det_T_mat[0] = 0.0
 
 
             X_noise_stand = (X_noise - self.means[[0]]) @ self.T_mat[0] 
@@ -264,11 +272,8 @@ class OPTICS_GMM():
         for i, KDE in enumerate(self.KDEs):
             X_stand = (X - self.means[[i]]) @ self.T_mat[i]
 
-            # calculate Tmat_adjust = -log(det(T_mat))
-            T_mat_adjust = np.log(np.abs(np.linalg.det(self.T_mat[i])))
-
             # get adjusted log prob values
-            log_probs[:,i] = self.log_probs[i] + KDE.score_samples(X_stand) + T_mat_adjust 
+            log_probs[:,i] = self.log_probs[i] + KDE.score_samples(X_stand) + self.log_det_T_mat[i] 
         
         # Deal with overflow
         prob = np.exp(log_probs).sum(1)
