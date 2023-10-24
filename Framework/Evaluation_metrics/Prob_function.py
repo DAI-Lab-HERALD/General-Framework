@@ -135,10 +135,18 @@ class OPTICS_GMM():
                                                     eps            = eps)
             
                 if len(np.unique(test_labels)) > 1:
-                    test_score = silhouette_score(X, test_labels)
-                    if test_score > best_score:
-                        best_score = test_score
-                        self.cluster_labels = test_labels
+                    # Avoid clusters with size 1
+                    test_size = np.unique(test_labels, return_counts = True)[1]
+                    if test_labels.min() == -1:
+                        cluster_size_one = test_size[1:].min() < 2
+                    else:
+                        cluster_size_one = test_size.min() < 2
+                    
+                    if not cluster_size_one:
+                        test_score = silhouette_score(X, test_labels)
+                        if test_score > best_score:
+                            best_score = test_score
+                            self.cluster_labels = test_labels
         else:
             self.cluster_labels = -1 * np.ones(len(X))
             

@@ -61,6 +61,33 @@ class Experiment():
         
         assert type(Experiment_name) == type('Test'), "Experiment_name must be a string."
         self.Experiment_name = Experiment_name
+        
+        print('This are the current computer specs:')
+        print('')
+        print('NumPy version:   ', np.__version__)
+        print('PyTorch version: ', torch.__version__)
+        print('Pandas version:  ', pd.__version__)
+        print('')
+
+        print('Processor memories:')
+        # CPU
+        CPU_mem = psutil.virtual_memory()
+        cpu_total = CPU_mem.total / 2 ** 30
+        cpu_used  = CPU_mem.used / 2 ** 30
+        print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total))
+
+        # GPU
+        if not torch.cuda.is_available():
+            print("GPU: not available")
+        else:
+            device = torch.device('cuda:0')
+            torch.cuda.empty_cache()
+            gpu_total         = torch.cuda.get_device_properties(device = device).total_memory  / 2 ** 30
+            gpu_reserved      = torch.cuda.memory_reserved(device = device) / 2 ** 30
+            torch.cuda.reset_peak_memory_stats()
+            print('GPU: {:5.2f}/{:5.2f} GB are available'.format(gpu_total - gpu_reserved, gpu_total))
+
+        print('')
     
     #%% Experiment setup        
     def set_modules(self, Data_sets, Data_params, Splitters, Models, Metrics):
@@ -297,33 +324,6 @@ class Experiment():
     def run(self):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
-        
-        print('This are the current computer specs:')
-        print('')
-        print('NumPy version:   ', np.__version__)
-        print('PyTorch version: ', torch.__version__)
-        print('Pandas version:  ', pd.__version__)
-        print('')
-
-        print('Processor memories:')
-        # CPU
-        CPU_mem = psutil.virtual_memory()
-        cpu_total = CPU_mem.total / 2 ** 30
-        cpu_used  = CPU_mem.used / 2 ** 30
-        print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total))
-
-        # GPU
-        if not torch.cuda.is_available():
-            print("GPU: not available")
-        else:
-            device = torch.device('cuda:0')
-            torch.cuda.empty_cache()
-            gpu_total         = torch.cuda.get_device_properties(device = device).total_memory  / 2 ** 30
-            gpu_reserved      = torch.cuda.memory_reserved(device = device) / 2 ** 30
-            torch.cuda.reset_peak_memory_stats()
-            print('GPU: {:5.2f}/{:5.2f} GB are available'.format(gpu_total - gpu_reserved, gpu_total))
-
-        print('')
 
         print('Starting the running of the benchmark', flush = True)
         for i, data_set_dict in enumerate(self.Data_sets):
