@@ -4,8 +4,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from .components import *
 from .model_utils import *
-import models.encoders.dynamics as dynamic_module
-from environment.scene_graph import DirectedEdge
+import MID.models.encoders.dynamics as dynamic_module
+from MID.environment.scene_graph import DirectedEdge
 from .utils import *
 import pdb
 

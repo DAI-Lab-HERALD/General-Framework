@@ -97,6 +97,7 @@ def compute_batch_statistics(prediction_output_dict,
                 ade_errors = np.min(ade_errors, keepdims=True)
                 fde_errors = np.min(fde_errors, keepdims=True)
                 kde_ll = np.min(kde_ll)
+                
             batch_error_dict[node.type]['ade'].extend(list(ade_errors))
             batch_error_dict[node.type]['fde'].extend(list(fde_errors))
             batch_error_dict[node.type]['kde'].extend([kde_ll])

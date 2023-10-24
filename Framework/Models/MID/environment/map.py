@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from dataset.homography_warper import get_rotation_matrix2d, warp_affine_crop
+from MID.dataset.homography_warper import get_rotation_matrix2d, warp_affine_crop
 
 
 class Map(object):

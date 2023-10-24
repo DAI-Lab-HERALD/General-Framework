@@ -325,6 +325,8 @@ class Trajectron(object):
                                 prediction_horizon=self.ph)
 
         return loss
+    
+    
     def get_latent(self, batch, node_type):
         (first_history_index,
          x_t, y_t, x_st_t, y_st_t,
@@ -334,9 +336,14 @@ class Trajectron(object):
          map) = batch
 
         x = x_t.to(self.device)
-        y = y_t.to(self.device)
         x_st_t = x_st_t.to(self.device)
-        y_st_t = y_st_t.to(self.device)
+        
+        if y_t is not None:
+            y = y_t.to(self.device)
+        else:
+            y = None
+        if y_st_t is not None:
+            y_st_t = y_st_t.to(self.device)
         if robot_traj_st_t is not None:
             robot_traj_st_t = robot_traj_st_t.to(self.device)
         if type(map) == torch.Tensor:

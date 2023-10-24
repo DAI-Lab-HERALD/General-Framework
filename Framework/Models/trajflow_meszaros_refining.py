@@ -7,7 +7,7 @@ from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Futu
 import pickle
 import os
 
-class trajflow_meszaros_futEnc12_past04_refining(trajflow_meszaros):
+class trajflow_meszaros_refining(trajflow_meszaros):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -19,6 +19,14 @@ class trajflow_meszaros_futEnc12_past04_refining(trajflow_meszaros):
     distribution over trajectories. arXiv preprint arXiv:2304.05166.
     '''
 
+    def define_default_kwargs(self):
+        super().define_default_kwargs()
+
+        self.model_kwargs['refine_epochs'] = 1000
+        self.model_kwargs['refining_lr'] = 1e-4
+
+        self.refine_epochs = self.model_kwargs['refine_epochs']
+        self.refining_lr = self.model_kwargs['refining_lr']
 
     def refine_network(self, fut_model, flow_dist):
 
