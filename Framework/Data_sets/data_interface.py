@@ -773,7 +773,9 @@ class data_interface(object):
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
         self.KDE_joint = {}
+        print('Calculate joint PDF on ground truth probabilities.', flush = True)
         for subgroup in np.unique(self.Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(self.Subgroups))), flush = True)
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
@@ -783,7 +785,8 @@ class data_interface(object):
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
             self.KDE_joint[subgroup] = {}
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 
@@ -824,7 +827,9 @@ class data_interface(object):
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
         self.KDE_indep = {}
+        print('Calculate indep PDF on ground truth probabilities.', flush = True)
         for subgroup in np.unique(self.Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(self.Subgroups))), flush = True)
             s_ind = np.where(self.Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
@@ -835,7 +840,8 @@ class data_interface(object):
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
             self.KDE_indep[subgroup] = {}
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 

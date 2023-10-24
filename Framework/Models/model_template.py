@@ -1055,7 +1055,9 @@ class model_template():
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
+        print('Calculate joint PDF on predicted probabilities.', flush = True)
         for subgroup in np.unique(Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
@@ -1063,7 +1065,8 @@ class model_template():
             
             nto_subgroup = Num_steps[subgroup_index]
             
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
@@ -1093,16 +1096,16 @@ class model_template():
                 while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                     test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                     path_pred_train = paths_pred_comp[test_ind]
-                    
+
                     kde = OPTICS_GMM().fit(path_pred_train)
+
                     # Score samples
-                    
                     log_probs_true.append(kde.score_samples(paths_true_comp))
                     log_probs_pred.append(kde.score_samples(paths_pred_comp))
                     
                     weights = np.ones((i + 1, 1)) / (i + 1)
                     # Check if we sufficiently represent predicted distribution
-                    print(i)
+                    print('            ' + str(i))
                     i += 1
 
 
@@ -1125,7 +1128,7 @@ class model_template():
                 
                 log_prob_true = sp.special.logsumexp(np.stack(log_probs_true, axis = 0), 
                                                             b = weights, axis = 0)
-                
+            
                 self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
@@ -1154,7 +1157,9 @@ class model_template():
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
+        print('Calculate indep PDF on predicted probabilities.', flush = True)
         for subgroup in np.unique(Subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
@@ -1163,7 +1168,8 @@ class model_template():
             
             nto_subgroup = Num_steps[subgroup_index]
             
-            for nto in np.unique(nto_subgroup):
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
@@ -1197,20 +1203,18 @@ class model_template():
 
                     log_pred_satisfied = False
                     i = 0
-                    KDEs = []
                     while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                         path_pred_train = paths_pred_agent_comp[test_ind]
                         kde = OPTICS_GMM().fit(path_pred_train)
-                        KDEs.append(kde)
-                        # Score samples
                         
+                        # Score samples
                         log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))
                         log_probs_pred_agent.append(kde.score_samples(paths_pred_agent_comp))
                         
                         weights = np.ones((i + 1, 1)) / (i + 1)
                         # Check if we sufficiently represent predicted distribution
-                        print(i)
+                        print('            ' + str(i))
                         i += 1
 
 
