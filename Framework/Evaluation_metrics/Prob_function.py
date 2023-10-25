@@ -36,9 +36,9 @@ class OPTICS_GMM():
         # Avoid unneeded combinations
         if self.use_KDE:
             if not self.use_std:
-                if self.use_PCA:
+                if not self.use_PCA:
                     raise ValueError("KDE is invariant to solely rotating samples, " +
-                                     "making PCA without standardization unneeded.")
+                                     "making not using PCA without standardization unneeded.")
         
         else:
             if self.use_PCA or self.use_std:
@@ -240,16 +240,17 @@ class OPTICS_GMM():
         return l_probs
         
     
-    def sample(self, num_samples = 1):
+    def sample(self, num_samples = 1, random_state = 0):
         assert self.fitted, 'The model was not fitted yet'
         
+        np.random.seed(random_state)
         labels = np.random.choice(np.arange(len(self.Models)), num_samples, p = self.probs)
         
         samples = []
         
         for label in np.unqiue(labels):
             num = (label == labels).sum()
-            X_label_stand = self.Models[label].sample(num)
+            X_label_stand = self.Models[label].sample(num, random_state)
             
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
