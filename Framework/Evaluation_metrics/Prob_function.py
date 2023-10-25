@@ -75,7 +75,7 @@ class OPTICS_GMM():
                                                     ordering       = optics.ordering_,
                                                     eps            = eps)
             
-                if len(np.unique(test_labels)) > 1:
+                if len(np.unique(test_labels)) > 1: 
                     # Avoid clusters with size 1
                     test_size = np.unique(test_labels, return_counts = True)[1]
                     if test_labels.min() == -1:
@@ -93,7 +93,7 @@ class OPTICS_GMM():
             
         unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
             
-        # Fit GMM to each model
+        # Fit distribution to each cluster of data
         self.Models = [None] * len(unique_labels)
         
         # initialise rotation matrix for PCA
