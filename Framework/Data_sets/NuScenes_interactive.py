@@ -66,6 +66,7 @@ class NuScenes_interactive(data_set_template):
         self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
         map_files = os.listdir(image_path_full)
+        map_files.reverse()
         px_per_meter = 10
         
         for map_file in map_files:
@@ -84,7 +85,8 @@ class NuScenes_interactive(data_set_template):
                     bit_map = vector_map.rasterize(resolution = px_per_meter)
                     
                     # Get less memory intensive saving form
-                    bit_map = (bit_map * 255).astype(np.uint8)
+                    bit_map *= 255
+                    bit_map = bit_map.astype(np.uint8)
                     
                     # Save bit_map
                     os.makedirs(os.path.dirname(test_file), exist_ok=True)

@@ -20,7 +20,7 @@ class Predefined_split(splitting_template):
         
         Belonging = self.Domain['splitting'].to_numpy()
         
-        assert np.all(np.unqiue(Belonging) == np.array(['test', 'train'])), ''
+        assert np.all(np.unique(Belonging) == np.array(['test', 'train'])), ''
         
         Index = np.arange(len(Belonging))
         Train_index = Index[Belonging == 'train']
