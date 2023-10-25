@@ -135,8 +135,10 @@ class OPTICS_GMM():
                         successful_pca = True
                     except:
                         e_fac = (0.5 * attempt - 6) ** 10
+                        c[:self.num_features] += np.eye(self.num_features) * e_fac 
+                                
+                        # Prepare next attempt
                         attempt += 1
-                        c += np.eye(self.num_features) * e_fac 
                     
                     if not successful_pca:
                         print('PCA failed, was done again with different random start.')
