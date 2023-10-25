@@ -3,7 +3,7 @@ from sklearn.cluster import OPTICS
 from sklearn.metrics import silhouette_score
 from sklearn.cluster._optics import cluster_optics_dbscan
 from sklearn.neighbors import KernelDensity
-from sklearn.neighbors import GaussianMixture
+from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 import scipy as sp
 
