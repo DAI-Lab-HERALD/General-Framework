@@ -134,7 +134,7 @@ class OPTICS_GMM():
                         pca = PCA(random_state = 0).fit(c)
                         successful_pca = True
                     except:
-                        e_fac = (0.5 * attempt - 6) ** 10
+                        e_fac = 10 ** (0.5 * attempt - 6)
                         c[:self.num_features] += np.eye(self.num_features) * e_fac 
                                 
                         # Prepare next attempt
