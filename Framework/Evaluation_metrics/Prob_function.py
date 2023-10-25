@@ -3,6 +3,7 @@ from sklearn.cluster import OPTICS
 from sklearn.metrics import silhouette_score
 from sklearn.cluster._optics import cluster_optics_dbscan
 from sklearn.neighbors import KernelDensity
+from sklearn.neighbors import GaussianMixture
 from sklearn.decomposition import PCA
 import scipy as sp
 
@@ -19,8 +20,31 @@ class OPTICS_GMM():
     a Gaussian Multi Mixture model (GMM), according to which one can calcualte
     probability density values or sample from.
     '''
-    def __init__(self):
+    def __init__(self, use_cluster = True, use_PCA = True, 
+                 use_std = True, use_KDE = True, min_std = 0.1):
         self.fitted = False
+        
+        # Get design opportunities
+        self.use_cluster = use_cluster
+        self.use_PCA     = use_PCA
+        self.use_std     = use_std
+        self.use_KDE     = use_KDE
+        
+        # Get minimum std values
+        self.min_std = min_std
+        
+        # Avoid unneeded combinations
+        if self.use_KDE:
+            if not self.use_std:
+                if self.use_PCA:
+                    raise ValueError("KDE is invariant to solely rotating samples, " +
+                                     "making PCA without standardization unneeded.")
+        
+        else:
+            if self.use_PCA or self.use_std:
+                raise ValueError("GMM is invariant to rotation and stretching, " + 
+                                 "which are consequenlty useless.")
+            
         
     def fit(self, X):
         assert len(X.shape) == 2
@@ -30,7 +54,7 @@ class OPTICS_GMM():
         num_min_samples = X.shape[0] / 20
         self.num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))
         
-        if len(X) > self.num_min_samples:            
+        if self.use_cluster and len(X) >= 5:            
             # Get reachability plot
             optics = OPTICS(min_samples = self.num_min_samples, 
                             min_cluster_size = 5)
@@ -65,12 +89,12 @@ class OPTICS_GMM():
                             best_score = test_score
                             self.cluster_labels = test_labels
         else:
-            self.cluster_labels = -1 * np.ones(len(X))
+            self.cluster_labels = np.zeros(len(X))
             
         unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
             
         # Fit GMM to each model
-        self.KDEs = [None] * len(unique_labels)
+        self.Models = [None] * len(unique_labels)
         
         # initialise rotation matrix for PCA
         self.means = np.zeros((len(unique_labels), self.num_features))
@@ -80,7 +104,6 @@ class OPTICS_GMM():
         self.log_det_T_mat = np.zeros(len(unique_labels))
         
         Stds = np.zeros((len(unique_labels), self.num_features)) 
-        min_std = 0.1
 
         for i, label in enumerate(unique_labels):
             if label == -1:
@@ -95,42 +118,58 @@ class OPTICS_GMM():
 
             
             X_label_stand = (X_label - self.means[[i]])
-
-            if len(X_label) < self.num_features:
-                c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
-
-            else:
-                c = X_label_stand.copy()
-
-            # calculate PCA on X_label_stand -> get rot matrix and std
-            attempt = 0
-            successful_pca = False
-            while not successful_pca:
-                try:
-                    pca = PCA(random_state = 0).fit(c)
-                    successful_pca = True
-                except:
-                    e_fac = (0.5 * attempt - 6) ** 10
-                    attempt += 1
-                    c += np.eye(self.num_features) * e_fac 
-                
-                if not successful_pca:
-                    print('PCA failed, was done again with different random start.')
-                
-            # Apply minimum standard deviation
-            pca_std = np.sqrt(pca.explained_variance_)
-            pca_std = min_std + pca_std * (pca_std.max() - min_std) / pca_std.max()
             
-            self.T_mat[i]         = pca.components_.T / pca_std[np.newaxis]
-            self.log_det_T_mat[i] = (np.log(np.abs(np.linalg.det(pca.components_.T))) -  
-                                     np.log(pca_std).sum())
+            if self.use_PCA:
+                if len(X_label) < self.num_features:
+                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
+    
+                else:
+                    c = X_label_stand.copy()
+    
+                # calculate PCA on X_label_stand -> get rot matrix and std
+                attempt = 0
+                successful_pca = False
+                while not successful_pca:
+                    try:
+                        pca = PCA(random_state = 0).fit(c)
+                        successful_pca = True
+                    except:
+                        e_fac = (0.5 * attempt - 6) ** 10
+                        attempt += 1
+                        c += np.eye(self.num_features) * e_fac 
+                    
+                    if not successful_pca:
+                        print('PCA failed, was done again with different random start.')
+                    
+                # Apply minimum standard deviation
+                pca_std = np.sqrt(pca.explained_variance_)
+                self.T_mat[i]  = pca.components_.T
+            else:
+                pca_std = Stds[i].copy()
+                self.T_mat[i]  = np.eye(self.num_features)
+                
+            self.log_det_T_mat[i] = np.log(np.abs(np.linalg.det(self.T_mat[i])))
+            
+            # Aplly standardization
+            if self.use_std:
+                # Aplly minimum std levels
+                pca_std = pca_std * (pca_std.max() - self.min_std) / pca_std.max() + self.min_std
+                
+                # Adjust T_mat accordingly
+                self.T_mat[i]         /= pca_std[np.newaxis]
+                self.log_det_T_mat[i] -= np.log(pca_std).sum()
             
             # Apply transformation matrix
             X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
             
-            # Fit GMM distribution
-            kde = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca)
-            self.KDEs[i] = kde
+            # Fit Surrogate distribution
+            if self.use_KDE:
+                model = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca)
+            else:
+                reg_covar = max(1e-6, self.min_std ** 2)
+                model = GaussianMixture(reg_covar = reg_covar).fit(X_label_pca)
+                
+            self.Models[i] = model
             
         # consider noise values
         if unique_labels[0] == -1:
@@ -138,8 +177,8 @@ class OPTICS_GMM():
             # set noise std
             
             # set rot_mat_pca[0] to be an identity matrix
-            if len(self.T_mat) > 1:
-                stds = np.maximum(Stds[1:].mean(0), min_std)
+            if len(self.T_mat) > 1 and self.use_std:
+                stds = np.maximum(Stds[1:].mean(0), self.min_std)
                 self.T_mat[0] = np.diag(1 / stds)
                 self.log_det_T_mat[0] = -np.sum(np.log(stds))
             else:
@@ -149,13 +188,16 @@ class OPTICS_GMM():
 
             X_noise_stand = (X_noise - self.means[[0]]) @ self.T_mat[0] 
             
-            # Fit GMM distribution
-            # calculate silverman rule assuming only 1 sample 
-            bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
+            # Fit Surrogate distribution
+            if self.use_KDE:
+                # calculate silverman rule assuming only 1 sample 
+                bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
+                model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
+            else:
+                reg_covar = max(1e-6, self.min_std ** 2)
+                model_noise = GaussianMixture(reg_covar = reg_covar).fit(X_noise_stand)
             
-            kde_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
-            
-            self.KDEs[0] = kde_noise
+            self.Models[0] = model_noise
             
         self.probs = cluster_size / cluster_size.sum()
         self.log_probs = np.log(self.probs)
@@ -174,13 +216,13 @@ class OPTICS_GMM():
         # calculate logarithmic probability
         prob = np.zeros(len(X))
         
-        log_probs = np.zeros((len(X), len(self.KDEs)), dtype = np.float64)
+        log_probs = np.zeros((len(X), len(self.Models)), dtype = np.float64)
         
-        for i, KDE in enumerate(self.KDEs):
+        for i, model in enumerate(self.Models):
             X_stand = (X - self.means[[i]]) @ self.T_mat[i]
 
             # get adjusted log prob values
-            log_probs[:,i] = self.log_probs[i] + KDE.score_samples(X_stand) + self.log_det_T_mat[i] 
+            log_probs[:,i] = self.log_probs[i] + model.score_samples(X_stand) + self.log_det_T_mat[i] 
         
         # Deal with overflow
         if return_log:
@@ -199,13 +241,13 @@ class OPTICS_GMM():
     def sample(self, num_samples = 1):
         assert self.fitted, 'The model was not fitted yet'
         
-        labels = np.random.choice(np.arange(len(self.KDEs)), num_samples, p = self.probs)
+        labels = np.random.choice(np.arange(len(self.Models)), num_samples, p = self.probs)
         
         samples = []
         
         for label in np.unqiue(labels):
             num = (label == labels).sum()
-            X_label_stand = self.KDEs[label].sample(num)
+            X_label_stand = self.Models[label].sample(num)
             
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
