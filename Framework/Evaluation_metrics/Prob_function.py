@@ -183,17 +183,19 @@ class OPTICS_GMM():
                 c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
 
             else:
-                c = X_label_stand
+                c = X_label_stand.copy()
 
             # calculate PCA on X_label_stand -> get rot matrix and std
-            rand = 0
+            attempt = 0
             successful_pca = False
             while not successful_pca:
                 try:
-                    pca = PCA(random_state = rand).fit(c)
+                    pca = PCA(random_state = 0).fit(c)
                     successful_pca = True
                 except:
-                    rand += 1
+                    e_fac = (0.5 * attempt - 6) ** 10
+                    attempt += 1
+                    c += np.eye(self.num_features) * e_fac 
                 
                 if not successful_pca:
                     print('PCA failed, was done again with different random start.')
