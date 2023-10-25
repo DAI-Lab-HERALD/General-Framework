@@ -13,17 +13,19 @@ from tensorboardX import SummaryWriter
 from tqdm.auto import tqdm
 import pickle
 
-from dataset import EnvironmentDataset, collate, get_timesteps_data, restore
-from models.autoencoder import AutoEncoder
-from models.trajectron import Trajectron
-from utils.model_registrar import ModelRegistrar
-from utils.trajectron_hypers import get_traj_hypers
-import evaluation
+from MID.dataset import EnvironmentDataset, collate, get_timesteps_data, restore
+from MID.models.autoencoder import AutoEncoder
+from MID.models.trajectron import Trajectron
+from MID.utils.model_registrar import ModelRegistrar
+# from MID.utils.trajectron_hypers import get_traj_hypers
+import MID.evaluation as evaluation
 
 class MID():
-    def __init__(self, config):
+    def __init__(self, config, train_env, hyperparams):
         self.config = config
+        self.hyperparams = hyperparams
         torch.backends.cudnn.benchmark = True
+        self.train_env = train_env
         self._build()
 
     def train(self):
@@ -183,8 +185,8 @@ class MID():
         self._build_encoder_config()
         self._build_encoder()
         self._build_model()
-        self._build_train_loader()
-        self._build_eval_loader()
+        # self._build_train_loader()
+        # self._build_eval_loader()
 
         self._build_optimizer()
 
@@ -227,7 +229,7 @@ class MID():
 
     def _build_encoder_config(self):
 
-        self.hyperparams = get_traj_hypers()
+        # self.hyperparams = get_traj_hypers()
         self.hyperparams['enc_rnn_dim_edge'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_edge_influence'] = self.config.encoder_dim//2
         self.hyperparams['enc_rnn_dim_history'] = self.config.encoder_dim//2
@@ -243,10 +245,10 @@ class MID():
             self.registrar.load_models(self.checkpoint['encoder'])
 
 
-        with open(self.train_data_path, 'rb') as f:
-            self.train_env = dill.load(f, encoding='latin1')
-        with open(self.eval_data_path, 'rb') as f:
-            self.eval_env = dill.load(f, encoding='latin1')
+        # with open(self.train_data_path, 'rb') as f:
+        #     self.train_env = dill.load(f, encoding='latin1')
+        # with open(self.eval_data_path, 'rb') as f:
+        #     self.eval_env = dill.load(f, encoding='latin1')
 
     def _build_encoder(self):
         self.encoder = Trajectron(self.registrar, self.hyperparams, "cuda")
@@ -270,8 +272,9 @@ class MID():
         config = self.config
         self.train_scenes = []
 
-        with open(self.train_data_path, 'rb') as f:
-            train_env = dill.load(f, encoding='latin1')
+        # with open(self.train_data_path, 'rb') as f:
+        #     train_env = dill.load(f, encoding='latin1')
+        train_env = self.train_env
 
         for attention_radius_override in config.override_attention_radius:
             node_type1, node_type2, attention_radius = attention_radius_override.split(' ')
@@ -307,8 +310,9 @@ class MID():
         eval_scenes_sample_probs = None
 
         if config.eval_every is not None:
-            with open(self.eval_data_path, 'rb') as f:
-                self.eval_env = dill.load(f, encoding='latin1')
+            # with open(self.eval_data_path, 'rb') as f:
+            #     self.eval_env = dill.load(f, encoding='latin1')
+            self.eval_env = self.train_env
 
             for attention_radius_override in config.override_attention_radius:
                 node_type1, node_type2, attention_radius = attention_radius_override.split(' ')

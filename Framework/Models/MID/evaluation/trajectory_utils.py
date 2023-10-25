@@ -22,13 +22,16 @@ def prediction_output_to_trajectories(prediction_output_dict,
         for node in prediction_nodes:
             predictions_output = prediction_output_dict[t][node]
             position_state = {'position': ['x', 'y']}
-
-            history = node.get(np.array([t - max_h, t]), position_state)  # History includes current pos
+            
+            # history = node.get(np.array([t - max_h, t]), position_state)  # History includes current pos
+            
+            history = node.data.data[:max_h + 1]
             history = history[~np.isnan(history.sum(axis=1))]
             #pdb.set_trace()
-            future = node.get(np.array([t + 1, t + ph]), position_state)
+            # future = node.get(np.array([t + 1, t + ph]), position_state)
             # replace nan to 0
             #future[np.isnan(future)] = 0
+            future = node.data.data[max_h + 1:]
             future = future[~np.isnan(future.sum(axis=1))]
 
             if prune_ph_to_future:

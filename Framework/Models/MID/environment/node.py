@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import pandas as pd
-from environment import DoubleHeaderNumpyArray
+from MID.environment import DoubleHeaderNumpyArray
 from ncls import NCLS
 
 
@@ -93,6 +93,7 @@ class Node(object):
         :param padding: The value which should be used for padding if not enough information is available.
         :return: Array of node property values.
         """
+        assert False
         if tr_scene.size == 1:
             tr_scene = np.array([tr_scene[0], tr_scene[0]])
         length = tr_scene[1] - tr_scene[0] + 1  # tr is inclusive
