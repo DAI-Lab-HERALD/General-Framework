@@ -235,7 +235,7 @@ class NuScenes_interactive(data_set_template):
             if scene_name in train:
                 domain.splitting = 'train'
             elif scene_name in val:
-                domain.splitting = 'val'
+                domain.splitting = 'test'
             else:
                 print('This Scene is not sorted into train or testing split.')
                 continue
