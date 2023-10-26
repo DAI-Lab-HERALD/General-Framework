@@ -28,6 +28,7 @@ PyYAML==6.0.1
 scikit_learn==1.2.2
 scipy==1.10.1
 six==1.16.0
+tensorboardX==2.6.2.2
 torch==1.12.1
 torch_geometric==2.3.1
 torch_scatter==2.0.9
