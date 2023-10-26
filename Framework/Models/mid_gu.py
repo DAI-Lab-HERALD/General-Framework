@@ -468,6 +468,15 @@ class mid_gu(model_template):
                                                                                         val_split_size = 0.1)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
+
+                if node_type == 'PEDESTRIAN': 
+                    value = 1
+                elif node_type == 'VEHICLE': 
+                    value = 2
+                else: 
+                    value = 3
+
+                node_type = NodeType(name=node_type, value=value)
                 
                 # Move img to device
                 if img is not None:
@@ -513,6 +522,15 @@ class mid_gu(model_template):
 
                     if test_batch is None:
                         continue
+
+                    if node_type == 'PEDESTRIAN': 
+                        value = 1
+                    elif node_type == 'VEHICLE': 
+                        value = 2
+                    else: 
+                        value = 3
+
+                    node_type = NodeType(name=node_type, value=value)
                     
                     traj_pred = self.MID.model.generate(test_batch, node_type, num_points=self.num_timesteps_out, sample=20,
                                                         bestof=True) # B * 20 * self.num_timesteps_out * 2
@@ -523,8 +541,8 @@ class mid_gu(model_template):
                     for i in range(timesteps_o):#, ts in enumerate(timesteps_o):
                         node_data = torch.concat((S[i,0,:,:2], Y[i,0]))
                         node_data = DoubleHeaderNumpyArray(node_data.detach().cpu().numpy(),
-                                                           [tuple(states) for states in list(self.hyperparams['pred_state'][node_type].values())])
-                        node = Node(node_type = NodeType(node_type, 0), node_id = 'EMPTY', data = node_data)
+                                                           [tuple(states) for states in list(self.hyperparams['pred_state'][node_type.name].values())])
+                        node = Node(node_type = node_type, node_id = 'EMPTY', data = node_data)
                         if i not in predictions_dict.keys():
                             predictions_dict[i] = dict()
                         predictions_dict[i][node] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
@@ -534,14 +552,14 @@ class mid_gu(model_template):
                                                                         self.dt,
                                                                         max_hl=max_hl,
                                                                         ph=ph,
-                                                                        node_type_enum=[node_type],
+                                                                        node_type_enum=[node_type.name],
                                                                         kde=False,
                                                                         map=None,
                                                                         best_of=True,
                                                                         prune_ph_to_future=True)
 
-                    eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
-                    eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
+                    eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type.name]['ade']))
+                    eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type.name]['fde']))
 
                     i += 1
 
@@ -601,6 +619,15 @@ class mid_gu(model_template):
             # Run prediction pass
             self.MID.registrar.to(self.device)
             test_batch = (first_h, S[:,0], None, S_St[:,0], None, Neighbor, Neighbor_edge, None, img)
+
+            if node_type == 'PEDESTRIAN': 
+                value = 1
+            elif node_type == 'VEHICLE': 
+                value = 2
+            else: 
+                value = 3
+
+            node_type = NodeType(name=node_type, value=value)
             
             traj_pred = self.MID.model.generate(test_batch, node_type, num_points=num_steps, sample=self.num_samples_path_pred,
                                                 bestof=True, sampling='ddim', step=100//5) # B * 20 * 12 * 2
