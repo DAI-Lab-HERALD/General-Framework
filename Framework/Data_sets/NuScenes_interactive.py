@@ -51,9 +51,6 @@ class NuScenes_interactive(data_set_template):
     def create_path_samples(self):
         # from nuscenes.map_expansion.map_api import NuScenesMap, locations
         from nuscenes.nuscenes import NuScenes
-        from nuscenes.map_expansion.map_api import NuScenesMap, locations
-        from NuScenes.vec_map import VectorMap
-        from NuScenes.nusc_utils import populate_vector_map
         
         self.num_samples = 0 
         self.Path = []
@@ -64,6 +61,40 @@ class NuScenes_interactive(data_set_template):
         # prepare file path
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
 
+        # Get images
+        image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
+        self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
+
+        map_files = os.listdir(image_path_full)
+        map_files.reverse()
+        px_per_meter = 10
+        
+        for map_file in map_files:
+            if map_file.endswith('.json'):
+                map_name = map_file[:-5]
+                test_file = file_path + os.sep + 'Map_arrays' + os.sep + map_name + '.npy'
+                if os.path.isfile(test_file):
+                    bit_map = np.load(test_file, allow_pickle = True)
+                else:
+                    from nuscenes.map_expansion.map_api import NuScenesMap
+                    from NuScenes.vec_map import VectorMap
+                    from NuScenes.nusc_utils import populate_vector_map
+                    map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
+                    vector_map = VectorMap('placeholder:' + map_name)
+                    populate_vector_map(vector_map, map_image)
+                    bit_map = vector_map.rasterize(resolution = px_per_meter)
+                    
+                    # Get less memory intensive saving form
+                    bit_map *= 255
+                    bit_map = bit_map.astype(np.uint8)
+                    
+                    # Save bit_map
+                    os.makedirs(os.path.dirname(test_file), exist_ok=True)
+                    np.save(test_file, bit_map)
+                    
+                self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
+
+        # Get trajectories
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
         
         nuscenes_dt = 0.5
@@ -204,7 +235,7 @@ class NuScenes_interactive(data_set_template):
             if scene_name in train:
                 domain.splitting = 'train'
             elif scene_name in val:
-                domain.splitting = 'val'
+                domain.splitting = 'test'
             else:
                 print('This Scene is not sorted into train or testing split.')
                 continue
@@ -223,21 +254,6 @@ class NuScenes_interactive(data_set_template):
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
         
-        # Get images
-        image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
-        self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
-
-        map_files = os.listdir(image_path_full)
-        px_per_meter = 10
-        
-        for map_file in map_files:
-            if map_file.endswith('.json'):
-                map_name = map_file[:-5]
-                map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
-                vector_map = VectorMap('placeholder:' + map_name)
-                populate_vector_map(vector_map, map_image)
-                bit_map = vector_map.rasterize(resolution = px_per_meter)
-                self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
     
 
     def calculate_distance(self, path, t, domain):

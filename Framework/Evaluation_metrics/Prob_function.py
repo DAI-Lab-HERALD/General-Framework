@@ -248,7 +248,7 @@ class OPTICS_GMM():
         
         samples = []
         
-        for label in np.unqiue(labels):
+        for label in np.unique(labels):
             num = (label == labels).sum()
             X_label_stand = self.Models[label].sample(num, random_state)
             

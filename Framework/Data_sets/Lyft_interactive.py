@@ -155,6 +155,11 @@ class Lyft_interactive(data_set_template):
         # cycle through images
         for map_key in self.Images.index:
             img = map_api.maps[map_key].rasterize(px_per_meter)
+            
+            # Get less memory intensive saving form
+            if (img.dtype != np.unit8) and (img.max() <= 1.0): 
+                img *= 255.0
+                img = img.astype(np.uint8)
             self.Images.Image.loc[map_key] = img       
 
         # # deletet cached data
