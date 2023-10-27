@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
-from sklearn.stats import wasserstein_distance
+from scipy.stats import wasserstein_distance
 
 class Wasserstein_indep(evaluation_template):
     # TODO: Rewrite description

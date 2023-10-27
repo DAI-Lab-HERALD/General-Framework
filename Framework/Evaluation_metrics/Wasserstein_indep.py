@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
-from sklearn.stats import wasserstein_distance
+from scipy.stats import wasserstein_distance
 
 class Wasserstein_indep(evaluation_template):
     # TODO: Rewrite description
@@ -39,7 +39,7 @@ class Wasserstein_indep(evaluation_template):
         Pred_steps = Pred_steps[Pred_agents]
 
         # Get number of steps
-        Num_steps = Pred_steps.sum(-1).max(-1)
+        Num_steps = Pred_steps.sum(-1)
 
         Wd = []
         # Iterate over subgroups
@@ -70,7 +70,7 @@ class Wasserstein_indep(evaluation_template):
 
         # Mean over subgroups
         Error = np.mean(Wd)
-        
+
         return [Error]
         
     def get_output_type(self = None):
