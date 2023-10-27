@@ -510,8 +510,6 @@ class mid_gu(model_template):
                 eval_done = False
                 i = 0
                 while not eval_done:
-                    # for t in tqdm(range(0, scene.timesteps, 10)):
-                    #     timesteps = np.arange(t,t+10)
 
                     X, Y, T, img, _, _, num_steps, eval_done = self.provide_batch_data('val', self.hyperparams['batch_size'], 
                                                                                         val_split_size = 0.1)
@@ -546,7 +544,6 @@ class mid_gu(model_template):
                         if i not in predictions_dict.keys():
                             predictions_dict[i] = dict()
                         predictions_dict[i][node] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
-                    # predictions_dict = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
 
                     batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
                                                                         self.dt,

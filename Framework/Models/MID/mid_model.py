@@ -28,154 +28,154 @@ class MID():
         self.train_env = train_env
         self._build()
 
-    def train(self):
-        for epoch in range(1, self.config.epochs + 1):
-            self.train_dataset.augment = self.config.augment
-            for node_type, data_loader in self.train_data_loader.items():
-                pbar = tqdm(data_loader, ncols=80)
-                for batch in pbar:
+    # def train(self):
+    #     for epoch in range(1, self.config.epochs + 1):
+    #         self.train_dataset.augment = self.config.augment
+    #         for node_type, data_loader in self.train_data_loader.items():
+    #             pbar = tqdm(data_loader, ncols=80)
+    #             for batch in pbar:
 
-                    self.optimizer.zero_grad()
-                    train_loss = self.model.get_loss(batch, node_type)
-                    pbar.set_description(f"Epoch {epoch}, {node_type} MSE: {train_loss.item():.2f}")
-                    train_loss.backward()
-                    self.optimizer.step()
+    #                 self.optimizer.zero_grad()
+    #                 train_loss = self.model.get_loss(batch, node_type)
+    #                 pbar.set_description(f"Epoch {epoch}, {node_type} MSE: {train_loss.item():.2f}")
+    #                 train_loss.backward()
+    #                 self.optimizer.step()
 
-            self.train_dataset.augment = False
-            if epoch % self.config.eval_every == 0:
-                self.model.eval()
+    #         self.train_dataset.augment = False
+    #         if epoch % self.config.eval_every == 0:
+    #             self.model.eval()
 
-                node_type = "PEDESTRIAN"
-                eval_ade_batch_errors = []
-                eval_fde_batch_errors = []
+    #             node_type = "PEDESTRIAN"
+    #             eval_ade_batch_errors = []
+    #             eval_fde_batch_errors = []
 
-                ph = self.hyperparams['prediction_horizon']
-                max_hl = self.hyperparams['maximum_history_length']
-
-
-                for i, scene in enumerate(self.eval_scenes):
-                    print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
-                    for t in tqdm(range(0, scene.timesteps, 10)):
-                        timesteps = np.arange(t,t+10)
-                        batch = get_timesteps_data(env=self.eval_env, scene=scene, t=timesteps, node_type=node_type, state=self.hyperparams['state'],
-                                       pred_state=self.hyperparams['pred_state'], edge_types=self.eval_env.get_edge_types(),
-                                       min_ht=7, max_ht=self.hyperparams['maximum_history_length'], min_ft=12,
-                                       max_ft=12, hyperparams=self.hyperparams)
-                        if batch is None:
-                            continue
-                        test_batch = batch[0]
-                        nodes = batch[1]
-                        timesteps_o = batch[2]
-                        traj_pred = self.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True) # B * 20 * 12 * 2
-
-                        predictions = traj_pred
-                        predictions_dict = {}
-                        for i, ts in enumerate(timesteps_o):
-                            if ts not in predictions_dict.keys():
-                                predictions_dict[ts] = dict()
-                            predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
-
-                        batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
-                                                                               scene.dt,
-                                                                               max_hl=max_hl,
-                                                                               ph=ph,
-                                                                               node_type_enum=self.eval_env.NodeType,
-                                                                               kde=False,
-                                                                               map=None,
-                                                                               best_of=True,
-                                                                               prune_ph_to_future=True)
-
-                        eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
-                        eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
+    #             ph = self.hyperparams['prediction_horizon']
+    #             max_hl = self.hyperparams['maximum_history_length']
 
 
+    #             for i, scene in enumerate(self.eval_scenes):
+    #                 print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
+    #                 for t in tqdm(range(0, scene.timesteps, 10)):
+    #                     timesteps = np.arange(t,t+10)
+    #                     batch = get_timesteps_data(env=self.eval_env, scene=scene, t=timesteps, node_type=node_type, state=self.hyperparams['state'],
+    #                                    pred_state=self.hyperparams['pred_state'], edge_types=self.eval_env.get_edge_types(),
+    #                                    min_ht=7, max_ht=self.hyperparams['maximum_history_length'], min_ft=12,
+    #                                    max_ft=12, hyperparams=self.hyperparams)
+    #                     if batch is None:
+    #                         continue
+    #                     test_batch = batch[0]
+    #                     nodes = batch[1]
+    #                     timesteps_o = batch[2]
+    #                     traj_pred = self.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True) # B * 20 * 12 * 2
 
-                ade = np.mean(eval_ade_batch_errors)
-                fde = np.mean(eval_fde_batch_errors)
+    #                     predictions = traj_pred
+    #                     predictions_dict = {}
+    #                     for i, ts in enumerate(timesteps_o):
+    #                         if ts not in predictions_dict.keys():
+    #                             predictions_dict[ts] = dict()
+    #                         predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
 
-                if self.config.dataset == "eth":
-                    ade = ade/0.6
-                    fde = fde/0.6
-                elif self.config.dataset == "sdd":
-                    ade = ade * 50
-                    fde = fde * 50
+    #                     batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
+    #                                                                            scene.dt,
+    #                                                                            max_hl=max_hl,
+    #                                                                            ph=ph,
+    #                                                                            node_type_enum=self.eval_env.NodeType,
+    #                                                                            kde=False,
+    #                                                                            map=None,
+    #                                                                            best_of=True,
+    #                                                                            prune_ph_to_future=True)
 
-
-                print(f"Epoch {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
-                self.log.info(f"Best of 20: Epoch {epoch} ADE: {ade} FDE: {fde}")
-
-                # Saving model
-                checkpoint = {
-                    'encoder': self.registrar.model_dict,
-                    'ddpm': self.model.state_dict()
-                 }
-                torch.save(checkpoint, osp.join(self.model_dir, f"{self.config.dataset}_epoch{epoch}.pt"))
-
-                self.model.train()
-
-
-    def eval(self, sampling, step):
-        epoch = self.config.eval_at
-
-        self.log.info(f"Sampling: {sampling} Stride: {step}")
-
-        node_type = "PEDESTRIAN"
-        eval_ade_batch_errors = []
-        eval_fde_batch_errors = []
-        ph = self.hyperparams['prediction_horizon']
-        max_hl = self.hyperparams['maximum_history_length']
-
-
-        for i, scene in enumerate(self.eval_scenes):
-            print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
-            for t in tqdm(range(0, scene.timesteps, 10)):
-                timesteps = np.arange(t,t+10)
-                batch = get_timesteps_data(env=self.eval_env, scene=scene, t=timesteps, node_type=node_type, state=self.hyperparams['state'],
-                               pred_state=self.hyperparams['pred_state'], edge_types=self.eval_env.get_edge_types(),
-                               min_ht=7, max_ht=self.hyperparams['maximum_history_length'], min_ft=12,
-                               max_ft=12, hyperparams=self.hyperparams)
-                if batch is None:
-                    continue
-                test_batch = batch[0]
-                nodes = batch[1]
-                timesteps_o = batch[2]
-                traj_pred = self.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True, sampling=sampling, step=step) # B * 20 * 12 * 2
-
-                predictions = traj_pred
-                predictions_dict = {}
-                for i, ts in enumerate(timesteps_o):
-                    if ts not in predictions_dict.keys():
-                        predictions_dict[ts] = dict()
-                    predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
+    #                     eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
+    #                     eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
 
 
 
-                batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
-                                                                       scene.dt,
-                                                                       max_hl=max_hl,
-                                                                       ph=ph,
-                                                                       node_type_enum=self.eval_env.NodeType,
-                                                                       kde=False,
-                                                                       map=None,
-                                                                       best_of=True,
-                                                                       prune_ph_to_future=True)
+    #             ade = np.mean(eval_ade_batch_errors)
+    #             fde = np.mean(eval_fde_batch_errors)
 
-                eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
-                eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
+    #             if self.config.dataset == "eth":
+    #                 ade = ade/0.6
+    #                 fde = fde/0.6
+    #             elif self.config.dataset == "sdd":
+    #                 ade = ade * 50
+    #                 fde = fde * 50
 
 
+    #             print(f"Epoch {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
+    #             self.log.info(f"Best of 20: Epoch {epoch} ADE: {ade} FDE: {fde}")
 
-        ade = np.mean(eval_ade_batch_errors)
-        fde = np.mean(eval_fde_batch_errors)
+    #             # Saving model
+    #             checkpoint = {
+    #                 'encoder': self.registrar.model_dict,
+    #                 'ddpm': self.model.state_dict()
+    #              }
+    #             torch.save(checkpoint, osp.join(self.model_dir, f"{self.config.dataset}_epoch{epoch}.pt"))
 
-        if self.config.dataset == "eth":
-            ade = ade/0.6
-            fde = fde/0.6
-        elif self.config.dataset == "sdd":
-            ade = ade * 50
-            fde = fde * 50
-        print(f"Sampling: {sampling} Stride: {step}")
-        print(f"Epoch {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
+    #             self.model.train()
+
+
+    # def eval(self, sampling, step):
+    #     epoch = self.config.eval_at
+
+    #     self.log.info(f"Sampling: {sampling} Stride: {step}")
+
+    #     node_type = "PEDESTRIAN"
+    #     eval_ade_batch_errors = []
+    #     eval_fde_batch_errors = []
+    #     ph = self.hyperparams['prediction_horizon']
+    #     max_hl = self.hyperparams['maximum_history_length']
+
+
+    #     for i, scene in enumerate(self.eval_scenes):
+    #         print(f"----- Evaluating Scene {i + 1}/{len(self.eval_scenes)}")
+    #         for t in tqdm(range(0, scene.timesteps, 10)):
+    #             timesteps = np.arange(t,t+10)
+    #             batch = get_timesteps_data(env=self.eval_env, scene=scene, t=timesteps, node_type=node_type, state=self.hyperparams['state'],
+    #                            pred_state=self.hyperparams['pred_state'], edge_types=self.eval_env.get_edge_types(),
+    #                            min_ht=7, max_ht=self.hyperparams['maximum_history_length'], min_ft=12,
+    #                            max_ft=12, hyperparams=self.hyperparams)
+    #             if batch is None:
+    #                 continue
+    #             test_batch = batch[0]
+    #             nodes = batch[1]
+    #             timesteps_o = batch[2]
+    #             traj_pred = self.model.generate(test_batch, node_type, num_points=12, sample=20,bestof=True, sampling=sampling, step=step) # B * 20 * 12 * 2
+
+    #             predictions = traj_pred
+    #             predictions_dict = {}
+    #             for i, ts in enumerate(timesteps_o):
+    #                 if ts not in predictions_dict.keys():
+    #                     predictions_dict[ts] = dict()
+    #                 predictions_dict[ts][nodes[i]] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
+
+
+
+    #             batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
+    #                                                                    scene.dt,
+    #                                                                    max_hl=max_hl,
+    #                                                                    ph=ph,
+    #                                                                    node_type_enum=self.eval_env.NodeType,
+    #                                                                    kde=False,
+    #                                                                    map=None,
+    #                                                                    best_of=True,
+    #                                                                    prune_ph_to_future=True)
+
+    #             eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type]['ade']))
+    #             eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type]['fde']))
+
+
+
+    #     ade = np.mean(eval_ade_batch_errors)
+    #     fde = np.mean(eval_fde_batch_errors)
+
+    #     if self.config.dataset == "eth":
+    #         ade = ade/0.6
+    #         fde = fde/0.6
+    #     elif self.config.dataset == "sdd":
+    #         ade = ade * 50
+    #         fde = fde * 50
+    #     print(f"Sampling: {sampling} Stride: {step}")
+    #     print(f"Epoch {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
         #self.log.info(f"Best of 20: Epoch {epoch} ADE: {ade} FDE: {fde}")
 
 

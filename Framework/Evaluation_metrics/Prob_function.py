@@ -197,7 +197,11 @@ class OPTICS_GMM():
                 model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
             else:
                 reg_covar = max(1e-6, self.min_std ** 2)
-                model_noise = GaussianMixture(reg_covar = reg_covar).fit(X_noise_stand)
+                if len(X_noise) > 1:
+                    model_noise = GaussianMixture(reg_covar = reg_covar).fit(X_noise_stand)
+                else:
+                    bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
+                    model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
             
             self.Models[0] = model_noise
             
