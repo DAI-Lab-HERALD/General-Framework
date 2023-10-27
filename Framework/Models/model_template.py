@@ -1009,13 +1009,16 @@ class model_template():
         
         for i in range(num_samples):
             nto_i = Nto_i[i]
-            
             pred_agents = np.where(self.Pred_step[i].any(-1))[0]
-            pred_agents_id = i_agent_sort[i, pred_agents]
+            
+            # Avoid useless samples 
+            if len(pred_agents) == 0:
+                continue
 
+            pred_agents_id = i_agent_sort[i, pred_agents]
             path_pred_orig = Output_path_pred.iloc[i, pred_agents_id]
             path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
-            
+        
             # Assign to full length label
             self.Path_pred[:,i, pred_agents, :nto_i] = path_pred[:,:,:nto_i]
         
@@ -1063,6 +1066,10 @@ class model_template():
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
             
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
             nto_subgroup = Num_steps[subgroup_index]
             
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
@@ -1164,6 +1171,11 @@ class model_template():
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
             pred_agents_id = np.where(pred_agents)[0]
             
             nto_subgroup = Num_steps[subgroup_index]
@@ -1281,6 +1293,10 @@ class model_template():
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
             
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
             nto_subgroup = Num_steps[subgroup_index]
             
             for nto in np.unique(nto_subgroup):
@@ -1332,6 +1348,11 @@ class model_template():
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
             pred_agents = Pred_agents[subgroup_index[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+            
             pred_agents_id = np.where(pred_agents)[0]
             
             nto_subgroup = Num_steps[subgroup_index]

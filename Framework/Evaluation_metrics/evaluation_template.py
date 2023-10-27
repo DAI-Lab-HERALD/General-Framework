@@ -195,10 +195,17 @@ class evaluation_template():
         Path_true = self.model.Path_true[self.Index_curr_pred]
         Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
         Pred_step = self.model.Pred_step[self.Index_curr_pred]
-        
-        
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        Path_true = Path_true[Use_samples]
+        Path_pred = Path_pred[Use_samples]
+        Pred_step = Pred_step[Use_samples]
+
         if return_types:
             Types = self.model.T_pred[self.Index_curr_pred]
+            Types = Types[Use_samples]
             return Path_true, Path_pred, Pred_step, Types     
         else:
             return Path_true, Path_pred, Pred_step
@@ -247,6 +254,17 @@ class evaluation_template():
         KDE_pred_log_prob_true = KDE_pred_log_prob_true[self.Index_curr_pred]
         KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[self.Index_curr_pred]
         
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        KDE_pred_log_prob_true = KDE_pred_log_prob_true[Use_samples]
+        KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[Use_samples]
+
         return KDE_pred_log_prob_true, KDE_pred_log_prob_pred
     
     
@@ -277,7 +295,18 @@ class evaluation_template():
 
         '''
         self.data_set._extract_identical_inputs(eval_pov = self.get_output_type() == 'path_all_wi_pov')
-        Subgroup_unique, Subgroup = np.unique(self.data_set.Subgroups[self.Index_curr], return_inverse = True)
+
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        Use_subgroups = self.data_set.Subgroups[self.Index_curr_pred][Use_samples]
+
+        Subgroup_unique, Subgroup = np.unique(Use_subgroups, return_inverse = True)
         Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
         
         return Path_true_all, Subgroup
@@ -331,6 +360,17 @@ class evaluation_template():
         KDE_true_log_prob_true = KDE_true_log_prob_true[self.Index_curr]
         KDE_true_log_prob_pred = KDE_true_log_prob_pred[self.Index_curr_pred]
         
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        KDE_true_log_prob_true = KDE_true_log_prob_true[Use_samples]
+        KDE_true_log_prob_pred = KDE_true_log_prob_pred[Use_samples]
+
         return KDE_true_log_prob_true, KDE_true_log_prob_pred
     
     #%% Actual evaluation functions

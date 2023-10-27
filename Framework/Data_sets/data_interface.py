@@ -296,8 +296,8 @@ class data_interface(object):
         
         # Remove useless samples
         self._determine_pred_agents()
-        Num_eval_agents   = self.Pred_agents_eval.sum(1)
-        Num_pred_agents   = self.Pred_agents_pred.sum(1)
+        Num_eval_agents = self.Pred_agents_eval.sum(1)
+        Num_pred_agents = self.Pred_agents_pred.sum(1)
         
         Useful_agents = (Num_eval_agents + Num_pred_agents) > 0 
         
@@ -781,6 +781,10 @@ class data_interface(object):
             assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
             pred_agents = Pred_agents[s_ind[0]]
             
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
             nto_subgroup = Num_steps[s_ind]
             Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
             
@@ -790,7 +794,6 @@ class data_interface(object):
                 n_ind = np.where(nto == nto_subgroup)[0]
                 nto_index = s_ind[n_ind]
                 
-                # pred_agents = np.ones(Paths_subgroup.shape[1], bool) # TODO: remove this once actual issue is fixed
                 # Should be shape: num_subgroup_samples x num_agents x num_T_O x 2
                 paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
                         
@@ -834,6 +837,11 @@ class data_interface(object):
             
             assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
             pred_agents = Pred_agents[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
             pred_agents_id = np.where(pred_agents)[0]
             
             nto_subgroup = Num_steps[s_ind]
