@@ -55,6 +55,7 @@ Data_sets/NuScenes/v1.0-mini/
 simulations*.py
 Framework/Data_sets/Waymo/data/*/uncomp*
 Framework/Data_sets/Lyft/data/.unified_data_cache/
+Framework/experiments
 
 # Jupyter Notebook
 .ipynb_checkpoints

@@ -3,15 +3,11 @@ import os
 import pickle
 import random
 import torch
-import dill
-from tqdm.auto import tqdm
-from torch import nn, optim
 
 from model_template import model_template
 from MID.evaluation import *
 from MID import mid_model
 from MID.environment import *
-from attrdict import AttrDict
 from easydict import EasyDict
 
 from MID.environment.scene import Scene
@@ -19,7 +15,6 @@ from MID.environment.node import Node
 from MID.environment.node_type import NodeType
 from MID.environment import DoubleHeaderNumpyArray
 
-import os.path as osp
 
 
 class mid_gu(model_template):
@@ -465,7 +460,7 @@ class mid_gu(model_template):
             while not epoch_done:
                 batch_number += 1
                 X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
-                                                                                        val_split_size = 0.1)
+                                                                                               val_split_size = 0.1)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
 
@@ -546,14 +541,14 @@ class mid_gu(model_template):
                         predictions_dict[i][node] = np.transpose(predictions[:, [i]], (1, 0, 2, 3))
 
                     batch_error_dict = evaluation.compute_batch_statistics(predictions_dict,
-                                                                        self.dt,
-                                                                        max_hl=max_hl,
-                                                                        ph=ph,
-                                                                        node_type_enum=[node_type.name],
-                                                                        kde=False,
-                                                                        map=None,
-                                                                        best_of=True,
-                                                                        prune_ph_to_future=True)
+                                                                           self.dt,
+                                                                           max_hl=max_hl,
+                                                                           ph=ph,
+                                                                           node_type_enum=[node_type.name],
+                                                                           kde=False,
+                                                                           map=None,
+                                                                           best_of=True,
+                                                                           prune_ph_to_future=True)
 
                     eval_ade_batch_errors = np.hstack((eval_ade_batch_errors, batch_error_dict[node_type.name]['ade']))
                     eval_fde_batch_errors = np.hstack((eval_fde_batch_errors, batch_error_dict[node_type.name]['fde']))
