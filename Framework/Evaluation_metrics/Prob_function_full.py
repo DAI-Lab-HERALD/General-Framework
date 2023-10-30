@@ -220,18 +220,13 @@ class OPTICS_GMM():
             # Apply transformation matrix
             X_noise_stand = (X_noise - self.means[[0]]) @ self.T_mat[0] 
             
-            # Fit Surrogate distribution
-            if self.use_KDE:
-                # calculate silverman rule assuming only 1 sample 
-                bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
-                model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
-            else:
-                reg_covar = max(1e-6, self.min_std ** 2)
-                if len(X_noise) > 1:
-                    model_noise = GaussianMixture(reg_covar = reg_covar).fit(X_noise_stand)
-                else:
-                    bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
-                    model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
+            # Fit Surrogate distribution 
+            # We assume each noise point is its own cluster, and therefore, using kde or a number
+            # of GMMs is more or less equivalent
+            
+            # calculate silverman rule assuming only 1 sample 
+            bandwidth = ((self.num_features + 2) / 4) ** ( -1 / (self.num_features + 4))
+            model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
             
             self.Models[0] = model_noise
         
