@@ -249,8 +249,9 @@ class OPTICS_GMM():
         
         for label in np.unique(labels):
             num = (label == labels).sum()
-            X_label_stand = self.Models[label].sample(num, random_state)
             
+            X_label_stand = self.Models[label].sample(num, random_state)
+                
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
             samples.append(X_label)

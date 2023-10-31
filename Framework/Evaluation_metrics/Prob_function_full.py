@@ -290,9 +290,8 @@ class OPTICS_GMM():
             # Get number of samples from cluster
             num = (label == labels).sum()
 
-            # Sample transformed samples from model
             X_label_stand = self.Models[label].sample(num, random_state)
-            
+                
             # Apply inverse transformation to get original coordinate samples
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
