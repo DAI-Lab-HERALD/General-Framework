@@ -67,32 +67,7 @@ class KNN_PDF():
         
     
     def sample(self, num_samples = 1, random_state = 0):
-        assert self.fitted, 'The model was not fitted yet'
-        
-        # Determine cluster belonging
-        np.random.seed(random_state)
-        labels = np.random.choice(np.arange(len(self.Models)), num_samples, p = self.probs)
-        
-        samples = []
-        
-        # generate from different clusters
-        for label in np.unique(labels):
-            # Get number of samples from cluster
-            num = (label == labels).sum()
-
-            # Sample transformed samples from model
-            X_label_stand = self.Models[label].sample(num, random_state)
-            
-            # Apply inverse transformation to get original coordinate samples
-            X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
-            
-            # Add samples to output set
-            samples.append(X_label)
-            
-        samples = np.concatenate(samples, axis = 0)
-        
-        # Shuffle samples
-        np.random.shuffle(samples)
+        raise AttributeError("This technique cannot generate samples")
 
         return samples
             
