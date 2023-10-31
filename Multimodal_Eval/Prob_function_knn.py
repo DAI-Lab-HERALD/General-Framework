@@ -16,7 +16,7 @@ class KNN_PDF():
         
         # Get design opportunities
         self.smooting = smooting
-        self.num_neighbours = num_neighbours
+        self.num_neighbours = int(num_neighbours)
             
         
     def fit(self, X):
