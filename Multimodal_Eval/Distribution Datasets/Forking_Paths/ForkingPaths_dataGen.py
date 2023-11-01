@@ -120,9 +120,9 @@ for i in range(len(Path_init)):
             Pos[j, :, :] = pos.repeat(len(I_t), axis = 0)[np.newaxis]
     
     # Prepare parameters for sampling
-    s_std = 0.05
+    s_std = 0.03
     
-    s_std_ang = np.pi/144
+    s_std_ang = np.pi/180
     
     num_samples_test = 1000
     num_samples = 3334
