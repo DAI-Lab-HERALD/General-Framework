@@ -70,20 +70,20 @@ def main(random_seeds):
     use_std = True
 
     testConfigs = [
-                    [use_cluster, use_PCA, use_std, 'KDE'],
-                    [use_cluster, use_PCA, not use_std, 'KDE'],
-                    [use_cluster, not use_PCA, use_std, 'KDE'],
-                    [not use_cluster, use_PCA, use_std, 'KDE'],
-                    [not use_cluster, use_PCA, not use_std, 'KDE'],
-                    [not use_cluster, not use_PCA, use_std, 'KDE'],
-                    [use_cluster, not use_PCA, not use_std, 'GMM'],
+                    [    use_cluster,     use_PCA,     use_std, 'KDE'],
+                    [    use_cluster,     use_PCA, not use_std, 'KDE'],
+                    [    use_cluster, not use_PCA,     use_std, 'KDE'],
+                    [not use_cluster,     use_PCA,     use_std, 'KDE'],
+                    [not use_cluster,     use_PCA, not use_std, 'KDE'],
+                    [not use_cluster, not use_PCA,     use_std, 'KDE'],
+                    [    use_cluster, not use_PCA, not use_std, 'GMM'],
                     [not use_cluster, not use_PCA, not use_std, 'GMM'],
-                    [use_cluster, use_PCA, use_std, 'KNN'],
-                    [use_cluster, use_PCA, not use_std, 'KNN'],
-                    [use_cluster, not use_PCA, use_std, 'KNN'],
-                    [not use_cluster, use_PCA, use_std, 'KNN'],
-                    [not use_cluster, use_PCA, not use_std, 'KNN'],
-                    [not use_cluster, not use_PCA, use_std, 'KNN']
+                    [    use_cluster,     use_PCA,     use_std, 'KNN'],
+                    [    use_cluster,     use_PCA, not use_std, 'KNN'],
+                    [    use_cluster, not use_PCA,     use_std, 'KNN'],
+                    [not use_cluster,     use_PCA,     use_std, 'KNN'],
+                    [not use_cluster,     use_PCA, not use_std, 'KNN'],
+                    [not use_cluster, not use_PCA,     use_std, 'KNN']
                     ] 
 
     #%% Loop over datasets and fit the probability functions
