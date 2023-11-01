@@ -68,24 +68,29 @@ def main(random_seeds):
     use_cluster = True
     use_PCA = True
     use_std = True
-    use_KDE = True
 
-    testConfigs = [[use_cluster, use_PCA, use_std, use_KDE],
-                        [use_cluster, use_PCA, not use_std, use_KDE],
-                        [use_cluster, not use_PCA, use_std, use_KDE],
-                        [not use_cluster, use_PCA, use_std, use_KDE],
-                        [not use_cluster, use_PCA, not use_std, use_KDE],
-                        [not use_cluster, not use_PCA, use_std, use_KDE],
-                        [use_cluster, not use_PCA, not use_std, not use_KDE],
-                        [not use_cluster, not use_PCA, not use_std, not use_KDE]] 
+    testConfigs = [
+                    [use_cluster, use_PCA, use_std, 'KDE'],
+                    [use_cluster, use_PCA, not use_std, 'KDE'],
+                    [use_cluster, not use_PCA, use_std, 'KDE'],
+                    [not use_cluster, use_PCA, use_std, 'KDE'],
+                    [not use_cluster, use_PCA, not use_std, 'KDE'],
+                    [not use_cluster, not use_PCA, use_std, 'KDE'],
+                    [use_cluster, not use_PCA, not use_std, 'GMM'],
+                    [not use_cluster, not use_PCA, not use_std, 'GMM'],
+                    [use_cluster, use_PCA, use_std, 'KNN'],
+                    [use_cluster, use_PCA, not use_std, 'KNN'],
+                    [use_cluster, not use_PCA, use_std, 'KNN'],
+                    [not use_cluster, use_PCA, use_std, 'KNN'],
+                    [not use_cluster, use_PCA, not use_std, 'KNN'],
+                    [not use_cluster, not use_PCA, use_std, 'KNN']
+                    ] 
 
     #%% Loop over datasets and fit the probability functions
     if not os.path.exists('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_pf') or overwrite:
 
         fitting_pf = {}
         testing_pf = {}
-        fitting_knn = {}
-        testing_knn = {}
 
         for key, _ in fitting_dict.items():
             print('Dataset ' + key)
@@ -99,10 +104,7 @@ def main(random_seeds):
                 if config[2]:
                     pf_key += '_std'
 
-                if config[3]:
-                    pf_key += '_KDE'
-                else:
-                    pf_key += '_GMM'
+                pf_key += config[3]
 
 
                 if not('ToyProblem' in key):
@@ -130,25 +132,12 @@ def main(random_seeds):
                 distr_mdl_test.fit(testing_dict[key])
                 testing_pf[pf_key] = distr_mdl_test
 
-            num_samples_knn = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
-            distr_mdl_knn = pf_knn.KNN_PDF(num_neighbours=np.sqrt(int(num_samples_knn)))
-            distr_mdl_knn.fit(fitting_dict[key])
-            fitting_knn[key] = distr_mdl_knn
-
-            distr_mdl_knn_test = pf_knn.KNN_PDF(num_neighbours=np.sqrt(int(num_samples_knn)))
-            distr_mdl_knn_test.fit(testing_dict[key])
-            testing_knn[key] = distr_mdl_knn_test
-
         pickle.dump(fitting_pf, open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_pf', 'wb'))
         pickle.dump(testing_pf, open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_pf', 'wb'))
-        pickle.dump(fitting_knn, open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn', 'wb'))
-        pickle.dump(testing_knn, open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn', 'wb'))
 
     else:
         fitting_pf = pickle.load(open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_pf', 'rb'))
         testing_pf = pickle.load(open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_pf', 'rb'))
-        fitting_knn = pickle.load(open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn', 'rb'))
-        testing_knn = pickle.load(open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn', 'rb'))
 
     # %% Loop over datasets and sample from the fitted probability functions and at the same time calculate the log-likelihood of the train and test data
     if not os.path.exists('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_sampled_dict') or overwrite:
@@ -162,15 +151,21 @@ def main(random_seeds):
 
         for key, _ in fitting_pf.items():
             num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
-            sampled_data = fitting_pf[key].sample(int(num_samples_X3))
-            
-            sampled_dict[key] = sampled_data
+
+            try:
+                sampled_data = fitting_pf[key].sample(int(num_samples_X3))
+                
+                sampled_dict[key] = sampled_data
+                fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
+
+            except:
+                print('Sampling failed for ' + key)
+
 
             base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
 
             fitting_pf_fitting_log_likelihood[key] = fitting_pf[key].score_samples(fitting_dict[base_data_key])
             fitting_pf_testing_log_likelihood[key] = fitting_pf[key].score_samples(testing_dict[base_data_key])
-            fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
             testing_pf_fitting_log_likelihood[key] = testing_pf[key].score_samples(fitting_dict[base_data_key])
             testing_pf_testing_log_likelihood[key] = testing_pf[key].score_samples(testing_dict[base_data_key])
 
@@ -189,35 +184,7 @@ def main(random_seeds):
         fitting_pf_sampled_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_pf_sampled_log_likelihood', 'rb'))
         testing_pf_fitting_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_pf_fitting_log_likelihood', 'rb'))
         testing_pf_testing_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_pf_testing_log_likelihood', 'rb'))
-        
-    # %% Loop over datasets and sample from the fitted KNN probability functions and at the same time calculate the log-likelihood of the train and test data
-    if not os.path.exists('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn_fitting_log_likelihood') or overwrite:
-        
-        fitting_knn_fitting_log_likelihood = {}
-        fitting_knn_testing_log_likelihood = {}
-        testing_knn_fitting_log_likelihood = {}
-        testing_knn_testing_log_likelihood = {}
 
-        for key, _ in fitting_knn.items():
-        
-            fitting_knn_fitting_log_likelihood[key] = fitting_knn[key].score_samples(fitting_dict[key])
-            fitting_knn_testing_log_likelihood[key] = fitting_knn[key].score_samples(testing_dict[key])
-            testing_knn_fitting_log_likelihood[key] = testing_knn[key].score_samples(fitting_dict[key])
-            testing_knn_testing_log_likelihood[key] = testing_knn[key].score_samples(testing_dict[key])
-
-
-        pickle.dump(fitting_knn_fitting_log_likelihood, open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn_fitting_log_likelihood', 'wb'))
-        pickle.dump(fitting_knn_testing_log_likelihood, open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn_testing_log_likelihood', 'wb'))
-        pickle.dump(testing_knn_fitting_log_likelihood, open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn_fitting_log_likelihood', 'wb'))
-        pickle.dump(testing_knn_testing_log_likelihood, open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn_testing_log_likelihood', 'wb'))
-
-    else:
-        
-        fitting_knn_fitting_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn_fitting_log_likelihood', 'rb'))
-        fitting_knn_testing_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_knn_testing_log_likelihood', 'rb'))
-        testing_knn_fitting_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn_fitting_log_likelihood', 'rb'))
-        testing_knn_testing_log_likelihood = pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_testing_knn_testing_log_likelihood', 'rb'))
-        
 
     # %% Calculate Metrics 
     print('Calculate metrics')
@@ -249,58 +216,37 @@ def main(random_seeds):
                                             fitting_pf_testing_log_likelihood[key], 
                                             testing_pf_fitting_log_likelihood[key], 
                                             testing_pf_testing_log_likelihood[key])
-        
-        if not JSD_testing.has_key(base_data_key + '_KNN'):
-            JSD_testing[base_data_key + '_KNN'] = calculate_JSD(fitting_knn_fitting_log_likelihood[base_data_key], 
-                                                                fitting_knn_testing_log_likelihood[base_data_key], 
-                                                                testing_knn_fitting_log_likelihood[base_data_key], 
-                                                                testing_knn_testing_log_likelihood[base_data_key])
-            
+                    
         Wasserstein_log_fitting_testing[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
                                                                     fitting_pf_testing_log_likelihood[key])
-        
-        Wasserstein_log_fitting_sampled[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
-                                                                    fitting_pf_sampled_log_likelihood[key])
-        
-        Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
-                                                                    fitting_pf_sampled_log_likelihood[key])
+        if fitting_pf_sampled_log_likelihood.has_key(key):
+            Wasserstein_log_fitting_sampled[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
+                                                                        fitting_pf_sampled_log_likelihood[key])
+            
+            Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
+                                                                        fitting_pf_sampled_log_likelihood[key])
         
         if not Wasserstein_data_fitting_testing.has_key(base_data_key):
             Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
                                                                                                  testing_dict[base_data_key])
             
-        Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
-                                                                                                sampled_dict[key])
-        Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key],
-                                                                                                sampled_dict[key])
-        
-        
-        if not Wasserstein_log_fitting_testing.has_key(base_data_key + '_KNN'):
-            Wasserstein_log_fitting_testing[base_data_key + '_KNN'] = calculate_Wasserstein(fitting_knn_fitting_log_likelihood[base_data_key],
-                                                                                            fitting_knn_testing_log_likelihood[base_data_key])
-            
-
-            logMean_fitting_fitting[base_data_key + '_KNN'] = np.mean(fitting_knn_fitting_log_likelihood[base_data_key])
-            logMean_testing_testing[base_data_key + '_KNN'] = np.mean(testing_knn_testing_log_likelihood[base_data_key])
-            logMean_fitting_testing[base_data_key + '_KNN'] = np.mean(fitting_knn_testing_log_likelihood[base_data_key])
-
-            logStd_fitting_fitting[base_data_key + '_KNN'] = np.std(fitting_knn_fitting_log_likelihood[base_data_key])
-            logStd_testing_testing[base_data_key + '_KNN'] = np.std(testing_knn_testing_log_likelihood[base_data_key])
-            logStd_fitting_testing[base_data_key + '_KNN'] = np.std(fitting_knn_testing_log_likelihood[base_data_key])
-
-            logQuantile_fitting_fitting[base_data_key + '_KNN'] = np.quantile(fitting_knn_fitting_log_likelihood[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9])
-            logQuantile_testing_testing[base_data_key + '_KNN'] = np.quantile(testing_knn_testing_log_likelihood[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9])
-            logQuantile_fitting_testing[base_data_key + '_KNN'] = np.quantile(fitting_knn_testing_log_likelihood[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9])
+        if sampled_dict.has_key(key):    
+            Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
+                                                                                                    sampled_dict[key])
+            Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key],
+                                                                                                    sampled_dict[key])
         
         logMean_fitting_fitting[key] = np.mean(fitting_pf_fitting_log_likelihood[key])
         logMean_testing_testing[key] = np.mean(testing_pf_testing_log_likelihood[key])
         logMean_fitting_testing[key] = np.mean(fitting_pf_testing_log_likelihood[key])
-        logMean_fitting_sampled[key] = np.mean(fitting_pf_sampled_log_likelihood[key])
 
         logStd_fitting_fitting[key] = np.std(fitting_pf_fitting_log_likelihood[key])
         logStd_testing_testing[key] = np.std(testing_pf_testing_log_likelihood[key])
         logStd_fitting_testing[key] = np.std(fitting_pf_testing_log_likelihood[key])
-        logStd_fitting_sampled[key] = np.std(fitting_pf_sampled_log_likelihood[key])
+
+        if fitting_pf_sampled_log_likelihood.has_key(key):
+            logMean_fitting_sampled[key] = np.mean(fitting_pf_sampled_log_likelihood[key])
+            logStd_fitting_sampled[key] = np.std(fitting_pf_sampled_log_likelihood[key])
 
         if not dataMean_fitting.has_key(base_data_key):
             dataMean_fitting[base_data_key] = np.mean(fitting_dict[base_data_key], axis=0)
@@ -312,14 +258,17 @@ def main(random_seeds):
             dataStd_testing[base_data_key] = np.std(testing_dict[base_data_key], axis=0)
             dataQuantile_testing[base_data_key] = np.quantile(testing_dict[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
 
-        dataMean_sampled[key] = np.mean(sampled_dict[key], axis=0)
-        dataStd_sampled[key] = np.std(sampled_dict[key], axis=0)
-        dataQuantile_sampled[key] = np.quantile(sampled_dict[key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
+        if sampled_dict.has_key(key):
+            dataMean_sampled[key] = np.mean(sampled_dict[key], axis=0)
+            dataStd_sampled[key] = np.std(sampled_dict[key], axis=0)
+            dataQuantile_sampled[key] = np.quantile(sampled_dict[key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
 
         logQuantile_fitting_fitting[key] = np.quantile(fitting_pf_fitting_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
         logQuantile_testing_testing[key] = np.quantile(testing_pf_testing_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
         logQuantile_fitting_testing[key] = np.quantile(fitting_pf_testing_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
-        logQuantile_fitting_sampled[key] = np.quantile(fitting_pf_sampled_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
+
+        if fitting_pf_sampled_log_likelihood.has_key(key):
+            logQuantile_fitting_sampled[key] = np.quantile(fitting_pf_sampled_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
 
     # %% Save results
     pickle.dump(JSD_testing, open('./Distribution Datasets/Results/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_JSD_testing', 'wb'))
