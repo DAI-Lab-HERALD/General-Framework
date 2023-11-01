@@ -208,13 +208,13 @@ class OPTICS_GMM():
                 # get num neighbors
                 num_neighbours = max(min(num_samples, 3), int(np.sqrt(num_samples)))
                 # Fit BallTree
-                BallTree = BallTree(X_label_pca)
+                ball_tree = BallTree(X_label_pca)
                 # Get volume factor of hypersphere
                 volume_unit_hypersphere = np.pi**(self.num_features / 2) / sp.special.gamma(self.num_features / 2 + 1)
                 # Get standard probability adjustment
                 log_adjustment = np.log(num_neighbours) - np.log(volume_unit_hypersphere) - np.log(num_samples)
 
-                model = (BallTree, log_adjustment, num_neighbours)
+                model = (ball_tree, log_adjustment, num_neighbours)
             else:
                 raise ValueError('Estimator not recognized')
                 
@@ -275,10 +275,10 @@ class OPTICS_GMM():
                 log_probs[:,i] = model.score_samples(X_stand)
             elif isinstance(model, tuple):
                 # Load model
-                (BallTree, log_adjustment, num_neighbours) = model
+                (ball_tree, log_adjustment, num_neighbours) = model
 
                 # Get distances to nearest neighbours
-                dist, _ = BallTree.query(X_stand, num_neighbours)
+                dist, _ = ball_tree.query(X_stand, num_neighbours)
 
                 # Get radius
                 radius = dist.max(axis = -1)

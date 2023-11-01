@@ -109,21 +109,21 @@ def main(random_seeds):
 
                 if not('ToyProblem' in key):
                     distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                            use_std=config[2], use_KDE=config[3], 
+                                            use_std=config[2], estimator=config[3], 
                                             min_std=twoD_min_std)
                     
                     distr_mdl_test = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                            use_std=config[2], use_KDE=config[3], 
+                                            use_std=config[2], estimator=config[3], 
                                             min_std=twoD_min_std)
                     
 
                 else:
                     distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                            use_std=config[2], use_KDE=config[3], 
+                                            use_std=config[2], estimator=config[3], 
                                             min_std=traj_min_std)
                     
                     distr_mdl_test = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                            use_std=config[2], use_KDE=config[3], 
+                                            use_std=config[2], estimator=config[3], 
                                             min_std=traj_min_std)
 
                 distr_mdl.fit(fitting_dict[key])
@@ -219,18 +219,18 @@ def main(random_seeds):
                     
         Wasserstein_log_fitting_testing[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
                                                                     fitting_pf_testing_log_likelihood[key])
-        if fitting_pf_sampled_log_likelihood.has_key(key):
+        if key in fitting_pf_sampled_log_likelihood.keys():
             Wasserstein_log_fitting_sampled[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
                                                                         fitting_pf_sampled_log_likelihood[key])
             
             Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
                                                                         fitting_pf_sampled_log_likelihood[key])
         
-        if not Wasserstein_data_fitting_testing.has_key(base_data_key):
+        if not (base_data_key in Wasserstein_data_fitting_testing.keys()):
             Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
                                                                                                  testing_dict[base_data_key])
             
-        if sampled_dict.has_key(key):    
+        if key in sampled_dict.keys():    
             Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
                                                                                                     sampled_dict[key])
             Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key],
@@ -244,21 +244,21 @@ def main(random_seeds):
         logStd_testing_testing[key] = np.std(testing_pf_testing_log_likelihood[key])
         logStd_fitting_testing[key] = np.std(fitting_pf_testing_log_likelihood[key])
 
-        if fitting_pf_sampled_log_likelihood.has_key(key):
+        if key in fitting_pf_sampled_log_likelihood.keys():
             logMean_fitting_sampled[key] = np.mean(fitting_pf_sampled_log_likelihood[key])
             logStd_fitting_sampled[key] = np.std(fitting_pf_sampled_log_likelihood[key])
 
-        if not dataMean_fitting.has_key(base_data_key):
+        if not (base_data_key in dataMean_fitting.keys()):
             dataMean_fitting[base_data_key] = np.mean(fitting_dict[base_data_key], axis=0)
             dataStd_fitting[base_data_key] = np.std(fitting_dict[base_data_key], axis=0)
             dataQuantile_fitting[base_data_key] = np.quantile(fitting_dict[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
 
-        if not dataMean_testing.has_key(base_data_key):
+        if not (base_data_key in dataMean_testing.keys()):
             dataMean_testing[base_data_key] = np.mean(testing_dict[base_data_key], axis=0)
             dataStd_testing[base_data_key] = np.std(testing_dict[base_data_key], axis=0)
             dataQuantile_testing[base_data_key] = np.quantile(testing_dict[base_data_key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
 
-        if sampled_dict.has_key(key):
+        if key in sampled_dict.keys():
             dataMean_sampled[key] = np.mean(sampled_dict[key], axis=0)
             dataStd_sampled[key] = np.std(sampled_dict[key], axis=0)
             dataQuantile_sampled[key] = np.quantile(sampled_dict[key], [0.1, 0.25, 0.5, 0.75, 0.9], axis=0)
@@ -267,7 +267,7 @@ def main(random_seeds):
         logQuantile_testing_testing[key] = np.quantile(testing_pf_testing_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
         logQuantile_fitting_testing[key] = np.quantile(fitting_pf_testing_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
 
-        if fitting_pf_sampled_log_likelihood.has_key(key):
+        if key in fitting_pf_sampled_log_likelihood.keys():
             logQuantile_fitting_sampled[key] = np.quantile(fitting_pf_sampled_log_likelihood[key], [0.1, 0.25, 0.5, 0.75, 0.9])
 
     # %% Save results
