@@ -69,7 +69,7 @@ fig.savefig('./Distribution Datasets/2D-Distributions/Plots/2D-Distributions.pdf
 
 plt.figure()#figsize=(5, 3))
 plt.plot(Trajectories[:5000,:, 0].T, Trajectories[:5000,:, 1].T, '#1f77b4', alpha=0.05)
-plt.title('Bi-Modal Trajectories')
+plt.title('Multi-Modal Trajectories')
 
 
 # set axis equal
@@ -91,3 +91,5 @@ plt.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories.pdf', bbox
 
 plt.show()
 
+
+# %%
