@@ -207,8 +207,8 @@ for i in range(len(Path_init)):
         Traj_test[:, ind_split + 1:] = Traj_centered * Factors + Traj_test[:, [ind_split]]
         
 
-        noise = np.random.normal(0, 0.005/np.sqrt(12), Traj_test[:, ind_split + 1:].shape)
-        noise = np.cumsum(noise, axis = 0)
+        noise = np.random.normal(0, 0.03/np.sqrt(12), Traj_test[:, ind_split + 1:].shape)
+        noise = np.cumsum(noise, axis = 1)
 
         Traj_test[:, ind_split + 1:] = Traj_test[:, ind_split + 1:] + noise
         # Get starting and end points
