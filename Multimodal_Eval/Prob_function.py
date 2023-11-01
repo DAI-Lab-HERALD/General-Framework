@@ -4,6 +4,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.cluster._optics import cluster_optics_dbscan, cluster_optics_xi
 from sklearn.neighbors import KernelDensity
 from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import BallTree
 from sklearn.decomposition import PCA
 import scipy as sp
 
@@ -21,20 +22,22 @@ class OPTICS_GMM():
     probability density values or sample from.
     '''
     def __init__(self, use_cluster = True, use_PCA = True, 
-                 use_std = True, use_KDE = True, min_std = 0.1):
+                 use_std = True, estimator = 'KDE', min_std = 0.1):
         self.fitted = False
         
         # Get design opportunities
         self.use_cluster = use_cluster
         self.use_PCA     = use_PCA
         self.use_std     = use_std
-        self.use_KDE     = use_KDE
+        self.estimator   = estimator
+
+        assert self.estimator in ['KDE', 'GMM', 'KNN'], "Estimator not recognized"
         
         # Get minimum std values
         self.min_std = min_std
         
         # Avoid unneeded combinations
-        if self.use_KDE:
+        if self.estimator in ['KDE', 'KNN']:
             if not self.use_std:
                 if not self.use_PCA:
                     raise ValueError("KDE is invariant to solely rotating samples, " +
@@ -63,7 +66,7 @@ class OPTICS_GMM():
                 
             reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
             
-            # Test potential cluster extractions
+            # Test potential cluster extractionssomething like
             self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
             self.Xi = np.linspace(0.01, 0.99, 99)
 
@@ -136,7 +139,8 @@ class OPTICS_GMM():
                 continue
             # Get cluster data
             X_label = X[self.cluster_labels == label]
-            assert len(X_label) == cluster_size[i]
+            num_samples = len(X_label)
+            assert num_samples == cluster_size[i]
 
             # Get mean and std
             self.means[i] = X_label.mean(0)
@@ -147,8 +151,8 @@ class OPTICS_GMM():
             
             if self.use_PCA:
                 # Repeat data if not enough samples are available
-                if len(X_label) < self.num_features:
-                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
+                if num_samples < self.num_features:
+                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features / num_samples)),1))
                 else:
                     c = X_label_stand.copy()
     
@@ -195,11 +199,24 @@ class OPTICS_GMM():
             X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
             
             # Fit Surrogate distribution
-            if self.use_KDE:
+            if self.estimator == 'KDE':
                 model = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca)
-            else:
+            elif self.estimator == 'GMM':
                 reg_covar = max(1e-6, self.min_std ** 2)
                 model = GaussianMixture(reg_covar = reg_covar).fit(X_label_pca)
+            elif self.estimator == 'KNN':
+                # get num neighbors
+                num_neighbours = max(min(num_samples, 3), int(np.sqrt(num_samples)))
+                # Fit BallTree
+                BallTree = BallTree(X_label_pca)
+                # Get volume factor of hypersphere
+                volume_unit_hypersphere = np.pi**(self.num_features / 2) / sp.special.gamma(self.num_features / 2 + 1)
+                # Get standard probability adjustment
+                log_adjustment = np.log(num_neighbours) - np.log(volume_unit_hypersphere) - np.log(num_samples)
+
+                model = (BallTree, log_adjustment, num_neighbours)
+            else:
+                raise ValueError('Estimator not recognized')
                 
             self.Models[i] = model
             
@@ -254,7 +271,22 @@ class OPTICS_GMM():
             X_stand = (X - self.means[[i]]) @ self.T_mat[i]
 
             # Get in model log probabilty
-            log_probs[:,i] = model.score_samples(X_stand)
+            if isinstance(model, KernelDensity) or isinstance(model, GaussianMixture):
+                log_probs[:,i] = model.score_samples(X_stand)
+            elif isinstance(model, tuple):
+                # Load model
+                (BallTree, log_adjustment, num_neighbours) = model
+
+                # Get distances to nearest neighbours
+                dist, _ = BallTree.query(X_stand, num_neighbours)
+
+                # Get radius
+                radius = dist.max(axis = -1)
+
+                # Calculate log not recognizedprob values
+                log_probs[:,i] = log_adjustment - np.log(radius) * self.num_features
+            else:
+                raise ValueError('Estimator not recognized')
 
             # adjust log prob for transformation
             log_probs[:,i] += self.log_det_T_mat[i] 
@@ -290,10 +322,16 @@ class OPTICS_GMM():
             # Get number of samples from cluster
             num = (label == labels).sum()
 
+            # Reset radnom seed to be sure
+            np.random.seed(random_state)
+
+            # Sample transformed samples from model
             if isinstance(self.Models[label], KernelDensity):
                 X_label_stand = self.Models[label].sample(num, random_state)
-            else:
+            elif isinstance(self.Models[label], GaussianMixture):
                 X_label_stand = self.Models[label].sample(num)[0]
+            else:
+                raise ValueError('Estimator cannot generate samples.')
                 
             # Apply inverse transformation to get original coordinate samples
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
