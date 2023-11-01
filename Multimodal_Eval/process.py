@@ -33,14 +33,14 @@ def main(random_seeds):
     aniso = pickle.load(open('./Distribution Datasets/2D-Distributions/Processed_Data/aniso_20000samples', 'rb'))
 
 
-    # Toy Problem: Multivariate Bi-Modal Distribution obtained by augmenting recorded pedestrian trajectories
-    ToyProblem_future = pickle.load(open('./Distribution Datasets/CyberZoo Data/Processed_Data/future_trajectories_20000samples', 'rb'))
-    ToyProblem_future = ToyProblem_future.reshape(len(ToyProblem_future), ToyProblem_future.shape[1]*ToyProblem_future.shape[2])
+    # Multivariate Bi-Modal Distribution obtained by augmenting recorded pedestrian trajectories
+    Trajectories = pickle.load(open('./Distribution Datasets/Forking_Paths/Processed_Data/trajectories_20000samples', 'rb'))
+    Trajectories = Trajectories.reshape(len(Trajectories), Trajectories.shape[1]*Trajectories.shape[2])
 
     #%% Create multiple datasets with different number of samples 
     # and save to dictionaries with keys containing info on dataset_name, n_samples and rand_seed
 
-    num_samples = [200, 400, 1000, 2000, 4000, 10000, 20000]
+    num_samples = [200, 600, 2000, 6000, 20000]
 
     fitting_dict = {}
     testing_dict = {}
@@ -54,7 +54,7 @@ def main(random_seeds):
             fitting_dict['blobs_' + key], testing_dict['blobs_' + key] = create_random_data_splt(blobs, rnd_seed, n_samples)
             fitting_dict['varied_' + key], testing_dict['varied_' + key] = create_random_data_splt(varied, rnd_seed, n_samples)
             fitting_dict['aniso_' + key], testing_dict['aniso_' + key] = create_random_data_splt(aniso, rnd_seed, n_samples)
-            fitting_dict['ToyProblem_' + key], testing_dict['ToyProblem_' + key] = create_random_data_splt(ToyProblem_future, rnd_seed, n_samples)
+            fitting_dict['Trajectories_' + key], testing_dict['Trajectories_' + key] = create_random_data_splt(Trajectories, rnd_seed, n_samples)
 
 
     #%% Define test cases
@@ -110,7 +110,7 @@ def main(random_seeds):
                 pf_key += config[3]
 
 
-                if not('ToyProblem' in key):
+                if not('Trajectories' in key):
                     distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
                                             use_std=config[2], estimator=config[3], 
                                             min_std=twoD_min_std)
