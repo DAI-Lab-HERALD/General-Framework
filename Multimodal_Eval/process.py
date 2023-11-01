@@ -1,12 +1,10 @@
 #%%
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
 import re
 
 import Prob_function as pf
-import Prob_function_knn as pf_knn
 
 from utils import *
 
@@ -50,6 +48,7 @@ def main(random_seeds):
     for n_samples in num_samples:
         for rnd_seed in random_seeds:
             key = 'n_samples_' + str(n_samples) + '_rnd_seed_' + str(rnd_seed)
+
             fitting_dict['noisy_circles_' + key], testing_dict['noisy_circles_' + key] = create_random_data_splt(noisy_circles, rnd_seed, n_samples)
             fitting_dict['noisy_moons_' + key], testing_dict['noisy_moons_' + key] = create_random_data_splt(noisy_moons, rnd_seed, n_samples)
             fitting_dict['blobs_' + key], testing_dict['blobs_' + key] = create_random_data_splt(blobs, rnd_seed, n_samples)
@@ -94,6 +93,10 @@ def main(random_seeds):
 
         for key, _ in fitting_dict.items():
             print('Dataset ' + key)
+            # Get distribution independent key
+            fitting_clusters = None
+            testing_clusters = None
+
             for config in testConfigs:
                 pf_key = key + '_config'
 
@@ -126,10 +129,20 @@ def main(random_seeds):
                                             use_std=config[2], estimator=config[3], 
                                             min_std=traj_min_std)
 
-                distr_mdl.fit(fitting_dict[key])
+                if config[0]:
+                    distr_mdl.fit(fitting_dict[key], fitting_clusters)
+                    fitting_clusters = distr_mdl.cluster_labels
+                else:
+                    distr_mdl.fit(fitting_dict[key])
+
                 fitting_pf[pf_key] = distr_mdl
 
-                distr_mdl_test.fit(testing_dict[key])
+                if config[0]:
+                    distr_mdl_test.fit(testing_dict[key], testing_clusters)
+                    testing_clusters = distr_mdl_test.cluster_labels
+                else:
+                    distr_mdl_test.fit(testing_dict[key])
+                    
                 testing_pf[pf_key] = distr_mdl_test
 
         pickle.dump(fitting_pf, open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(random_seeds.start)+str(random_seeds.stop)+'_fitting_pf', 'wb'))

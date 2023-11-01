@@ -1,9 +1,10 @@
 import numpy as np
 from sklearn.cluster import OPTICS
 from sklearn.metrics import silhouette_score
-from sklearn.cluster._optics import cluster_optics_dbscan
+from sklearn.cluster._optics import cluster_optics_dbscan, cluster_optics_xi
 from sklearn.neighbors import KernelDensity
 from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import BallTree
 from sklearn.decomposition import PCA
 import scipy as sp
 
@@ -21,20 +22,22 @@ class OPTICS_GMM():
     probability density values or sample from.
     '''
     def __init__(self, use_cluster = True, use_PCA = True, 
-                 use_std = True, use_KDE = True, min_std = 0.1):
+                 use_std = True, estimator = 'KDE', min_std = 0.1):
         self.fitted = False
         
         # Get design opportunities
         self.use_cluster = use_cluster
         self.use_PCA     = use_PCA
         self.use_std     = use_std
-        self.use_KDE     = use_KDE
+        self.estimator   = estimator
+
+        assert self.estimator in ['KDE', 'GMM', 'KNN'], "Estimator not recognized"
         
         # Get minimum std values
         self.min_std = min_std
         
         # Avoid unneeded combinations
-        if self.use_KDE:
+        if self.estimator in ['KDE', 'KNN']:
             if not self.use_std:
                 if not self.use_PCA:
                     raise ValueError("KDE is invariant to solely rotating samples, " +
@@ -51,43 +54,69 @@ class OPTICS_GMM():
         
         self.num_features = X.shape[1]
         
-        num_min_samples = X.shape[0] / 20
-        self.num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))
         
-        if self.use_cluster and len(X) >= 5:            
+        if self.use_cluster and len(X) >= 5:  
+            num_min_samples = X.shape[0] / 20
+            num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
+
             # Get reachability plot
-            optics = OPTICS(min_samples = self.num_min_samples, 
+            optics = OPTICS(min_samples = num_min_samples, 
                             min_cluster_size = 5)
             optics.fit(X)
-            self.cluster_labels = optics.labels_
-            
-            if len(np.unique(self.cluster_labels)) > 1:
-                best_score = silhouette_score(X, self.cluster_labels)
-            else:
-                best_score = -1
                 
             reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
             
+            # Test potential cluster extractionssomething like
             self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
-            for i, eps in enumerate(self.Eps):
-                test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
-                                                    core_distances = optics.core_distances_,
-                                                    ordering       = optics.ordering_,
-                                                    eps            = eps)
-            
+            self.Xi = np.linspace(0.01, 0.99, 99)
+
+            Method = np.repeat(np.array(['Eps', 'Xi']), (len(self.Eps), len(self.Xi)))
+            Params = np.concatenate((self.Eps, self.Xi), axis = 0)
+
+            # Intialize best score (worst score of valid clustering is -1)
+            best_score = -1.1
+
+            # Iterate over all potential cluster extractions
+            for method, param in zip(Method, Params):
+                # Cluster using dbscan
+                if method == 'Eps':
+                    eps = param
+                    test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
+                                                        core_distances = optics.core_distances_,
+                                                        ordering       = optics.ordering_,
+                                                        eps            = eps)
+                # Cluster using xi
+                elif method == 'Xi':
+                    xi = param
+                    test_labels, _ = cluster_optics_xi(reachability           = optics.reachability_,
+                                                       predecessor            = optics.predecessor_,
+                                                       ordering               = optics.ordering_,
+                                                       min_samples            = num_min_samples,
+                                                       min_cluster_size       = 2,
+                                                       xi                     = xi,
+                                                       predecessor_correction = optics.predecessor_correction)
+                else:
+                    raise ValueError('Clustering method not recognized')    
+                
+                # Check for improvement
                 if len(np.unique(test_labels)) > 1: 
-                    # Avoid clusters with size 1
-                    test_size = np.unique(test_labels, return_counts = True)[1]
-                    if test_labels.min() == -1:
-                        cluster_size_one = test_size[1:].min() < 2
-                    else:
-                        cluster_size_one = test_size.min() < 2
+                    # Check if there are lusters of size one
+                    test_clusters, test_size = np.unique(test_labels, return_counts = True)
+                    cluster_size_one = test_size[test_clusters >= 0].min() < 2
                     
+                    # Avoid clusters consisting of only one sample
                     if not cluster_size_one:
+                        # Evaluate clustering
                         test_score = silhouette_score(X, test_labels)
+
+                        # Check for improvement
                         if test_score > best_score:
                             best_score = test_score
                             self.cluster_labels = test_labels
+            
+            # If no viable clustering method was found
+            if not hasattr(self, 'cluster_labels'):
+                self.cluster_labels = np.zeros(len(X))
         else:
             self.cluster_labels = np.zeros(len(X))
             
@@ -110,23 +139,25 @@ class OPTICS_GMM():
                 continue
             # Get cluster data
             X_label = X[self.cluster_labels == label]
-            assert len(X_label) == cluster_size[i]
+            num_samples = len(X_label)
+            assert num_samples == cluster_size[i]
 
-            
+            # Get mean and std
             self.means[i] = X_label.mean(0)
             Stds[i]       = X_label.std(0)
 
-            
+            # Shift coordinate system origin to mean
             X_label_stand = (X_label - self.means[[i]])
             
             if self.use_PCA:
-                if len(X_label) < self.num_features:
-                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features/len(X_label))),1))
-    
+                # Repeat data if not enough samples are available
+                if num_samples < self.num_features:
+                    c = np.tile(X_label_stand, (int(np.ceil(self.num_features / num_samples)),1))
                 else:
                     c = X_label_stand.copy()
     
                 # calculate PCA on X_label_stand -> get rot matrix and std
+                # Stabalize correlation matrix if necessary
                 attempt = 0
                 successful_pca = False
                 while not successful_pca:
@@ -143,18 +174,21 @@ class OPTICS_GMM():
                     if not successful_pca:
                         print('PCA failed, was done again with different random start.')
                     
-                # Apply minimum standard deviation
+                # Exctract components std
                 pca_std = np.sqrt(pca.explained_variance_)
+
+                # Extract roation matrix
                 self.T_mat[i]  = pca.components_.T
             else:
                 pca_std = Stds[i].copy()
                 self.T_mat[i]  = np.eye(self.num_features)
-                
-            self.log_det_T_mat[i] = np.log(np.abs(np.linalg.det(self.T_mat[i])))
             
-            # Aplly standardization
+            # Initiallize probability adjustment
+            self.log_det_T_mat[i] = np.log(np.abs(np.linalg.det(self.T_mat[i])))
+        
+            # Apply standardization
             if self.use_std:
-                # Aplly minimum std levels
+                # Apply minimum std levels
                 pca_std = pca_std * (pca_std.max() - self.min_std) / pca_std.max() + self.min_std
                 
                 # Adjust T_mat accordingly
@@ -165,11 +199,24 @@ class OPTICS_GMM():
             X_label_pca = X_label_stand @ self.T_mat[i] # @ is matrix multiplication
             
             # Fit Surrogate distribution
-            if self.use_KDE:
+            if self.estimator == 'KDE':
                 model = KernelDensity(kernel = 'gaussian', bandwidth = 'silverman').fit(X_label_pca)
-            else:
+            elif self.estimator == 'GMM':
                 reg_covar = max(1e-6, self.min_std ** 2)
                 model = GaussianMixture(reg_covar = reg_covar).fit(X_label_pca)
+            elif self.estimator == 'KNN':
+                # get num neighbors
+                num_neighbours = max(min(num_samples, 3), int(np.sqrt(num_samples)))
+                # Fit BallTree
+                ball_tree = BallTree(X_label_pca)
+                # Get volume factor of hypersphere
+                volume_unit_hypersphere = np.pi**(self.num_features / 2) / sp.special.gamma(self.num_features / 2 + 1)
+                # Get standard probability adjustment
+                log_adjustment = np.log(num_neighbours) - np.log(volume_unit_hypersphere) - np.log(num_samples)
+
+                model = (ball_tree, log_adjustment, num_neighbours)
+            else:
+                raise ValueError('Estimator not recognized')
                 
             self.Models[i] = model
             
@@ -178,7 +225,7 @@ class OPTICS_GMM():
             X_noise = X[self.cluster_labels == -1]
             # set noise std
             
-            # set rot_mat_pca[0] to be an identity matrix
+            # assume that no rotation is necessary rot_mat_pca[0] to be an identity matrix
             if len(self.T_mat) > 1 and self.use_std:
                 stds = np.maximum(Stds[1:].mean(0), self.min_std)
                 self.T_mat[0] = np.diag(1 / stds)
@@ -187,7 +234,7 @@ class OPTICS_GMM():
                 self.T_mat[0]         = np.eye(self.num_features)
                 self.log_det_T_mat[0] = 0.0
 
-
+            # Apply transformation matrix
             X_noise_stand = (X_noise - self.means[[0]]) @ self.T_mat[0] 
             
             # Fit Surrogate distribution 
@@ -199,7 +246,8 @@ class OPTICS_GMM():
             model_noise = KernelDensity(kernel = 'gaussian', bandwidth = bandwidth).fit(X_noise_stand)
             
             self.Models[0] = model_noise
-            
+        
+        # Get cluster probabilities
         self.probs = cluster_size / cluster_size.sum()
         self.log_probs = np.log(self.probs)
         
@@ -222,8 +270,29 @@ class OPTICS_GMM():
         for i, model in enumerate(self.Models):
             X_stand = (X - self.means[[i]]) @ self.T_mat[i]
 
-            # get adjusted log prob values
-            log_probs[:,i] = self.log_probs[i] + model.score_samples(X_stand) + self.log_det_T_mat[i] 
+            # Get in model log probabilty
+            if isinstance(model, KernelDensity) or isinstance(model, GaussianMixture):
+                log_probs[:,i] = model.score_samples(X_stand)
+            elif isinstance(model, tuple):
+                # Load model
+                (ball_tree, log_adjustment, num_neighbours) = model
+
+                # Get distances to nearest neighbours
+                dist, _ = ball_tree.query(X_stand, num_neighbours)
+
+                # Get radius
+                radius = dist.max(axis = -1)
+
+                # Calculate log not recognizedprob values
+                log_probs[:,i] = log_adjustment - np.log(radius) * self.num_features
+            else:
+                raise ValueError('Estimator not recognized')
+
+            # adjust log prob for transformation
+            log_probs[:,i] += self.log_det_T_mat[i] 
+
+            # adjust log prob for cluster likelihood
+            log_probs[:,i] += self.log_probs[i]
         
         # Deal with overflow
         if return_log:
@@ -242,22 +311,37 @@ class OPTICS_GMM():
     def sample(self, num_samples = 1, random_state = 0):
         assert self.fitted, 'The model was not fitted yet'
         
+        # Determine cluster belonging
         np.random.seed(random_state)
         labels = np.random.choice(np.arange(len(self.Models)), num_samples, p = self.probs)
         
         samples = []
         
+        # generate from different clusters
         for label in np.unique(labels):
+            # Get number of samples from cluster
             num = (label == labels).sum()
-            
-            X_label_stand = self.Models[label].sample(num, random_state)
+
+            # Reset radnom seed to be sure
+            np.random.seed(random_state)
+
+            # Sample transformed samples from model
+            if isinstance(self.Models[label], KernelDensity):
+                X_label_stand = self.Models[label].sample(num, random_state)
+            elif isinstance(self.Models[label], GaussianMixture):
+                X_label_stand = self.Models[label].sample(num)[0]
+            else:
+                raise ValueError('Estimator cannot generate samples.')
                 
+            # Apply inverse transformation to get original coordinate samples
             X_label = X_label_stand @ np.linalg.inv(self.T_mat[label]) + self.means[[label]]
             
+            # Add samples to output set
             samples.append(X_label)
             
         samples = np.concatenate(samples, axis = 0)
         
+        # Shuffle samples
         np.random.shuffle(samples)
 
         return samples

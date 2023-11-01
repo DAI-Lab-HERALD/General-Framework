@@ -49,76 +49,78 @@ class OPTICS_GMM():
                                  "which are consequenlty useless.")
             
         
-    def fit(self, X):
+    def fit(self, X, clusters = None):
         assert len(X.shape) == 2
         
         self.num_features = X.shape[1]
         
-        
-        if self.use_cluster and len(X) >= 5:  
-            num_min_samples = X.shape[0] / 20
-            num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
+        if clusters is None:
+            if self.use_cluster and len(X) >= 5:  
+                num_min_samples = X.shape[0] / 20
+                num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
 
-            # Get reachability plot
-            optics = OPTICS(min_samples = num_min_samples, 
-                            min_cluster_size = 5)
-            optics.fit(X)
-                
-            reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
-            
-            # Test potential cluster extractionssomething like
-            self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
-            self.Xi = np.linspace(0.01, 0.99, 99)
-
-            Method = np.repeat(np.array(['Eps', 'Xi']), (len(self.Eps), len(self.Xi)))
-            Params = np.concatenate((self.Eps, self.Xi), axis = 0)
-
-            # Intialize best score (worst score of valid clustering is -1)
-            best_score = -1.1
-
-            # Iterate over all potential cluster extractions
-            for method, param in zip(Method, Params):
-                # Cluster using dbscan
-                if method == 'Eps':
-                    eps = param
-                    test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
-                                                        core_distances = optics.core_distances_,
-                                                        ordering       = optics.ordering_,
-                                                        eps            = eps)
-                # Cluster using xi
-                elif method == 'Xi':
-                    xi = param
-                    test_labels, _ = cluster_optics_xi(reachability           = optics.reachability_,
-                                                       predecessor            = optics.predecessor_,
-                                                       ordering               = optics.ordering_,
-                                                       min_samples            = num_min_samples,
-                                                       min_cluster_size       = 2,
-                                                       xi                     = xi,
-                                                       predecessor_correction = optics.predecessor_correction)
-                else:
-                    raise ValueError('Clustering method not recognized')    
-                
-                # Check for improvement
-                if len(np.unique(test_labels)) > 1: 
-                    # Check if there are lusters of size one
-                    test_clusters, test_size = np.unique(test_labels, return_counts = True)
-                    cluster_size_one = test_size[test_clusters >= 0].min() < 2
+                # Get reachability plot
+                optics = OPTICS(min_samples = num_min_samples, 
+                                min_cluster_size = 5)
+                optics.fit(X)
                     
-                    # Avoid clusters consisting of only one sample
-                    if not cluster_size_one:
-                        # Evaluate clustering
-                        test_score = silhouette_score(X, test_labels)
+                reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
+                
+                # Test potential cluster extractionssomething like
+                self.Eps = np.linspace(reachability.min(), reachability.max(), 100)
+                self.Xi = np.linspace(0.01, 0.99, 99)
 
-                        # Check for improvement
-                        if test_score > best_score:
-                            best_score = test_score
-                            self.cluster_labels = test_labels
-            
-            # If no viable clustering method was found
-            if not hasattr(self, 'cluster_labels'):
+                Method = np.repeat(np.array(['Eps', 'Xi']), (len(self.Eps), len(self.Xi)))
+                Params = np.concatenate((self.Eps, self.Xi), axis = 0)
+
+                # Intialize best score (worst score of valid clustering is -1)
+                best_score = -1.1
+
+                # Iterate over all potential cluster extractions
+                for method, param in zip(Method, Params):
+                    # Cluster using dbscan
+                    if method == 'Eps':
+                        eps = param
+                        test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
+                                                            core_distances = optics.core_distances_,
+                                                            ordering       = optics.ordering_,
+                                                            eps            = eps)
+                    # Cluster using xi
+                    elif method == 'Xi':
+                        xi = param
+                        test_labels, _ = cluster_optics_xi(reachability           = optics.reachability_,
+                                                        predecessor            = optics.predecessor_,
+                                                        ordering               = optics.ordering_,
+                                                        min_samples            = num_min_samples,
+                                                        min_cluster_size       = 2,
+                                                        xi                     = xi,
+                                                        predecessor_correction = optics.predecessor_correction)
+                    else:
+                        raise ValueError('Clustering method not recognized')    
+                    
+                    # Check for improvement
+                    if len(np.unique(test_labels)) > 1: 
+                        # Check if there are lusters of size one
+                        test_clusters, test_size = np.unique(test_labels, return_counts = True)
+                        cluster_size_one = test_size[test_clusters >= 0].min() < 2
+                        
+                        # Avoid clusters consisting of only one sample
+                        if not cluster_size_one:
+                            # Evaluate clustering
+                            test_score = silhouette_score(X, test_labels)
+
+                            # Check for improvement
+                            if test_score > best_score:
+                                best_score = test_score
+                                self.cluster_labels = test_labels
+                
+                # If no viable clustering method was found
+                if not hasattr(self, 'cluster_labels'):
+                    self.cluster_labels = np.zeros(len(X))
+            else:
                 self.cluster_labels = np.zeros(len(X))
         else:
-            self.cluster_labels = np.zeros(len(X))
+            self.cluster_labels = clusters.copy()
             
         unique_labels, cluster_size = np.unique(self.cluster_labels, return_counts = True)
             
