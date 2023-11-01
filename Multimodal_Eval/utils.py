@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats as stats
+import ot
 
 from scipy.special import logsumexp
 
@@ -45,3 +46,8 @@ def calculate_Wasserstein(log_like_Ptrue, log_like_Ptest):
 
     return Wasserstein
 
+def calculate_multivariate_Wasserstein(X_true, X_pred):
+    # calculate the Wasserstein distance between the samples of the true and test data
+    Wasserstein = ot.dist(X_true, X_pred)
+
+    return Wasserstein
