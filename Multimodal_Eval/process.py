@@ -265,9 +265,20 @@ def main(random_seeds):
         Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
                                                                     fitting_pf_sampled_log_likelihood[key])
         
+        if not Wasserstein_data_fitting_testing.has_key(base_data_key):
+            Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
+                                                                                                 testing_dict[base_data_key])
+            
+        Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
+                                                                                                sampled_dict[key])
+        Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key],
+                                                                                                sampled_dict[key])
+        
+        
         if not Wasserstein_log_fitting_testing.has_key(base_data_key + '_KNN'):
             Wasserstein_log_fitting_testing[base_data_key + '_KNN'] = calculate_Wasserstein(fitting_knn_fitting_log_likelihood[base_data_key],
                                                                                             fitting_knn_testing_log_likelihood[base_data_key])
+            
 
             logMean_fitting_fitting[base_data_key + '_KNN'] = np.mean(fitting_knn_fitting_log_likelihood[base_data_key])
             logMean_testing_testing[base_data_key + '_KNN'] = np.mean(testing_knn_testing_log_likelihood[base_data_key])
