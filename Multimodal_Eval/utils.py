@@ -48,6 +48,13 @@ def calculate_Wasserstein(log_like_Ptrue, log_like_Ptest):
 
 def calculate_multivariate_Wasserstein(X_true, X_pred):
     # calculate the Wasserstein distance between the samples of the true and test data
-    Wasserstein = ot.dist(X_true, X_pred)
-
-    return Wasserstein
+    Wasserstein = ot.dist(X_true, X_pred, metric='euclidean')
+    sample_weights1 = np.ones(X_true.shape[0]) / X_true.shape[0]  # Uniform weights for true distribution
+    sample_weights2 = np.ones(X_pred.shape[0]) / X_pred.shape[0]  # Uniform weights for pred distribution
+    
+    # Calculate the optimal transport plan
+    transport_plan = ot.emd(sample_weights1, sample_weights2, Wasserstein)
+    
+    # Calculate the Wasserstein distance as the optimal transport cost
+    multivariate_wasserstein_distance = np.sum(transport_plan * Wasserstein)
+    return multivariate_wasserstein_distance
