@@ -120,13 +120,9 @@ for i in range(len(Path_init)):
             Pos[j, :, :] = pos.repeat(len(I_t), axis = 0)[np.newaxis]
     
     # Prepare parameters for sampling
-    s_min = 0.9
-    s_max = 1.1
-    s_std = 0.05
+    s_std = 0.03
     
-    s_min_ang = -np.pi/72
-    s_max_ang = np.pi/72
-    s_std_ang = np.pi/144
+    s_std_ang = np.pi/180
     
     num_samples_test = 1000
     num_samples = 3334
@@ -182,15 +178,12 @@ for i in range(len(Path_init)):
         Traj_test = np.tile(path_init[np.newaxis], (num_samples_test, 1, 1))
         
         # Sample random factors
-        s_mean = 1.0
-        Factors = scipy.stats.truncnorm.rvs((s_min - s_mean) / s_std, (s_max - s_mean) / s_std, 
-                                            loc = s_mean, scale = s_std, 
-                                            size = num_samples_test)   
+        s_mean = 1.0        
 
-        Angles = scipy.stats.truncnorm.rvs(s_min_ang / s_std_ang, s_max_ang / s_std_ang, 
-                                            loc = 0.0, scale = s_std_ang, 
-                                            size = num_samples_test)
-        
+        Factors = np.random.normal(s_mean, s_std, num_samples_test)   
+
+        Angles = np.random.normal(0.0, s_std_ang, num_samples_test)
+
         # Prepare for vectorized operations
         Angles = Angles[:,np.newaxis]
         Factors = Factors[:,np.newaxis,np.newaxis]
@@ -207,8 +200,8 @@ for i in range(len(Path_init)):
         Traj_test[:, ind_split + 1:] = Traj_centered * Factors + Traj_test[:, [ind_split]]
         
 
-        noise = np.random.normal(0, 0.005/np.sqrt(12), Traj_test[:, ind_split + 1:].shape)
-        noise = np.cumsum(noise, axis = 0)
+        noise = np.random.normal(0, 0.03/np.sqrt(12), Traj_test[:, ind_split + 1:].shape)
+        noise = np.cumsum(noise, axis = 1)
 
         Traj_test[:, ind_split + 1:] = Traj_test[:, ind_split + 1:] + noise
         # Get starting and end points

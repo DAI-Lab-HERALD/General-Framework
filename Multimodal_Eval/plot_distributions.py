@@ -1,6 +1,7 @@
 #%% Import libraries
 import pickle
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 #%% Load the data
@@ -22,8 +23,10 @@ varied = pickle.load(open('./Distribution Datasets/2D-Distributions/Processed_Da
 aniso = pickle.load(open('./Distribution Datasets/2D-Distributions/Processed_Data/aniso_20000samples', 'rb'))
 
 
-# Toy Problem: Multivariate Bi-Modal Distribution obtained by augmenting recorded pedestrian trajectories
-ToyProblem_future = pickle.load(open('./Distribution Datasets/CyberZoo Data/Processed_Data/future_trajectories_20000samples', 'rb'))
+# Multivariate Bi-Modal Distribution obtained by augmenting recorded pedestrian trajectories
+Trajectories = pickle.load(open('./Distribution Datasets/Forking_Paths/Processed_Data/trajectories_20000samples', 'rb'))
+# shuffle the trajectories
+np.random.shuffle(Trajectories)
 
 
 #%% Plot the distributions
@@ -61,12 +64,12 @@ plt.show()
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/2D-Distributions.pdf', bbox_inches='tight')
 
 # %%
-# Toy Problem
+# Trajectories
 # Figure with 1 subplot
 
 plt.figure()#figsize=(5, 3))
-plt.plot(ToyProblem_future[:5000,:, 0].T, ToyProblem_future[:5000,:, 1].T, '#1f77b4', alpha=0.05)
-plt.title('Bi-Modal Trajectories')
+plt.plot(Trajectories[:5000,:, 0].T, Trajectories[:5000,:, 1].T, '#1f77b4', alpha=0.05)
+plt.title('Multi-Modal Trajectories')
 
 
 # set axis equal
@@ -78,17 +81,15 @@ plt.ylabel('$y\; [m]$')
 
 
 # set y limits
-plt.ylim(-2.5, 2.5)
-plt.xlim(0, 6.8)
+# plt.ylim(-2.5, 2.5)
+# plt.xlim(0, 6.8)
 
 
 # Remove all spines
 
-plt.savefig('./Distribution Datasets/CyberZoo Data/Plots/ToyProblem.pdf', bbox_inches='tight')
+plt.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories.pdf', bbox_inches='tight')
 
 plt.show()
-
-# Save plot as pdf
 
 
 # %%
