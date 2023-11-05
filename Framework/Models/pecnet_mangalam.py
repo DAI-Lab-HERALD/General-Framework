@@ -286,17 +286,17 @@ class pecnet_mangalam(model_template):
 
                 Pred[agent_exists.numpy(), index] = predicted_future.cpu().detach().numpy()
 
-                # extrapolate if needed
-                if num_steps > Pred.shape[-2]:
-                    step_delta = Pred[...,-1,:] - Pred[...,-2,:]
-                    step_delta = step_delta[...,np.newaxis,:]
-                    
-                    steps = np.arange(1, num_steps + 1 - Pred.shape[-2])
-                    steps = steps[np.newaxis,np.newaxis,:,np.newaxis]
-                    
-                    Pred_delta = Pred[...,[-1],:] + step_delta * steps
-                    
-                    Pred = np.concatenate((Pred, Pred_delta), axis = -2)
+            # extrapolate if needed
+            if num_steps > Pred.shape[-2]:
+                step_delta = Pred[...,-1,:] - Pred[...,-2,:]
+                step_delta = step_delta[...,np.newaxis,:]
+                
+                steps = np.arange(1, num_steps + 1 - Pred.shape[-2])
+                steps = steps[np.newaxis,np.newaxis,:,np.newaxis]
+                
+                Pred_delta = Pred[...,[-1],:] + step_delta * steps
+                
+                Pred = np.concatenate((Pred, Pred_delta), axis = -2)
                 
             self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
             
