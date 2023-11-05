@@ -23,11 +23,11 @@ def overwrite_key(key, overwrite_string):
         return key in overwrite_string
 
 
-def main(random_seeds, overwrite_string = ''):
+def main(random_seeds, overwrite_string = '', overwrite = True):
     #%% Load the data
 
     overwrite_string = '' 
-    overwrite = len(overwrite_string) > 0
+    overwrite = overwrite or (len(overwrite_string) > 0)
 
     # 2D-Distributions
     # Noisy Circles
