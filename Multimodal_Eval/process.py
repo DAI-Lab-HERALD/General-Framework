@@ -17,19 +17,20 @@ def load_dir(path):
         return pickle.load(open(path, 'rb'))
 
 
-def overwrite_key(key, overwrite_string):
+def overwrite_key(dict, key, overwrite_string):
+    # Check if key already exists
+    if not (key in dict.keys()):
+        return True
+    
+    # Check if overwrite string is empty
     if len(overwrite_string) == 0:
         return False
     else:
         return key in overwrite_string
 
 
-def main(random_seeds, overwrite_string = '', overwrite = True):
-    #%% Load the data
-
-    overwrite_string = '' 
-    overwrite = overwrite or (len(overwrite_string) > 0)
-
+def main(random_seeds, overwrite_string = ''):
+    #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
     noisy_circles = pickle.load(open('./Distribution Datasets/2D-Distributions/Processed_Data/noisy_circles_20000samples', 'rb'))
@@ -93,17 +94,24 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
     use_std = True
 
     testConfigs = [
-                    [    use_cluster,     use_PCA,     use_std, 'KDE'],
-                    [    use_cluster,     use_PCA, not use_std, 'KDE'],
-                    [    use_cluster, not use_PCA,     use_std, 'KDE'],
+                    [   'silhouette',     use_PCA,     use_std, 'KDE'],
+                    [   'silhouette',     use_PCA, not use_std, 'KDE'],
+                    [   'silhouette', not use_PCA,     use_std, 'KDE'],
+                    [         'DBCV',     use_PCA,     use_std, 'KDE'],
+                    [         'DBCV',     use_PCA, not use_std, 'KDE'],
+                    [         'DBCV', not use_PCA,     use_std, 'KDE'],
                     [not use_cluster,     use_PCA,     use_std, 'KDE'],
                     [not use_cluster,     use_PCA, not use_std, 'KDE'],
                     [not use_cluster, not use_PCA,     use_std, 'KDE'],
-                    [    use_cluster, not use_PCA, not use_std, 'GMM'],
+                    [   'silhouette', not use_PCA, not use_std, 'GMM'],
+                    [         'DBCV', not use_PCA, not use_std, 'GMM'],
                     [not use_cluster, not use_PCA, not use_std, 'GMM'],
-                    [    use_cluster,     use_PCA,     use_std, 'KNN'],
-                    [    use_cluster,     use_PCA, not use_std, 'KNN'],
-                    [    use_cluster, not use_PCA,     use_std, 'KNN'],
+                    [   'silhouette',     use_PCA,     use_std, 'KNN'],
+                    [   'silhouette',     use_PCA, not use_std, 'KNN'],
+                    [   'silhouette', not use_PCA,     use_std, 'KNN'],
+                    [         'DBCV',     use_PCA,     use_std, 'KNN'],
+                    [         'DBCV',     use_PCA, not use_std, 'KNN'],
+                    [         'DBCV', not use_PCA,     use_std, 'KNN'],
                     [not use_cluster,     use_PCA,     use_std, 'KNN'],
                     [not use_cluster,     use_PCA, not use_std, 'KNN'],
                     [not use_cluster, not use_PCA,     use_std, 'KNN']
@@ -118,7 +126,7 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
     fitting_pf = load_dir(fitting_pf_str)
     testing_pf = load_dir(testing_pf_str)
 
-    if len(fitting_pf) == 0 or overwrite:
+    if len(fitting_pf) == 0:
         for key, _ in fitting_dict.items():
             print('Dataset ' + key)
             # Get distribution independent key
@@ -128,8 +136,11 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
             for config in testConfigs:
                 pf_key = key + '_config'
 
-                if config[0]:
+                if config[0] == 'silhouette':
                     pf_key += '_cluster'
+                else:
+                    pf_key += '_DBCV'
+
                 if config[1]:
                     pf_key += '_PCA'
                 if config[2]:
@@ -137,7 +148,7 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
 
                 pf_key += config[3]
 
-                if not overwrite_key(pf_key, overwrite_string):
+                if not overwrite_key(fitting_pf, pf_key, overwrite_string):
                     continue
 
                 if not('Trajectories' in key):
@@ -190,9 +201,9 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
     testing_pf_fitting_log_likelihood = load_dir(testing_pf_fitting_log_likelihood_str)
     testing_pf_testing_log_likelihood = load_dir(testing_pf_testing_log_likelihood_str)
 
-    if len(fitting_pf_fitting_log_likelihood) == 0 or overwrite:
+    if len(fitting_pf_fitting_log_likelihood) == 0:
         for key, _ in fitting_pf.items():
-            if not overwrite_key(key, overwrite_string):
+            if not overwrite_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
                 continue
 
             base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
@@ -230,9 +241,9 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
 
     JSD_testing_str = results_str+'_JSD_testing'
     JSD_testing = load_dir(JSD_testing_str)
-    if len(JSD_testing) == 0 or overwrite:
+    if len(JSD_testing) == 0:
         for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(key, overwrite_string):
+            if not overwrite_key(JSD_testing, key, overwrite_string):
                 continue
 
             JSD_testing[key] = calculate_JSD(fitting_pf_fitting_log_likelihood[key], 
@@ -252,9 +263,9 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
     Wasserstein_log_fitting_sampled = load_dir(Wasserstein_log_fitting_sampled_str)
     Wasserstein_log_testing_sampled = load_dir(Wasserstein_log_testing_sampled_str)
 
-    if len(Wasserstein_log_fitting_testing) == 0 or overwrite:
+    if len(Wasserstein_log_fitting_testing) == 0:
         for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(key, overwrite_string):
+            if not overwrite_key(Wasserstein_log_fitting_testing, key, overwrite_string):
                 continue
 
             Wasserstein_log_fitting_testing[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
@@ -279,9 +290,9 @@ def main(random_seeds, overwrite_string = '', overwrite = True):
     Wasserstein_data_fitting_sampled = load_dir(Wasserstein_data_fitting_sampled_str)
     Wasserstein_data_testing_sampled = load_dir(Wasserstein_data_testing_sampled_str)
 
-    if len(Wasserstein_data_fitting_testing) == 0 or overwrite:
+    if len(Wasserstein_data_fitting_testing) == 0:
         for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(key, overwrite_string):
+            if not overwrite_key(Wasserstein_data_fitting_sampled, key, overwrite_string):
                 continue
 
             base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
