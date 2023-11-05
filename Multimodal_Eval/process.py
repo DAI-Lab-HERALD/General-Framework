@@ -10,7 +10,8 @@ from utils import *
 
 def load_dir(path):
     if not os.path.exists(path):
-        os.makedirs(path)
+        path = path[:path.rfind('/')]
+        os.makedirs(path, exist_ok = True)
         return {}
     else:
         return pickle.load(open(path, 'rb'))
