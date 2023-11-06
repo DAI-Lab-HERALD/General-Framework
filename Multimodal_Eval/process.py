@@ -130,15 +130,17 @@ def main(random_seeds, overwrite_string = ''):
         for key, _ in fitting_dict.items():
             print('Dataset ' + key)
             # Get distribution independent key
-            fitting_clusters = None
-            testing_clusters = None
+            fitting_clusters_silh = None
+            fitting_clusters_dbcv = None
+            testing_clusters_silh = None
+            testing_clusters_dbcv = None
 
             for config in testConfigs:
                 pf_key = key + '_config'
 
                 if config[0] == 'silhouette':
                     pf_key += '_cluster'
-                else:
+                elif config[0] == 'DBCV':
                     pf_key += '_DBCV'
 
                 if config[1]:
@@ -164,17 +166,23 @@ def main(random_seeds, overwrite_string = ''):
                                             use_std=config[2], estimator=config[3], 
                                             min_std=min_std)
 
-                if config[0]:
-                    distr_mdl.fit(fitting_dict[key], fitting_clusters)
-                    fitting_clusters = distr_mdl.cluster_labels
+                if config[0] == 'silhouette':
+                    distr_mdl.fit(fitting_dict[key], fitting_clusters_silh)
+                    fitting_clusters_silh = distr_mdl.cluster_labels
+                elif config[0] == 'DBCV':
+                    distr_mdl.fit(fitting_dict[key], fitting_clusters_dbcv)
+                    fitting_clusters_dbcv = distr_mdl.cluster_labels
                 else:
                     distr_mdl.fit(fitting_dict[key])
 
                 fitting_pf[pf_key] = distr_mdl
 
-                if config[0]:
-                    distr_mdl_test.fit(testing_dict[key], testing_clusters)
-                    testing_clusters = distr_mdl_test.cluster_labels
+                if config[0] == 'silhouette':
+                    distr_mdl_test.fit(testing_dict[key], testing_clusters_silh)
+                    testing_clusters_silh = distr_mdl_test.cluster_labels
+                elif config[0] == 'DBCV':
+                    distr_mdl_test.fit(testing_dict[key], testing_clusters_dbcv)
+                    testing_clusters_dbcv = distr_mdl_test.cluster_labels
                 else:
                     distr_mdl_test.fit(testing_dict[key])
                     
