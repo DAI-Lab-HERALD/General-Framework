@@ -230,10 +230,14 @@ class MID():
     def _build_encoder_config(self):
 
         # self.hyperparams = get_traj_hypers()
-        self.hyperparams['enc_rnn_dim_edge'] = self.config.encoder_dim//2
-        self.hyperparams['enc_rnn_dim_edge_influence'] = self.config.encoder_dim//2
-        self.hyperparams['enc_rnn_dim_history'] = self.config.encoder_dim//2
-        self.hyperparams['enc_rnn_dim_future'] = self.config.encoder_dim//2
+        if self.config.map_encoding:
+            encoder_dim = self.config.encoder_dim - 32
+        else:
+            encoder_dim = self.config.encoder_dim
+        self.hyperparams['enc_rnn_dim_edge'] = encoder_dim//2
+        self.hyperparams['enc_rnn_dim_edge_influence'] = encoder_dim//2
+        self.hyperparams['enc_rnn_dim_history'] = encoder_dim//2
+        self.hyperparams['enc_rnn_dim_future'] = encoder_dim//2
         # registar
         self.registrar = ModelRegistrar(self.model_dir, "cuda")
 

@@ -35,13 +35,18 @@ class mid_gu(model_template):
     def check_trainability_method(self):
         return None
     
-    def get_config_dict(self):
+    def get_config_dict(self, use_map = False):
 
         self.config_dict = {}
         self.config_dict['lr'] = 0.001
         self.config_dict['data_dir'] = 'processed_data'
         self.config_dict['diffnet']= 'TransformerConcatLinear'
-        self.config_dict['encoder_dim'] = 256
+        if use_map:
+            self.config_dict['map_encoding'] = True
+            self.config_dict['encoder_dim'] = 288
+        else:
+            self.config_dict['map_encoding'] = False
+            self.config_dict['encoder_dim'] = 256
         self.config_dict['tf_layer'] = 3
         self.config_dict['epochs'] = 90
         self.config_dict['batch_size'] = 256
@@ -66,7 +71,6 @@ class mid_gu(model_template):
         self.config_dict['edge_removal_filter'] = [1.0, 0.0]
         self.config_dict['override_attention_radius'] = []
         self.config_dict['incl_robot_node'] = False
-        self.config_dict['map_encoding'] = False
         self.config_dict['augment'] = True
         self.config_dict['node_freq_mult_train'] = False
         self.config_dict['node_freq_mult_eval'] = False
@@ -90,7 +94,7 @@ class mid_gu(model_template):
 
         self.min_t_O_train = self.num_timesteps_out
         self.max_t_O_train = self.num_timesteps_out
-        self.predict_single_agent = True
+        self.predict_single_agent = True        
         self.can_use_map = True
         # If self.can_use_map = True, the following is also required
         self.target_width = 175
@@ -301,7 +305,7 @@ class mid_gu(model_template):
                                 robot_type = None)
         
 
-        self.get_config_dict()
+        self.get_config_dict(use_map = self.use_map)
         self.MID = mid_model.MID(config=self.config_dict, train_env=train_env, hyperparams=self.hyperparams)
         self.MID._build()
 
@@ -414,7 +418,7 @@ class mid_gu(model_template):
         else:
             img_batch = None
             
-        first_h = torch.from_numpy(np.zeros(len(X), np.int32))
+        first_h = torch.from_numpy(np.zeros(len(X), np.int32)).to(dtype = torch.int64)
         
         dim = DIM[node_type]
         S = torch.from_numpy(S[...,:dim]).to(dtype = torch.float32)
@@ -459,6 +463,8 @@ class mid_gu(model_template):
             num_samples = 0
             while not epoch_done:
                 batch_number += 1
+
+                print(f"Epoch {epoch} - Batch {batch_number}", flush = True)
                 X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
                                                                                                val_split_size = 0.1)
                 
