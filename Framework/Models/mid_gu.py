@@ -40,7 +40,7 @@ class mid_gu(model_template):
         self.config_dict = {}
         self.config_dict['lr'] = 0.001
         self.config_dict['data_dir'] = 'processed_data'
-        self.config_dict['diffnet']= 'TransformerConcatLinear'
+        self.config_dict['diffnet'] = 'TransformerConcatLinear'
         if use_map:
             self.config_dict['map_encoding'] = True
             self.config_dict['encoder_dim'] = 288
@@ -627,7 +627,9 @@ class mid_gu(model_template):
 
             node_type = NodeType(name=node_type, value=value)
             
-            traj_pred = self.MID.model.generate(test_batch, node_type, num_points=num_steps, sample=self.num_samples_path_pred,
+            num_steps_pred = min(num_steps, 100)
+
+            traj_pred = self.MID.model.generate(test_batch, node_type, num_points=num_steps_pred, sample=self.num_samples_path_pred,
                                                 bestof=True, sampling='ddim', step=100//5) # B * 20 * 12 * 2
                 
             # set batchsize first
@@ -638,6 +640,13 @@ class mid_gu(model_template):
             
             # reverse translation
             Pred_t = Pred_r + center_pos
+
+            # Extrapolate if necessary
+            if num_steps_pred < num_steps:
+                Pred_last_vel = Pred_t[...,-1:,:] - Pred_t[...,-2:-1,:]
+                t_extra = np.arange(1, num_steps - num_steps_pred + 1)[np.newaxis,np.newaxis]
+                Pred_extrap = Pred_t[...,-1:,:] + Pred_last_vel * t_extra
+                Pred_t = np.concatenate((Pred_t, Pred_extrap), axis = -2)
             
             self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
             

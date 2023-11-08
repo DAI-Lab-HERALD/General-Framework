@@ -174,7 +174,7 @@ class TransformerConcatLinear(Module):
     def __init__(self, point_dim, context_dim, tf_layer, residual):
         super().__init__()
         self.residual = residual
-        self.pos_emb = PositionalEncoding(d_model=2*context_dim, dropout=0.1, max_len=24)
+        self.pos_emb = PositionalEncoding(d_model=2*context_dim, dropout=0.1, max_len=100)
         self.concat1 = ConcatSquashLinear(2,2*context_dim,context_dim+3)
         self.layer = nn.TransformerEncoderLayer(d_model=2*context_dim, nhead=4, dim_feedforward=4*context_dim)
         self.transformer_encoder = nn.TransformerEncoder(self.layer, num_layers=tf_layer)
