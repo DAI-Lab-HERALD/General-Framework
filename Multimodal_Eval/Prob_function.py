@@ -208,7 +208,7 @@ class OPTICS_GMM():
         self.num_features = X.shape[1]
         
         if clusters is None:
-            if (self.use_cluster == 'None') and len(X) >= 5:  
+            if (self.use_cluster != 'None') and len(X) >= 5:  
                 num_min_samples = X.shape[0] * self.num_features / 400 
                 num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
 

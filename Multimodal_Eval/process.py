@@ -17,7 +17,7 @@ def load_dir(path):
         return pickle.load(open(path, 'rb'))
 
 
-def overwrite_key(dict, key, overwrite_string):
+def write_key(dict, key, overwrite_string):
     # Check if key already exists
     if not (key in dict.keys()):
         return True
@@ -29,7 +29,7 @@ def overwrite_key(dict, key, overwrite_string):
         return key in overwrite_string
 
 
-def main(random_seeds, overwrite_string = ''):
+def main(random_seeds, overwrite_string = 'varied'):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
@@ -100,26 +100,24 @@ def main(random_seeds, overwrite_string = ''):
                     [         'DBCV',     use_PCA,     use_std, 'KDE'],
                     [         'DBCV',     use_PCA, not use_std, 'KDE'],
                     [         'DBCV', not use_PCA,     use_std, 'KDE'],
-                    [not use_cluster,     use_PCA,     use_std, 'KDE'],
-                    [not use_cluster,     use_PCA, not use_std, 'KDE'],
-                    [not use_cluster, not use_PCA,     use_std, 'KDE'],
+                    [         'None',     use_PCA,     use_std, 'KDE'],
+                    [         'None',     use_PCA, not use_std, 'KDE'],
+                    [         'None', not use_PCA,     use_std, 'KDE'],
                     [   'silhouette', not use_PCA, not use_std, 'GMM'],
                     [         'DBCV', not use_PCA, not use_std, 'GMM'],
-                    [not use_cluster, not use_PCA, not use_std, 'GMM'],
+                    [         'None', not use_PCA, not use_std, 'GMM'],
                     [   'silhouette',     use_PCA,     use_std, 'KNN'],
                     [   'silhouette',     use_PCA, not use_std, 'KNN'],
                     [   'silhouette', not use_PCA,     use_std, 'KNN'],
                     [         'DBCV',     use_PCA,     use_std, 'KNN'],
                     [         'DBCV',     use_PCA, not use_std, 'KNN'],
                     [         'DBCV', not use_PCA,     use_std, 'KNN'],
-                    [not use_cluster,     use_PCA,     use_std, 'KNN'],
-                    [not use_cluster,     use_PCA, not use_std, 'KNN'],
-                    [not use_cluster, not use_PCA,     use_std, 'KNN']
+                    [         'None',     use_PCA,     use_std, 'KNN'],
+                    [         'None',     use_PCA, not use_std, 'KNN'],
+                    [         'None', not use_PCA,     use_std, 'KNN']
                     ] 
 
     #%% Loop over datasets and fit the probability functions
-
-
     fitting_pf_str = data_str+'_fitting_pf'
     testing_pf_str = data_str+'_testing_pf'
 
@@ -150,7 +148,7 @@ def main(random_seeds, overwrite_string = ''):
 
                 pf_key += config[3]
 
-                if not overwrite_key(fitting_pf, pf_key, overwrite_string):
+                if not write_key(fitting_pf, pf_key, overwrite_string):
                     continue
 
                 if not('Trajectories' in key):
@@ -187,9 +185,9 @@ def main(random_seeds, overwrite_string = ''):
                     distr_mdl_test.fit(testing_dict[key])
                     
                 testing_pf[pf_key] = distr_mdl_test
-        
-        pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
-        pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
+            
+            pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
+            pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
 
     # Evaluate log likelihoos of samples
     sampled_dict_str = './Distribution Datasets/Fitted_Dists'+rand_str+'_sampled_dict'
@@ -209,36 +207,35 @@ def main(random_seeds, overwrite_string = ''):
     testing_pf_fitting_log_likelihood = load_dir(testing_pf_fitting_log_likelihood_str)
     testing_pf_testing_log_likelihood = load_dir(testing_pf_testing_log_likelihood_str)
 
-    if len(fitting_pf_fitting_log_likelihood) == 0:
-        for key, _ in fitting_pf.items():
-            if not overwrite_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
-                continue
+    for key, _ in fitting_pf.items():
+        if not write_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
+            continue
 
-            base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
+        base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
 
-            num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
+        num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
 
-            # Test if sampling is possible from estimated pdf
-            try:
-                sampled_data = fitting_pf[key].sample(int(num_samples_X3))
-                
-                sampled_dict[key] = sampled_data
-                fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
+        # Test if sampling is possible from estimated pdf
+        try:
+            sampled_data = fitting_pf[key].sample(int(num_samples_X3))
+            
+            sampled_dict[key] = sampled_data
+            fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
 
-            except:
-                print('Sampling failed for ' + key)
+        except:
+            print('Sampling failed for ' + key)
 
-            fitting_pf_fitting_log_likelihood[key] = fitting_pf[key].score_samples(fitting_dict[base_data_key])
-            fitting_pf_testing_log_likelihood[key] = fitting_pf[key].score_samples(testing_dict[base_data_key])
-            testing_pf_fitting_log_likelihood[key] = testing_pf[key].score_samples(fitting_dict[base_data_key])
-            testing_pf_testing_log_likelihood[key] = testing_pf[key].score_samples(testing_dict[base_data_key])
-        
-        pickle.dump(fitting_pf_fitting_log_likelihood, open(fitting_pf_fitting_log_likelihood_str, 'wb'))
-        pickle.dump(fitting_pf_testing_log_likelihood, open(fitting_pf_testing_log_likelihood_str, 'wb'))
-        pickle.dump(fitting_pf_sampled_log_likelihood, open(fitting_pf_sampled_log_likelihood_str, 'wb'))
-        pickle.dump(testing_pf_fitting_log_likelihood, open(testing_pf_fitting_log_likelihood_str, 'wb'))
-        pickle.dump(testing_pf_testing_log_likelihood, open(testing_pf_testing_log_likelihood_str, 'wb'))
-        pickle.dump(sampled_dict, open(sampled_dict_str, 'wb'))
+        fitting_pf_fitting_log_likelihood[key] = fitting_pf[key].score_samples(fitting_dict[base_data_key])
+        fitting_pf_testing_log_likelihood[key] = fitting_pf[key].score_samples(testing_dict[base_data_key])
+        testing_pf_fitting_log_likelihood[key] = testing_pf[key].score_samples(fitting_dict[base_data_key])
+        testing_pf_testing_log_likelihood[key] = testing_pf[key].score_samples(testing_dict[base_data_key])
+    
+    pickle.dump(fitting_pf_fitting_log_likelihood, open(fitting_pf_fitting_log_likelihood_str, 'wb'))
+    pickle.dump(fitting_pf_testing_log_likelihood, open(fitting_pf_testing_log_likelihood_str, 'wb'))
+    pickle.dump(fitting_pf_sampled_log_likelihood, open(fitting_pf_sampled_log_likelihood_str, 'wb'))
+    pickle.dump(testing_pf_fitting_log_likelihood, open(testing_pf_fitting_log_likelihood_str, 'wb'))
+    pickle.dump(testing_pf_testing_log_likelihood, open(testing_pf_testing_log_likelihood_str, 'wb'))
+    pickle.dump(sampled_dict, open(sampled_dict_str, 'wb'))
 
     # %% Calculate Metrics 
     print('Calculate metrics')
@@ -249,17 +246,17 @@ def main(random_seeds, overwrite_string = ''):
 
     JSD_testing_str = results_str+'_JSD_testing'
     JSD_testing = load_dir(JSD_testing_str)
-    if len(JSD_testing) == 0:
-        for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(JSD_testing, key, overwrite_string):
-                continue
+    
+    for key, _ in fitting_pf_fitting_log_likelihood.items():
+        if not write_key(JSD_testing, key, overwrite_string):
+            continue
 
-            JSD_testing[key] = calculate_JSD(fitting_pf_fitting_log_likelihood[key], 
-                                             fitting_pf_testing_log_likelihood[key], 
-                                             testing_pf_fitting_log_likelihood[key], 
-                                             testing_pf_testing_log_likelihood[key])
-            
-        pickle.dump(JSD_testing, open(JSD_testing_str, 'wb'))
+        JSD_testing[key] = calculate_JSD(fitting_pf_fitting_log_likelihood[key], 
+                                            fitting_pf_testing_log_likelihood[key], 
+                                            testing_pf_fitting_log_likelihood[key], 
+                                            testing_pf_testing_log_likelihood[key])
+        
+    pickle.dump(JSD_testing, open(JSD_testing_str, 'wb'))
 
     # Get log Wasserstein metric
     print('Log Wasserstein')
@@ -271,23 +268,22 @@ def main(random_seeds, overwrite_string = ''):
     Wasserstein_log_fitting_sampled = load_dir(Wasserstein_log_fitting_sampled_str)
     Wasserstein_log_testing_sampled = load_dir(Wasserstein_log_testing_sampled_str)
 
-    if len(Wasserstein_log_fitting_testing) == 0:
-        for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(Wasserstein_log_fitting_testing, key, overwrite_string):
-                continue
+    for key, _ in fitting_pf_fitting_log_likelihood.items():
+        if not write_key(Wasserstein_log_fitting_testing, key, overwrite_string):
+            continue
 
-            Wasserstein_log_fitting_testing[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
-                                                                         fitting_pf_testing_log_likelihood[key])
-            if key in sampled_dict.keys():
-                Wasserstein_log_fitting_sampled[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
-                                                                             fitting_pf_sampled_log_likelihood[key])
-                
-                Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
-                                                                             fitting_pf_sampled_log_likelihood[key])
-        
-        pickle.dump(Wasserstein_log_fitting_testing, open(Wasserstein_log_fitting_testing_str, 'wb'))
-        pickle.dump(Wasserstein_log_fitting_sampled, open(Wasserstein_log_fitting_sampled_str, 'wb'))
-        pickle.dump(Wasserstein_log_testing_sampled, open(Wasserstein_log_testing_sampled_str, 'wb'))
+        Wasserstein_log_fitting_testing[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
+                                                                        fitting_pf_testing_log_likelihood[key])
+        if key in sampled_dict.keys():
+            Wasserstein_log_fitting_sampled[key] = calculate_Wasserstein(fitting_pf_fitting_log_likelihood[key],
+                                                                            fitting_pf_sampled_log_likelihood[key])
+            
+            Wasserstein_log_testing_sampled[key] = calculate_Wasserstein(fitting_pf_testing_log_likelihood[key],
+                                                                            fitting_pf_sampled_log_likelihood[key])
+    
+    pickle.dump(Wasserstein_log_fitting_testing, open(Wasserstein_log_fitting_testing_str, 'wb'))
+    pickle.dump(Wasserstein_log_fitting_sampled, open(Wasserstein_log_fitting_sampled_str, 'wb'))
+    pickle.dump(Wasserstein_log_testing_sampled, open(Wasserstein_log_testing_sampled_str, 'wb'))
                 
     # Get data Wasserstein metric
     Wasserstein_data_fitting_testing_str = results_str+'_Wasserstein_data_fitting_testing'
@@ -298,21 +294,20 @@ def main(random_seeds, overwrite_string = ''):
     Wasserstein_data_fitting_sampled = load_dir(Wasserstein_data_fitting_sampled_str)
     Wasserstein_data_testing_sampled = load_dir(Wasserstein_data_testing_sampled_str)
 
-    if len(Wasserstein_data_fitting_testing) == 0:
-        for key, _ in fitting_pf_fitting_log_likelihood.items():
-            if not overwrite_key(Wasserstein_data_fitting_sampled, key, overwrite_string):
-                continue
+    for key, _ in fitting_pf_fitting_log_likelihood.items():
+        if not write_key(Wasserstein_data_fitting_sampled, key, overwrite_string):
+            continue
 
-            base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
-            if not (base_data_key in Wasserstein_data_fitting_testing.keys()):
-                Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
-                                                                                                     testing_dict[base_data_key])
-                
-            if key in sampled_dict.keys():    
-                Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
-                Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key], sampled_dict[key])
-        
-        pickle.dump(Wasserstein_data_fitting_testing, open(Wasserstein_data_fitting_testing_str, 'wb'))
-        pickle.dump(Wasserstein_data_fitting_sampled, open(Wasserstein_data_fitting_sampled_str, 'wb'))
-        pickle.dump(Wasserstein_data_testing_sampled, open(Wasserstein_data_testing_sampled_str, 'wb'))
+        base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
+        if not (base_data_key in Wasserstein_data_fitting_testing.keys()):
+            Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
+                                                                                                    testing_dict[base_data_key])
+            
+        if key in sampled_dict.keys():    
+            Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
+            Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key], sampled_dict[key])
+    
+    pickle.dump(Wasserstein_data_fitting_testing, open(Wasserstein_data_fitting_testing_str, 'wb'))
+    pickle.dump(Wasserstein_data_fitting_sampled, open(Wasserstein_data_fitting_sampled_str, 'wb'))
+    pickle.dump(Wasserstein_data_testing_sampled, open(Wasserstein_data_testing_sampled_str, 'wb'))
 
