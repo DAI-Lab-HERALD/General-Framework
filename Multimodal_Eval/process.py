@@ -216,7 +216,7 @@ def main(random_seeds, overwrite_string = ''):
 
         # Test if sampling is possible from estimated pdf
         try:
-            sampled_data = fitting_pf[key].sample(int(num_samples_X3 * 0.5))
+            sampled_data = fitting_pf[key].sample(int(int(num_samples_X3) * 0.5))
             
             sampled_dict[key] = sampled_data
             fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
