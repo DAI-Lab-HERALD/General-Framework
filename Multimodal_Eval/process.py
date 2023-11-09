@@ -29,7 +29,7 @@ def write_key(dict, key, overwrite_string):
         return key in overwrite_string
 
 
-def main(random_seeds, overwrite_string = 'varied'):
+def main(random_seeds, overwrite_string = ''):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
@@ -89,32 +89,31 @@ def main(random_seeds, overwrite_string = 'varied'):
     traj_min_std = 0.1
 
     # configs format: use_cluster, use_PCA, use_std, use_KDE, min_std
-    use_cluster = True
     use_PCA = True
     use_std = True
 
     testConfigs = [
-                    [   'silhouette',     use_PCA,     use_std, 'KDE'],
-                    [   'silhouette',     use_PCA, not use_std, 'KDE'],
-                    [   'silhouette', not use_PCA,     use_std, 'KDE'],
-                    [         'DBCV',     use_PCA,     use_std, 'KDE'],
-                    [         'DBCV',     use_PCA, not use_std, 'KDE'],
-                    [         'DBCV', not use_PCA,     use_std, 'KDE'],
-                    [         'None',     use_PCA,     use_std, 'KDE'],
-                    [         'None',     use_PCA, not use_std, 'KDE'],
-                    [         'None', not use_PCA,     use_std, 'KDE'],
-                    [   'silhouette', not use_PCA, not use_std, 'GMM'],
-                    [         'DBCV', not use_PCA, not use_std, 'GMM'],
-                    [         'None', not use_PCA, not use_std, 'GMM'],
-                    [   'silhouette',     use_PCA,     use_std, 'KNN'],
-                    [   'silhouette',     use_PCA, not use_std, 'KNN'],
-                    [   'silhouette', not use_PCA,     use_std, 'KNN'],
-                    [         'DBCV',     use_PCA,     use_std, 'KNN'],
-                    [         'DBCV',     use_PCA, not use_std, 'KNN'],
-                    [         'DBCV', not use_PCA,     use_std, 'KNN'],
-                    [         'None',     use_PCA,     use_std, 'KNN'],
-                    [         'None',     use_PCA, not use_std, 'KNN'],
-                    [         'None', not use_PCA,     use_std, 'KNN']
+                    ['silhouette',     use_PCA,     use_std, 'KDE'],
+                    ['silhouette',     use_PCA, not use_std, 'KDE'],
+                    ['silhouette', not use_PCA,     use_std, 'KDE'],
+                    [      'DBCV',     use_PCA,     use_std, 'KDE'],
+                    [      'DBCV',     use_PCA, not use_std, 'KDE'],
+                    [      'DBCV', not use_PCA,     use_std, 'KDE'],
+                    [      'None',     use_PCA,     use_std, 'KDE'],
+                    [      'None',     use_PCA, not use_std, 'KDE'],
+                    [      'None', not use_PCA,     use_std, 'KDE'],
+                    ['silhouette', not use_PCA, not use_std, 'GMM'],
+                    [      'DBCV', not use_PCA, not use_std, 'GMM'],
+                    [      'None', not use_PCA, not use_std, 'GMM'],
+                    ['silhouette',     use_PCA,     use_std, 'KNN'],
+                    ['silhouette',     use_PCA, not use_std, 'KNN'],
+                    ['silhouette', not use_PCA,     use_std, 'KNN'],
+                    [      'DBCV',     use_PCA,     use_std, 'KNN'],
+                    [      'DBCV',     use_PCA, not use_std, 'KNN'],
+                    [      'DBCV', not use_PCA,     use_std, 'KNN'],
+                    [      'None',     use_PCA,     use_std, 'KNN'],
+                    [      'None',     use_PCA, not use_std, 'KNN'],
+                    [      'None', not use_PCA,     use_std, 'KNN']
                     ] 
 
     #%% Loop over datasets and fit the probability functions
@@ -217,7 +216,7 @@ def main(random_seeds, overwrite_string = 'varied'):
 
         # Test if sampling is possible from estimated pdf
         try:
-            sampled_data = fitting_pf[key].sample(int(num_samples_X3))
+            sampled_data = fitting_pf[key].sample(int(num_samples_X3 * 0.5))
             
             sampled_dict[key] = sampled_data
             fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
