@@ -8,7 +8,6 @@ from sklearn.neighbors import BallTree
 from sklearn.decomposition import PCA
 import scipy as sp
 from scipy.sparse.csgraph import minimum_spanning_tree 
-from scipy import sparse
 
 
 def DBCV_multiple_clusterings(X, clusterings, optics = None):
@@ -67,7 +66,7 @@ def DBCV_multiple_clusterings(X, clusterings, optics = None):
             Dreach_int = Dreach_cluster[:, cluster_samples]
 
             # Get internal dispersion
-            max_span_tree = minimum_spanning_tree(sparse.csr_matrix(Dreach_int)).data.max()
+            max_span_tree = minimum_spanning_tree(sp.sparse.csr_matrix(Dreach_int)).data.max()
             max_dist = Dist[cluster_samples][:, cluster_samples].max()
             DSC[label] = min(max_span_tree, max_dist)
 
