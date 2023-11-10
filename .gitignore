@@ -38,6 +38,8 @@ HRI_presentation.py
 *.pb
 *.tfrecords
 
+rndSeed*
+
 # C extensions
 *.so
 *.m
