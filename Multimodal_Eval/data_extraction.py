@@ -58,7 +58,9 @@ def write_tables(data, filename, decimal_place = 2):
                      r'f}}}$}} ') * (num_data_columns))
         
         Str = template.format(*np.array([data_mean[i], data_std[i]]).T.reshape(-1))
-        Str = Str.replace("\\pm 0." + str(0) * decimal_place, r"\hphantom{\pm 0." + str(0) * decimal_place + r"}")
+
+        # Replace 0.000 with hphantom if needed
+        # Str = Str.replace("\\pm 0." + str(0) * decimal_place, r"\hphantom{\pm 0." + str(0) * decimal_place + r"}")
         
         # Adapt length to align decimal points
         Str_parts = Str.split('$} ')
@@ -222,29 +224,23 @@ Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
 datasets_used = [4, 3, 0, 5]
 Results = Results[:, datasets_used]
 
+
+rows = np.array([0 if 'cluster' in key else 1 if 'DBCV' in key else 2 for key in ablation_keys])
+        
+# hardcode columns
+columns = np.array([0, 4, 2, 6, 1, 5, 3])
+
+Results = np.stack([Results[:,:,rows == row] for row in np.unique(rows)], axis = 2)
+Results = Results[:, :, :, columns]
+
 metric_keys = ['JSD',
                'W_hat',
                'L_hat']
 
 for i in range(len(datasets_used)):
-    Data = Results[-1, i]
-
     for j, metric in enumerate(metric_keys):
-        data = Data[:, j]
-
+        data = Results[-1, i, :, :, j]
         assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
-
-        rows = np.array([0 if 'cluster' in key else 1 if 'DBCV' in key else 2 for key in ablation_keys])
-        
-        # hardcode columns
-        columns = np.array([0, 4, 2, 6, 1, 5, 3])
-
-        data_rows = np.stack([data[rows == row] for row in np.unique(rows)])
-        data_f = data_rows[:, columns]
-
-        use_column = np.isfinite(data_f).any(axis = (0, 2))
-
-        data_f = data_f[:, use_column]
 
         # Get filename
         data_keys = np.array(dataset_keys).reshape((-1, 6))[-1]
@@ -258,10 +254,12 @@ for i in range(len(datasets_used)):
         else:
             decimal_place = 2
 
-        write_tables(data_f, filename, decimal_place)
+        write_tables(data, filename, decimal_place)
 
 #%% For each metric and each dataset plot the ablation results side by side
 # with the mean and quantile values as boxplots
+
+Data_aniso = Results[-1, 0]
 
 
 
