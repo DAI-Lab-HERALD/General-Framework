@@ -271,7 +271,8 @@ Diff = data_aniso_clust_kde[:,[0]] - data_aniso_clust_kde[:,[1,2]]
 T_paired, P_paired = sp.stats.ttest_1samp(Diff, 0, axis = -1)
 
 # Get unpaired tests
-T_unpaired, P_unpaired = sp.stats.ttest_ind(data_aniso_clust_kde[:,[0]], data_aniso_clust_kde[:,[1,2]], axis = -1)
+T_unpaired, P_unpaired = sp.stats.ttest_ind(data_aniso_clust_kde[:,[0]], data_aniso_clust_kde[:,[1,2]], 
+                                            axis = -1, equal_var = False)
 
 
 
