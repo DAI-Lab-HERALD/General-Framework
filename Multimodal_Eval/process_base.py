@@ -98,7 +98,7 @@ def main_base(random_seeds, overwrite_string = ''):
     testing_pf = load_dir(testing_pf_str)
     
     for key, _ in fitting_dict.items():
-        print('Dataset ' + key)
+        print('Dataset ' + key, flush = True)
         for config in testConfigs:
             pf_key = key + '_' + config
 
@@ -147,7 +147,7 @@ def main_base(random_seeds, overwrite_string = ''):
     for key, _ in fitting_pf.items():
         if not write_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
             continue
-
+        print("Evaluate log likelihood of samples for " + key, flush = True)
         base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
 
         num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
@@ -174,7 +174,7 @@ def main_base(random_seeds, overwrite_string = ''):
     print('Calculate metrics')
 
     # Get JSD metric
-    print('JSD')
+    print('JSD', flush = True)
     results_str = './Distribution Datasets/Results'+rand_str
 
     JSD_testing_str = results_str+'_JSD_testing'
@@ -231,13 +231,7 @@ def main_base(random_seeds, overwrite_string = ''):
         if not write_key(Wasserstein_data_fitting_sampled, key, overwrite_string):
             continue
 
-        base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
-        if not (base_data_key in Wasserstein_data_fitting_testing.keys()):
-            Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
-                                                                                                    testing_dict[base_data_key])
-            
-        if key in sampled_dict.keys():    
-            Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
+        base_data_key = key[:re.search(r"rnd_seei] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
             Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key], sampled_dict[key])
     
     pickle.dump(Wasserstein_data_fitting_testing, open(Wasserstein_data_fitting_testing_str, 'wb'))
