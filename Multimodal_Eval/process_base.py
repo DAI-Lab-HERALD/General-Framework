@@ -231,7 +231,13 @@ def main_base(random_seeds, overwrite_string = ''):
         if not write_key(Wasserstein_data_fitting_sampled, key, overwrite_string):
             continue
 
-        base_data_key = key[:re.search(r"rnd_seei] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
+        base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
+        if not (base_data_key in Wasserstein_data_fitting_testing.keys()):
+            Wasserstein_data_fitting_testing[base_data_key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key],
+                                                                                                    testing_dict[base_data_key])
+            
+        if key in sampled_dict.keys():    
+            Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
             Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key], sampled_dict[key])
     
     pickle.dump(Wasserstein_data_fitting_testing, open(Wasserstein_data_fitting_testing_str, 'wb'))
