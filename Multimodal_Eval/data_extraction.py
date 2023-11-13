@@ -1,0 +1,268 @@
+#%%
+import numpy as np
+import matplotlib.pyplot as plt
+import pickle
+import re
+import os
+
+from utils import *
+
+#%% Write tables
+def write_tables(data, filename, decimal_place = 2):
+
+    assert len(data.shape) == 3, 'Data must have 3 dimensions'
+
+    num_data_columns = data.shape[1]
+    if 5 < num_data_columns:
+        width = r'\textwidth'
+    else:
+        width = r'\linewidth'
+        
+    # Allow for split table
+    Output_string = r'\begin{tabularx}{' + width + r'}'
+    
+    Output_string += r'{X' + num_data_columns * (r' | ' + r'Z') + r'} '
+    Output_string += '\n'
+
+    Output_string += r'\toprule[1pt] '
+    Output_string += '\n'
+
+    num_std = int((num_data_columns - 1) * 2 / 3)
+    num_no_std = num_data_columns - 1 - num_std
+
+    Output_string += r'& \multicolumn{' + str(num_std) + r'}{c|}{std} & \multicolumn{' + str(num_no_std) + r'}{c|}{no std} '
+    Output_string += r'& \multirow{2}{*}{GMM} \\'
+    Output_string += '\n'
+
+    Output_string += r'& \multicolumn{' + str(num_no_std) + r'}{c|}{PCA} & \multicolumn{' + str(num_std) + r'}{c|}{no PCA} & \\ \midrule[1pt]'
+    Output_string += '\n'
+
+    data_mean = np.nanmean(data, axis = -1)
+    data_std = np.nanstd(data, axis = -1)
+
+    min_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.min())
+    max_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.max())
+
+    if data_mean.min() < 0:
+        print("a")
+
+    extra_str_length = max(len(min_value), len(max_value)) - (decimal_place + 1)
+    
+    Row_names = ['Silhouette', 'DBCV', 'No clusters']
+    
+    for i, row_name in enumerate(Row_names): 
+        Output_string += row_name + ' '
+
+        
+        template = ((r'& {{\scriptsize ${:0.' + str(decimal_place) + r'f}^{{\pm {:0.' + str(decimal_place) + 
+                     r'f}}}$}} ') * (num_data_columns))
+        
+        Str = template.format(*np.array([data_mean[i], data_std[i]]).T.reshape(-1))
+        Str = Str.replace("\\pm 0." + str(0) * decimal_place, r"\hphantom{\pm 0." + str(0) * decimal_place + r"}")
+        
+        # Adapt length to align decimal points
+        Str_parts = Str.split('$} ')
+        for idx, string in enumerate(Str_parts):
+            previous_string = string.split('.')[0].split('$')[-1]
+            if previous_string.isnumeric():
+                needed_buffer = extra_str_length - len(previous_string)  
+                if needed_buffer > 0:
+                    Str_parts[idx] = string[:16] + r'\hphantom{' + '0' * needed_buffer + r'}' + string[16:]
+            
+            # Check for too long stds
+            string_parts = Str_parts[idx].split('^')
+            if len(string_parts) > 1 and 'hphantom' not in string_parts[1]:
+                std_number = string_parts[1][5:7 + decimal_place]
+                if std_number[-1] == '.':
+                    std_number = std_number[:-1] + r'\hphantom{0}'
+                string_parts[1] = r'{\pm ' + std_number + r'}' 
+        
+            Str_parts[idx] = '^'.join(string_parts)
+                
+        Str = '$} '.join(Str_parts)
+
+        Output_string += Str + r' \\' + ' \midrule \n'
+    
+    # replace last midrule with bottom rule  
+    Output_string  = Output_string[:-10] + r'\bottomrule[1pt]'
+    Output_string += '\n'
+    Output_string += r'\end{tabularx}' + ' \n' 
+
+    # split string into lines
+    Output_lines = Output_string.split('\n')
+
+    t = open(filename, 'w+')
+    for line in Output_lines:
+        t.write(line + '\n')
+    t.close()
+
+
+#%% Load Results
+JSD_testing = {}
+Wasserstein_data_fitting_testing, Wasserstein_data_fitting_sampled = {}, {}
+
+fitting_pf_testing_log_likelihood = {}
+
+
+random_seeds = [
+                ['0','10'],
+                ['10','20'],
+                ['20','30'],
+                ['30','40'],
+                ['40','50'],
+                ['50','60'],
+                # ['60','70'],
+                ['70','80'],
+                ['80','90'],
+                ['90','100']
+                ]
+
+# loop through all results files and save to corresponding dictionaries
+for rndSeed in random_seeds:
+
+    JSD_testing = {**JSD_testing, **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                     '_JSD_testing', 'rb'))}
+
+    Wasserstein_data_fitting_testing = {**Wasserstein_data_fitting_testing,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_testing', 'rb'))}
+    Wasserstein_data_fitting_sampled = {**Wasserstein_data_fitting_sampled,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_sampled', 'rb'))}
+    
+    fitting_pf_testing_log_likelihood = {**fitting_pf_testing_log_likelihood,
+                                         **pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                            '_fitting_pf_testing_log_likelihood', 'rb'))}
+
+#%% Plotting
+# Create an array of dimensions num_datasets x num_ablations x num_metrics x num_random_seeds
+# Each element is a value of the metric for a given dataset, ablation and random seed
+# Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
+
+# list of ablation keys
+ablation_keys = ['config_cluster_PCA_stdKDE',
+                 'config_cluster_PCAKDE',
+                 'config_cluster_stdKDE',
+                 'config_DBCV_PCA_stdKDE',
+                 'config_DBCV_PCAKDE',
+                 'config_DBCV_stdKDE',
+                 'config_PCA_stdKDE',
+                 'config_PCAKDE',
+                 'config_stdKDE',
+                 'config_clusterGMM',
+                 'config_DBCVGMM',
+                 'configGMM',
+                 'config_cluster_PCA_stdKNN',
+                 'config_cluster_PCAKNN',
+                 'config_cluster_stdKNN',
+                 'config_DBCV_PCA_stdKNN',
+                 'config_DBCV_PCAKNN',
+                 'config_DBCV_stdKNN',
+                 'config_PCA_stdKNN',
+                 'config_PCAKNN',
+                 'config_stdKNN']
+
+# list of dataset keys
+dataset_keys = ['noisy_moons_n_samples_200',
+                'noisy_circles_n_samples_200',
+                'blobs_n_samples_200',
+                'varied_n_samples_200',
+                'aniso_n_samples_200',
+                'Trajectories_n_samples_200',
+                'noisy_moons_n_samples_600',
+                'noisy_circles_n_samples_600',
+                'blobs_n_samples_600',
+                'varied_n_samples_600',
+                'aniso_n_samples_600',
+                'Trajectories_n_samples_600',
+                'noisy_moons_n_samples_2000',
+                'noisy_circles_n_samples_2000',
+                'blobs_n_samples_2000',
+                'varied_n_samples_2000',
+                'aniso_n_samples_2000',
+                'Trajectories_n_samples_2000',
+                'noisy_moons_n_samples_6000',
+                'noisy_circles_n_samples_6000',
+                'blobs_n_samples_6000',
+                'varied_n_samples_6000',
+                'aniso_n_samples_6000',
+                'Trajectories_n_samples_6000',
+                'noisy_moons_n_samples_20000',
+                'noisy_circles_n_samples_20000',
+                'blobs_n_samples_20000',
+                'varied_n_samples_20000',
+                'aniso_n_samples_20000',
+                'Trajectories_n_samples_20000']
+
+
+Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
+
+# Fill the array with the values from the dictionaries
+for _, (k, v) in enumerate(JSD_testing.items()):
+    rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
+    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0][0]
+    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0][0]
+        
+    base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
+
+    Results[dataset_id, ablation_id, 0, rndSeed] = JSD_testing[k]
+
+    try:
+        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[base_data_key]
+        Results[dataset_id, ablation_id, 1, rndSeed] = Wasserstein_hat
+    
+    except:
+        Results[dataset_id, ablation_id, 1, rndSeed] = np.nan
+
+    Results[dataset_id, ablation_id, 2, rndSeed] = np.mean(fitting_pf_testing_log_likelihood[k])
+
+Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
+
+# Remove the unneeded datasets
+datasets_used = [4, 3, 0, 5]
+Results = Results[:, datasets_used]
+
+metric_keys = ['JSD',
+               'W_hat',
+               'L_hat']
+
+for i in range(len(datasets_used)):
+    Data = Results[-1, i]
+
+    for j, metric in enumerate(metric_keys):
+        data = Data[:, j]
+
+        assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
+
+        rows = np.array([0 if 'cluster' in key else 1 if 'DBCV' in key else 2 for key in ablation_keys])
+        
+        # hardcode columns
+        columns = np.array([0, 4, 2, 6, 1, 5, 3])
+
+        data_rows = np.stack([data[rows == row] for row in np.unique(rows)])
+        data_f = data_rows[:, columns]
+
+        use_column = np.isfinite(data_f).any(axis = (0, 2))
+
+        data_f = data_f[:, use_column]
+
+        # Get filename
+        data_keys = np.array(dataset_keys).reshape((-1, 6))[-1]
+        filename = './Tables/' + metric + '_' + data_keys[datasets_used[i]] + '.tex'
+
+        if not os.path.exists(filename):
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        if metric == "JSD":
+            decimal_place = 3
+        else:
+            decimal_place = 2
+
+        write_tables(data_f, filename, decimal_place)
+
+#%% For each metric and each dataset plot the ablation results side by side
+# with the mean and quantile values as boxplots
+
+
+
+
