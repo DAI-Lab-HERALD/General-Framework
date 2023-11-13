@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pickle
 import re
 import os
+import scipy as sp
 
 from utils import *
 
@@ -237,7 +238,7 @@ metric_keys = ['JSD',
                'W_hat',
                'L_hat']
 
-for i in range(len(datasets_used)):
+for i in range(Results.shape[1]):
     for j, metric in enumerate(metric_keys):
         data = Results[-1, i, :, :, j]
         assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
@@ -259,7 +260,19 @@ for i in range(len(datasets_used)):
 #%% For each metric and each dataset plot the ablation results side by side
 # with the mean and quantile values as boxplots
 
-Data_aniso = Results[-1, 0]
+Data_aniso = Results[-1, 0,:,:,2]
+data_aniso_clust_kde = Data_aniso[:2, [0,2,4]]
+# Forget nan values
+data_aniso_clust_kde = data_aniso_clust_kde[:,:,np.isfinite(data_aniso_clust_kde).all((0,1))]
+
+
+# Get paired tests
+Diff = data_aniso_clust_kde[:,[0]] - data_aniso_clust_kde[:,[1,2]]
+T_paired, P_paired = sp.stats.ttest_1samp(Diff, 0, axis = -1)
+
+# Get unpaired tests
+T_unpaired, P_unpaired = sp.stats.ttest_ind(data_aniso_clust_kde[:,[0]], data_aniso_clust_kde[:,[1,2]], axis = -1)
+
 
 
 
