@@ -9,20 +9,18 @@ import scipy as sp
 from utils import *
 
 #%% Write tables
-def write_tables(data, filename, decimal_place = 2):
+def write_table(data, filename, decimal_place = 2):
 
     assert len(data.shape) == 3, 'Data must have 3 dimensions'
+    assert data.shape[0] == 4, 'Data must have 4 datasets'
+    assert data.shape[1] == 9, 'Data must have 9 models/metric combinations'
 
     num_data_columns = data.shape[1]
-    if 5 < num_data_columns:
-        width = r'\textwidth'
-    else:
-        width = r'\linewidth'
         
     # Allow for split table
-    Output_string = r'\begin{tabularx}{' + width + r'}'
+    Output_string = r'\begin{tabularx}{\textwidth}'
     
-    Output_string += r'{X' + num_data_columns * (r' | ' + r'Z') + r'} '
+    Output_string += r'{X | Z Z Z | Z Z Z | Z Z Z'
     Output_string += '\n'
 
     Output_string += r'\toprule[1pt] '
@@ -31,11 +29,11 @@ def write_tables(data, filename, decimal_place = 2):
     num_std = int((num_data_columns - 1) * 2 / 3)
     num_no_std = num_data_columns - 1 - num_std
 
-    Output_string += r'& \multicolumn{' + str(num_std) + r'}{c|}{std} & \multicolumn{' + str(num_no_std) + r'}{c|}{no std} '
-    Output_string += r'& \multirow{2}{*}{GMM} \\'
-    Output_string += '\n'
+    Methods = [r"$f_{{\text{{TODO}}}}$ (Ours)", r"$f_{{\text{{MPW}}}}$", r"$f_{{\text{{VC}}}}$"]
+    for method in Methods:
+        Output_string += r'& \multicolumn{3}{|c}{' + method + r'} '
 
-    Output_string += r'& \multicolumn{' + str(num_no_std) + r'}{c|}{PCA} & \multicolumn{' + str(num_std) + r'}{c|}{no PCA} & \\ \midrule[1pt]'
+    Output_string += r' \\'
     Output_string += '\n'
 
     data_mean = np.nanmean(data, axis = -1)
@@ -141,26 +139,8 @@ for rndSeed in random_seeds:
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
-                 'config_cluster_PCAKDE',
-                 'config_cluster_stdKDE',
-                 'config_DBCV_PCA_stdKDE',
-                 'config_DBCV_PCAKDE',
-                 'config_DBCV_stdKDE',
-                 'config_PCA_stdKDE',
-                 'config_PCAKDE',
-                 'config_stdKDE',
-                 'config_clusterGMM',
-                 'config_DBCVGMM',
-                 'configGMM',
-                 'config_cluster_PCA_stdKNN',
-                 'config_cluster_PCAKNN',
-                 'config_cluster_stdKNN',
-                 'config_DBCV_PCA_stdKNN',
-                 'config_DBCV_PCAKNN',
-                 'config_DBCV_stdKNN',
-                 'config_PCA_stdKNN',
-                 'config_PCAKNN',
-                 'config_stdKNN']
+                 'MP_Windows', 
+                 'KDevine']
 
 # list of dataset keys
 dataset_keys = ['noisy_moons_n_samples_200',
@@ -200,8 +180,17 @@ Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
-    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0][0]
-    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0][0]
+    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0]
+    if len(dataset_id) == 0:
+        continue
+    else:
+        dataset_id = dataset_id[0]
+
+    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0]
+    if len(ablation_id) == 0:
+        continue
+    else:
+        ablation_id = ablation_id[0]
         
     base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
 
@@ -222,55 +211,14 @@ Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
 datasets_used = [4, 3, 0, 5]
 Results = Results[:, datasets_used]
 
+# Select the current num_samples
+Data = Results[-1, :, :, :, :]
 
-rows = np.array([0 if 'cluster' in key else 1 if 'DBCV' in key else 2 for key in ablation_keys])
-        
-# hardcode columns
-columns = np.array([0, 4, 2, 6, 1, 5, 3])
+# Collapse models and metrics
+Data = Data.reshape((len(datasets_used), 9, 100))
+filename = './Tables/baseline_20000.tex'
 
-Results = np.stack([Results[:,:,rows == row] for row in np.unique(rows)], axis = 2)
-Results = Results[:, :, :, columns]
-
-metric_keys = ['JSD',
-               'W_hat',
-               'L_hat']
-
-for i in range(Results.shape[1]):
-    for j, metric in enumerate(metric_keys):
-        data = Results[-1, i, :, :, j]
-        assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
-
-        # Get filename
-        data_keys = np.array(dataset_keys).reshape((-1, 6))[-1]
-        filename = './Tables/' + metric + '_' + data_keys[datasets_used[i]] + '.tex'
-
-        if not os.path.exists(filename):
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-        if metric == "JSD":
-            decimal_place = 3
-        else:
-            decimal_place = 2
-
-        write_tables(data, filename, decimal_place)
-
-#%% For each metric and each dataset plot the ablation results side by side
-# with the mean and quantile values as boxplots
-
-Data_aniso = Results[-1, 0,:,:,2]
-data_aniso_clust_kde = Data_aniso[:2, [0,2,4]]
-# Forget nan values
-data_aniso_clust_kde = data_aniso_clust_kde[:,:,np.isfinite(data_aniso_clust_kde).all((0,1))]
-
-
-# Get paired tests
-Diff = data_aniso_clust_kde[:,[0]] - data_aniso_clust_kde[:,[1,2]]
-T_paired, P_paired = sp.stats.ttest_1samp(Diff, 0, axis = -1)
-
-# Get unpaired tests
-T_unpaired, P_unpaired = sp.stats.ttest_ind(data_aniso_clust_kde[:,[0]], data_aniso_clust_kde[:,[1,2]], 
-                                            axis = -1, equal_var = False)
-
+write_table(Data, filename, 3)
 
 
 
