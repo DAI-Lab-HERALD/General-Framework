@@ -123,8 +123,8 @@ def main_base(random_seeds, overwrite_string = ''):
             fitting_pf[pf_key] = distr_mdl
             testing_pf[pf_key] = distr_mdl_test
         
-        pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
-        pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
+            pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
+            pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
 
     # Evaluate log likelihoos of samples
     sampled_dict_str = './Distribution Datasets/Fitted_Dists'+rand_str+'_sampled_dict'
@@ -163,12 +163,12 @@ def main_base(random_seeds, overwrite_string = ''):
         testing_pf_fitting_log_likelihood[key] = testing_pf[key].score_samples(fitting_dict[base_data_key])
         testing_pf_testing_log_likelihood[key] = testing_pf[key].score_samples(testing_dict[base_data_key])
     
-    pickle.dump(fitting_pf_fitting_log_likelihood, open(fitting_pf_fitting_log_likelihood_str, 'wb'))
-    pickle.dump(fitting_pf_testing_log_likelihood, open(fitting_pf_testing_log_likelihood_str, 'wb'))
-    pickle.dump(fitting_pf_sampled_log_likelihood, open(fitting_pf_sampled_log_likelihood_str, 'wb'))
-    pickle.dump(testing_pf_fitting_log_likelihood, open(testing_pf_fitting_log_likelihood_str, 'wb'))
-    pickle.dump(testing_pf_testing_log_likelihood, open(testing_pf_testing_log_likelihood_str, 'wb'))
-    pickle.dump(sampled_dict, open(sampled_dict_str, 'wb'))
+        pickle.dump(fitting_pf_fitting_log_likelihood, open(fitting_pf_fitting_log_likelihood_str, 'wb'))
+        pickle.dump(fitting_pf_testing_log_likelihood, open(fitting_pf_testing_log_likelihood_str, 'wb'))
+        pickle.dump(fitting_pf_sampled_log_likelihood, open(fitting_pf_sampled_log_likelihood_str, 'wb'))
+        pickle.dump(testing_pf_fitting_log_likelihood, open(testing_pf_fitting_log_likelihood_str, 'wb'))
+        pickle.dump(testing_pf_testing_log_likelihood, open(testing_pf_testing_log_likelihood_str, 'wb'))
+        pickle.dump(sampled_dict, open(sampled_dict_str, 'wb'))
 
     # %% Calculate Metrics 
     print('Calculate metrics')
