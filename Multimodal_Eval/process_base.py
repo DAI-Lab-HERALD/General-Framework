@@ -66,6 +66,8 @@ def main_base(random_seeds, overwrite_string = ''):
     fitting_dict = load_dir(fitting_dict_str)
     testing_dict = load_dir(testing_dict_str)
 
+    print("", flush = True)
+    print("Extracting datasets", flush = True)
     if len(fitting_dict) == 0:
         for n_samples in num_samples:
             for rnd_seed in random_seeds:
@@ -97,13 +99,16 @@ def main_base(random_seeds, overwrite_string = ''):
     fitting_pf = load_dir(fitting_pf_str)
     testing_pf = load_dir(testing_pf_str)
     
+    print("", flush = True)
+    print("Fir distributions", flush = True)
     for key, _ in fitting_dict.items():
-        print('Dataset ' + key, flush = True)
         for config in testConfigs:
             pf_key = key + '_' + config
 
             if not write_key(fitting_pf, pf_key, overwrite_string):
                 continue
+
+            print('Fit distribution for ' + pf_key, flush = True)   
 
             if not('Trajectories' in key):
                 min_std = twoD_min_std
@@ -144,6 +149,8 @@ def main_base(random_seeds, overwrite_string = ''):
     testing_pf_fitting_log_likelihood = load_dir(testing_pf_fitting_log_likelihood_str)
     testing_pf_testing_log_likelihood = load_dir(testing_pf_testing_log_likelihood_str)
 
+    print("", flush = True)
+    print("Evaluate log likelihoods", flush = True)
     for key, _ in fitting_pf.items():
         if not write_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
             continue
@@ -171,7 +178,8 @@ def main_base(random_seeds, overwrite_string = ''):
         pickle.dump(sampled_dict, open(sampled_dict_str, 'wb'))
 
     # %% Calculate Metrics 
-    print('Calculate metrics')
+    print("", flush = True)
+    print('Calculate metrics', flush = True)
 
     # Get JSD metric
     print('JSD', flush = True)
@@ -192,7 +200,7 @@ def main_base(random_seeds, overwrite_string = ''):
     pickle.dump(JSD_testing, open(JSD_testing_str, 'wb'))
 
     # Get log Wasserstein metric
-    print('Log Wasserstein')
+    print('Log Wasserstein', flush = True)
     Wasserstein_log_fitting_testing_str = results_str+'_Wasserstein_log_fitting_testing'
     Wasserstein_log_fitting_sampled_str = results_str+'_Wasserstein_log_fitting_sampled'
     Wasserstein_log_testing_sampled_str = results_str+'_Wasserstein_log_testing_sampled'
@@ -219,6 +227,7 @@ def main_base(random_seeds, overwrite_string = ''):
     pickle.dump(Wasserstein_log_testing_sampled, open(Wasserstein_log_testing_sampled_str, 'wb'))
                 
     # Get data Wasserstein metric
+    print('Data Wasserstein', flush = True)
     Wasserstein_data_fitting_testing_str = results_str+'_Wasserstein_data_fitting_testing'
     Wasserstein_data_fitting_sampled_str = results_str+'_Wasserstein_data_fitting_sampled'
     Wasserstein_data_testing_sampled_str = results_str+'_Wasserstein_data_testing_sampled'
