@@ -200,8 +200,17 @@ Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
-    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0][0]
-    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0][0]
+    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0]
+    if len(dataset_id) == 0:
+        continue
+    else:
+        dataset_id = dataset_id[0]
+
+    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0]
+    if len(ablation_id) == 0:
+        continue
+    else:
+        ablation_id = ablation_id[0]
         
     base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
 
