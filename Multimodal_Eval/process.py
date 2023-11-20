@@ -236,7 +236,7 @@ def main(random_seeds, overwrite_string = ''):
                 fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
             except:
                 fitting_pf_sampled_log_likelihood[key] = 'Failed'
-                print('Scoring sampled samples failed for' + key)
+                print('Scoring sampled samples failed for ' + key)
         
         try:
             fitting_pf_fitting_log_likelihood[key] = fitting_pf[key].score_samples(fitting_dict[base_data_key])
@@ -244,7 +244,7 @@ def main(random_seeds, overwrite_string = ''):
             testing_pf_fitting_log_likelihood[key] = testing_pf[key].score_samples(fitting_dict[base_data_key])
             testing_pf_testing_log_likelihood[key] = testing_pf[key].score_samples(testing_dict[base_data_key])
         except:
-            print('Scoring old samples failed for' + key)
+            print('Scoring old samples failed for ' + key)
             
             fitting_pf_fitting_log_likelihood[key] = 'Failed'
             fitting_pf_testing_log_likelihood[key] = 'Failed'
