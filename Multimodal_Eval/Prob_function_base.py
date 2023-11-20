@@ -126,6 +126,45 @@ class MP_Windows():
         np.random.shuffle(samples)
 
         return samples
+    
+class MPS_Windows(MP_Windows):
+    def fit(self, X):
+        assert len(X.shape) == 2
+        
+        self.num_samples, self.num_features = X.shape
+        
+        # Set principal directions
+        if self.principal_directions is None:
+            self.principal_directions = self.num_features
+        else:
+            self.principal_directions = min(int(self.principal_directions), self.num_features)
+
+        # Set up kernels
+        self.V = np.zeros((self.num_features, self.num_features, self.principal_directions))
+        self.L = np.zeros((self.num_features, self.principal_directions))
+
+        # Get k-closest neighbors
+        balltree = BallTree(X)
+        num_neighbours = max(self.num_features, int(np.sqrt(self.num_samples)))
+        dist, idx = balltree.query(X, num_neighbours)
+
+        # Center points
+        M = X[idx] - X[:, np.newaxis]
+
+        # Compute covariance matrices
+        _, S, Vi = np.linalg.svd(M, full_matrices = False)
+
+        self.X = X
+        self.V = Vi[:, :self.principal_directions, :].transpose((0, 2, 1))
+        self.L = S[:, :self.principal_directions] ** 2 / self.num_samples + self.min_std ** 2
+
+        # Compute prob normalisation
+        self.R  = self.num_features * np.log(2 * np.pi) + np.sum(np.log(self.L), axis = 1)
+        self.R += (self.num_features - self.principal_directions) * np.log(self.min_std)
+
+        self.fitted = True
+
+        return self
             
 
 #%% Second baseline         
@@ -153,7 +192,7 @@ class KDevine():
                 b_silverman = (len(Xj_stand) * 3 / 4) ** ( -1 / 5)
                 b_min = b_silverman / 20
                 b_max = b_silverman * 5
-                bandwidths = np.logspace(np.log10(b_min), np.log(b_max), 100)
+                bandwidths = np.logspace(np.log10(b_min), np.log10(b_max), 100)
 
                 # Perform cross-validation to find the optimal bandwidth
                 grid = GridSearchCV(KernelDensity(), {'bandwidth': bandwidths}, cv = 20)
@@ -257,7 +296,7 @@ class KDE1_cdf():
         self.b = b
         self.Xj = np.sort(Xj)
         Uj = self.eval(self.Xj)
-        self.inverter = sp.interpolate.interp1d(Uj, self.Xj, fill_value = 'extrapolate', assume_sorted = True)
+        self.inverter = sp.interpolate.interp1d(Uj, self.Xj, fill_value = 'extrapolate')
 
     def eval(self, X):
         if len(X.shape) > 1:
@@ -588,7 +627,6 @@ class KDE2():
             # Get Integral values
             IN = sp.stats.norm.cdf(N[:,:,np.newaxis] - self.N[np.newaxis,np.newaxis,:], scale = self.bandwidth)
 
-            # TODO: Think about values > 1
             UHp = (IN * RN_norm[:,:,:,[1,0]]).sum(2)
 
             interpolator = sp.interpolate.LinearNDInterpolator(UHp.reshape(-1,2), N.reshape(-1,2))
@@ -596,7 +634,9 @@ class KDE2():
             samples = interpolator(Uh)
 
             # Check for convex hull problems
-            if np.isnan(samples).any():
+            repeat = 0
+            while np.isnan(samples).any() and repeat < 10:
+                repeat += 1
                 # Find problem points
                 problem = np.where(np.isnan(samples).any(1))[0]
 
@@ -616,7 +656,7 @@ class KDE2():
                                                    (hull_points[:,1]-hull_points[:,0])).sum(-1)/l))
                 proj_points = hull_points[:,0] + t[:,np.newaxis]*(hull_points[:,1]-hull_points[:,0]) 
                 # Move from hull into hull
-                proj_points = Up + 1.01 * (proj_points - Up)
+                proj_points = Up + 1.0001 * (proj_points - Up)
                 samples[problem] = interpolator(proj_points)
 
         else:
@@ -647,13 +687,13 @@ class KDE2():
             # Get Integral values
             INh = sp.stats.norm.cdf(samples2[:,np.newaxis] - self.N[np.newaxis,:,idx_h], scale = self.bandwidth)
 
-            # TODO: Think about values > 1
             Uhp = (INh[np.newaxis] * RN_norm[:,np.newaxis]).sum(2)
             Uhp[:,0]  = 0.0
             Uhp[:,-1] = 1.0
 
             for i in range(num_samples):
-                samples[i, idx_h] = sp.interpolate.interp1d(Uhp[i], samples2, assume_sorted = True)(Uh[i])
+                samples[i, idx_h] = sp.interpolate.interp1d(Uhp[i], samples2, assume_sorted = True, 
+                                                            fill_value = 'extrapolate')(Uh[i])
         
         U_samples = sp.stats.norm.cdf(samples)
 
