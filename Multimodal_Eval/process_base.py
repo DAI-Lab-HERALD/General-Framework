@@ -169,7 +169,7 @@ def main_base(random_seeds, overwrite_string = ''):
             
             sampled_dict[key] = 'Failed'
         
-        if key in sampled_dict.keys():
+        if not isinstance(sampled_dict[key], str):
             try:
                 fitting_pf_sampled_log_likelihood[key] = fitting_pf[key].score_samples(sampled_dict[key])
             except:
@@ -223,7 +223,7 @@ def main_base(random_seeds, overwrite_string = ''):
                                                                                                  testing_dict[base_data_key])
         
         # Check if metrics are possible
-        if value == 'Failed':
+        if isinstance(value, str):
             JSD_testing[key]                      = 'Failed'
             Wasserstein_data_fitting_sampled[key] = 'Failed'
             Wasserstein_data_testing_sampled[key] = 'Failed'
@@ -239,7 +239,7 @@ def main_base(random_seeds, overwrite_string = ''):
                                          testing_pf_testing_log_likelihood[key])
             
         # Calculate metrics dependent on sampled data
-        if sampled_dict[key] != 'Failed':
+        if not isinstance(sampled_dict[key], str):
             
             Wasserstein_data_fitting_sampled[key] = calculate_multivariate_Wasserstein(fitting_dict[base_data_key], sampled_dict[key])
             Wasserstein_data_testing_sampled[key] = calculate_multivariate_Wasserstein(testing_dict[base_data_key], sampled_dict[key])

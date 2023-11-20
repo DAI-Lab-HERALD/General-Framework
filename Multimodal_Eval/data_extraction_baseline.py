@@ -186,15 +186,15 @@ Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 for _, (k, v) in enumerate(JSD_testing.items()):
     results = np.ones(3) * np.nan
     # Get metrics from key
-    if JSD_testing[k] != 'Failed':
+    if not isinstance(JSD_testing[k], str):
         results[0] = JSD_testing[k]
 
-    if Wasserstein_data_fitting_sampled[k] != 'Failed':
+    if not isinstance(Wasserstein_data_fitting_sampled[k], str):
         bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
         Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
         results[1]  = Wasserstein_hat
 
-    if fitting_pf_testing_log_likelihood[k] != 'Failed':
+    if not isinstance(fitting_pf_testing_log_likelihood[k], str):
         results[2]  = np.mean(fitting_pf_testing_log_likelihood[k])
         
     # Place key in Results array
@@ -213,7 +213,7 @@ for _, (k, v) in enumerate(JSD_testing.items()):
      
     Results[dataset_id, ablation_id, :, rndSeed] = results
 
-Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
+Results = Results.reshape((-1, 6, *Results.shape[1:]))
 
 # Remove the unneeded datasets
 datasets_used = [4, 3, 0, 5]
