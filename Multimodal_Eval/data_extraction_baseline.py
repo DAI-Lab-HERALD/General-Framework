@@ -6,8 +6,6 @@ import re
 import os
 import scipy as sp
 
-from utils import *
-
 #%% Write tables
 def write_table(data, filename, decimal_place = 2):
 
@@ -20,7 +18,7 @@ def write_table(data, filename, decimal_place = 2):
     # Allow for split table
     Output_string = r'\begin{tabularx}{\textwidth}'
     
-    Output_string += r'{X | Z Z Z | Z Z Z | Z Z Z'
+    Output_string += r'{X | Y Y Y | Y Y Y | Y Y Y}'
     Output_string += '\n'
 
     Output_string += r'\toprule[1pt] '
@@ -29,22 +27,22 @@ def write_table(data, filename, decimal_place = 2):
     num_std = int((num_data_columns - 1) * 2 / 3)
     num_no_std = num_data_columns - 1 - num_std
 
-    Methods = [r"$f_{{\text{{TODO}}}}$ (Ours)", r"$f_{{\text{{MPW}}}}$", r"$f_{{\text{{VC}}}}$"]
+    Methods = [r'$f_{\text{TODO}}$ (Ours)', r'$f_{\text{{MPW}}$', r'$f_{\text{VC}}$']
     for method in Methods:
         Output_string += r'& \multicolumn{3}{|c}{' + method + r'} '
 
-    Output_string += r' \\'
+    Output_string += r' \\ \midrule[1pt]'
     Output_string += '\n'
 
     data_mean = np.nanmean(data, axis = -1)
     data_std = np.nanstd(data, axis = -1)
 
-    min_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.min())
-    max_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.max())
+    min_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmin(data_mean))
+    max_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmax(data_mean))
 
     extra_str_length = max(len(min_value), len(max_value)) - (decimal_place + 1)
     
-    Row_names = ['Silhouette', 'DBCV', 'No clusters']
+    Row_names = ['Aniso', 'Varied', 'Two Moons', 'Trajectories']
     
     for i, row_name in enumerate(Row_names): 
         Output_string += row_name + ' '
@@ -61,11 +59,18 @@ def write_table(data, filename, decimal_place = 2):
         # Adapt length to align decimal points
         Str_parts = Str.split('$} ')
         for idx, string in enumerate(Str_parts):
-            previous_string = string.split('.')[0].split('$')[-1]
-            if previous_string.isnumeric():
-                needed_buffer = extra_str_length - len(previous_string)  
-                if needed_buffer > 0:
-                    Str_parts[idx] = string[:16] + r'\hphantom{' + '0' * needed_buffer + r'}' + string[16:]
+            if len(string) == 0:
+                continue
+            # previous_string = string.split('.')[0].split('$')[-1]
+            # overwrite = False
+            # if previous_string[0] == '-':
+            #     overwrite = previous_string[1:].isnumeric()
+            # else:
+            #     overwrite = previous_string.isnumeric()
+            # if overwrite:
+            #     needed_buffer = extra_str_length - len(previous_string)  
+            #     if needed_buffer > 0:
+            #         Str_parts[idx] = string[:16] + r'\hphantom{' + '0' * needed_buffer + r'}' + string[16:]
             
             # Check for too long stds
             string_parts = Str_parts[idx].split('^')
@@ -180,18 +185,18 @@ Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
-    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0]
+    dataset_id = np.where([ds in k for ds in dataset_keys])[0]
     if len(dataset_id) == 0:
         continue
     else:
-        dataset_id = dataset_id[0]
+        dataset_id = dataset_id[-1]
 
-    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0]
+    ablation_id = np.where([abl in k for abl in ablation_keys])[0]
     if len(ablation_id) == 0:
         continue
     else:
         ablation_id = ablation_id[0]
-        
+    
     base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
 
     Results[dataset_id, ablation_id, 0, rndSeed] = JSD_testing[k]
@@ -212,13 +217,13 @@ datasets_used = [4, 3, 0, 5]
 Results = Results[:, datasets_used]
 
 # Select the current num_samples
-Data = Results[-1, :, :, :, :]
+Data = Results[-2, :, :, :, :]
 
 # Collapse models and metrics
 Data = Data.reshape((len(datasets_used), 9, 100))
 filename = './Tables/baseline_20000.tex'
 
-write_table(Data, filename, 3)
+write_table(Data, filename, 2)
 
 
 

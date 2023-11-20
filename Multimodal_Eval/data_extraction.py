@@ -6,8 +6,6 @@ import re
 import os
 import scipy as sp
 
-from utils import *
-
 #%% Write tables
 def write_tables(data, filename, decimal_place = 2):
 
@@ -41,8 +39,8 @@ def write_tables(data, filename, decimal_place = 2):
     data_mean = np.nanmean(data, axis = -1)
     data_std = np.nanstd(data, axis = -1)
 
-    min_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.min())
-    max_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.max())
+    min_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmin(data_mean))
+    max_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmax(data_mean))
 
     extra_str_length = max(len(min_value), len(max_value)) - (decimal_place + 1)
     
@@ -63,8 +61,15 @@ def write_tables(data, filename, decimal_place = 2):
         # Adapt length to align decimal points
         Str_parts = Str.split('$} ')
         for idx, string in enumerate(Str_parts):
+            if len(string) == 0:
+                continue
             previous_string = string.split('.')[0].split('$')[-1]
-            if previous_string.isnumeric():
+            overwrite_string = False
+            if previous_string[0] == '-':
+                overwrite_string = previous_string[1:].isnumeric()
+            else:
+                overwrite_string = previous_string.isnumeric()
+            if overwrite_string:
                 needed_buffer = extra_str_length - len(previous_string)  
                 if needed_buffer > 0:
                     Str_parts[idx] = string[:16] + r'\hphantom{' + '0' * needed_buffer + r'}' + string[16:]
@@ -200,13 +205,13 @@ Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
-    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0]
+    dataset_id = np.where([ds in k for ds in dataset_keys])[0]
     if len(dataset_id) == 0:
         continue
     else:
-        dataset_id = dataset_id[0]
+        dataset_id = dataset_id[-1]
 
-    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0]
+    ablation_id = np.where([abl in k for abl in ablation_keys])[0]
     if len(ablation_id) == 0:
         continue
     else:
