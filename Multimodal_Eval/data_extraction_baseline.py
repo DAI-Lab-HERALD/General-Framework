@@ -100,51 +100,24 @@ def write_table(data, filename, decimal_place = 2):
     t.close()
 
 
-#%% Load Results
-JSD_testing = {}
-Wasserstein_data_fitting_testing, Wasserstein_data_fitting_sampled = {}, {}
+#%% Define results
 
-fitting_pf_testing_log_likelihood = {}
-
-
-random_seeds = [
-                ['0','10'],
+# List of random seeds
+random_seeds = [['0','10'],
                 ['10','20'],
                 ['20','30'],
                 ['30','40'],
                 ['40','50'],
                 ['50','60'],
-                # ['60','70'],
+                ['60','70'],
                 ['70','80'],
                 ['80','90'],
-                ['90','100']
-                ]
-
-# loop through all results files and save to corresponding dictionaries
-for rndSeed in random_seeds:
-
-    JSD_testing = {**JSD_testing, **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                     '_JSD_testing', 'rb'))}
-
-    Wasserstein_data_fitting_testing = {**Wasserstein_data_fitting_testing,
-                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                           '_Wasserstein_data_fitting_testing', 'rb'))}
-    Wasserstein_data_fitting_sampled = {**Wasserstein_data_fitting_sampled,
-                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                           '_Wasserstein_data_fitting_sampled', 'rb'))}
-    
-    fitting_pf_testing_log_likelihood = {**fitting_pf_testing_log_likelihood,
-                                         **pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                            '_fitting_pf_testing_log_likelihood', 'rb'))}
-
-#%% Plotting
-# Create an array of dimensions num_datasets x num_ablations x num_metrics x num_random_seeds
-# Each element is a value of the metric for a given dataset, ablation and random seed
-# Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
+                ['90','100']]
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
                  'MP_Windows', 
+                 'MPS_Windows',
                  'KDevine']
 
 # list of dataset keys
@@ -180,10 +153,51 @@ dataset_keys = ['noisy_moons_n_samples_200',
                 'Trajectories_n_samples_20000']
 
 
+#%% Load Results
+JSD_testing = {}
+Wasserstein_data_fitting_testing, Wasserstein_data_fitting_sampled = {}, {}
+
+fitting_pf_testing_log_likelihood = {}
+
+# loop through all results files and save to corresponding dictionaries
+for rndSeed in random_seeds:
+
+    JSD_testing = {**JSD_testing, **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                     '_JSD_testing', 'rb'))}
+
+    Wasserstein_data_fitting_testing = {**Wasserstein_data_fitting_testing,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_testing', 'rb'))}
+    Wasserstein_data_fitting_sampled = {**Wasserstein_data_fitting_sampled,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_sampled', 'rb'))}
+    
+    fitting_pf_testing_log_likelihood = {**fitting_pf_testing_log_likelihood,
+                                         **pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                            '_fitting_pf_testing_log_likelihood', 'rb'))}
+
+#%% Plotting
+# Create an array of dimensions num_datasets x num_ablations x num_metrics x num_random_seeds
+# Each element is a value of the metric for a given dataset, ablation and random seed
+# Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
 Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
+    results = np.ones(3) * np.nan
+    # Get metrics from key
+    if JSD_testing[k] != 'Failed':
+        results[0] = JSD_testing[k]
+
+    if Wasserstein_data_fitting_sampled[k] != 'Failed':
+        bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
+        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
+        results[1]  = Wasserstein_hat
+
+    if fitting_pf_testing_log_likelihood[k] != 'Failed':
+        results[2]  = np.mean(fitting_pf_testing_log_likelihood[k])
+        
+    # Place key in Results array
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
     dataset_id = np.where([ds in k for ds in dataset_keys])[0]
     if len(dataset_id) == 0:
@@ -196,19 +210,8 @@ for _, (k, v) in enumerate(JSD_testing.items()):
         continue
     else:
         ablation_id = ablation_id[0]
-    
-    base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
-
-    Results[dataset_id, ablation_id, 0, rndSeed] = JSD_testing[k]
-
-    try:
-        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[base_data_key]
-        Results[dataset_id, ablation_id, 1, rndSeed] = Wasserstein_hat
-    
-    except:
-        Results[dataset_id, ablation_id, 1, rndSeed] = np.nan
-
-    Results[dataset_id, ablation_id, 2, rndSeed] = np.mean(fitting_pf_testing_log_likelihood[k])
+     
+    Results[dataset_id, ablation_id, :, rndSeed] = results
 
 Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
 
@@ -216,7 +219,8 @@ Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
 datasets_used = [4, 3, 0, 5]
 Results = Results[:, datasets_used]
 
-# Select the current num_samples
+#%% Write tables
+# Use results from 3000 samples only
 Data = Results[-2, :, :, :, :]
 
 # Collapse models and metrics
