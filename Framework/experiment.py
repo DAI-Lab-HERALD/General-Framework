@@ -1221,8 +1221,8 @@ class Experiment():
                 
                 for i_split, indices in enumerate(self.Split_indices):
                     Table_results_mean[:,:,i_split] = np.nanmean(Table_results[:,:,indices], axis = 2)
-                min_value = '{:0.3f}'.format(Table_results_mean.min())
-                max_value = '{:0.3f}'.format(Table_results_mean.max())
+                min_value = '{:0.3f}'.format(np.nanmin(Table_results_mean))
+                max_value = '{:0.3f}'.format(np.nanmax(Table_results_mean))
                 extra_str_length = max(len(min_value), len(max_value)) - 4
                 
                 
@@ -1296,8 +1296,15 @@ class Experiment():
                         # Adapt length to align decimal points
                         Str_parts = Str.split('$} ')
                         for idx, string in enumerate(Str_parts):
+                            if len(string) == 0:
+                                continue
                             previous_string = string.split('.')[0].split('$')[-1]
-                            if previous_string.isnumeric():
+                            overwrite_string = False
+                            if previous_string[0] == '-':
+                                overwrite_string = previous_string[1:].isnumeric()
+                            else:
+                                overwrite_string = previous_string.isnumeric()
+                            if overwrite_string:
                                 needed_buffer = extra_str_length - len(previous_string)  
                                 if needed_buffer > 0:
                                     if use_scriptsize:
