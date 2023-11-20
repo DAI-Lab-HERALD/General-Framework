@@ -192,10 +192,10 @@ for _, (k, v) in enumerate(JSD_testing.items()):
     if not isinstance(Wasserstein_data_fitting_sampled[k], str):
         bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
         Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
-        results[1]  = Wasserstein_hat
+        results[1] = Wasserstein_hat / (Wasserstein_data_fitting_testing[bk] + 1e-4)
 
     if not isinstance(fitting_pf_testing_log_likelihood[k], str):
-        results[2]  = np.mean(fitting_pf_testing_log_likelihood[k])
+        results[2] = np.mean(fitting_pf_testing_log_likelihood[k])
         
     # Place key in Results array
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
