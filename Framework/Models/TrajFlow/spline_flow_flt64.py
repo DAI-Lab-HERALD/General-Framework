@@ -3,10 +3,9 @@ import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
 
-from TrajFlow.rqs import *
+from TrajFlow.rqs_flt64 import *
 
-# torch.set_default_dtype(torch.float64)
-torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(torch.float64)
 
 class FCN(nn.Module):
     """ Simple fully connected network. """

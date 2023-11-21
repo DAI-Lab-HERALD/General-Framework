@@ -111,7 +111,7 @@ random_seeds = [
                 ['30','40'],
                 ['40','50'],
                 ['50','60'],
-                # ['60','70'],
+                ['60','70'],
                 ['70','80'],
                 ['80','90'],
                 ['90','100']
@@ -208,7 +208,7 @@ for _, (k, v) in enumerate(JSD_testing.items()):
     Results[dataset_id, ablation_id, 0, rndSeed] = JSD_testing[k]
 
     try:
-        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[base_data_key]
+        Wasserstein_hat = (Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[base_data_key])/(Wasserstein_data_fitting_testing[base_data_key] + 1e-4)
         Results[dataset_id, ablation_id, 1, rndSeed] = Wasserstein_hat
     
     except:
@@ -237,11 +237,12 @@ metric_keys = ['JSD',
 
 for i in range(Results.shape[1]):
     for j, metric in enumerate(metric_keys):
-        data = Results[-1, i, :, :, j]
-        assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
+        # data = Results[-1, i, :, :, j] # index -1 for 20000 samples, index -2 for 6000 samples
+        data = Results[-2, i, :, :, j]
+        # assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
 
         # Get filename
-        data_keys = np.array(dataset_keys).reshape((-1, 6))[-1]
+        data_keys = np.array(dataset_keys).reshape((-1, 6))[-2] # index -1 for 20000 samples, index -2 for 6000 samples
         filename = './Tables/' + metric + '_' + data_keys[datasets_used[i]] + '.tex'
 
         if not os.path.exists(filename):
@@ -257,7 +258,8 @@ for i in range(Results.shape[1]):
 #%% For each metric and each dataset plot the ablation results side by side
 # with the mean and quantile values as boxplots
 
-Data_aniso = Results[-1, 0,:,:,2]
+# Data_aniso = Results[-1, 0,:,:,2] # index -1 for 20000 samples, index -2 for 6000 samples
+Data_aniso = Results[-2, 0,:,:,2]
 data_aniso_clust_kde = Data_aniso[:2, [0,2,4]]
 # Forget nan values
 data_aniso_clust_kde = data_aniso_clust_kde[:,:,np.isfinite(data_aniso_clust_kde).all((0,1))]
@@ -275,3 +277,5 @@ T_unpaired, P_unpaired = sp.stats.ttest_ind(data_aniso_clust_kde[:,[0]], data_an
 
 
 
+
+# %%

@@ -4,16 +4,15 @@ import pandas as pd
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import *
+from TrajFlow.flowModels_flt64 import *
 import pickle
 from torch.utils.data import TensorDataset, DataLoader
 import os
 from mpmath import exp
 
-# torch.set_default_dtype(torch.float64)
-torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(torch.float64)
 
-class flomo_schoeller(model_template):
+class flomo_schoeller_flt64(model_template):
     '''
     FloMo is a single agent prediction model using Normalizing Flows as its main 
     component.
@@ -116,19 +115,16 @@ class flomo_schoeller(model_template):
         # Standardize positions
         X[Ped_agents]  /= self.std_pos_ped
         X[~Ped_agents] /= self.std_pos_veh
-        X = torch.from_numpy(X).float().to(device = self.device)
-        # X = torch.tensor(X, dtype=torch.float64).to(device = self.device)
+        X = torch.tensor(X, dtype=torch.float64).to(device = self.device)
         
         if Y is not None:
             # Standardize future positions
             Y[Ped_agents]  /= self.std_pos_ped
             Y[~Ped_agents] /= self.std_pos_veh
-            Y = torch.from_numpy(Y).float().to(device = self.device)
-            # Y = torch.tensor(Y, dtype=torch.float64).to(device = self.device)
+            Y = torch.tensor(Y, dtype=torch.float64).to(device = self.device)
         
         if img is not None:
-            img = torch.from_numpy(img).float().to(device = self.device) / 255
-            # img = torch.tensor(img, dtype=torch.float64).to(device = self.device) / 255
+            img = torch.tensor(img, dtype=torch.float64).to(device = self.device) / 255
             
         return X, T_out, Y, img
         
@@ -180,9 +176,7 @@ class flomo_schoeller(model_template):
                     # img.shape: bs x 1 x 156 x 257 x 1
 
                     scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma,
-                                                                     loc=1, scale=self.sigma, size=X.shape[0])).float()
-                    # scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma,
-                    #                                                  loc=1, scale=self.sigma, size=X.shape[0]), dtype=torch.float64)
+                                                                     loc=1, scale=self.sigma, size=X.shape[0]), dtype=torch.float64)
                     
                     scaler = scaler.unsqueeze(1)
                     scaler = scaler.unsqueeze(2)
@@ -361,7 +355,7 @@ class flomo_schoeller(model_template):
                      'smax' + str(self.model_kwargs['s_max']) + '_' + \
                      'sigma' + str(self.model_kwargs['sigma']) 
                      
-        model_str = 'FM_' + kwargs_str
+        model_str = 'FM_flt64_' + kwargs_str
         
         names = {'print': model_str,
                 'file': model_str,

@@ -5,8 +5,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import MessagePassing, global_mean_pool, global_max_pool, global_add_pool
 from torch_geometric.data import Data
 
-# torch.set_default_dtype(torch.float64)
-torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(torch.float64)
 
 class TrajRNN(nn.Module):
     """ 

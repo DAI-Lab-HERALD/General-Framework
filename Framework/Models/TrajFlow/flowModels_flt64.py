@@ -3,14 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
 
-from TrajFlow.spline_flow import NeuralSplineFlow
-from TrajFlow.SocialEncodingModule import SocialInterGNN, TrajRNN
+from TrajFlow.spline_flow_flt64 import NeuralSplineFlow
+from TrajFlow.SocialEncodingModule_flt64 import SocialInterGNN, TrajRNN
 from torch_geometric.data import Data
 
 import numpy as np
 
-# torch.set_default_dtype(torch.float64)
-torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(torch.float64)
 
 class RNN(nn.Module):
     """ GRU based recurrent neural network. """
