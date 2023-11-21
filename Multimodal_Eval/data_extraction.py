@@ -6,8 +6,6 @@ import re
 import os
 import scipy as sp
 
-from utils import *
-
 #%% Write tables
 def write_tables(data, filename, decimal_place = 2):
 
@@ -41,8 +39,8 @@ def write_tables(data, filename, decimal_place = 2):
     data_mean = np.nanmean(data, axis = -1)
     data_std = np.nanstd(data, axis = -1)
 
-    min_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.min())
-    max_value = ('{:0.' + str(decimal_place) + 'f}').format(data_mean.max())
+    min_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmin(data_mean))
+    max_value = ('{:0.' + str(decimal_place) + 'f}').format(np.nanmax(data_mean))
 
     extra_str_length = max(len(min_value), len(max_value)) - (decimal_place + 1)
     
@@ -63,8 +61,15 @@ def write_tables(data, filename, decimal_place = 2):
         # Adapt length to align decimal points
         Str_parts = Str.split('$} ')
         for idx, string in enumerate(Str_parts):
+            if len(string) == 0:
+                continue
             previous_string = string.split('.')[0].split('$')[-1]
-            if previous_string.isnumeric():
+            overwrite_string = False
+            if previous_string[0] == '-':
+                overwrite_string = previous_string[1:].isnumeric()
+            else:
+                overwrite_string = previous_string.isnumeric()
+            if overwrite_string:
                 needed_buffer = extra_str_length - len(previous_string)  
                 if needed_buffer > 0:
                     Str_parts[idx] = string[:16] + r'\hphantom{' + '0' * needed_buffer + r'}' + string[16:]
@@ -97,15 +102,10 @@ def write_tables(data, filename, decimal_place = 2):
     t.close()
 
 
-#%% Load Results
-JSD_testing = {}
-Wasserstein_data_fitting_testing, Wasserstein_data_fitting_sampled = {}, {}
+#%% Define results
 
-fitting_pf_testing_log_likelihood = {}
-
-
-random_seeds = [
-                ['0','10'],
+# List of random seeds
+random_seeds = [['0','10'],
                 ['10','20'],
                 ['20','30'],
                 ['30','40'],
@@ -114,30 +114,7 @@ random_seeds = [
                 ['60','70'],
                 ['70','80'],
                 ['80','90'],
-                ['90','100']
-                ]
-
-# loop through all results files and save to corresponding dictionaries
-for rndSeed in random_seeds:
-
-    JSD_testing = {**JSD_testing, **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                     '_JSD_testing', 'rb'))}
-
-    Wasserstein_data_fitting_testing = {**Wasserstein_data_fitting_testing,
-                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                           '_Wasserstein_data_fitting_testing', 'rb'))}
-    Wasserstein_data_fitting_sampled = {**Wasserstein_data_fitting_sampled,
-                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                           '_Wasserstein_data_fitting_sampled', 'rb'))}
-    
-    fitting_pf_testing_log_likelihood = {**fitting_pf_testing_log_likelihood,
-                                         **pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
-                                                            '_fitting_pf_testing_log_likelihood', 'rb'))}
-
-#%% Plotting
-# Create an array of dimensions num_datasets x num_ablations x num_metrics x num_random_seeds
-# Each element is a value of the metric for a given dataset, ablation and random seed
-# Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
+                ['90','100']]
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
@@ -194,35 +171,73 @@ dataset_keys = ['noisy_moons_n_samples_200',
                 'aniso_n_samples_20000',
                 'Trajectories_n_samples_20000']
 
+#%% Load Results
+JSD_testing = {}
+Wasserstein_data_fitting_testing, Wasserstein_data_fitting_sampled = {}, {}
 
+fitting_pf_testing_log_likelihood = {}
+
+# loop through all results files and save to corresponding dictionaries
+for rndSeed in random_seeds:
+
+    JSD_testing = {**JSD_testing, **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                     '_JSD_testing', 'rb'))}
+
+    Wasserstein_data_fitting_testing = {**Wasserstein_data_fitting_testing,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_testing', 'rb'))}
+    Wasserstein_data_fitting_sampled = {**Wasserstein_data_fitting_sampled,
+                                        **pickle.load(open('./Distribution Datasets/Results/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                           '_Wasserstein_data_fitting_sampled', 'rb'))}
+    
+    fitting_pf_testing_log_likelihood = {**fitting_pf_testing_log_likelihood,
+                                         **pickle.load(open('./Distribution Datasets/Log_Likelihoods/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
+                                                            '_fitting_pf_testing_log_likelihood', 'rb'))}
+
+#%% Plotting
+# Create an array of dimensions num_datasets x num_ablations x num_metrics x num_random_seeds
+# Each element is a value of the metric for a given dataset, ablation and random seed
+# Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
 Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
-    rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
-    dataset_id = np.where(np.array(dataset_keys) == k[:re.search(r"n_samples_\d{1,5}", k).end()])[0][0]
-    ablation_id = np.where(np.array(ablation_keys) == k[re.search(r"config\w{1,26}", k).start():])[0][0]
+    results = np.ones(3) * np.nan
+    # Get metrics from key
+    if not isinstance(JSD_testing[k], str):
+        results[0] = JSD_testing[k]
+
+    if not isinstance(Wasserstein_data_fitting_sampled[k], str):
+        bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
+        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
+        results[1] = Wasserstein_hat / (Wasserstein_data_fitting_testing[bk] + 1e-4)
+
+    if not isinstance(fitting_pf_testing_log_likelihood[k], str):
+        results[2] = np.mean(fitting_pf_testing_log_likelihood[k])
         
-    base_data_key = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
+    # Place key in Results array
+    rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])
+    dataset_id = np.where([ds in k for ds in dataset_keys])[0]
+    if len(dataset_id) == 0:
+        continue
+    else:
+        dataset_id = dataset_id[-1]
 
-    Results[dataset_id, ablation_id, 0, rndSeed] = JSD_testing[k]
+    ablation_id = np.where([abl in k for abl in ablation_keys])[0]
+    if len(ablation_id) == 0:
+        continue
+    else:
+        ablation_id = ablation_id[0]
+     
+    Results[dataset_id, ablation_id, :, rndSeed] = results
 
-    try:
-        Wasserstein_hat = (Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[base_data_key])/(Wasserstein_data_fitting_testing[base_data_key] + 1e-4)
-        Results[dataset_id, ablation_id, 1, rndSeed] = Wasserstein_hat
-    
-    except:
-        Results[dataset_id, ablation_id, 1, rndSeed] = np.nan
-
-    Results[dataset_id, ablation_id, 2, rndSeed] = np.mean(fitting_pf_testing_log_likelihood[k])
-
-Results = Results.reshape((-1, 6, len(ablation_keys), 3, 100))
+Results = Results.reshape((-1, 6, *Results.shape[1:]))
 
 # Remove the unneeded datasets
 datasets_used = [4, 3, 0, 5]
 Results = Results[:, datasets_used]
 
-
+#%% Write tables
 rows = np.array([0 if 'cluster' in key else 1 if 'DBCV' in key else 2 for key in ablation_keys])
         
 # hardcode columns
@@ -236,13 +251,13 @@ metric_keys = ['JSD',
                'L_hat']
 
 for i in range(Results.shape[1]):
+    N_ind = -2 # Use 3000 samples only
     for j, metric in enumerate(metric_keys):
-        # data = Results[-1, i, :, :, j] # index -1 for 20000 samples, index -2 for 6000 samples
-        data = Results[-2, i, :, :, j]
-        # assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
+        data = Results[N_ind, i, :, :, j] 
+        assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
 
         # Get filename
-        data_keys = np.array(dataset_keys).reshape((-1, 6))[-2] # index -1 for 20000 samples, index -2 for 6000 samples
+        data_keys = np.array(dataset_keys).reshape((-1, 6))[N_ind]
         filename = './Tables/' + metric + '_' + data_keys[datasets_used[i]] + '.tex'
 
         if not os.path.exists(filename):
