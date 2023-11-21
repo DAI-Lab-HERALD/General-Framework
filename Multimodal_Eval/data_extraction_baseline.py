@@ -24,13 +24,30 @@ def write_table(data, filename, decimal_place = 2):
     Output_string += r'\toprule[1pt] '
     Output_string += '\n'
 
-    num_std = int((num_data_columns - 1) * 2 / 3)
-    num_no_std = num_data_columns - 1 - num_std
-
-    Methods = [r'$f_{\text{TODO}}$ (Ours)', r'$f_{\text{{MPW}}$', r'$f_{\text{VC}}$']
-    for method in Methods:
-        Output_string += r'& \multicolumn{3}{|c}{' + method + r'} '
-
+    Metrics = [r'$D_{JS} \downarrow_{0}^{1}$', r'$\widehat{W} \rightarrow 0$', r'$\widehat{L} \uparrow 0$']
+    Methods = [r'$f_{\text{TODO}}$', r'$f_{\text{MPW}}$', r'$f_{\text{VC}}$']
+    
+    for metric in Metrics:
+        Output_string += r'& \multicolumn{' + str(len(Methods)) + r'}'
+        if metric == Metrics[-1]:
+            Output_string += r'{c}'
+        else:
+            Output_string += r'{c|}'
+            
+        Output_string += r'{' + metric + r'} '
+    
+    Output_string += r' \\'
+    
+    for metric in Metrics:
+        for method in Methods:
+            Output_string += r'& \multicolumn{1}'
+            if (metric != Metrics[-1]) and method == Methods[-1]:
+                Output_string += r'{c|}'
+            else:
+                Output_string += r'{c}'
+                
+            Output_string += r'{' + method + r'} '
+    
     Output_string += r' \\ \midrule[1pt]'
     Output_string += '\n'
 
@@ -224,7 +241,7 @@ Results = Results[:, datasets_used]
 Data = Results[-2, :, :, :, :]
 
 # Collapse models and metrics
-Data = Data.reshape((len(datasets_used), 9, 100))
+Data = Data.transpose(0,2,1,3).reshape((len(datasets_used), 9, 100))
 filename = './Tables/baseline_20000.tex'
 
 write_table(Data, filename, 2)
