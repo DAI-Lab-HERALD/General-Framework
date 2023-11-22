@@ -25,10 +25,14 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
-        return key in overwrite_string
+        ret = True
+        for string in overwrite_string:
+            if string not in key:
+                ret = False
+        return ret
 
 
-def main_base(random_seeds, overwrite_string = ''):
+def main_base(random_seeds, overwrite_string = []):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
@@ -106,7 +110,13 @@ def main_base(random_seeds, overwrite_string = ''):
 
             if not write_key(fitting_pf, pf_key, overwrite_string):
                 continue
+            
+            num_samples_X3 = re.findall(r"samples_\d{1,5}", pf_key)[0][8:] # extract number of samples from key
 
+            # Short term expediant
+            if int(num_samples_X3) > 8000:
+                continue
+            
             print('Fit distribution for ' + pf_key, flush = True)   
 
             if not('Trajectories' in key):
@@ -155,10 +165,16 @@ def main_base(random_seeds, overwrite_string = ''):
     for key, _ in fitting_pf.items():
         if not write_key(fitting_pf_fitting_log_likelihood, key, overwrite_string):
             continue
-        print("Evaluate log likelihood of samples for " + key, flush = True)
+        
         base_data_key = key[:re.search(r"rnd_seed_\d{1,2}", key).end()]
 
         num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
+
+        # Short term expediant
+        if int(num_samples_X3) > 8000:
+            continue
+        
+        print("Evaluate log likelihood of samples for " + key, flush = True)
 
         # Test if sampling is possible from estimated pdf
         try:

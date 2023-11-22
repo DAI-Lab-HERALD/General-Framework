@@ -494,6 +494,8 @@ class Cupola_Vines:
         np.random.seed(random_state)
         # Go through tree from top to bottom
         
+        num_samples_safe = 5 * num_samples
+        
         Uhats = {}
         for m in np.arange(self.num_features - 2, -1, -1):
             tree = self.Tree[m]
@@ -516,35 +518,40 @@ class Cupola_Vines:
 
                 if i_there and j_there:
                     
-                        Usampled = self.BCupolas[m][edge].sample(num_samples, random_state = random_state, 
+                        Usampled = self.BCupolas[m][edge].sample(num_samples_safe, random_state = random_state, 
                                                                  Uhats_i = Uhats[i_test], Uhats_j = Uhats[j_test])
                 elif not i_there and not j_there:
                     # Generate samples from bivariate distribution
-                    Usampled = self.BCupolas[m][edge].sample(num_samples)
+                    Usampled = self.BCupolas[m][edge].sample(num_samples_safe)
                 else:
                     if not i_there:
-                        Usampled = self.BCupolas[m][edge].sample(num_samples, random_state = random_state, Uhats_j = Uhats[j_test])
+                        Usampled = self.BCupolas[m][edge].sample(num_samples_safe, random_state = random_state, Uhats_j = Uhats[j_test])
                     
                     if not j_there:
-                        Usampled = self.BCupolas[m][edge].sample(num_samples, random_state = random_state, Uhats_i = Uhats[i_test])
+                        Usampled = self.BCupolas[m][edge].sample(num_samples_safe, random_state = random_state, Uhats_i = Uhats[i_test])
 
                 Uhats[(i, parents)] = Usampled[:,0]
                 Uhats[(j, parents)] = Usampled[:,1]
                 
-                if not np.isfinite(Usampled).all():
-                    raise ValueError('Samples contain inf or nan')
-                
 
 
         # Shuffle samples
-        samples = np.zeros((num_samples, self.num_features))
+        samples = np.zeros((num_samples_safe, self.num_features))
         for m in range(self.num_features):
             samples[:, m] = Uhats[(m, ())]
-
-        np.random.shuffle(samples)
-
-        if not np.isfinite(samples).all():
-            raise ValueError('Samples contain inf or nan')
+        
+        useful_samples = np.isfinite(samples).all(1)
+        samples = samples[useful_samples]
+        
+        if len(samples) == 0:
+            raise ValueError('No good samples are found')
+        elif len(samples) >= num_samples:
+            np.random.shuffle(samples)
+            samples = samples[:num_samples]
+        else:
+            sample_ind = np.random.choice(len(samples), num_samples)
+            samples = samples[sample_ind]
+            
         return samples
 
 
@@ -634,30 +641,30 @@ class KDE2():
             samples = interpolator(Uh)
 
             # Check for convex hull problems
-            repeat = 0
-            while np.isnan(samples).any() and repeat < 10:
-                repeat += 1
-                # Find problem points
-                problem = np.where(np.isnan(samples).any(1))[0]
-
-                # Get problem points
-                Up = Uh[problem]
-
+            if np.isnan(samples).any():
                 # Get convex hull of test points
                 hull = sp.spatial.ConvexHull(UHp.reshape(-1,2))
-                hull_points = hull.points[hull.simplices]
-
-                i_points = np.argmin(np.sqrt(np.sum((Up[np.newaxis,np.newaxis]-hull_points[:,:,np.newaxis])**2, axis = -1)).sum(1), axis = 0)
-
-                hull_points = hull_points[i_points]
-
-                l = np.sum((hull_points[:,1]-hull_points[:,0])**2, axis = -1)
-                t = np.maximum(0., np.minimum(1., ((Up-hull_points[:,0]) * 
-                                                   (hull_points[:,1]-hull_points[:,0])).sum(-1)/l))
-                proj_points = hull_points[:,0] + t[:,np.newaxis]*(hull_points[:,1]-hull_points[:,0]) 
-                # Move from hull into hull
-                proj_points = Up + 1.0001 * (proj_points - Up)
-                samples[problem] = interpolator(proj_points)
+                Hull_points = hull.points[hull.simplices]
+            
+                repeat = 0
+                while np.isnan(samples).any() and repeat < 20:
+                    repeat += 1
+                    # Find problem points
+                    problem = np.where(np.isnan(samples).any(1))[0]
+    
+                    # Get problem points
+                    Up = Uh[problem]
+    
+                    i_points = np.argmin(np.sqrt(np.sum((Up[np.newaxis,np.newaxis]-Hull_points[:,:,np.newaxis])**2, axis = -1)).sum(1), axis = 0)
+                    hull_points = Hull_points[i_points]
+    
+                    l = np.sum((hull_points[:,1]-hull_points[:,0])**2, axis = -1)
+                    t = np.maximum(0., np.minimum(1., ((Up-hull_points[:,0]) * 
+                                                       (hull_points[:,1]-hull_points[:,0])).sum(-1)/l))
+                    proj_points = hull_points[:,0] + t[:,np.newaxis]*(hull_points[:,1]-hull_points[:,0]) 
+                    # Move from hull into hull
+                    proj_points = Up + 1.0001 * (proj_points - Up)
+                    samples[problem] = interpolator(proj_points)
 
         else:
             # Samples kernels
@@ -696,8 +703,5 @@ class KDE2():
                                                             fill_value = 'extrapolate')(Uh[i])
         
         U_samples = sp.stats.norm.cdf(samples)
-
-        if not np.isfinite(U_samples).all():
-            raise ValueError('Samples contain inf or nan')
         return U_samples
         
