@@ -58,8 +58,8 @@ for i, name in enumerate(Datasets):
     # Plot
     print('Plotting ' + name)
     fig = plt.figure(i, figsize=(3, 3))
-    plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-    # plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.1)
+    # plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
+    plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.1)
     # plt.set_title(name)
     plt.axis('equal')
     plt.xticks([])
@@ -72,7 +72,7 @@ for i, name in enumerate(Datasets):
     plt.show()
 
     # Save figure as pdf
-    fig.savefig('./Distribution Datasets/2D-Distributions/Plots/' + name + '_clustered.svg', bbox_inches='tight')
+    fig.savefig('./Distribution Datasets/2D-Distributions/Plots/' + name + '.pdf', bbox_inches='tight')
 
 
 
