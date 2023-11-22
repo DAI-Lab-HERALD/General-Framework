@@ -25,7 +25,7 @@ def write_table(data, filename, decimal_place = 2):
     Output_string += '\n'
 
     Metrics = [r'$D_{JS} \downarrow_{0}^{1}$', r'$\widehat{W} \rightarrow 0$', r'$\widehat{L} \uparrow$']
-    Methods = [r'$f_{\text{TODO}}$', r'$f_{\text{MPW}}$', r'$f_{\text{VC}}$']
+    Methods = [r'$f_{\text{ROME}}$', r'$f_{\text{MPW}}$', r'$f_{\text{VC}}$']
     
     for metric in Metrics:
         Output_string += r'& \multicolumn{' + str(len(Methods)) + r'}'
