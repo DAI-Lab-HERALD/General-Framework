@@ -93,7 +93,7 @@ def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     # 2D-Distributions
     twoD_min_std = 0.01
     # Trajectory Distributions
-    traj_min_std = 0.1
+    traj_min_std = 0.01
 
     testConfigs = ['MP_Windows', 'MPS_Windows', 'KDevine'] 
 

@@ -93,7 +93,7 @@ def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     # 2D-Distributions
     twoD_min_std = 0.01
     # Trajectory Distributions
-    traj_min_std = 0.1
+    traj_min_std = 0.01
 
     # configs format: use_cluster, use_PCA, use_std, use_KDE, min_std
     use_PCA = True
