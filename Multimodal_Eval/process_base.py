@@ -25,6 +25,8 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
+        if 'KDevine' in key:
+            return False
         ret = True
         for string in overwrite_string:
             if string not in key:
@@ -32,7 +34,7 @@ def write_key(dict, key, overwrite_string):
         return ret
 
 
-def main_base(random_seeds, overwrite_string = []):
+def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
