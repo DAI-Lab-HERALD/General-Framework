@@ -25,8 +25,8 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
-        if 'KDevine' in key:
-            return False
+        # if 'KDevine' in key:
+        #     return False
         ret = True
         for string in overwrite_string:
             if string not in key:
@@ -34,7 +34,8 @@ def write_key(dict, key, overwrite_string):
         return ret
 
 
-def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
+# def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
+def main(random_seeds, overwrite_string = []):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
@@ -60,7 +61,7 @@ def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     #%% Create multiple datasets with different number of samples 
     # and save to dictionaries with keys containing info on dataset_name, n_samples and rand_seed
 
-    num_samples = [200, 600, 2000, 6000, 20000]
+    num_samples = [200, 600, 2000, 6000]#, 20000]
 
     rand_str = '/rndSeed' + str(random_seeds.start) + str(random_seeds.stop)
     data_str = './Distribution Datasets/Fitted_Dists'+rand_str 
@@ -131,72 +132,78 @@ def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     testing_pf = load_dir(testing_pf_str)
     
     print("", flush = True)
-    print("Fir distributions", flush = True)
-    if len(fitting_pf) == 0:
-        for key, _ in fitting_dict.items():
-            # Get distribution independent key
-            fitting_clusters_silh = None
-            fitting_clusters_dbcv = None
-            testing_clusters_silh = None
-            testing_clusters_dbcv = None
+    print("Fit distributions", flush = True)
+    
+    for key, _ in fitting_dict.items():
+        # Get distribution independent key
+        fitting_clusters_silh = None
+        fitting_clusters_dbcv = None
+        testing_clusters_silh = None
+        testing_clusters_dbcv = None
 
-            for config in testConfigs:
-                pf_key = key + '_config'
+        for config in testConfigs:
+            pf_key = key + '_config'
 
-                if config[0] == 'silhouette':
-                    pf_key += '_cluster'
-                elif config[0] == 'DBCV':
-                    pf_key += '_DBCV'
+            if config[0] == 'silhouette':
+                pf_key += '_cluster'
+            elif config[0] == 'DBCV':
+                pf_key += '_DBCV'
 
-                if config[1]:
-                    pf_key += '_PCA'
-                if config[2]:
-                    pf_key += '_std'
+            if config[1]:
+                pf_key += '_PCA'
+            if config[2]:
+                pf_key += '_std'
 
-                pf_key += config[3]
+            pf_key += config[3]
 
-                if not write_key(fitting_pf, pf_key, overwrite_string):
-                    continue
+            if not write_key(fitting_pf, pf_key, overwrite_string):
+                continue
 
-                print('Fit distribution for ' + pf_key, flush = True) 
+            num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
 
-                if not('Trajectories' in key):
-                    min_std = twoD_min_std
-                else:
-                    min_std = traj_min_std
+            # Short term expediant
+            if int(num_samples_X3) > 8000:
+                continue
 
-                distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
+            print('Fit distribution for ' + pf_key, flush = True) 
+
+            if not('Trajectories' in key):
+                min_std = twoD_min_std
+            else:
+                min_std = traj_min_std
+
+            distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
+                                    use_std=config[2], estimator=config[3], 
+                                    min_std=min_std)
+            
+            distr_mdl_test = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
                                         use_std=config[2], estimator=config[3], 
                                         min_std=min_std)
+
+            if config[0] == 'silhouette':
+                distr_mdl.fit(fitting_dict[key], fitting_clusters_silh)
+                fitting_clusters_silh = distr_mdl.cluster_labels
+            elif config[0] == 'DBCV':
+                distr_mdl.fit(fitting_dict[key], fitting_clusters_dbcv)
+                fitting_clusters_dbcv = distr_mdl.cluster_labels
+            else:
+                distr_mdl.fit(fitting_dict[key])
+
+            fitting_pf[pf_key] = distr_mdl
+
+            if config[0] == 'silhouette':
+                distr_mdl_test.fit(testing_dict[key], testing_clusters_silh)
+                testing_clusters_silh = distr_mdl_test.cluster_labels
+            elif config[0] == 'DBCV':
+                distr_mdl_test.fit(testing_dict[key], testing_clusters_dbcv)
+                testing_clusters_dbcv = distr_mdl_test.cluster_labels
+            else:
+                distr_mdl_test.fit(testing_dict[key])
                 
-                distr_mdl_test = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                            use_std=config[2], estimator=config[3], 
-                                            min_std=min_std)
-
-                if config[0] == 'silhouette':
-                    distr_mdl.fit(fitting_dict[key], fitting_clusters_silh)
-                    fitting_clusters_silh = distr_mdl.cluster_labels
-                elif config[0] == 'DBCV':
-                    distr_mdl.fit(fitting_dict[key], fitting_clusters_dbcv)
-                    fitting_clusters_dbcv = distr_mdl.cluster_labels
-                else:
-                    distr_mdl.fit(fitting_dict[key])
-
-                fitting_pf[pf_key] = distr_mdl
-
-                if config[0] == 'silhouette':
-                    distr_mdl_test.fit(testing_dict[key], testing_clusters_silh)
-                    testing_clusters_silh = distr_mdl_test.cluster_labels
-                elif config[0] == 'DBCV':
-                    distr_mdl_test.fit(testing_dict[key], testing_clusters_dbcv)
-                    testing_clusters_dbcv = distr_mdl_test.cluster_labels
-                else:
-                    distr_mdl_test.fit(testing_dict[key])
-                    
-                testing_pf[pf_key] = distr_mdl_test
-            
-                pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
-                pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
+            testing_pf[pf_key] = distr_mdl_test
+        
+            pickle.dump(fitting_pf, open(fitting_pf_str, 'wb'))
+            pickle.dump(testing_pf, open(testing_pf_str, 'wb'))
 
     #%% Evaluate log likelihoos of samples
     sampled_dict_str = './Distribution Datasets/Fitted_Dists'+rand_str+'_sampled_dict'
@@ -217,7 +224,7 @@ def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     testing_pf_testing_log_likelihood = load_dir(testing_pf_testing_log_likelihood_str)
     
     # Short term expediant
-    # overwrite_string = ['Trajectories_n_samples_6000', 'KDevine']
+    overwrite_string = ['Trajectories_n_samples_6000', 'KDevine']
     
     print("", flush = True)
     print("Evaluate log likelihoods", flush = True)

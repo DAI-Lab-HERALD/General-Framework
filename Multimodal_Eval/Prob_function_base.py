@@ -163,7 +163,46 @@ class MPS_Windows(MP_Windows):
         self.R += (self.num_features - self.principal_directions) * np.log(self.min_std)
 
         self.fitted = True
+        assert False
+        return self
+    
+class MPK_Windows(MP_Windows):
+    def fit(self, X):
+        assert len(X.shape) == 2
+        
+        self.num_samples, self.num_features = X.shape
+        
+        # Set principal directions
+        if self.principal_directions is None:
+            self.principal_directions = self.num_features
+        else:
+            self.principal_directions = min(int(self.principal_directions), self.num_features)
 
+        # Set up kernels
+        self.V = np.zeros((self.num_features, self.num_features, self.principal_directions))
+        self.L = np.zeros((self.num_features, self.principal_directions))
+
+        # Get k-closest neighbors
+        balltree = BallTree(X)
+        num_neighbours = max(self.num_features, int(np.sqrt(self.num_samples) / 1.5))
+        dist, idx = balltree.query(X, num_neighbours)
+
+        # Center points
+        M = X[idx] - X[:, np.newaxis]
+
+        # Compute covariance matrices
+        _, S, Vi = np.linalg.svd(M, full_matrices = False)
+
+        self.X = X
+        self.V = Vi[:, :self.principal_directions, :].transpose((0, 2, 1))
+        self.L = S[:, :self.principal_directions] ** 2 / num_neighbours + self.min_std ** 2
+
+        # Compute prob normalisation
+        self.R  = self.num_features * np.log(2 * np.pi) + np.sum(np.log(self.L), axis = 1)
+        self.R += (self.num_features - self.principal_directions) * np.log(self.min_std)
+
+        self.fitted = True
+        assert False
         return self
             
 

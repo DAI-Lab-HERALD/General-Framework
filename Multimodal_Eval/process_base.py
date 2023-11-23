@@ -25,8 +25,8 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
-        if 'KDevine' in key:
-            return False
+        # if 'KDevine' in key:
+        #     return False
         ret = True
         for string in overwrite_string:
             if string not in key:
@@ -34,7 +34,8 @@ def write_key(dict, key, overwrite_string):
         return ret
 
 
-def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
+# def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
+def main_base(random_seeds, overwrite_string = []):
     #%% Load the datasets
     # 2D-Distributions
     # Noisy Circles
@@ -95,7 +96,7 @@ def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     # Trajectory Distributions
     traj_min_std = 0.01
 
-    testConfigs = ['MP_Windows', 'MPS_Windows', 'KDevine'] 
+    testConfigs = ['MP_Windows', 'MPS_Windows', 'MPK_Windows', 'KDevine'] 
 
     #%% Loop over datasets and fit the probability functions
     fitting_pf_str = data_str+'_fitting_pf'
@@ -105,7 +106,7 @@ def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
     testing_pf = load_dir(testing_pf_str)
     
     print("", flush = True)
-    print("Fir distributions", flush = True)
+    print("Fit distributions", flush = True)
     for key, _ in fitting_dict.items():
         for config in testConfigs:
             pf_key = key + '_' + config
@@ -130,6 +131,8 @@ def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
                 PF = pf.MP_Windows
             elif config == 'MPS_Windows':
                 PF = pf.MPS_Windows
+            elif config == 'MPK_Windows':
+                PF = pf.MPK_Windows
             elif config == 'KDevine':
                 PF = pf.KDevine
 
