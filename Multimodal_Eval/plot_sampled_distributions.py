@@ -57,16 +57,7 @@ for rndSeed in random_seeds:
     fitting_dict = {**fitting_dict,
                     **pickle.load(open('./Distribution Datasets/Fitted_Dists/rndSeed'+str(rndSeed[0])+str(rndSeed[1])+
                                                     '_fitting_dict', 'rb'))}
-    
-dataset_keys_twoD = [
-                    'noisy_moons_n_samples_6000',
-                    'varied_n_samples_6000',
-                    'aniso_n_samples_6000']
-
-dataset_keys_traj = [
-                    'Trajectories_n_samples_6000'
-                    ]
-
+   
 config_keys = ['config_cluster_PCA_stdKDE',
                'config_cluster_PCAKDE',
                'config_PCA_stdKDE',
@@ -94,6 +85,7 @@ for i in range(100):
     aniso_ROME_samples = []
     aniso_KDE_cluster_std_samples = []
     aniso_KDE_cluster_samples = []
+    aniso_KDE_PCA_std_samples = []
 
 
     varied_fittigData = []
@@ -227,6 +219,15 @@ for i in range(100):
         print('error occured in retrieving samples for rnd_seed_'+str(i))
         continue
 
+    try:
+        np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_config_PCA_stdKDE'])
+        data = sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_config_PCA_stdKDE']
+        aniso_KDE_PCA_std_samples.append(data)
+    except:
+        print('try 16')
+        print('error occured in retrieving samples for rnd_seed_'+str(i))
+        continue
+
     varied_fittigData.append(fitting_dict['varied_n_samples_6000_rnd_seed_'+str(i)])
     trajectories_fittingData.append(fitting_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)])
     twoMoons_fittingData.append(fitting_dict['noisy_moons_n_samples_6000_rnd_seed_'+str(i)])
@@ -247,6 +248,7 @@ twoMoons_KDE_cluster_samples = twoMoons_KDE_cluster_samples[0]
 aniso_ROME_samples = aniso_ROME_samples[0]
 aniso_KDE_cluster_std_samples = aniso_KDE_cluster_std_samples[0]
 aniso_KDE_cluster_samples = aniso_KDE_cluster_samples[0]
+aniso_KDE_PCA_std_samples = aniso_KDE_PCA_std_samples[0]
 
 trajectories_MPW_samples = trajectories_MPW_samples[0]
 trajectories_VC_samples = trajectories_VC_samples[0]
@@ -365,6 +367,39 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_ROME_samples.svg', bbox_inches='tight')
+
+
+
+# Plot varied_KDE_PCA_std_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
+colors = sns.color_palette("husl", cluster.max() + 1)
+colors.append((0.0, 0.0, 0.0))
+data_colors = [colors[i] for i in cluster]
+
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
+plt.scatter(varied_KDE_PCA_std_samples[:, 0], varied_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_KDE_PCA_std_samples.svg', bbox_inches='tight')
 
 
 # Plot twoMoons_GMM_samples
@@ -563,6 +598,38 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_cluster_samples.svg', bbox_inches='tight')
+
+
+# Plot aniso_KDE_PCA_std_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
+colors = sns.color_palette("husl", cluster.max() + 1)
+colors.append((0.0, 0.0, 0.0))
+data_colors = [colors[i] for i in cluster]
+
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
+plt.scatter(aniso_KDE_PCA_std_samples[:, 0], aniso_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_PCA_std_samples.svg', bbox_inches='tight')
 
 
 
