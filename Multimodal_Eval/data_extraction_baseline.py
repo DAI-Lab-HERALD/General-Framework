@@ -63,10 +63,11 @@ def write_table(data, filename, decimal_place = 2):
     
     for i, row_name in enumerate(Row_names): 
         Output_string += row_name + ' '
-
-        
-        template = ((r'& {{\scriptsize ${:0.' + str(decimal_place) + r'f}^{{\pm {:0.' + str(decimal_place) + 
-                     r'f}}}$}} ') * (num_data_columns))
+    
+        T1 = r'& {{\scriptsize ${:0.' + str(decimal_place + 1) + r'f}^{{\pm {:0.' + str(decimal_place + 1) + r'f}}}$}} '
+        T0 = r'& {{\scriptsize ${:0.' + str(decimal_place) + r'f}^{{\pm {:0.' + str(decimal_place) + r'f}}}$}} '
+                
+        template = T1 * len(Methods) + T0 * len(Methods) * (len(Metrics) - 1)
         
         Str = template.format(*np.array([data_mean[i], data_std[i]]).T.reshape(-1))
 
@@ -76,6 +77,11 @@ def write_table(data, filename, decimal_place = 2):
         # Adapt length to align decimal points
         Str_parts = Str.split('$} ')
         for idx, string in enumerate(Str_parts):
+            if idx < len(Methods):
+                dp = decimal_place + 1 
+            else:
+                dp = decimal_place
+            
             if len(string) == 0:
                 continue
             # previous_string = string.split('.')[0].split('$')[-1]
@@ -92,7 +98,7 @@ def write_table(data, filename, decimal_place = 2):
             # Check for too long stds
             string_parts = Str_parts[idx].split('^')
             if len(string_parts) > 1 and 'hphantom' not in string_parts[1]:
-                std_number = string_parts[1][5:7 + decimal_place]
+                std_number = string_parts[1][5:7 + dp]
                 if std_number[-1] == '.':
                     std_number = std_number[:-1] + r'\hphantom{0}'
                 string_parts[1] = r'{\pm ' + std_number + r'}' 
@@ -133,8 +139,9 @@ random_seeds = [['0','10'],
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
-                 'MP_Windows', 
+                 'MP_Windows',
                  'MPS_Windows',
+                 'MPK_Windows',
                  'KDevine']
 
 # list of dataset keys
@@ -167,7 +174,8 @@ dataset_keys = ['noisy_moons_n_samples_200',
                 'blobs_n_samples_20000',
                 'varied_n_samples_20000',
                 'aniso_n_samples_20000',
-                'Trajectories_n_samples_20000']
+                'Trajectories_n_samples_20000'
+                ]
 
 
 #%% Load Results
@@ -205,14 +213,16 @@ for _, (k, v) in enumerate(JSD_testing.items()):
     # Get metrics from key
     if not isinstance(JSD_testing[k], str):
         results[0] = JSD_testing[k]
-
-    if not isinstance(Wasserstein_data_fitting_sampled[k], str):
-        bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
-        Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
-        results[1] = Wasserstein_hat / (Wasserstein_data_fitting_testing[bk] + 1e-4)
-
-    if not isinstance(fitting_pf_testing_log_likelihood[k], str):
-        results[2] = np.mean(fitting_pf_testing_log_likelihood[k])
+    
+    if k in Wasserstein_data_fitting_sampled.keys():
+        if not isinstance(Wasserstein_data_fitting_sampled[k], str):
+            bk = k[:re.search(r"rnd_seed_\d{1,2}", k).end()]
+            Wasserstein_hat = Wasserstein_data_fitting_sampled[k] - Wasserstein_data_fitting_testing[bk]
+            results[1] = Wasserstein_hat / (Wasserstein_data_fitting_testing[bk] + 1e-4)
+    
+    if k in fitting_pf_testing_log_likelihood.keys():
+        if not isinstance(fitting_pf_testing_log_likelihood[k], str):
+            results[2] = np.mean(fitting_pf_testing_log_likelihood[k])
         
     # Place key in Results array
     rndSeed = int(k[re.search(r"rnd_seed_\d{1,2}", k).start():re.search(r"rnd_seed_\d{1,2}", k).end()][9:])

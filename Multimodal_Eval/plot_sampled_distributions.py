@@ -35,16 +35,16 @@ sampled_dict = {}
 
 
 random_seeds = [
-                ['0','10'],
-                ['10','20'],
-                ['20','30'],
-                ['30','40'],
-                ['40','50'],
+                # ['0','10'],
+                # ['10','20'],
+                # ['20','30'],
+                # ['30','40'],
+                # ['40','50'],
                 ['50','60'],
-                ['60','70'],
-                ['70','80'],
-                # ['80','90'],
-                ['90','100']
+                # ['60','70'],
+                # ['70','80'],
+                # # ['80','90'],
+                # ['90','100']
                 ]
 
 # loop through all results files and save to corresponding dictionaries
@@ -64,7 +64,7 @@ config_keys = ['config_cluster_PCA_stdKDE',
                'config_cluster_stdKDE',
                'config_clusterGMM',
                'KDevine',
-               'MP_Windows'
+               'MPS_Windows'
                ]
 
 #%%
@@ -86,6 +86,10 @@ for i in range(100):
     aniso_KDE_cluster_std_samples = []
     aniso_KDE_cluster_samples = []
     aniso_KDE_PCA_std_samples = []
+    aniso_MPW_samples = []
+    varied_KDE_samples = []
+    aniso_KDE_samples = []
+    twoMoons_KDE_samples = []
 
 
     varied_fittigData = []
@@ -95,8 +99,8 @@ for i in range(100):
 
 
     try:
-        np.random.shuffle(sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MP_Windows'])
-        data = sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MP_Windows']
+        np.random.shuffle(sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
+        data = sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
         varied_MPW_samples.append(data)
     except:
         print('try 1')
@@ -120,8 +124,8 @@ for i in range(100):
         print('error occured in retrieving samples for rnd_seed_'+str(i))
         continue
     try:
-        np.random.shuffle(sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MP_Windows'])
-        data = sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MP_Windows']
+        np.random.shuffle(sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
+        data = sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
         trajectories_MPW_samples.append(data)
     except:
         print('try 4')
@@ -218,6 +222,42 @@ for i in range(100):
         print('try 15')
         print('error occured in retrieving samples for rnd_seed_'+str(i))
         continue
+        
+    try:
+        np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
+        data = sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
+        aniso_MPW_samples.append(data)
+    except:
+        print('try 16')
+        print('error occured in retrieving samples for rnd_seed_'+str(i))
+        continue
+        
+    try:
+        np.random.shuffle(sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE'])
+        data = sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE']
+        varied_KDE_samples.append(data)
+    except:
+        print('try 17')
+        print('error occured in retrieving samples for rnd_seed_'+str(i))
+        continue
+        
+    try:
+        np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE'])
+        data = sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE']
+        aniso_KDE_samples.append(data)
+    except:
+        print('try 18')
+        print('error occured in retrieving samples for rnd_seed_'+str(i))
+        continue
+        
+    try:
+        np.random.shuffle(sampled_dict['noisy_moons_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE'])
+        data = sampled_dict['noisy_moons_n_samples_6000_rnd_seed_'+str(i)+'_config_PCAKDE']
+        twoMoons_KDE_samples.append(data)
+    except:
+        print('try 19')
+        print('error occured in retrieving samples for rnd_seed_'+str(i))
+        continue
 
     try:
         np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_config_PCA_stdKDE'])
@@ -240,15 +280,19 @@ varied_MPW_samples = varied_MPW_samples[0]
 varied_VC_samples = varied_VC_samples[0]
 varied_ROME_samples = varied_ROME_samples[0]
 varied_KDE_PCA_std_samples = varied_KDE_PCA_std_samples[0]
+varied_KDE_samples = varied_KDE_samples[0]
 
 twoMoons_GMM_samples = twoMoons_GMM_samples[0]
 twoMoons_ROME_samples = twoMoons_ROME_samples[0]
 twoMoons_KDE_cluster_samples = twoMoons_KDE_cluster_samples[0]
+twoMoons_KDE_samples = twoMoons_KDE_samples[0]
 
 aniso_ROME_samples = aniso_ROME_samples[0]
 aniso_KDE_cluster_std_samples = aniso_KDE_cluster_std_samples[0]
 aniso_KDE_cluster_samples = aniso_KDE_cluster_samples[0]
 aniso_KDE_PCA_std_samples = aniso_KDE_PCA_std_samples[0]
+aniso_MPW_samples = aniso_MPW_samples[0]
+aniso_KDE_samples = aniso_KDE_samples[0]
 
 trajectories_MPW_samples = trajectories_MPW_samples[0]
 trajectories_VC_samples = trajectories_VC_samples[0]
@@ -278,17 +322,15 @@ print('Clustering ' + name)
 Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
-# Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+# # Get colors
+colors = sns.color_palette("husl", 3)
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(varied_MPW_samples[:, 0], varied_MPW_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(varied_MPW_samples[:, 0], varied_MPW_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -302,7 +344,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_MPW_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot varied_VC_samples
 
@@ -312,16 +354,13 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(varied_VC_samples[:, 0], varied_VC_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(varied_VC_samples[:, 0], varied_VC_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -335,7 +374,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_VC_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot varied_ROME_samples
 # Get clusters
@@ -344,16 +383,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(varied_ROME_samples[:, 0], varied_ROME_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(varied_ROME_samples[:, 0], varied_ROME_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -367,7 +404,37 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_ROME_samples.svg', bbox_inches='tight')
+plt.close()
 
+# Plot varied_KDE_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
+
+
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(varied_KDE_samples[:, 0], varied_KDE_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/varied_KDE_samples.svg', bbox_inches='tight')
+plt.close()
 
 
 # Plot varied_KDE_PCA_std_samples
@@ -377,16 +444,12 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
-
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
 # plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(varied_KDE_PCA_std_samples[:, 0], varied_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c=colors[2])
+plt.scatter(varied_KDE_PCA_std_samples[:, 0], varied_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -412,16 +475,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(twoMoons_GMM_samples[:, 0], twoMoons_GMM_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(twoMoons_GMM_samples[:, 0], twoMoons_GMM_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -435,7 +496,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/twoMoons_GMM_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot twoMoons_ROME_samples
 # Get clusters
@@ -444,16 +505,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(twoMoons_ROME_samples[:, 0], twoMoons_ROME_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(twoMoons_ROME_samples[:, 0], twoMoons_ROME_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -467,7 +526,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/twoMoons_ROME_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot twoMoons_KDE_cluster_samples
 # Get clusters
@@ -476,16 +535,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(twoMoons_KDE_cluster_samples[:, 0], twoMoons_KDE_cluster_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(twoMoons_KDE_cluster_samples[:, 0], twoMoons_KDE_cluster_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -499,7 +556,37 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/twoMoons_KDE_cluster_samples.svg', bbox_inches='tight')
+plt.close()
 
+# Plot twoMoons_KDE_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
+
+
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(twoMoons_KDE_samples[:, 0], twoMoons_KDE_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/twoMoons_KDE_samples.svg', bbox_inches='tight')
+plt.close()
 
 # Plot aniso_ROME_samples
 data = aniso_fittingData
@@ -511,16 +598,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(aniso_ROME_samples[:, 0], aniso_ROME_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(aniso_ROME_samples[:, 0], aniso_ROME_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -534,7 +619,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_ROME_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot aniso_KDE_cluster_std_samples
 # Get clusters
@@ -543,16 +628,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(aniso_KDE_cluster_std_samples[:, 0], aniso_KDE_cluster_std_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(aniso_KDE_cluster_std_samples[:, 0], aniso_KDE_cluster_std_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -566,7 +649,7 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_cluster_std_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Plot aniso_KDE_cluster_samples
 # Get clusters
@@ -575,16 +658,14 @@ Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
 # Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
+
 
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
-# plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(aniso_KDE_cluster_samples[:, 0], aniso_KDE_cluster_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(aniso_KDE_cluster_samples[:, 0], aniso_KDE_cluster_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -598,7 +679,15 @@ plt.show()
 
 # Save figure as pdf
 fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_cluster_samples.svg', bbox_inches='tight')
+plt.close()
 
+# Plot aniso_MPW_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
 
 # Plot aniso_KDE_PCA_std_samples
 # Get clusters
@@ -606,17 +695,12 @@ print('Clustering ' + name)
 Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
-# Get colors
-colors = sns.color_palette("husl", cluster.max() + 1)
-colors.append((0.0, 0.0, 0.0))
-data_colors = [colors[i] for i in cluster]
-
 # Plot
 print('Plotting ' + name)
 fig = plt.figure(i, figsize=(3, 3))
 # plt.scatter(data[:, 0], data[:, 1], s=1, c=data_colors, alpha=0.9)
-plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c='k')
-plt.scatter(aniso_KDE_PCA_std_samples[:, 0], aniso_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c='#1f77b4')
+plt.scatter(data[:, 0], data[:, 1], s=1, alpha=0.9, c=colors[2])
+plt.scatter(aniso_KDE_PCA_std_samples[:, 0], aniso_KDE_PCA_std_samples[:, 1], s=1, alpha=0.9, c=colors[0])
 # plt.set_title(name)
 plt.axis('equal')
 plt.xticks([])
@@ -633,6 +717,57 @@ fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_PCA_std_sa
 
 
 
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(aniso_MPW_samples[:, 0], aniso_MPW_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_MPW_samples.svg', bbox_inches='tight')
+plt.close()
+
+# Plot aniso_KDE_samples
+# Get clusters
+print('Clustering ' + name)
+Optics = OPTICS_GMM().fit(data)
+cluster = Optics.cluster_labels 
+
+# Get colors
+
+
+# Plot
+print('Plotting ' + name)
+fig = plt.figure(i, figsize=(3, 3))
+# plt.scatter(data[:, 0], data[:, 1], s=0.5, c=data_colors, alpha=0.9)
+plt.scatter(data[:, 0], data[:, 1], s=0.5, alpha=0.9, c=colors[2])
+plt.scatter(aniso_KDE_samples[:, 0], aniso_KDE_samples[:, 1], s=0.5, alpha=0.9, c=colors[0])
+# plt.set_title(name)
+plt.axis('equal')
+plt.xticks([])
+plt.yticks([])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['left'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+plt.show()
+
+# Save figure as pdf
+fig.savefig('./Distribution Datasets/2D-Distributions/Plots/aniso_KDE_samples.svg', bbox_inches='tight')
+plt.close()
+
 # %%
 # Trajectories MPW
 
@@ -644,8 +779,9 @@ n = len(Trajectories)
 
 fig = plt.figure() 
 for i in range(n):
-    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c='k')
-    plt.plot(trajectories_MPW_samples[i,:,0], trajectories_MPW_samples[i,:, 1], alpha=0.05, c='#1f77b4')
+    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
+    plt.plot(trajectories_MPW_samples[i,:,0], trajectories_MPW_samples[i,:, 1], alpha=0.05, c=colors[0])
 
 # set axis equal
 plt.axis('equal')
@@ -664,14 +800,15 @@ plt.show()
 
 # Remove all spines
 fig.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories_MPW_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Trajectories VC
 
 fig = plt.figure() 
 for i in range(n):
-    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c='k')
-    plt.plot(trajectories_VC_samples[i,:,0], trajectories_VC_samples[i,:, 1], alpha=0.05, c='#1f77b4')
+    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
+    plt.plot(trajectories_VC_samples[i,:,0], trajectories_VC_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
 plt.axis('equal')
@@ -690,14 +827,15 @@ plt.show()
 
 # Remove all spines
 fig.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories_VC_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Trajectories ROME
 
 fig = plt.figure() 
 for i in range(n):
-    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c='k')
-    plt.plot(trajectories_ROME_samples[i,:,0], trajectories_ROME_samples[i,:, 1], alpha=0.05, c='#1f77b4')
+    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
+    plt.plot(trajectories_ROME_samples[i,:,0], trajectories_ROME_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
 plt.axis('equal')
@@ -716,14 +854,15 @@ plt.show()
 
 # Remove all spines
 fig.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories_ROME_samples.svg', bbox_inches='tight')
-
+plt.close()
 
 # Trajectories GMM
 
 fig = plt.figure() 
 for i in range(n):
-    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c='k')
-    plt.plot(trajectories_GMM_samples[i,:,0], trajectories_GMM_samples[i,:, 1], alpha=0.05, c='#1f77b4')
+    plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
+    plt.plot(trajectories_GMM_samples[i,:,0], trajectories_GMM_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
 plt.axis('equal')
@@ -742,5 +881,5 @@ plt.show()
 
 # Remove all spines
 fig.savefig('./Distribution Datasets/Forking_Paths/Plots/Trajectories_GMM_samples.svg', bbox_inches='tight')
-
+plt.close()
 # %%
