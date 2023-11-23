@@ -139,6 +139,7 @@ random_seeds = [['0','10'],
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
+                 'MP_Windows',
                  'MPS_Windows',
                  'MPK_Windows',
                  'KDevine']
