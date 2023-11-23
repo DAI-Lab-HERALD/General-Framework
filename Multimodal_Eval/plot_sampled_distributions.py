@@ -320,7 +320,7 @@ print('Clustering ' + name)
 Optics = OPTICS_GMM().fit(data)
 cluster = Optics.cluster_labels 
 
-# Get colors
+# # Get colors
 colors = sns.color_palette("husl", 3)
 
 # Plot
@@ -722,6 +722,7 @@ n = len(Trajectories)
 fig = plt.figure() 
 for i in range(n):
     plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
     plt.plot(trajectories_MPW_samples[i,:,0], trajectories_MPW_samples[i,:, 1], alpha=0.05, c=colors[0])
 
 # set axis equal
@@ -748,6 +749,7 @@ plt.close()
 fig = plt.figure() 
 for i in range(n):
     plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
     plt.plot(trajectories_VC_samples[i,:,0], trajectories_VC_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
@@ -774,6 +776,7 @@ plt.close()
 fig = plt.figure() 
 for i in range(n):
     plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
     plt.plot(trajectories_ROME_samples[i,:,0], trajectories_ROME_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
@@ -800,6 +803,7 @@ plt.close()
 fig = plt.figure() 
 for i in range(n):
     plt.plot(Trajectories[i,:,0], Trajectories[i,:, 1], alpha=0.2, c=colors[2])
+for i in range(n):
     plt.plot(trajectories_GMM_samples[i,:,0], trajectories_GMM_samples[i,:, 1], alpha=0.05, c=colors[0])
     
 # set axis equal
