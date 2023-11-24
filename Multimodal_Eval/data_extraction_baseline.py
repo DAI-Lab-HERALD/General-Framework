@@ -216,11 +216,11 @@ use_small_traj_std = False
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     if use_small_traj_std:
-        k_alt = k + '_0.01'
+        k_alt = k + '_0.025'
         if k_alt in JSD_testing.items():
             continue
     else:
-        if '_0.01' == k[-5:]: 
+        if '_0.025' == k[-5:]: 
             continue
     results = np.ones(3) * np.nan
     # Get metrics from key

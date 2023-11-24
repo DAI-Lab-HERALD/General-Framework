@@ -91,7 +91,7 @@ def main_base(random_seeds, overwrite_string = []):
     # 2D-Distributions
     twoD_min_std = 0.01
     # Trajectory Distributions
-    traj_min_std = 0.01
+    traj_min_std = 0.025
 
     testConfigs = ['MP_Windows', 'MPS_Windows', 'MPK_Windows', 'KDevine'] 
 
@@ -119,9 +119,9 @@ def main_base(random_seeds, overwrite_string = []):
             else:
                 min_std = traj_min_std
                 if 2500 < int(num_samples_X3) < 8000:
-                    if ((traj_min_std == 0.01) and
+                    if ((traj_min_std == 0.025) and
                         ('KDevine' not in pf_key)):
-                            pf_key += '_0.01'
+                            pf_key += '_0.025'
                         
             if not write_key(fitting_pf, pf_key, overwrite_string):
                 continue
