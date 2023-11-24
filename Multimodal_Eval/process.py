@@ -25,8 +25,6 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
-        # if 'KDevine' in key:
-        #     return False
         ret = True
         for string in overwrite_string:
             if string not in key:
@@ -34,7 +32,6 @@ def write_key(dict, key, overwrite_string):
         return ret
 
 
-# def main(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
 def main(random_seeds, overwrite_string = []):
     #%% Load the datasets
     # 2D-Distributions
@@ -155,30 +152,34 @@ def main(random_seeds, overwrite_string = []):
                 pf_key += '_std'
 
             pf_key += config[3]
-
-            if not write_key(fitting_pf, pf_key, overwrite_string):
-                continue
-
+            
             num_samples_X3 = re.findall(r"samples_\d{1,5}", key)[0][8:] # extract number of samples from key
 
             # Short term expediant
             if int(num_samples_X3) > 8000:
                 continue
-
-            print('Fit distribution for ' + pf_key, flush = True) 
-
+            
             if not('Trajectories' in key):
                 min_std = twoD_min_std
             else:
                 min_std = traj_min_std
+                if 2500 < int(num_samples_X3) < 8000:
+                    if ((traj_min_std == 0.01) and
+                        (config[2] or ('GMM' in pf_key))):
+                            pf_key += '_0.01'
+                    
+            if not write_key(fitting_pf, pf_key, overwrite_string):
+                continue
+
+            print('Fit distribution for ' + pf_key, flush = True) 
 
             distr_mdl = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                    use_std=config[2], estimator=config[3], 
-                                    min_std=min_std)
+                                      use_std=config[2], estimator=config[3], 
+                                      min_std=min_std)
             
             distr_mdl_test = pf.OPTICS_GMM(use_cluster=config[0], use_PCA=config[1],
-                                        use_std=config[2], estimator=config[3], 
-                                        min_std=min_std)
+                                           use_std=config[2], estimator=config[3], 
+                                           min_std=min_std)
 
             if config[0] == 'silhouette':
                 distr_mdl.fit(fitting_dict[key], fitting_clusters_silh)
@@ -222,9 +223,6 @@ def main(random_seeds, overwrite_string = []):
     fitting_pf_sampled_log_likelihood = load_dir(fitting_pf_sampled_log_likelihood_str)
     testing_pf_fitting_log_likelihood = load_dir(testing_pf_fitting_log_likelihood_str)
     testing_pf_testing_log_likelihood = load_dir(testing_pf_testing_log_likelihood_str)
-    
-    # Short term expediant
-    overwrite_string = ['Trajectories_n_samples_6000', 'KDevine']
     
     print("", flush = True)
     print("Evaluate log likelihoods", flush = True)

@@ -200,8 +200,18 @@ for rndSeed in random_seeds:
 # Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
 Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 
+use_small_traj_std = False
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
+    if use_small_traj_std:
+        k_alt = k + '_0.01'
+        if k_alt in JSD_testing.items():
+            continue
+    else:
+        if '_0.01' == k[-5:]: 
+            continue
+    
+    
     results = np.ones(3) * np.nan
     # Get metrics from key
     if not isinstance(JSD_testing[k], str):

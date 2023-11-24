@@ -25,8 +25,6 @@ def write_key(dict, key, overwrite_string):
     if len(overwrite_string) == 0:
         return False
     else:
-        # if 'KDevine' in key:
-        #     return False
         ret = True
         for string in overwrite_string:
             if string not in key:
@@ -34,7 +32,6 @@ def write_key(dict, key, overwrite_string):
         return ret
 
 
-# def main_base(random_seeds, overwrite_string = ['Trajectories_n_samples_6000']):
 def main_base(random_seeds, overwrite_string = []):
     #%% Load the datasets
     # 2D-Distributions
@@ -111,21 +108,25 @@ def main_base(random_seeds, overwrite_string = []):
         for config in testConfigs:
             pf_key = key + '_' + config
 
-            if not write_key(fitting_pf, pf_key, overwrite_string):
-                continue
-            
             num_samples_X3 = re.findall(r"samples_\d{1,5}", pf_key)[0][8:] # extract number of samples from key
 
             # Short term expediant
             if int(num_samples_X3) > 8000:
                 continue
             
-            print('Fit distribution for ' + pf_key, flush = True)   
-
             if not('Trajectories' in key):
                 min_std = twoD_min_std
             else:
                 min_std = traj_min_std
+                if 2500 < int(num_samples_X3) < 8000:
+                    if ((traj_min_std == 0.01) and
+                        ('KDevine' not in pf_key)):
+                            pf_key += '_0.01'
+                        
+            if not write_key(fitting_pf, pf_key, overwrite_string):
+                continue
+            
+            print('Fit distribution for ' + pf_key, flush = True)   
 
             if config == 'MP_Windows':
                 PF = pf.MP_Windows
