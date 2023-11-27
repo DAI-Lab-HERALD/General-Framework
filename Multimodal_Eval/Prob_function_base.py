@@ -163,7 +163,6 @@ class MPS_Windows(MP_Windows):
         self.R += (self.num_features - self.principal_directions) * np.log(self.min_std)
 
         self.fitted = True
-        assert False
         return self
     
 class MPK_Windows(MP_Windows):
@@ -202,7 +201,6 @@ class MPK_Windows(MP_Windows):
         self.R += (self.num_features - self.principal_directions) * np.log(self.min_std)
 
         self.fitted = True
-        assert False
         return self
             
 
