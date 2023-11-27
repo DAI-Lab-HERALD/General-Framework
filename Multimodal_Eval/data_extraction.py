@@ -105,7 +105,8 @@ def write_tables(data, filename, decimal_place = 2):
 #%% Define results
 
 # List of random seeds
-random_seeds = [['0','10'],
+random_seeds = [
+                # ['0','10'],
                 ['10','20'],
                 ['20','30'],
                 ['30','40'],
@@ -199,18 +200,11 @@ for rndSeed in random_seeds:
 # Each element is a value of the metric for a given dataset, ablation and random seed
 # Datasets: noisy_moons, noisy_circles, blobs, varied, aniso, Trajectories
 Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
+Results_small = Results.copy()
 
-use_small_traj_std = False
+use_small_traj_std = True
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
-    if use_small_traj_std:
-        k_alt = k + '_0.025'
-        if k_alt in JSD_testing.items():
-            continue
-    else:
-        if '_0.025' == k[-5:]: 
-            continue
-    
     
     results = np.ones(3) * np.nan
     # Get metrics from key
@@ -241,7 +235,16 @@ for _, (k, v) in enumerate(JSD_testing.items()):
     else:
         ablation_id = ablation_id[0]
      
-    Results[dataset_id, ablation_id, :, rndSeed] = results
+    if '_0.025' == k[-6:]:
+        Results_small[dataset_id, ablation_id, :, rndSeed] = results
+    elif k[-1].isnumeric():
+        pass
+    else:
+        Results[dataset_id, ablation_id, :, rndSeed] = results
+
+if use_small_traj_std:
+    available = np.isfinite(Results_small).any(-1)
+    Results[available] = Results_small[available]
 
 Results = Results.reshape((-1, 6, *Results.shape[1:]))
 
