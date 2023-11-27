@@ -99,8 +99,8 @@ for i in range(100):
 
 
     try:
-        np.random.shuffle(sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
-        data = sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
+        np.random.shuffle(sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows'])
+        data = sampled_dict['varied_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows']
         varied_MPW_samples.append(data)
     except:
         print('try 1')
@@ -124,8 +124,8 @@ for i in range(100):
         print('error occured in retrieving samples for rnd_seed_'+str(i))
         continue
     try:
-        np.random.shuffle(sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
-        data = sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
+        np.random.shuffle(sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows'])
+        data = sampled_dict['Trajectories_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows']
         trajectories_MPW_samples.append(data)
     except:
         print('try 4')
@@ -224,8 +224,8 @@ for i in range(100):
         continue
         
     try:
-        np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows'])
-        data = sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPS_Windows']
+        np.random.shuffle(sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows'])
+        data = sampled_dict['aniso_n_samples_6000_rnd_seed_'+str(i)+'_MPK_Windows']
         aniso_MPW_samples.append(data)
     except:
         print('try 16')
