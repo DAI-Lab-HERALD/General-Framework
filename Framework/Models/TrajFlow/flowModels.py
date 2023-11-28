@@ -826,6 +826,8 @@ class Future_Decoder(nn.Module):
         x, hidden = self.gru(x, hidden)
         x = self.output(x)
         return x, hidden
+
+
     
     
 class Future_Seq2Seq(nn.Module):
@@ -861,5 +863,66 @@ class Future_Seq2Seq(nn.Module):
         return outputs, x_in
 
     
+
+
+class Future_Decoder_Control(nn.Module):
+    """ GRU based recurrent neural network. """
+
+    def __init__(self, actions=2, es=4, hs=4, nl=3, device=0):
+        super().__init__()
+        self.output = nn.Linear(es, actions)
+        self.gru = nn.GRU(input_size=es, hidden_size=hs, num_layers=nl, batch_first=True)
+        self.device = device
+        self.cuda(self.device)
+        
+        self.embedding = nn.Linear(es, es)
+        self.nl = nl
+
+    def forward(self, prev_step, x, hidden=None):
+        x = self.embedding(x)
+        x, hidden = self.gru(x, hidden)
+        a = self.output(x)
+        
+        prev_angle = torch.atan2(prev_step[:,1], prev_step[:,0])
+        angle = prev_angle + a.squeeze()[...,1]
+        v = a.squeeze()[...,0]
+
+        y_delta = torch.stack((torch.cos(angle)*v, torch.sin(angle)*v), dim=-1)
+
+        return y_delta, hidden
+
+class Future_Seq2Seq_Control(nn.Module):
+    
+    def __init__(self, encoder, decoder):
+        super(Future_Seq2Seq_Control, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        
+    def forward(self, traj):
+        batch_size = traj.shape[0]
+        
+        target_length = traj.shape[1]
+        
+        outputs = torch.zeros(batch_size, target_length, 2).to(device)
+        
+        x_in = traj
+        
+        x_enc, hidden = self.encoder(x_in) # encode relative histories
+        out = x_enc
+                
+        hidden = torch.tile(out[:,-1].unsqueeze(0), (self.decoder.nl,1,1))
+        
+        # Decoder part
+        x = out[:,-1].unsqueeze(1)
+        prev_step = torch.tensor([1.0,0.0]).unsqueeze(0).repeat(batch_size,1).to(device)
+                
+        for t in range(0, target_length):
+            output, hidden = self.decoder(prev_step, x, hidden)
+            prev_step = output.squeeze()
+            outputs[:, t, :] = prev_step
+            
+            x = hidden[-1].unsqueeze(1)
+        
+        return outputs, x_in
     
     

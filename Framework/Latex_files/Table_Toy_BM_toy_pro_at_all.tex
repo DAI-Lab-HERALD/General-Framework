@@ -1,0 +1,23 @@
+\begin{tabularx}{\textwidth}{X | Z | Z | Z | Z | Z} 
+\toprule[1pt] 
+\multirow{2}{*}{\textbf{Dataset}} & \multicolumn{5}{c}{\textbf{Models}} \\
+& \multicolumn{1}{c}{\emph{TF_fut4_sc4_obs4_alpha10_beta0.0_gamma0.0_smin0.8_smax1.2_sigma0.5}}& \multicolumn{1}{c}{\emph{FM_sc4_obs16_alpha10_beta0.2_gamma0.02_smin0.3_smax1.7_sigma0.5}}& \multicolumn{1}{c}{\emph{T++}}& \multicolumn{1}{c}{\emph{PECNet}}& \multicolumn{1}{c}{\emph{MDI}} \\
+\midrule[1pt] 
+\emph{min ADE$_{20, indep}$ [m]} $\downarrow_{0.0}^{\hphantom{0}}$ & {$\hphantom{000}\underline{0.122}$} & {$\hphantom{000}0.172$} & {$\hphantom{000}0.414$} & {$\hphantom{000}0.895$} & {$\hphantom{000}0.738$} \\ 
+\midrule 
+\emph{min FDE$_{20, indep}$ [m]} $\downarrow_{0.0}^{\hphantom{0}}$ & {$\hphantom{000}\underline{0.205}$} & {$\hphantom{000}0.276$} & {$\hphantom{000}0.621$} & {$\hphantom{000}1.293$} & {$\hphantom{000}0.532$} \\ 
+\midrule 
+\emph{Oracle$_{indep}$ [m]} $\downarrow_{0.0}^{\hphantom{0}}$ & {$\hphantom{000}\underline{0.143}$} & {$\hphantom{000}0.199$} & {$\hphantom{000}0.452$} & {$\hphantom{000}0.895$} & {$\hphantom{000}0.764$} \\ 
+\midrule 
+\emph{ADE$_{ML, indep}$ [m]} $\downarrow_{0.0}^{\hphantom{0}}$ & {$\hphantom{000}1.021$} & {$\hphantom{000}0.948$} & {$\hphantom{000}0.917$} & {$\hphantom{000}\underline{0.901}$} & {$\hphantom{000}1.297$} \\ 
+\midrule 
+\emph{FDE$_{ML, indep}$ [m]} $\downarrow_{0.0}^{\hphantom{0}}$ & {$\hphantom{000}1.516$} & {$\hphantom{000}1.417$} & {$\hphantom{000}1.356$} & {$\hphantom{000}\underline{1.329}$} & {$\hphantom{000}1.720$} \\ 
+\midrule 
+\emph{KDE$_{NLL, indep}$} $\downarrow_{\hphantom{0}}^{\hphantom{0}}$ & {$\hphantom{0}\underline{-38.645}$} & {$\hphantom{0}-35.773$} & {$\hphantom{0}-19.900$} & {$1368.186$} & {$\hphantom{00}-2.535$} \\ 
+\midrule 
+\emph{ECE$_{\text{Traj}, indep}$} $\downarrow_{0.0}^{0.5}$ & {$\hphantom{000}0.076$} & {$\hphantom{000}\underline{0.071}$} & {$\hphantom{000}0.148$} & {$\hphantom{000}0.495$} & {$\hphantom{000}0.491$} \\ 
+\midrule 
+\emph{JSD$_{\text{Traj}, indep}$} $\downarrow_{0.0}^{1.0}$ & {$\hphantom{000}\underline{0.797}$} & {$\hphantom{000}0.928$} & {$\hphantom{000}0.998$} & {$\hphantom{000}1.000$} & {$\hphantom{000}1.000$} \\ 
+\bottomrule[1pt]
+\end{tabularx} 
+
