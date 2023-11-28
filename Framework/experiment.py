@@ -1598,15 +1598,6 @@ class Experiment():
         op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
         ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
         
-        max_v = np.nanmax(np.stack([np.max(op, axis = (0,1)),
-                                    np.max(ip, axis = (0,1))], axis = 0), axis = 0)
-        
-        min_v = np.nanmin(np.stack([np.min(op, axis = (0,1)),
-                                    np.min(ip, axis = (0,1))], axis = 0), axis = 0)
-
-        max_v = np.ceil((max_v + 5) / 5) * 5
-        min_v = np.floor((min_v - 5) / 5) * 5
-        
         if data_set.includes_images():
             img = data_set.return_batch_images(Domain.iloc[[sample_ind]], None, None, 
                                                None, None, grayscale = False) 
@@ -1614,21 +1605,31 @@ class Experiment():
         else:
             img = None
             
-        return [op, ip, ind_p, min_v, max_v,
-                output_A, output_T_E, img, domain]
+        return [op, ip, ind_p, output_A, output_T_E, img, domain]
     
     
-    def _get_data_sample_pred(self, sample_ind, Output_path_pred):
-        
+    def _get_data_sample_pred(self, sample_ind, ip, ind_p, Output_path_pred):
         output_path_pred = Output_path_pred.iloc[sample_ind]
         
         
         ind_pp = np.array([name for name in output_path_pred.index 
                            if isinstance(output_path_pred[name], np.ndarray)])
         
-        opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+        use_input = np.in1d(ind_pp, ind_p)
         
-        return [opp, ind_pp]
+        opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+
+        max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)),
+                                    np.max(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
+        
+        min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)),
+                                    np.min(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
+
+        max_v = np.ceil((max_v + 5) / 5) * 5
+        min_v = np.floor((min_v - 5) / 5) * 5
+        
+        
+        return [opp, ind_pp, min_v, max_v]
     
     def _get_data_sample_image(self, data_set, domain):
         if data_set.includes_images():
@@ -1770,12 +1771,12 @@ class Experiment():
         
         ## Get specific case
         for sample_ind in sample_inds:   
-            [op, ip, ind_p, min_v, max_v, 
+            [op, ip, ind_p,  
              output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
                                                                         Input_path, Output_path, 
                                                                         Output_A, Output_T_E, Domain)
                                                                         
-            [opp, ind_pp] = self._get_data_sample_pred(sample_ind, Output_path_pred)
+            [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(sample_ind, ip, ind_p, Output_path_pred)
             
             
             # Check if multiple true input should be drawn
@@ -1851,3 +1852,4 @@ class Experiment():
             fig.savefig(figure_file)
             
             # plt.close(fig)
+                                                            

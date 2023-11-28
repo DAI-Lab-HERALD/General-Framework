@@ -645,64 +645,73 @@ class data_interface(object):
         if hasattr(self, 'Subgroups'):
             return
         
-        # Get the same entrie in full dataset
-        T = self.Type.to_numpy().astype(str)
-        PA_str = self.Pred_agents_eval.astype(str) 
-        if hasattr(self.Domain, 'location'):
-            Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
-            Div = np.stack((T, PA_str, Loc), axis = -1)
+        # Get save file
+        test_file = self.data_file [:-4] + '_subgroups.npy'
+        if os.path.isfile(test_file):
+            self.Subgroups = np.load(test_file)
         else:
-            Div = np.stack((T, PA_str), axis = -1)
-            
-        Div_unique, Div_inverse, Div_counts = np.unique(Div, axis = 0, 
-                                                        return_inverse = True, 
-                                                        return_counts = True)
-        
-        # Prepare subgroup saving
-        self.Subgroups = np.zeros(len(T), int)
-        subgroup_index = 1
-        
-        # go through all potentiall similar entries
-        for div_inverse in range(len(Div_unique)):
-            # Get potentially similar samples
-            index = np.where(Div_inverse == div_inverse)[0]
-            
-            # Get agents that are there
-            T_div = Div_unique[div_inverse,:,0]
-            useful_agents = np.where(T_div != 'nan')[0]
-            
-            # Get corresponding input path
-            X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
-            # X.shape: len(index) x len(useful_agents) x nI x 2
-            
-            # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
-            max_num = np.floor(2 ** 29 / np.prod(X.shape))
-            
-            # Prepare maximum differences
-            D_max = np.zeros((len(index), len(index)), np.float32)
-            
-            # Calculate differences
-            for i in range(int(np.ceil(len(index) / max_num))):
-                d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                D = X[d_index, np.newaxis] - X[np.newaxis]
-                D_max[d_index] = np.nanmax(D, (2,3,4))
-            
-            # Find identical trajectories
-            Identical = D_max < 1e-3
-            
-            # Remove self references
-            Identical[np.arange(len(index)), np.arange(len(index))] = False
-            
-            # Get graph
-            G = nx.Graph(Identical)
-            unconnected_subgraphs = list(nx.connected_components(G))
-            
-            for subgraph in unconnected_subgraphs:
-                # Set subgraph
-                self.Subgroups[index[list(subgraph)]] = subgroup_index
+            # Get the same entrie in full dataset
+            T = self.Type.to_numpy().astype(str)
+            PA_str = self.Pred_agents_eval.astype(str) 
+            if hasattr(self.Domain, 'location'):
+                Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
+                Div = np.stack((T, PA_str, Loc), axis = -1)
+            else:
+                Div = np.stack((T, PA_str), axis = -1)
                 
-                # Update parameters
-                subgroup_index += 1
+            Div_unique, Div_inverse, _ = np.unique(Div, axis = 0,
+                                                   return_inverse = True, 
+                                                   return_counts = True)
+            
+            # Prepare subgroup saving
+            self.Subgroups = np.zeros(len(T), int)
+            subgroup_index = 1
+            
+            # go through all potentiall similar entries
+            for div_inverse in range(len(Div_unique)):
+                # Get potentially similar samples
+                index = np.where(Div_inverse == div_inverse)[0]
+                
+                # Get agents that are there
+                T_div = Div_unique[div_inverse,:,0]
+                useful_agents = np.where(T_div != 'nan')[0]
+                
+                # Get corresponding input path
+                X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+                # X.shape: len(index) x len(useful_agents) x nI x 2
+                
+                # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
+                max_num = np.floor(2 ** 29 / np.prod(X.shape))
+                
+                # Prepare maximum differences
+                D_max = np.zeros((len(index), len(index)), np.float32)
+                
+                # Calculate differences
+                for i in range(int(np.ceil(len(index) / max_num))):
+                    d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                    D = X[d_index, np.newaxis] - X[np.newaxis]
+                    D_max[d_index] = np.nanmax(D, (2,3,4))
+                
+                # Find identical trajectories
+                Identical = D_max < 1e-3
+                
+                # Remove self references
+                Identical[np.arange(len(index)), np.arange(len(index))] = False
+                
+                # Get graph
+                G = nx.Graph(Identical)
+                unconnected_subgraphs = list(nx.connected_components(G))
+                
+                for subgraph in unconnected_subgraphs:
+                    # Set subgraph
+                    self.Subgroups[index[list(subgraph)]] = subgroup_index
+                    
+                    # Update parameters
+                    subgroup_index += 1
+            
+            # Save subgroups
+            os.makedirs(os.path.dirname(test_file), exist_ok = True)
+            np.save(test_file, self.Subgroups)
         
         # check if all samples are accounted for
         assert self.Subgroups.min() > 0
