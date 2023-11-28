@@ -1615,7 +1615,7 @@ class Experiment():
         ind_pp = np.array([name for name in output_path_pred.index 
                            if isinstance(output_path_pred[name], np.ndarray)])
         
-        use_input = np.in1d(ind_pp, ind_p)
+        use_input = np.in1d(ind_p, ind_pp)
         
         opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
 
