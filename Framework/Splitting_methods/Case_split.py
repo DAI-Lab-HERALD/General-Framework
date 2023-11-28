@@ -37,7 +37,8 @@ class Case_split(splitting_template):
         return None
     
     def repetition_number(self):
-        return 1
+        self.data_set._group_indentical_inputs()
+        return self.data_set.Subgroups.max()
     
     
     def can_process_str_repetition(self = None):

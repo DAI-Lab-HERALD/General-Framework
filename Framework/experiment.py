@@ -1278,7 +1278,7 @@ class Experiment():
                     for l, split_type in enumerate(self.Split_types):
                         split_index = self.Split_indices[l]
                         
-                        results_split = self.Results[dataset_index, :, split_index, :, metric_index]
+                        results_split = self.Results[dataset_index][:, split_index][:, : , :, metric_index]
                     
                         results_split_mean = np.nanmean(results_split, axis = 1)
                         results_split_std  = np.nanstd(results_split, axis = 1)
