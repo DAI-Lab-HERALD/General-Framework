@@ -127,7 +127,7 @@ def write_table(data, filename, decimal_place = 2):
 
 # List of random seeds
 random_seeds = [
-                # ['0','10'],
+                ['0','10'],
                 ['10','20'],
                 ['20','30'],
                 ['30','40'],
@@ -147,7 +147,7 @@ ablation_keys = ['config_cluster_PCA_stdKDE',
 
 # list of ablation keys
 ablation_keys = ['config_cluster_PCA_stdKDE',
-                 'MPK_Windows',
+                 'MPS_Windows',
                  'KDevine']
 
 # list of dataset keys
