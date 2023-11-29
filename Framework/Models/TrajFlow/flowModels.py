@@ -884,7 +884,17 @@ class Future_Decoder_Control(nn.Module):
         a = self.output(x)
         
         prev_angle = torch.atan2(prev_step[:,1], prev_step[:,0])
-        angle = prev_angle + a.squeeze()[...,1]
+
+        # First version
+        # delta_angle = a.squeeze()[...,1] / 5
+
+        # Second version
+        delta_angle = torch.pi * torch.tanh(a.squeeze()[...,1] / (10))
+
+        # Third solution
+        delta_angle = a.squeeze()[...,1] / 20
+
+        angle = prev_angle + delta_angle
         v = a.squeeze()[...,0]
 
         y_delta = torch.stack((torch.cos(angle)*v, torch.sin(angle)*v), dim=-1)

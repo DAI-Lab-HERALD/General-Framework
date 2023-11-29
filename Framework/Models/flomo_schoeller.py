@@ -51,6 +51,9 @@ class flomo_schoeller(model_template):
         if not ('sigma' in self.model_kwargs.keys()):  
             self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
 
+        if not ('lr_decay' in self.model_kwargs.keys()):
+            self.model_kwargs['lr_decay'] = 1.0 # needed to not fuck up older models
+
         
     
     def setup_method(self, seed = 0):
@@ -92,9 +95,11 @@ class flomo_schoeller(model_template):
         self.s_min = self.model_kwargs['s_min']
         self.s_max = self.model_kwargs['s_max']
         self.sigma = self.model_kwargs['sigma']
+
+        self.lr_decay = self.model_kwargs['lr_decay']
         
 
-        self.flow_epochs = 200
+        self.flow_epochs = 400
         self.flow_lr = 1e-3
         self.flow_wd = 1e-5
 
@@ -157,6 +162,7 @@ class flomo_schoeller(model_template):
                           
         else:
             optimizer = torch.optim.AdamW(flow_dist.parameters(), lr=self.flow_lr, weight_decay=self.flow_wd)
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.lr_decay)
 
             val_losses = []
 
@@ -218,6 +224,9 @@ class flomo_schoeller(model_template):
                     
                     loss.backward()
                     optimizer.step()
+                
+                # Update lrrate
+                lr_scheduler.step()
                     
                     
                 flow_dist.eval()
@@ -360,6 +369,9 @@ class flomo_schoeller(model_template):
                      'smin' + str(self.model_kwargs['s_min']) + '_' + \
                      'smax' + str(self.model_kwargs['s_max']) + '_' + \
                      'sigma' + str(self.model_kwargs['sigma']) 
+        
+        if self.model_kwargs['lr_decay'] != 1.0:
+            kwargs_str += '_lrDec' + str(self.model_kwargs['lr_decay'])
                      
         model_str = 'FM_' + kwargs_str
         
