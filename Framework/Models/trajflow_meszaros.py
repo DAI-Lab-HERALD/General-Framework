@@ -61,14 +61,20 @@ class trajflow_meszaros(model_template):
         if not ('fut_ae_lr' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_lr'] = 5e-4
 
+        if not ('fut_ae_lr_decay' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_lr_decay'] = 1.0 # needed to not fuck up older models
+
         if not ('fut_ae_wd' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_wd'] = 1e-4
 
         if not ('flow_epochs' in self.model_kwargs.keys()):
-            self.model_kwargs['flow_epochs'] = 200
+            self.model_kwargs['flow_epochs'] = 500
 
         if not ('flow_lr' in self.model_kwargs.keys()):
             self.model_kwargs['flow_lr'] = 1e-3
+
+        if not ('flow_lr_decay' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_lr_decay'] = 1.0 # needed to not fuck up older models
 
         if not ('flow_wd' in self.model_kwargs.keys()):
             self.model_kwargs['flow_wd'] = 1e-5
@@ -123,13 +129,14 @@ class trajflow_meszaros(model_template):
         self.s_max = self.model_kwargs['s_max']
         self.sigma = self.model_kwargs['sigma']
 
-
         self.fut_ae_epochs = self.model_kwargs['fut_ae_epochs']
         self.fut_ae_lr = self.model_kwargs['fut_ae_lr']
+        self.fut_ae_lr_decay = self.model_kwargs['fut_ae_lr_decay']
         self.fut_ae_wd = self.model_kwargs['fut_ae_wd']
 
         self.flow_epochs = self.model_kwargs['flow_epochs']
         self.flow_lr = self.model_kwargs['flow_lr']
+        self.flow_lr_decay = self.model_kwargs['flow_lr_decay']
         self.flow_wd = self.model_kwargs['flow_wd']
 
         self.std_pos_ped = 1
@@ -195,6 +202,8 @@ class trajflow_meszaros(model_template):
 
             loss_fn = torch.nn.MSELoss()
             optim = torch.optim.AdamW(fut_model.parameters(), lr=self.fut_ae_lr, weight_decay=self.fut_ae_wd)
+            lr_sc = torch.optim.lr_scheduler.ExponentialLR(optim, gamma = self.fut_ae_lr_decay)
+
             diz_loss = {'train_loss':[],'val_loss':[]}
 
             val_losses = []
@@ -254,6 +263,9 @@ class trajflow_meszaros(model_template):
                     optim.step()
                         
                     train_loss.append(loss.detach().cpu().numpy())
+                
+                # Update learning rate
+                lr_sc.step()
                                 
                 fut_model.to(device = self.device)
                 fut_model.eval()
@@ -342,6 +354,7 @@ class trajflow_meszaros(model_template):
                           
         else:
             optimizer = torch.optim.AdamW(flow_dist.parameters(), lr=self.flow_lr, weight_decay=self.flow_wd)
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = self.flow_lr_decay)
 
             val_losses = []
 
@@ -414,6 +427,10 @@ class trajflow_meszaros(model_template):
                     
                     loss.backward()
                     optimizer.step()
+
+                # Update learning rate
+                if step < 250:
+                    lr_scheduler.step()   
                     
                     
                 flow_dist.eval()
@@ -587,6 +604,11 @@ class trajflow_meszaros(model_template):
                      'smin' + str(self.model_kwargs['s_min']) + '_' + \
                      'smax' + str(self.model_kwargs['s_max']) + '_' + \
                      'sigma' + str(self.model_kwargs['sigma']) 
+        
+        if self.fut_ae_lr_decay != 1.0:
+            kwargs_str += '_ae_lrDec' + str(self.fut_ae_lr_decay)
+        if self.flow_lr_decay != 1.0:
+            kwargs_str += '_nf_lrDec' + str(self.flow_lr_decay)
                      
         if self.model_kwargs['vary_input_length']:
             kwargs_str += '_varyInLen'
