@@ -212,10 +212,10 @@ class OPTICS_GMM():
                 num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
 
                 # Get reachability plot
-                optics = OPTICS(min_samples = num_min_samples) 
-                optics.fit(X)
+                self.optics = OPTICS(min_samples = num_min_samples) 
+                self.optics.fit(X)
                     
-                reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
+                reachability = self.optics.reachability_[np.isfinite(self.optics.reachability_)] 
                 
                 # Potential plotting
                 # Test potential cluster extractionssomething like
@@ -236,20 +236,20 @@ class OPTICS_GMM():
                     # Cluster using dbscan
                     if method == 'Eps':
                         eps = param
-                        test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
-                                                            core_distances = optics.core_distances_,
-                                                            ordering       = optics.ordering_,
+                        test_labels = cluster_optics_dbscan(reachability   = self.optics.reachability_,
+                                                            core_distances = self.optics.core_distances_,
+                                                            ordering       = self.optics.ordering_,
                                                             eps            = eps)
                     # Cluster using xi
                     elif method == 'Xi':
                         xi = param
-                        test_labels, _ = cluster_optics_xi(reachability           = optics.reachability_,
-                                                           predecessor            = optics.predecessor_,
-                                                           ordering               = optics.ordering_,
+                        test_labels, _ = cluster_optics_xi(reachability           = self.optics.reachability_,
+                                                           predecessor            = self.optics.predecessor_,
+                                                           ordering               = self.optics.ordering_,
                                                            min_samples            = num_min_samples,
                                                            min_cluster_size       = 2,
                                                            xi                     = xi,
-                                                           predecessor_correction = optics.predecessor_correction)
+                                                           predecessor_correction = self.optics.predecessor_correction)
                     else:
                         raise ValueError('Clustering method not recognized')    
                     
@@ -267,7 +267,7 @@ class OPTICS_GMM():
                 if self.use_cluster == 'silhouette':
                     self.cluster_labels = silhouette_multiple_clusterings(X, Clustering)
                 elif self.use_cluster == 'DBCV':
-                    self.cluster_labels = DBCV_multiple_clusterings(X, Clustering, optics)  
+                    self.cluster_labels = DBCV_multiple_clusterings(X, Clustering, self.optics)  
                 else:
                     raise ValueError('Clustering method not recognized')
             else:

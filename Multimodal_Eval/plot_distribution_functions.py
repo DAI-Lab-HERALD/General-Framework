@@ -57,6 +57,20 @@ for i, name in enumerate(Datasets):
     colors.append((0.0, 0.0, 0.0))
     data_colors = [colors[i] for i in cluster]
 
+    ## Plot reachability
+    # Get reachability
+    R = Optics.optics.reachability_[Optics.optics.ordering_]
+    R[0] = 1.2 * R.max()
+    C = cluster[Optics.optics.ordering_]
+
+    fig_reach = plt.figure(i, figsize=(3, 3))
+    for j in range(len(R)-1):
+        plt.plot([j, j+1], [R[j], R[j+1]], c=colors[C[j]], linewidth=1)
+    plt.ylabel('Reachability r')
+    plt.xlabel('Point i')
+
+    fig_reach.savefig('./Distribution Datasets/2D-Distributions/Plots/' + name + '_reachability.pdf', bbox_inches='tight')
+    plt.clf()
     n = 200 
 
     print('Plotting ' + name)
