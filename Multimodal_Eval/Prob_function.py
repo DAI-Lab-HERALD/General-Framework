@@ -158,6 +158,41 @@ def silhouette_multiple_clusterings(X, clusterings, num_min_samples = 5):
     best_cluster = np.argmax(values)
     return clusterings[:, best_cluster]
 
+def plot_reach(method, param, R, C, save_file):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    colors = sns.color_palette("husl", C.max() + 1)
+    colors.append((0.0, 0.0, 0.0))
+
+    fig = plt.figure()
+    if method == 'Eps':
+        eps = param
+        plt.plot([0, len(R) - 1], [eps,eps], c = 'k', alpha = 0.5)
+    elif method == 'Xi':
+        xi = param
+        for label in range(C.max() + 1):
+            indices = np.where(C == label)[0]
+            if indices[-1] < len(R) - 1:
+                r_bound = min(R[indices[0]], R[indices[-1] + 1])
+            else:
+                r_bound = R[indices[0]]
+
+            b = r_bound * (1 - xi)
+            plt.plot([indices[1], indices[-1]], [b, b], c = 'k', alpha = 0.5)
+
+    R[0] = 1.1 * np.max(R[np.isfinite(R)])
+    for j in range(len(R) - 1):
+        plt.plot([j, j + 1], [R[j], R[j + 1]], c = colors[C[j]])
+    plt.xlabel("Sample i")
+    plt.ylabel("Reachability r")
+    plt.xlim([0, len(R) - 1])
+    plt.ylim([0, 1.05 * R[0]])
+    
+    fig.savefig(save_file + '.pdf', bbox_inches='tight')
+    fig.savefig(save_file + '.svg', bbox_inches='tight')
+    plt.clf()
+    plt.close()
 
 
 class OPTICS_GMM():
@@ -201,7 +236,7 @@ class OPTICS_GMM():
                                  "which are consequenlty useless.")
             
         
-    def fit(self, X, clusters = None):
+    def fit(self, X, clusters = None, plot_reach_file = None):
         assert len(X.shape) == 2
         
         self.num_features = X.shape[1]
@@ -240,6 +275,9 @@ class OPTICS_GMM():
                                                             core_distances = self.optics.core_distances_,
                                                             ordering       = self.optics.ordering_,
                                                             eps            = eps)
+                        
+                        
+
                     # Cluster using xi
                     elif method == 'Xi':
                         xi = param
@@ -251,7 +289,13 @@ class OPTICS_GMM():
                                                            xi                     = xi,
                                                            predecessor_correction = self.optics.predecessor_correction)
                     else:
-                        raise ValueError('Clustering method not recognized')    
+                        raise ValueError('Clustering method not recognized')  
+                    
+                    if plot_reach_file is not None:
+                        save_file = plot_reach_file + '_' + method + '={:0.3f}'.format(param)
+                        plot_reach(method, param, 
+                                   self.optics.reachability_[self.optics.ordering_], 
+                                   test_labels[self.optics.ordering_], save_file)  
                     
                     # Check for improvement
                     if len(np.unique(test_labels)) > 1: 
