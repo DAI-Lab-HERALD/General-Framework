@@ -95,19 +95,18 @@ class trajflow_meszaros(model_template):
             self.model_kwargs["decoder_type"] = "none"
 
         if not('seed' in self.model_kwargs.keys()):
-            self.model_kwargs["seed"] = 0
+            self.model_kwargs['seed'] = 0
 
     
     def setup_method(self):        
         # set random seeds
+        self.define_default_kwargs()
         seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        
-        self.define_default_kwargs()
 
         self.batch_size = self.model_kwargs['batch_size']
         
