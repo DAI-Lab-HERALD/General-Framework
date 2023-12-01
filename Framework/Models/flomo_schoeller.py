@@ -54,18 +54,20 @@ class flomo_schoeller(model_template):
         if not ('lr_decay' in self.model_kwargs.keys()):
             self.model_kwargs['lr_decay'] = 1.0 # needed to not fuck up older models
 
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
+
         
     
-    def setup_method(self, seed = 0):
-
+    def setup_method(self):
         # set random seeds
+        self.define_default_kwargs()
+        seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-
-        self.define_default_kwargs()
         
         self.batch_size = 128
 
@@ -361,7 +363,8 @@ class flomo_schoeller(model_template):
 
         self.define_default_kwargs()
 
-        kwargs_str = 'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
+        kwargs_str = 'seed' + str(self.model_kwargs['seed']) + '_' + \
+                     'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
                      'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
                      'alpha' + str(self.model_kwargs['alpha']) + '_' + \
                      'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
