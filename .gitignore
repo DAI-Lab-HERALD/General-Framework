@@ -59,6 +59,7 @@ Framework/Data_sets/Waymo/data/*/uncomp*
 Framework/Data_sets/Lyft/data/.unified_data_cache/
 Framework/experiments
 Framework/Models/*GP*
+Framework/Data_sets/*multiModal*
 
 # Jupyter Notebook
 .ipynb_checkpoints

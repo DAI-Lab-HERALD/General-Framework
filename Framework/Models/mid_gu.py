@@ -19,9 +19,14 @@ from MID.environment import DoubleHeaderNumpyArray
 
 class mid_gu(model_template):
 
+    def define_default_kwargs(self):
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
+
     def get_name(self = None):
+        self.define_default_kwargs()
         names = {'print': 'MDI',
-                    'file': 'MDI',
+                    'file': 'MDI_' + str(self.model_kwargs['seed']),
                     'latex': r'\emph{MDI}'}
 
         return names
@@ -84,8 +89,10 @@ class mid_gu(model_template):
 
         self.config_dict = EasyDict(self.config_dict)
     
-    def setup_method(self, seed = 0):        
+    def setup_method(self):    
+        self.define_default_kwargs()
         # set random seeds
+        seed = self.model_kwargs['seed']    
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
