@@ -58,6 +58,7 @@ simulations*.py
 Framework/Data_sets/Waymo/data/*/uncomp*
 Framework/Data_sets/Lyft/data/.unified_data_cache/
 Framework/experiments
+Framework/Models/*GP*
 
 # Jupyter Notebook
 .ipynb_checkpoints

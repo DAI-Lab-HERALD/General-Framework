@@ -313,11 +313,6 @@ class trajflow_meszaros(model_template):
     def train_flow(self, fut_model, T_all):
         use_map = self.can_use_map and self.has_map
 
-        if self.vary_input_length:
-            past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
-            sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
-        else:
-            sample_past_length = self.num_timesteps_in
         
         if use_map:
             scene_encoder = Scene_Encoder(encoded_space_dim=self.scene_encoding_size)
@@ -356,6 +351,13 @@ class trajflow_meszaros(model_template):
                 
                 train_epoch_done = False
                 while not train_epoch_done:
+
+                    if self.vary_input_length:
+                        past_length_options = np.arange(0.5, self.num_timesteps_in*self.dt, 0.5)
+                        sample_past_length = int(np.ceil(np.random.choice(past_length_options)/self.dt))
+                    else:
+                        sample_past_length = self.num_timesteps_in
+                        
                     X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
