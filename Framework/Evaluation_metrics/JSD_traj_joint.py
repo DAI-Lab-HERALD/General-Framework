@@ -99,7 +99,7 @@ class JSD_traj_joint(evaluation_template):
         
         # prepare to save data
         if len(unique_subgroups) == 1 and Path_true.shape[2] == 1:
-            input_path = self.data_set.Input_path.iloc[0]
+            input_path = self.data_set.Input_path.iloc[self.splitter.Test_index[0]]
             useful_agents = [isinstance(p, np.ndarray) for p in input_path]
             
             input_path = np.stack(input_path[useful_agents].to_numpy(), axis = 0)[0]

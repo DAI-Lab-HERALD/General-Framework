@@ -24,14 +24,24 @@ class trajectron_salzmann(model_template):
     of behavior prediction via adaptive meta-learning. In 2023 IEEE International Conference 
     on Robotics and Automation (ICRA) (pp. 7786-7793). IEEE.
     '''
-    def setup_method(self, seed = 0):
+    def define_default_kwargs(self):
+        if not 'control' in self.model_kwargs.keys():
+            self.model_kwargs['control'] = 'unicycle'
+
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
+
+
+    def setup_method(self):
+        self.define_default_kwargs()
         # set random seeds
+        seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        
+
         # Required attributes of the model
         self.min_t_O_train = 3
         self.max_t_O_train = 100
@@ -46,8 +56,6 @@ class trajectron_salzmann(model_template):
         if (self.provide_all_included_agent_types() == 'P').all():
             config_file = config_path + 'pedestrian.json' 
         else:
-            if not 'control' in self.model_kwargs.keys():
-                self.model_kwargs['control'] = 'unicycle'
                 
             if self.model_kwargs['control'] == 'unicycle':
                 config_file = config_path + 'nuScenes.json' 
@@ -410,17 +418,15 @@ class trajectron_salzmann(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        if not 'control' in self.model_kwargs.keys():
-            self.model_kwargs['control'] = 'unicycle'
-            
+        self.define_default_kwargs()
         
         if self.model_kwargs['control'] == 'unicycle':
             names = {'print': 'Trajectron ++ (Dynamic model: Unicycle)',
-                     'file': 'traject_UC',
+                     'file': 'traj_UC_S' + str(self.model_kwargs['seed']),
                      'latex': r'\emph{T++}'}
         elif self.model_kwargs['control'] == 'delta':
             names = {'print': 'Trajectron ++ (Dynamic model: Delta)',
-                     'file': 'traject_SD',
+                     'file': 'traj_SD_S' + str(self.model_kwargs['seed']),
                      'latex': r'\emph{T++}'}
         else:
             raise TypeError("The current control decoder is not implemented")

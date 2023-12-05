@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder
+from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder, Future_Decoder_Control, Future_Seq2Seq_Control
 import pickle
 import os
 
@@ -61,14 +61,20 @@ class trajflow_meszaros(model_template):
         if not ('fut_ae_lr' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_lr'] = 5e-4
 
+        if not ('fut_ae_lr_decay' in self.model_kwargs.keys()):
+            self.model_kwargs['fut_ae_lr_decay'] = 1.0 # needed to not fuck up older models
+
         if not ('fut_ae_wd' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_wd'] = 1e-4
 
         if not ('flow_epochs' in self.model_kwargs.keys()):
-            self.model_kwargs['flow_epochs'] = 200
+            self.model_kwargs['flow_epochs'] = 500
 
         if not ('flow_lr' in self.model_kwargs.keys()):
             self.model_kwargs['flow_lr'] = 1e-3
+
+        if not ('flow_lr_decay' in self.model_kwargs.keys()):
+            self.model_kwargs['flow_lr_decay'] = 1.0 # needed to not fuck up older models
 
         if not ('flow_wd' in self.model_kwargs.keys()):
             self.model_kwargs['flow_wd'] = 1e-5
@@ -82,16 +88,25 @@ class trajflow_meszaros(model_template):
         if not ('scale_NF' in self.model_kwargs.keys()):
             self.model_kwargs['scale_NF'] = False
 
+        if not ('pos_loss' in self.model_kwargs.keys()):
+            self.model_kwargs['pos_loss'] = False
+
+        if not("decoder_type" in self.model_kwargs.keys()):
+            self.model_kwargs["decoder_type"] = "none"
+
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
+
     
-    def setup_method(self, seed = 0):        
+    def setup_method(self):        
         # set random seeds
+        self.define_default_kwargs()
+        seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-        
-        self.define_default_kwargs()
 
         self.batch_size = self.model_kwargs['batch_size']
         
@@ -123,13 +138,14 @@ class trajflow_meszaros(model_template):
         self.s_max = self.model_kwargs['s_max']
         self.sigma = self.model_kwargs['sigma']
 
-
         self.fut_ae_epochs = self.model_kwargs['fut_ae_epochs']
         self.fut_ae_lr = self.model_kwargs['fut_ae_lr']
+        self.fut_ae_lr_decay = self.model_kwargs['fut_ae_lr_decay']
         self.fut_ae_wd = self.model_kwargs['fut_ae_wd']
 
         self.flow_epochs = self.model_kwargs['flow_epochs']
         self.flow_lr = self.model_kwargs['flow_lr']
+        self.flow_lr_decay = self.model_kwargs['flow_lr_decay']
         self.flow_wd = self.model_kwargs['flow_wd']
 
         self.std_pos_ped = 1
@@ -138,6 +154,10 @@ class trajflow_meszaros(model_template):
         self.vary_input_length = self.model_kwargs['vary_input_length']
         self.scale_AE = self.model_kwargs['scale_AE']
         self.scale_NF = self.model_kwargs['scale_NF']
+        self.pos_loss = self.model_kwargs['pos_loss']
+
+        # Get Decoder Type
+        self.decoder_type = self.model_kwargs["decoder_type"] 
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -182,9 +202,14 @@ class trajflow_meszaros(model_template):
                                     n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
 
         enc = Future_Encoder(2, enc_size, enc_size, enc_size)
-        dec = Future_Decoder(2, enc_size, enc_size)
 
-        fut_model = Future_Seq2Seq(enc, dec)
+        if self.decoder_type == "none":
+            dec = Future_Decoder(2, enc_size, enc_size)
+            fut_model = Future_Seq2Seq(enc, dec)
+        else:
+            dec = Future_Decoder_Control(2, enc_size, enc_size, decoder_type = self.decoder_type)
+            fut_model = Future_Seq2Seq_Control(enc, dec)
+
         # Use encoder of noninteractive trajflow model if available, as same training stuff is used
         fut_model_file = self.model_file[:-4] + '_AE'
         if os.path.isfile(fut_model_file) and not self.model_overwrite:
@@ -195,6 +220,8 @@ class trajflow_meszaros(model_template):
 
             loss_fn = torch.nn.MSELoss()
             optim = torch.optim.AdamW(fut_model.parameters(), lr=self.fut_ae_lr, weight_decay=self.fut_ae_wd)
+            lr_sc = torch.optim.lr_scheduler.ExponentialLR(optim, gamma = self.fut_ae_lr_decay)
+
             diz_loss = {'train_loss':[],'val_loss':[]}
 
             val_losses = []
@@ -246,14 +273,22 @@ class trajflow_meszaros(model_template):
                     x_t = past_traj[...,-1:,:]
                     y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
                     
-                    future_traj_hat, y_in = fut_model(y_rel)     
+                    future_traj_hat, _ = fut_model(y_rel)     
                         
                     optim.zero_grad()
-                    loss = torch.sqrt(loss_fn(future_traj_hat, y_in))
+                    if self.pos_loss:
+                        y_hat = flow_dist_futMdl._rel_to_abs(future_traj_hat, x_t)
+                        loss = torch.sqrt(loss_fn(y_hat, fut_traj))
+                    else:
+                        loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
+
                     loss.backward()
                     optim.step()
                         
                     train_loss.append(loss.detach().cpu().numpy())
+                
+                # Update learning rate
+                lr_sc.step()
                                 
                 fut_model.to(device = self.device)
                 fut_model.eval()
@@ -277,10 +312,15 @@ class trajflow_meszaros(model_template):
                         x_t = past_traj[...,-1:,:]
                         y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
                         
-                        future_traj_hat, y_in = fut_model(y_rel)
-                            
-                        conc_out.append(future_traj_hat.cpu())
-                        conc_label.append(y_rel.cpu())
+                        future_traj_hat, _ = fut_model(y_rel)
+                        
+                        if self.pos_loss:
+                            y_hat = flow_dist_futMdl._rel_to_abs(future_traj_hat, x_t)
+                            conc_out.append(y_hat.cpu())
+                            conc_label.append(fut_traj.cpu())
+                        else:
+                            conc_out.append(future_traj_hat.cpu())
+                            conc_label.append(y_rel.cpu())
                             
                     conc_out = torch.cat(conc_out)
                     conc_label = torch.cat(conc_label) 
@@ -337,6 +377,7 @@ class trajflow_meszaros(model_template):
                           
         else:
             optimizer = torch.optim.AdamW(flow_dist.parameters(), lr=self.flow_lr, weight_decay=self.flow_wd)
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma = self.flow_lr_decay)
 
             val_losses = []
 
@@ -416,6 +457,10 @@ class trajflow_meszaros(model_template):
                     
                     loss.backward()
                     optimizer.step()
+
+                # Update learning rate
+                if step < 250:
+                    lr_scheduler.step()   
                     
                     
                 flow_dist.eval()
@@ -538,13 +583,17 @@ class trajflow_meszaros(model_template):
                 
                 # Decoder part
                 x = samples_rel.reshape(-1, self.fut_enc_sz).unsqueeze(1)
+                prev_step = torch.tensor([1.0,0.0]).unsqueeze(0).repeat(actual_batch_size * self.num_samples_path_pred,1).to(self.device)
                 
                 outputs = torch.zeros(actual_batch_size * self.num_samples_path_pred, num_steps, 2).to(device = self.device)
                 for t in range(0, num_steps):
-
-                    output, hidden = self.fut_model.decoder(x, hidden)
+                    if self.decoder_type == "none":
+                        output, hidden = self.fut_model.decoder(x, hidden)
+                    else:
+                        output, hidden = self.fut_model.decoder(prev_step, x, hidden)
                     
-                    outputs[:, t, :] = output.squeeze()
+                    prev_step = output.squeeze()
+                    outputs[:, t, :] = prev_step
                     
                     x = hidden[-1].unsqueeze(1)
                 
@@ -580,15 +629,26 @@ class trajflow_meszaros(model_template):
 
         self.define_default_kwargs()
 
-        kwargs_str = 'fut' + str(self.model_kwargs['fut_enc_sz']) + '_' + \
-                     'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
-                     'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
-                     'alpha' + str(self.model_kwargs['alpha']) + '_' + \
-                     'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
-                     'gamma' + str(self.model_kwargs['gamma_noise']) + '_' + \
-                     'smin' + str(self.model_kwargs['s_min']) + '_' + \
-                     'smax' + str(self.model_kwargs['s_max']) + '_' + \
-                     'sigma' + str(self.model_kwargs['sigma']) 
+        if self.decoder_type == "none":
+            kwargs_str = ""
+        else:
+            kwargs_str = self.decoder_type
+
+        kwargs_str += 'seed' + str(self.model_kwargs['seed']) + '_' + \
+                      'fut' + str(self.model_kwargs['fut_enc_sz']) + '_' + \
+                      'sc' + str(self.model_kwargs['scene_encoding_size']) + '_' + \
+                      'obs' + str(self.model_kwargs['obs_encoding_size']) + '_' + \
+                      'alpha' + str(self.model_kwargs['alpha']) + '_' + \
+                      'beta' + str(self.model_kwargs['beta_noise']) + '_' + \
+                      'gamma' + str(self.model_kwargs['gamma_noise']) + '_' + \
+                      'smin' + str(self.model_kwargs['s_min']) + '_' + \
+                      'smax' + str(self.model_kwargs['s_max']) + '_' + \
+                      'sigma' + str(self.model_kwargs['sigma']) 
+        
+        if self.fut_ae_lr_decay != 1.0:
+            kwargs_str += '_ae_lrDec' + str(self.fut_ae_lr_decay)
+        if self.flow_lr_decay != 1.0:
+            kwargs_str += '_nf_lrDec' + str(self.flow_lr_decay)
                      
         if self.model_kwargs['vary_input_length']:
             kwargs_str += '_varyInLen'
@@ -598,6 +658,9 @@ class trajflow_meszaros(model_template):
 
         if self.model_kwargs['scale_NF']:
             kwargs_str += '_sclNF'
+
+        if self.model_kwargs['pos_loss']:
+            kwargs_str += '_posLoss'
 
         model_str = 'TF_' + kwargs_str
         

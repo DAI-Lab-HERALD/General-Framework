@@ -202,7 +202,7 @@ for rndSeed in random_seeds:
 Results = np.ones((len(dataset_keys), len(ablation_keys), 3, 100)) * np.nan
 Results_small = Results.copy()
 
-use_small_traj_std = True
+use_small_traj_std = False
 # Fill the array with the values from the dictionaries
 for _, (k, v) in enumerate(JSD_testing.items()):
     
@@ -261,6 +261,9 @@ columns = np.array([0, 4, 2, 6, 1, 5, 3])
 Results = np.stack([Results[:,:,rows == row] for row in np.unique(rows)], axis = 2)
 Results = Results[:, :, :, columns]
 
+# For one specific table:
+Results[-2,-1,:,:,0] *= 10
+
 metric_keys = ['JSD',
                'W_hat',
                'L_hat']
@@ -269,7 +272,7 @@ for i in range(Results.shape[1]):
     N_ind = -2 # Use 3000 samples only
     for j, metric in enumerate(metric_keys):
         data = Results[N_ind, i, :, :, j] 
-        assert len(data) == len(ablation_keys), 'Data must have same length as ablation keys'
+        assert np.prod(data.shape[:2]) == len(ablation_keys), 'Data must have same length as ablation keys'
 
         # Get filename
         data_keys = np.array(dataset_keys).reshape((-1, 6))[N_ind]

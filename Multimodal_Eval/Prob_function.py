@@ -158,6 +158,41 @@ def silhouette_multiple_clusterings(X, clusterings, num_min_samples = 5):
     best_cluster = np.argmax(values)
     return clusterings[:, best_cluster]
 
+def plot_reach(method, param, R, C, save_file):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    colors = sns.color_palette("husl", C.max() + 1)
+    colors.append((0.0, 0.0, 0.0))
+
+    fig = plt.figure()
+    if method == 'Eps':
+        eps = param
+        plt.plot([0, len(R) - 1], [eps,eps], c = 'k', alpha = 0.5)
+    elif method == 'Xi':
+        xi = param
+        for label in range(C.max() + 1):
+            indices = np.where(C == label)[0]
+            if indices[-1] < len(R) - 1:
+                r_bound = min(R[indices[0]], R[indices[-1] + 1])
+            else:
+                r_bound = R[indices[0]]
+
+            b = r_bound * (1 - xi)
+            plt.plot([indices[1], indices[-1]], [b, b], c = 'k', alpha = 0.5)
+
+    R[0] = 1.1 * np.max(R[np.isfinite(R)])
+    for j in range(len(R) - 1):
+        plt.plot([j, j + 1], [R[j], R[j + 1]], c = colors[C[j]])
+    plt.xlabel("Sample i")
+    plt.ylabel("Reachability r")
+    plt.xlim([0, len(R) - 1])
+    plt.ylim([0, 1.05 * R[0]])
+    
+    fig.savefig(save_file + '.pdf', bbox_inches='tight')
+    fig.savefig(save_file + '.svg', bbox_inches='tight')
+    plt.clf()
+    plt.close()
 
 
 class OPTICS_GMM():
@@ -201,7 +236,7 @@ class OPTICS_GMM():
                                  "which are consequenlty useless.")
             
         
-    def fit(self, X, clusters = None):
+    def fit(self, X, clusters = None, plot_reach_file = None):
         assert len(X.shape) == 2
         
         self.num_features = X.shape[1]
@@ -212,10 +247,10 @@ class OPTICS_GMM():
                 num_min_samples = int(np.clip(num_min_samples, min(5, X.shape[0]), 20))     
 
                 # Get reachability plot
-                optics = OPTICS(min_samples = num_min_samples) 
-                optics.fit(X)
+                self.optics = OPTICS(min_samples = num_min_samples) 
+                self.optics.fit(X)
                     
-                reachability = optics.reachability_[np.isfinite(optics.reachability_)] 
+                reachability = self.optics.reachability_[np.isfinite(self.optics.reachability_)] 
                 
                 # Potential plotting
                 # Test potential cluster extractionssomething like
@@ -236,22 +271,31 @@ class OPTICS_GMM():
                     # Cluster using dbscan
                     if method == 'Eps':
                         eps = param
-                        test_labels = cluster_optics_dbscan(reachability   = optics.reachability_,
-                                                            core_distances = optics.core_distances_,
-                                                            ordering       = optics.ordering_,
+                        test_labels = cluster_optics_dbscan(reachability   = self.optics.reachability_,
+                                                            core_distances = self.optics.core_distances_,
+                                                            ordering       = self.optics.ordering_,
                                                             eps            = eps)
+                        
+                        
+
                     # Cluster using xi
                     elif method == 'Xi':
                         xi = param
-                        test_labels, _ = cluster_optics_xi(reachability           = optics.reachability_,
-                                                           predecessor            = optics.predecessor_,
-                                                           ordering               = optics.ordering_,
+                        test_labels, _ = cluster_optics_xi(reachability           = self.optics.reachability_,
+                                                           predecessor            = self.optics.predecessor_,
+                                                           ordering               = self.optics.ordering_,
                                                            min_samples            = num_min_samples,
                                                            min_cluster_size       = 2,
                                                            xi                     = xi,
-                                                           predecessor_correction = optics.predecessor_correction)
+                                                           predecessor_correction = self.optics.predecessor_correction)
                     else:
-                        raise ValueError('Clustering method not recognized')    
+                        raise ValueError('Clustering method not recognized')  
+                    
+                    if plot_reach_file is not None:
+                        save_file = plot_reach_file + '_' + method + '={:0.3f}'.format(param)
+                        plot_reach(method, param, 
+                                   self.optics.reachability_[self.optics.ordering_], 
+                                   test_labels[self.optics.ordering_], save_file)  
                     
                     # Check for improvement
                     if len(np.unique(test_labels)) > 1: 
@@ -267,7 +311,7 @@ class OPTICS_GMM():
                 if self.use_cluster == 'silhouette':
                     self.cluster_labels = silhouette_multiple_clusterings(X, Clustering)
                 elif self.use_cluster == 'DBCV':
-                    self.cluster_labels = DBCV_multiple_clusterings(X, Clustering, optics)  
+                    self.cluster_labels = DBCV_multiple_clusterings(X, Clustering, self.optics)  
                 else:
                     raise ValueError('Clustering method not recognized')
             else:

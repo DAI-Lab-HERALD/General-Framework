@@ -49,7 +49,8 @@ for i, name in enumerate(Datasets):
 
     # Get clusters
     print('Clustering ' + name)
-    Optics = OPTICS_GMM().fit(data)
+    save_file = './Distribution Datasets/2D-Distributions/Plots/' + name + '_reachability'
+    Optics = OPTICS_GMM().fit(data, plot_reach_file = save_file)
     cluster = Optics.cluster_labels 
 
     # Get colors
@@ -57,6 +58,7 @@ for i, name in enumerate(Datasets):
     colors.append((0.0, 0.0, 0.0))
     data_colors = [colors[i] for i in cluster]
 
+    ## Plot reachability
     n = 200 
 
     print('Plotting ' + name)

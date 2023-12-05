@@ -868,24 +868,56 @@ class Future_Seq2Seq(nn.Module):
 class Future_Decoder_Control(nn.Module):
     """ GRU based recurrent neural network. """
 
-    def __init__(self, actions=2, es=4, hs=4, nl=3, device=0):
+    def __init__(self, actions=2, es=4, hs=4, nl=3, device=0, decoder_type = 'fac_5'):
         super().__init__()
+        self.decoder_type = decoder_type
+        # Check control type
+        if self.decoder_type[:3] == 'fac':
+            assert self.decoder_type[4:].isnumeric(), "Decoder type should be fac_X, where X is the number of factors"
+            self.fac_num = float(int(self.decoder_type[4:]))
+            self.use_tanh = False
+        elif self.decoder_type[:4] == 'tanh':
+            assert self.decoder_type[5:].isnumeric(), "Decoder type should be tanh_X, where X is the number of factors"
+            self.fac_num = float(int(self.decoder_type[5:]))
+            self.use_tanh = True
+        else:
+            raise ValueError("Decoder type should be either fac_X or tanh_X, where X is the number of factors")
+        
         self.output = nn.Linear(es, actions)
         self.gru = nn.GRU(input_size=es, hidden_size=hs, num_layers=nl, batch_first=True)
         self.device = device
-        self.cuda(self.device)
+
+        ## Prevent initial large rotations
+        # Adjust weights
+        weights = self.output.weight.detach().cpu()
+        a_weight_max = torch.tensor(self.fac_num * np.pi * 0.25 / hs)
+        weights[1] = torch.minimum(torch.maximum(weights[1], -a_weight_max), a_weight_max)
+        self.output.weight = torch.nn.Parameter(weights)
+
+        # Adjust bias
+        self.output.bias = torch.nn.Parameter(torch.tensor([self.output.bias[0], 0.0], device = self.device))
         
+        self.cuda(self.device)
+
         self.embedding = nn.Linear(es, es)
         self.nl = nl
+
+
 
     def forward(self, prev_step, x, hidden=None):
         x = self.embedding(x)
         x, hidden = self.gru(x, hidden)
         a = self.output(x)
-        
+        a_in = a.squeeze()[...,1]
+
+        delta_angle = a_in / self.fac_num
+        if self.use_tanh:
+            delta_angle = torch.pi * torch.tanh(delta_angle / torch.pi)
+
         prev_angle = torch.atan2(prev_step[:,1], prev_step[:,0])
-        angle = prev_angle + a.squeeze()[...,1]
-        v = a.squeeze()[...,0]
+
+        angle = prev_angle + delta_angle
+        v = torch.log(1 + torch.exp(a.squeeze()[...,0]))
 
         y_delta = torch.stack((torch.cos(angle)*v, torch.sin(angle)*v), dim=-1)
 

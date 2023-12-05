@@ -419,7 +419,6 @@ class model_template():
                 else:
                     Img_needed = self.T != '0'
                     
-                    
                     centre = X[Img_needed, -1,:]
                     x_rel = centre - X[Img_needed, -2,:]
                     rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 

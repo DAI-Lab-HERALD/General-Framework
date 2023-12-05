@@ -22,9 +22,14 @@ class trajectron_salzmann_old(model_template):
     16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part XVIII 16 
     (pp. 683-700). Springer International Publishing.
     '''
+    def define_default_kwargs(self):
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
     
-    def setup_method(self, seed = 0):
+    def setup_method(self):
+        self.define_default_kwargs()
         # set random seeds
+        seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -530,8 +535,10 @@ class trajectron_salzmann_old(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
+        self.define_default_kwargs()
+
         names = {'print': 'Trajectron ++ (Old_version)',
-                 'file': 't_pp_old_v',
+                 'file': 't_pp_old_' + str(self.model_kwargs['seed']),
                  'latex': r'\emph{T++}'}
         return names
         
