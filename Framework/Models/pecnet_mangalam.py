@@ -11,9 +11,15 @@ from PECNet.models import *
 
 class pecnet_mangalam(model_template):
 
+    def define_default_kwargs(self):
+        if not('seed' in self.model_kwargs.keys()):
+            self.model_kwargs['seed'] = 0
+
     
-    def setup_method(self, seed = 0):        
+    def setup_method(self):   
+        self.define_default_kwargs()     
         # set random seeds
+        seed = self.model_kwargs['seed']
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -312,7 +318,7 @@ class pecnet_mangalam(model_template):
 
     def get_name(self = None):
         names = {'print': 'PECNet',
-                    'file': 'PECNet',
+                    'file': 'PECNet_' + str(self.model_kwargs['seed']),
                     'latex': r'\emph{PECNet}'}
 
         return names
