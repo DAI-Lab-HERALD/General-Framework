@@ -30,7 +30,7 @@ class Oracle_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(20)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(50)
         Pred_agents = Pred_steps.any(-1)
         Num_steps = Pred_steps.sum(-1).max(-1)
         Num_agents = Pred_agents.sum(-1)
