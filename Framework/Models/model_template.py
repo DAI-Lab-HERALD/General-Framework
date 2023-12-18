@@ -534,6 +534,7 @@ class model_template():
             for j, agent in enumerate(Agent_id[i]):
                 if not Pred_agents[i,j]:
                     continue
+                self.Output_path_pred.loc[i_sample][agent] = None
                 self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
     
     def provide_all_training_trajectories(self):
