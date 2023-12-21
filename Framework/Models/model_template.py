@@ -1059,8 +1059,8 @@ class model_template():
         Subgroups = self.data_set.Subgroups[Pred_index]
         
         print('Calculate joint PDF on predicted probabilities.', flush = True)
-        for subgroup in np.unique(Subgroups):
-            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
+        for i, subgroup in enumerate(np.unique(Subgroups)):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i + 1, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
@@ -1165,8 +1165,8 @@ class model_template():
         Subgroups = self.data_set.Subgroups[Pred_index]
         
         print('Calculate indep PDF on predicted probabilities.', flush = True)
-        for subgroup in np.unique(Subgroups):
-            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(Subgroups))), flush = True)
+        for i, subgroup in enumerate(np.unique(Subgroups)):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i + 1, len(np.unique(Subgroups))), flush = True)
             subgroup_index = np.where(Subgroups == subgroup)[0]
             
             assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
