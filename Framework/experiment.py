@@ -538,28 +538,31 @@ class Experiment():
                             
                             
                             if os.path.isfile(results_file_name):
-                                metric_result = np.load(results_file_name, allow_pickle = True)[:-1]
-                                
-                                if return_train_results:
-                                    train_results = metric_result[0]
-                                    if train_results is not None:
-                                        self.Train_results[i,j,k,l,m] = train_results[0]
-                                
-                                test_results = metric_result[1]    
-                                self.Results[i,j,k,l,m] = test_results[0]
-                                
-                                if create_plot:
-                                    figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
+                                try:
+                                    metric_result = np.load(results_file_name, allow_pickle = True)[:-1]
                                     
-                                    # remove model name from figure file
-                                    num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
-                                    figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
+                                    if return_train_results:
+                                        train_results = metric_result[0]
+                                        if train_results is not None:
+                                            self.Train_results[i,j,k,l,m] = train_results[0]
                                     
-                                    os.makedirs(os.path.dirname(figure_file), exist_ok = True)
-                                    saving_figure = l == (self.num_models - 1)
-                                    metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model)
+                                    test_results = metric_result[1]    
+                                    self.Results[i,j,k,l,m] = test_results[0]
+                                    
+                                    if create_plot:
+                                        figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
+                                        
+                                        # remove model name from figure file
+                                        num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
+                                        figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
+                                        
+                                        os.makedirs(os.path.dirname(figure_file), exist_ok = True)
+                                        saving_figure = l == (self.num_models - 1)
+                                        metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model)
+                                except:
+                                    print('Desired result cannot be opened: ' + '--'.join(results_file_name.split('--')[-2:]))
                             else:
-                                print('Desired result not findable')
+                                print('Desired result not findable.')
                                 
                             if m == 0 and return_train_loss:
                                 if model.provides_epoch_loss():
