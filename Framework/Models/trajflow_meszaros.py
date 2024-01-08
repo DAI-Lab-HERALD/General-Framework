@@ -288,7 +288,6 @@ class trajflow_meszaros(model_template):
                     # Check for nan gradients
                     grad_is_nan = False
                     for param in fut_model.parameters():
-                        print(param.grad)
                         if torch.isnan(param.grad).any():
                             grad_is_nan = True
 
