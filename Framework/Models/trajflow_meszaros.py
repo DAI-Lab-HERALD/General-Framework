@@ -112,7 +112,7 @@ class trajflow_meszaros(model_template):
         
         # Required attributes of the model
         self.min_t_O_train = self.num_timesteps_out
-        self.max_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = 100
         self.predict_single_agent = True
         self.can_use_map = True
         # If self.can_use_map, the following is also required
@@ -284,11 +284,18 @@ class trajflow_meszaros(model_template):
                     else:
                         loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
 
-                    if torch.isfinite(loss):
-                        loss.backward()
-                        optim.step()
-                    else:
+                    loss.backward()
+                    # Check for nan gradients
+                    grad_is_nan = False
+                    for param in fut_model.parameters():
+                        print(param.grad)
+                        if torch.isnan(param.grad).any():
+                            grad_is_nan = True
+
+                    if grad_is_nan:
                         print('Loss is not finite in batch {}'.format(batch))
+                    else:
+                        optim.step()
                         
                     train_loss.append(loss.detach().cpu().numpy())
                 
