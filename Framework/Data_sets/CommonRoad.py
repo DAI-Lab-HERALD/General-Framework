@@ -278,4 +278,4 @@ class CommonRoad(data_set_template):
     
     
     def includes_images(self = None):
-        return True
+        return False#True
