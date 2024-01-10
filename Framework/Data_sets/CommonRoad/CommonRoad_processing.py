@@ -13,7 +13,7 @@ from commonroad.visualization.draw_dispatch_cr import draw_object
 
 import os
 
-px = 256
+px = 256 * 1.28
 # Draw scene
 def generate_scimg(
     lanelet_network, now_point, theta, time_step, watch_radius=64, draw_shape=True
@@ -153,7 +153,7 @@ for dataset_path in dataset_paths:
         if watch_radius < np.max(np.abs(a.center_vertices)):
             watch_radius = np.max(np.abs(a.center_vertices))
 
-    watch_radius = math.ceil(watch_radius / 10.0) * 10
+    watch_radius = 256 #math.ceil(watch_radius / 10.0) * 10
 
     timestep = 0
     gray_img = generate_scimg(draw_network,
@@ -169,7 +169,7 @@ for dataset_path in dataset_paths:
         writer = csv.writer(f)
 
         writer.writerow(['MeterToPx', 'x_center', 'y_center', 'rot_angle'])
-        writer.writerow([(2*watch_radius)/px, (px/2), -(px/2), 0])
+        writer.writerow([(watch_radius)/px, (px/2), -(px/2), 0])
 
         
 
