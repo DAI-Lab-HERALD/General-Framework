@@ -209,7 +209,7 @@ The most important part of the dataset module is to provide access to training a
 
     ...
 ```
-If one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value from for **self.Domain_old.x_center**, $\Delta y$ from for **self.Domain_old.y_center**, and $\theta$ from for **self.Domain_old.rot_angle**.
+If one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value in meters from **self.Domain_old.x_center**, $\Delta y$ from **self.Domain_old.y_center**, and $\theta$ (in radians) from **self.Domain_old.rot_angle**.
 
 <img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_small.svg" alt="Image alinged coordinate system" width="75%">
 

@@ -169,7 +169,7 @@ for dataset_path in dataset_paths:
         writer = csv.writer(f)
 
         writer.writerow(['MeterToPx', 'x_center', 'y_center', 'rot_angle'])
-        writer.writerow([(watch_radius)/px, (px/2), -(px/2), 0])
+        writer.writerow([(watch_radius)/px, (watch_radius/2), -(watch_radius/2), 0])
 
         
 
