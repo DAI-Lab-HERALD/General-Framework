@@ -51,8 +51,11 @@ class CommonRoad(data_set_template):
         
     def create_path_samples(self): 
         # Load raw data
+        print('in create_path_samples')
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
                                    'CommonRoad' + os.sep + 'CommonRoad_processed.pkl')
+        
+        print('Got data')
         # analize raw dara 
         num_tars = len(self.Data)
         self.num_samples = 0 
@@ -64,12 +67,15 @@ class CommonRoad(data_set_template):
         self.Images = pd.DataFrame(np.zeros((len(self.Data), 1), object), 
                             index = self.Data.index, columns = ['Image'])
         
+        print('Got images')
+        
         self.Images['Target_MeterPerPx'] = 0.0
         # extract raw samples
         max_number_other = 0
         max_width = 0
         max_height = 0
         for i in range(num_tars):
+            print('i = {}/{}'.format(i, num_tars))
             data_i = self.Data.iloc[i]
              
             # Get other agents
@@ -139,6 +145,7 @@ class CommonRoad(data_set_template):
 
         # Remove duplicate image indices
         self.Images = self.Images[~self.Images.index.duplicated(keep='first')]
+        print('Removed duplicate images')
 
         # pad images to max size
         for i in range(num_tars):
@@ -148,11 +155,15 @@ class CommonRoad(data_set_template):
                                    (0, max_width  - img.shape[1]),
                                    (0,0)), 'constant', constant_values=0)
             self.Images.Image.loc[i] = img_pad 
+
+        print('padded images')
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
+
+        print('done')
     
     def calculate_distance(self, path, t, domain):
         r'''
