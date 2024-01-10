@@ -116,8 +116,8 @@ class trajflow_meszaros(model_template):
         self.predict_single_agent = True
         self.can_use_map = True
         # If self.can_use_map, the following is also required
-        self.target_width = 257
-        self.target_height = 156
+        self.target_width = 128#257
+        self.target_height = 128 #156
         self.grayscale = True
         
         self.norm_rotation = True
