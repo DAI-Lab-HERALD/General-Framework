@@ -54,7 +54,8 @@ class Scene_Encoder(nn.Module):
         self.flatten = nn.Flatten(start_dim=1)
         ### Linear section
         self.encoder_lin = nn.Sequential(
-            nn.Linear(32 * 2 * 3, 128), 
+            #nn.Linear(32 * 2 * 3, 128), 
+            nn.Linear(32 * 3 * 3, 128), 
             nn.ReLU(True),
             nn.Linear(128, encoded_space_dim)
         )

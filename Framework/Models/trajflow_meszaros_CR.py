@@ -7,7 +7,9 @@ from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Futu
 import pickle
 import os
 
-class trajflow_meszaros(model_template):
+from sklearn import mixture
+
+class trajflow_meszaros_CR(model_template):
     '''
     TrajFlow is a single agent prediction model that combine Normalizing Flows with
     GRU-based autoencoders.
@@ -158,6 +160,8 @@ class trajflow_meszaros(model_template):
 
         # Get Decoder Type
         self.decoder_type = self.model_kwargs["decoder_type"] 
+
+        self.timestep_preds = {}
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -614,10 +618,79 @@ class trajflow_meszaros(model_template):
             Pred[~Ped_agent[:,0]] *= self.std_pos_veh
             
             torch.cuda.empty_cache()
+
+            self.save_predictions_CommonRoad(Pred, Sample_id, Agent_id, X)
             
             # save predictions
             self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
+
+        file_name = self.model_file[:-4] + '_timestep_preds.pkl'
+        pickle.dump(self.timestep_preds, open(file_name, 'wb'))
     
+
+    def save_predictions_CommonRoad(self, Pred, Sample_id, Agent_id, X):
+
+        T_0 = np.array(self.data_set.Domain.iloc[Sample_id].t_0/self.dt, dtype=int)
+        T_0_unique = np.unique(T_0)
+
+        for t_0 in T_0_unique:
+            if not t_0 in self.timestep_preds.keys():
+                self.timestep_preds[t_0] = {}
+            
+            t0_idx = np.where(T_0 == t_0)[0]
+            for idx in t0_idx:
+                pred = Pred[idx]
+                agent_id = Agent_id[idx,0]
+                x = X[idx,0,-1:].cpu().detach().numpy()
+
+                assert not agent_id in self.timestep_preds[t_0].keys()
+                            # fit GMMs on the predicted trajectories in order to get modes with mean and covariance
+                clf = mixture.GaussianMixture(n_components=6, covariance_type='full')
+                clf.fit(pred.reshape(self.num_samples_path_pred, -1))
+
+                means = clf.means_
+                covariances = clf.covariances_
+
+                means = means.reshape(-1, pred.shape[1], 2)
+                # extract covariances per timestep
+                
+                n = covariances.shape[1] // 2  # Assuming covariance matrix is of size 2n x 2n
+                covariance_matrices = []
+                for i in range(covariances.shape[0]):
+
+                    mode_covariance_matrices = []
+                
+                    mode_cov = covariances[i]
+                    for j in range(n):
+                        xi_index = 2 * j
+                        yi_index = 2 * j + 1
+
+                        
+                        covariance_matrix_2x2 = mode_cov[np.ix_([xi_index, yi_index], [xi_index, yi_index])]
+                        mode_covariance_matrices.append(covariance_matrix_2x2)
+
+                    covariance_matrices.append(np.array(mode_covariance_matrices))
+
+                # compute velocities
+                means_extended = np.concatenate((np.tile(x[np.newaxis], (len(means),1,1)), means), axis=1)
+                velocities = np.diff(means_extended, axis=1)/self.dt
+
+                orientations = np.arctan2(velocities[:,:,1], velocities[:,:,0])
+
+                # the list comprehension converts the results to a list of length num_samples_path_pred with numpy arrays of shape (num_timesteps, 2)
+                results = {}
+                results['pos_list'] = [x for x in means]
+                results['cov_list'] = covariance_matrices
+                results['v_list'] = [x for x in velocities]
+                results['orientation_list'] = [x for x in orientations]
+                results['shape'] = []
+                results['responsibility'] = []
+
+
+                self.timestep_preds[t_0][agent_id] = results
+
+            
+
     
     def check_trainability_method(self):
         return None
