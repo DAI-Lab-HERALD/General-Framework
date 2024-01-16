@@ -238,7 +238,9 @@ class trajflow_meszaros(model_template):
                 train_loss = []
                 
                 train_epoch_done = False
+                batch = 0
                 while not train_epoch_done:
+                    batch += 1
                     X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, _ = self.extract_batch_data(X, T, Y)
@@ -283,7 +285,16 @@ class trajflow_meszaros(model_template):
                         loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
 
                     loss.backward()
-                    optim.step()
+                    # Check for nan gradients
+                    grad_is_nan = False
+                    for param in fut_model.parameters():
+                        if torch.isnan(param.grad).any():
+                            grad_is_nan = True
+
+                    if grad_is_nan:
+                        print('Loss is not finite in batch {}'.format(batch))
+                    else:
+                        optim.step()
                         
                     train_loss.append(loss.detach().cpu().numpy())
                 
