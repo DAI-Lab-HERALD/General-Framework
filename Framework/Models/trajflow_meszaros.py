@@ -238,7 +238,9 @@ class trajflow_meszaros(model_template):
                 train_loss = []
                 
                 train_epoch_done = False
+                batch = 0
                 while not train_epoch_done:
+                    batch += 1
                     X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, _ = self.extract_batch_data(X, T, Y)
@@ -283,7 +285,16 @@ class trajflow_meszaros(model_template):
                         loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
 
                     loss.backward()
-                    optim.step()
+                    # Check for nan gradients
+                    grad_is_nan = False
+                    for param in fut_model.parameters():
+                        if not torch.isfinite(param.grad).all():
+                            grad_is_nan = True
+
+                    if grad_is_nan:
+                        print('Loss is not finite in batch {}'.format(batch))
+                    else:
+                        optim.step()
                         
                     train_loss.append(loss.detach().cpu().numpy())
                 
@@ -298,6 +309,8 @@ class trajflow_meszaros(model_template):
                     conc_label = []
                     
                     val_epoch_done = False
+                    Num_steps = []
+                    samples = 0
                     while not val_epoch_done:
                         X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
@@ -321,11 +334,22 @@ class trajflow_meszaros(model_template):
                         else:
                             conc_out.append(future_traj_hat.cpu())
                             conc_label.append(y_rel.cpu())
-                            
-                    conc_out = torch.cat(conc_out)
-                    conc_label = torch.cat(conc_label) 
                         
-                    val_loss = torch.sqrt(loss_fn(conc_out, conc_label))
+                        Num_steps.append(num_steps)
+                        samples += X.shape[0]
+                    
+                    # Combine variable length predictions
+                    Conc_out = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
+                    Conc_label = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
+
+                    i_start = 0
+                    for i in range(len(conc_out)):
+                        i_end = i_start + conc_out[i].shape[0]
+                        Conc_out[i_start:i_end, :Num_steps[i]] = conc_out[i]
+                        Conc_label[i_start:i_end, :Num_steps[i]] = conc_label[i]
+                        i_start = i_end
+                        
+                    val_loss = torch.sqrt(loss_fn(Conc_out, Conc_label))
 
                     val_losses.append(val_loss.detach().cpu().numpy())
                     

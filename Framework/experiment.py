@@ -11,6 +11,7 @@ from matplotlib.collections import LineCollection
 import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 import time
+import seaborn as sns
 
 # allow for latex code
 # from matplotlib import rc
@@ -1797,7 +1798,7 @@ class Experiment():
             self._draw_background(ax, data_set, img, domain)
             
             # plot inputs
-            colors = matplotlib.cm.tab20(range(len(ind_p)))
+            colors = sns.color_palette("bright", len(ind_p))
             for i, agent in enumerate(ind_p):
                 color = colors[i]
                 ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
