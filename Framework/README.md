@@ -220,7 +220,7 @@ Lastly, one can also plot trajectories, true and predicted alike:
 ```
 new_experiment.plot_paths(load_all = False, plot_similar_futures = False, plot_train = False)
 ```
-Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the training set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
+Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the testing set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
 
 If it is the case, that multiple samples with [identical input conditions](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#useful-helper-functions) are available, and one has set *plot_similar_future = True*, then all the possible futures observed for thos cases are plotted, not only the one for the current sample selected.
 
