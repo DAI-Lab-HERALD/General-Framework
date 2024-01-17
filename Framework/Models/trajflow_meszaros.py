@@ -189,26 +189,7 @@ class trajflow_meszaros(model_template):
     
     
     def train_futureAE(self, T_all):
-        hs_rnn = self.hs_rnn
-        obs_encoding_size = self.obs_encoding_size # 4
-        n_layers_rnn = self.n_layers_rnn
-        scene_encoding_size = self.scene_encoding_size # 4
-
-        enc_size = self.fut_enc_sz
-
-        flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
-                                    gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
-                                    obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
-                                    n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
-
-        enc = Future_Encoder(2, enc_size, enc_size, enc_size)
-
-        if self.decoder_type == "none":
-            dec = Future_Decoder(2, enc_size, enc_size)
-            fut_model = Future_Seq2Seq(enc, dec)
-        else:
-            dec = Future_Decoder_Control(2, enc_size, enc_size, decoder_type = self.decoder_type)
-            fut_model = Future_Seq2Seq_Control(enc, dec)
+        
 
         # Use encoder of noninteractive trajflow model if available, as same training stuff is used
         fut_model_file = self.model_file[:-4] + '_AE'
@@ -217,158 +198,259 @@ class trajflow_meszaros(model_template):
             print('Future AE model loaded')
 
         else:
+            # Check if equivalent AE model is available
 
-            loss_fn = torch.nn.MSELoss()
-            optim = torch.optim.AdamW(fut_model.parameters(), lr=self.fut_ae_lr, weight_decay=self.fut_ae_wd)
-            lr_sc = torch.optim.lr_scheduler.ExponentialLR(optim, gamma = self.fut_ae_lr_decay)
+            # Find all files in Model folder
+            model_files = os.listdir(os.path.dirname(self.model_file))
 
-            diz_loss = {'train_loss':[],'val_loss':[]}
+            # Find all AE models
+            model_files = [f for f in model_files if f[-3:] == '_AE']
 
-            val_losses = []
-            
-            
-            converged = False
-            for epoch in range(self.fut_ae_epochs):
-                print('')
-                rjust_epoch = str(epoch).rjust(len(str(self.fut_ae_epochs)))
-                print('Train TrajFlow Autoencoder: Epoch ' + rjust_epoch + '/{}'.format(self.fut_ae_epochs), flush = True)
-                # Analyize memory:
-                fut_model.to(device = self.device)
-                fut_model.train()
-                train_loss = []
+            # Get desired environment name
+            env_name_desired = '--'.join(fut_model_file.split(os.sep)[-1].split('--')[:-1])
+            model_kwargs_potential = fut_model_file.split(os.sep)[-1].split('--')[-1][3:-3].split('_')
+
+            AE_kwargs = ['seed', 'fut', 'alpha', 'posLoss', 'varyInLen', 'sclAE']
+            if 'sclAE' in model_kwargs_potential:
+                AE_kwargs += ['smin', 'smax', 'sigma']
+
+            model_kwargs_desired = []
+            for i_kw, kw in enumerate(model_kwargs_potential):
+                for ae_kw in AE_kwargs:
+                    if ae_kw in kw:
+                        model_kwargs_desired.append(kw)
+                        break
+                # Check for lr_decay
+                if kw == 'lrDec':
+                    if model_kwargs_potential[i_kw - 1] == "ae":
+                        model_kwargs_desired.append(kw)
+
+            # Find all AE models with same parameters
+            eqivalent_file = None
+            for file in model_files:
+                # Diveide Model name from rest
+                File_split = file.split('--')
                 
-                train_epoch_done = False
-                batch = 0
-                while not train_epoch_done:
-                    batch += 1
-                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
-                                                                                           val_split_size = 0.1)
-                    X, T, Y, _ = self.extract_batch_data(X, T, Y)
-                    
-                    # X.shape:   bs x num_agents x num_timesteps_is x 2
-                    # Y.shape:   bs x 1 x num_timesteps_is x 2
-                    # T.shape:   bs x num_agents
-                    # img.shape: bs x 1 x 156 x 257 x 1
-                    
-                    scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
-                                                                    loc=1, scale=self.sigma, size=X.shape[0])).float()
-                    scaler = scaler.unsqueeze(1)
-                    scaler = scaler.unsqueeze(2)
-                    scaler = scaler.to(device = self.device)
+                # Check env name
+                env_name = '--'.join(File_split[:-1])
+                if env_name != env_name_desired:
+                    continue
 
-                    if not self.scale_AE:
-                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
-                    
-                    tar_pos_past   = X[:,0]
-                    tar_pos_future = Y[:,0]
-                    
-                    mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True)
-                    
-                    shifted_past = tar_pos_past - mean_pos
-                    shifted_future = tar_pos_future - mean_pos
-                        
-                    past_data = shifted_past * scaler + mean_pos
-                    future_data = shifted_future * scaler + mean_pos
-                    
-                    past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
-                     
-                    x_t = past_traj[...,-1:,:]
-                    y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
-                    
-                    future_traj_hat, _ = fut_model(y_rel)     
-                        
-                    optim.zero_grad()
-                    if self.pos_loss:
-                        y_hat = flow_dist_futMdl._rel_to_abs(future_traj_hat, x_t)
-                        loss = torch.sqrt(loss_fn(y_hat, fut_traj))
-                    else:
-                        loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
+                # Get model name
+                model_name = File_split[-1][:-3]
 
-                    loss.backward()
-                    # Check for nan gradients
-                    grad_is_nan = False
-                    for param in fut_model.parameters():
-                        if not torch.isfinite(param.grad).all():
-                            grad_is_nan = True
+                # Check for TF model
+                if model_name[:3] != 'TF_':
+                    continue
 
-                    if grad_is_nan:
-                        print('Loss is not finite in batch {}'.format(batch))
-                    else:
-                        optim.step()
-                        
-                    train_loss.append(loss.detach().cpu().numpy())
+                # Check for parameters
+                model_kwargs_pot = model_name[3:].split('_')
+
+                # Find important kwargs
+                model_kwargs = []
+                for kw in model_kwargs_pot:
+                    for ae_kw in AE_kwargs:
+                        if ae_kw in kw:
+                            model_kwargs_desired.append(kw)
+                            break
+                    
+                    # Check for lr_decay
+                    if kw == 'lrDec':
+                        if model_kwargs_potential[i_kw - 1] == "ae":
+                            model_kwargs_desired.append(kw)
+
+                # Check if AE settings are identical
+                if model_kwargs == model_kwargs_desired:
+                    eqivalent_file = file
+                    break
+
+            if eqivalent_file is not None and not self.model_overwrite:
+                # Load model
+                equiv_model_file = os.path.dirname(self.model_file) + os.sep + eqivalent_file
+                fut_model = pickle.load(open(equiv_model_file, 'rb'))
+
+                # Load train losses
+                if self.provides_epoch_loss():
+                    equiv_train_loss_file = equiv_model_file[:-3] + '--train_loss.npy'
+                    equiv_train_loss = np.load(equiv_train_loss_file)
+
+                    max_len = min(equiv_train_loss.shape[1], self.train_loss.shape[1])
+                    self.train_loss[0, :max_len] = equiv_train_loss[0, :max_len]
+            else:
+                hs_rnn = self.hs_rnn
+                obs_encoding_size = self.obs_encoding_size # 4
+                n_layers_rnn = self.n_layers_rnn
+                scene_encoding_size = self.scene_encoding_size # 4
+
+                enc_size = self.fut_enc_sz
+
+
+
+                flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
+                                            gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
+                                            obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
+                                            n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
+
+                enc = Future_Encoder(2, enc_size, enc_size, enc_size)
+
+                if self.decoder_type == "none":
+                    dec = Future_Decoder(2, enc_size, enc_size)
+                    fut_model = Future_Seq2Seq(enc, dec)
+                else:
+                    dec = Future_Decoder_Control(2, enc_size, enc_size, decoder_type = self.decoder_type)
+                    fut_model = Future_Seq2Seq_Control(enc, dec)
+
+
+
+                loss_fn = torch.nn.MSELoss()
+                optim = torch.optim.AdamW(fut_model.parameters(), lr=self.fut_ae_lr, weight_decay=self.fut_ae_wd)
+                lr_sc = torch.optim.lr_scheduler.ExponentialLR(optim, gamma = self.fut_ae_lr_decay)
+
+                val_losses = []
                 
-                # Update learning rate
-                lr_sc.step()
-                                
-                fut_model.to(device = self.device)
-                fut_model.eval()
-                        
-                with torch.no_grad():
-                    conc_out = []
-                    conc_label = []
+                
+                converged = False
+                for epoch in range(self.fut_ae_epochs):
+                    print('')
+                    rjust_epoch = str(epoch).rjust(len(str(self.fut_ae_epochs)))
+                    print('Train TrajFlow Autoencoder: Epoch ' + rjust_epoch + '/{}'.format(self.fut_ae_epochs), flush = True)
+                    # Analyize memory:
+                    fut_model.to(device = self.device)
+                    fut_model.train()
+                    train_loss = []
                     
-                    val_epoch_done = False
-                    Num_steps = []
-                    samples = 0
-                    while not val_epoch_done:
-                        X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
-                                                                                                val_split_size = 0.1)
-                        
+                    train_epoch_done = False
+                    batch = 0
+                    while not train_epoch_done:
+                        batch += 1
+                        X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                                                                                            val_split_size = 0.1)
                         X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
-                        past_data = X[:,0]
-                        future_data = Y[:,0]
+                        # X.shape:   bs x num_agents x num_timesteps_is x 2
+                        # Y.shape:   bs x 1 x num_timesteps_is x 2
+                        # T.shape:   bs x num_agents
+                        # img.shape: bs x 1 x 156 x 257 x 1
+                        
+                        scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
+                                                                        loc=1, scale=self.sigma, size=X.shape[0])).float()
+                        scaler = scaler.unsqueeze(1)
+                        scaler = scaler.unsqueeze(2)
+                        scaler = scaler.to(device = self.device)
+
+                        if not self.scale_AE:
+                            scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
+                        
+                        tar_pos_past   = X[:,0]
+                        tar_pos_future = Y[:,0]
+                        
+                        mean_pos = torch.mean(torch.concat((tar_pos_past, tar_pos_future), dim = 1), dim=1, keepdims = True)
+                        
+                        shifted_past = tar_pos_past - mean_pos
+                        shifted_future = tar_pos_future - mean_pos
+                            
+                        past_data = shifted_past * scaler + mean_pos
+                        future_data = shifted_future * scaler + mean_pos
                         
                         past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
                         
                         x_t = past_traj[...,-1:,:]
                         y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
                         
-                        future_traj_hat, _ = fut_model(y_rel)
-                        
+                        future_traj_hat, _ = fut_model(y_rel)     
+                            
+                        optim.zero_grad()
                         if self.pos_loss:
                             y_hat = flow_dist_futMdl._rel_to_abs(future_traj_hat, x_t)
-                            conc_out.append(y_hat.cpu())
-                            conc_label.append(fut_traj.cpu())
+                            loss = torch.sqrt(loss_fn(y_hat, fut_traj))
                         else:
-                            conc_out.append(future_traj_hat.cpu())
-                            conc_label.append(y_rel.cpu())
+                            loss = torch.sqrt(loss_fn(future_traj_hat, y_rel))
+
+                        loss.backward()
+                        # Check for nan gradients
+                        grad_is_nan = False
+                        for param in fut_model.parameters():
+                            if not torch.isfinite(param.grad).all():
+                                grad_is_nan = True
+
+                        if grad_is_nan:
+                            print('Loss is not finite in batch {}'.format(batch))
+                        else:
+                            optim.step()
+                            
+                        train_loss.append(loss.detach().cpu().numpy())
+                    
+                    # Update learning rate
+                    lr_sc.step()
+                                    
+                    fut_model.to(device = self.device)
+                    fut_model.eval()
+                            
+                    with torch.no_grad():
+                        conc_out = []
+                        conc_label = []
                         
-                        Num_steps.append(num_steps)
-                        samples += X.shape[0]
-                    
-                    # Combine variable length predictions
-                    Conc_out = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
-                    Conc_label = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
-
-                    i_start = 0
-                    for i in range(len(conc_out)):
-                        i_end = i_start + conc_out[i].shape[0]
-                        Conc_out[i_start:i_end, :Num_steps[i]] = conc_out[i]
-                        Conc_label[i_start:i_end, :Num_steps[i]] = conc_label[i]
-                        i_start = i_end
+                        val_epoch_done = False
+                        Num_steps = []
+                        samples = 0
+                        while not val_epoch_done:
+                            X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                                                                                                    val_split_size = 0.1)
+                            
+                            X, T, Y, _ = self.extract_batch_data(X, T, Y)
+                            
+                            past_data = X[:,0]
+                            future_data = Y[:,0]
+                            
+                            past_traj, fut_traj, rot_angles_rad = flow_dist_futMdl._normalize_rotation(past_data, future_data)
+                            
+                            x_t = past_traj[...,-1:,:]
+                            y_rel = flow_dist_futMdl._abs_to_rel(fut_traj, x_t)
+                            
+                            future_traj_hat, _ = fut_model(y_rel)
+                            
+                            if self.pos_loss:
+                                y_hat = flow_dist_futMdl._rel_to_abs(future_traj_hat, x_t)
+                                conc_out.append(y_hat.cpu())
+                                conc_label.append(fut_traj.cpu())
+                            else:
+                                conc_out.append(future_traj_hat.cpu())
+                                conc_label.append(y_rel.cpu())
+                            
+                            Num_steps.append(num_steps)
+                            samples += X.shape[0]
                         
-                    val_loss = torch.sqrt(loss_fn(Conc_out, Conc_label))
+                        # Combine variable length predictions
+                        Conc_out = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
+                        Conc_label = torch.zeros(samples, max(Num_steps), 2).to(device = self.device)
 
-                    val_losses.append(val_loss.detach().cpu().numpy())
-                    
-                    # Early stopping for AE
-                    # Check for convergence
-                    if epoch > 200:
-                        best_val_step = np.argmin(val_losses)
-                        if epoch - best_val_step > 50:
-                            converged = True
-                    
-                print('Train loss: {:7.5f}; \t Val loss: {:7.5f}'.format(np.mean(train_loss),val_loss.data))
-                diz_loss['train_loss'].append(train_loss)
-                diz_loss['val_loss'].append(val_loss)
-                if converged:
-                    print('Model is converged.')
-                    break
+                        i_start = 0
+                        for i in range(len(conc_out)):
+                            i_end = i_start + conc_out[i].shape[0]
+                            Conc_out[i_start:i_end, :Num_steps[i]] = conc_out[i]
+                            Conc_label[i_start:i_end, :Num_steps[i]] = conc_label[i]
+                            i_start = i_end
+                            
+                        val_loss = torch.sqrt(loss_fn(Conc_out, Conc_label))
 
-            self.train_loss[0, :len(val_losses)] = np.array(val_losses)
-            os.makedirs(os.path.dirname(fut_model_file), exist_ok=True)
+                        val_losses.append(val_loss.detach().cpu().numpy())
+                        
+                        # Early stopping for AE
+                        # Check for convergence
+                        if epoch > 200:
+                            best_val_step = np.argmin(val_losses)
+                            if epoch - best_val_step > 50:
+                                converged = True
+                        
+                    print('Train loss: {:7.5f}; \t Val loss: {:7.5f}'.format(np.mean(train_loss),val_loss.data))
+                    if converged:
+                        print('Model is converged.')
+                        break
+
+                self.train_loss[0, :len(val_losses)] = np.array(val_losses)
+                os.makedirs(os.path.dirname(fut_model_file), exist_ok=True)
+
+            # Save model    
             pickle.dump(fut_model, open(fut_model_file, 'wb'))
 
         return fut_model
