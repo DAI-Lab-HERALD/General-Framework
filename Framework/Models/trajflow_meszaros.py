@@ -659,6 +659,7 @@ class trajflow_meszaros(model_template):
         prediction_done = False
         while not prediction_done:
             X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+
             actual_batch_size = len(X)
             Ped_agent = T == 'P'
             

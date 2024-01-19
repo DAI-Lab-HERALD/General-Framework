@@ -231,6 +231,7 @@ class JSD_traj_indep(evaluation_template):
         ax.set_xlabel('$x$ [$m$]')
         ax.set_ylabel('$y$ [$m$]')
         ax.set_title('$\ln (p)$')
+        # ax.set_axis_off()
         # ax.set_title('$\ln (p) - {:0.2f}$'.format(Log_plot.mean()))
     
     def get_output_type(self = None):

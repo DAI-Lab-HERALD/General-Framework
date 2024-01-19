@@ -20,7 +20,7 @@ class minADE20_indepExtrap(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(20)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(20, exclude_late_timesteps = False)
 
         Path_true = Path_true[..., self.model.num_timesteps_out:, :]
         Path_pred = Path_pred[..., self.model.num_timesteps_out:, :]
