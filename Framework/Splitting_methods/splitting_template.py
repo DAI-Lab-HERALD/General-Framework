@@ -35,7 +35,7 @@ class splitting_template():
                 raise TypeError('Repetitions must be integers or strings.')
         
         # Get max number of repetition 
-        self.max_max_rep = 1000
+        self.max_max_rep = 10
         max_rep = self.repetition_number()
         if max_rep is None:
             max_rep = self.max_max_rep

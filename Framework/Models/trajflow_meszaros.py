@@ -112,12 +112,12 @@ class trajflow_meszaros(model_template):
         
         # Required attributes of the model
         self.min_t_O_train = self.num_timesteps_out
-        self.max_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = 100
         self.predict_single_agent = True
         self.can_use_map = True
         # If self.can_use_map, the following is also required
-        self.target_width = 256#257
-        self.target_height = 256 #156
+        self.target_width = 257
+        self.target_height = 156
         self.grayscale = True
         
         self.norm_rotation = True
