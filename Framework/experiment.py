@@ -93,19 +93,21 @@ class Experiment():
     #%% Experiment setup        
     def set_modules(self, Data_sets, Data_params, Splitters, Models, Metrics):
         assert isinstance(Data_sets, list), "Data_sets must be a list."
-        assert len(Data_sets) > 0, "Data_sets must ot be empty."
+        assert len(Data_sets) > 0, "Data_sets must not be empty."
         
         assert isinstance(Data_params, list), "Data_params must be a list."
-        assert len(Data_params) > 0, "Data_params must ot be empty."
+        assert len(Data_params) > 0, "Data_params must not be empty."
         
         assert isinstance(Splitters, list), "Splitters must be a list."
-        assert len(Splitters) > 0, "Splitters must ot be empty."
+        assert len(Splitters) > 0, "Splitters must not be empty."
         
         assert isinstance(Models, list), "Models must be a list."
-        assert len(Models) > 0, "Models must ot be empty."
+        assert len(Models) > 0, "Models must not be empty."
         
         assert isinstance(Metrics, list), "Metrics must be a list."
-        assert len(Metrics) > 0, "Metrics must ot be empty."
+
+        if not 'NWA' in self.Experiment_name: 
+            assert len(Metrics) > 0, "Metrics must not be empty."
         
         self.num_data_sets   = len(Data_sets)
         self.num_data_params = len(Data_params)
@@ -1850,10 +1852,10 @@ class Experiment():
                 fig_str = 'traj_plot_train_'
             
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           fig_str + '{}'.format(sample_ind + 1), '.pdf')
+                                                           fig_str + '{}'.format(sample_ind + 1), '.pdf')#'.png')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
             
-            # plt.close(fig)
+            plt.close(fig)
                                                             
