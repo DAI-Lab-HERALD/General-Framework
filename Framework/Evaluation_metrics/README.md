@@ -252,7 +252,8 @@ For the evaluation, the following functions are provided by the evaluation templ
 to the true and predicted data.
 
 ```
-def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
+def get_true_and_predicted_paths(self, num_preds = None, return_types = False,
+                                 exclude_late_timesteps = True):
   '''
   This returns the true and predicted trajectories.
   
@@ -263,6 +264,9 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
     in which case all available predictions are used.
   return_types : bool, optional
     Decides if agent types are returned as well. The default is False.
+  exclude_late_timesteps : bool, optional
+    Decides if predicted timesteps after the set prediction horizon should be excluded. 
+    The default is True.
   
   Returns
   -------
