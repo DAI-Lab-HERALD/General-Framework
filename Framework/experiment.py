@@ -1632,8 +1632,8 @@ class Experiment():
         min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)),
                                     np.min(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
 
-        max_v = np.ceil((max_v + 5) / 5) * 5
-        min_v = np.floor((min_v - 5) / 5) * 5
+        max_v = np.ceil(max_v + 0.5)
+        min_v = np.floor(min_v - 0.5)
         
         
         return [opp, ind_pp, min_v, max_v]
