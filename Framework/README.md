@@ -218,14 +218,19 @@ Those tables are then also saved as *\*.tex* files in the folder *../Framework/L
 ### Plotting trajectories
 Lastly, one can also plot trajectories, true and predicted alike:
 ```
-new_experiment.plot_paths(load_all = False, plot_similar_futures = False, plot_train = False, only_show_pred_agents = False)
+new_experiment.plot_paths(load_all = False, plot_similar_futures = False, plot_train = False,
+                          only_show_pred_agents = False, likelihood_visualization = False, plot_only_lines = False)
 ```
 Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the testing set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
 
 If it is the case, that multiple samples with [identical input conditions](https://github.com/julianschumann/General-Framework/tree/main/Framework/Evaluation_metrics#useful-helper-functions) are available, and one has set *plot_similar_future = True*, then all the possible futures observed for thos cases are plotted, not only the one for the current sample selected.
 
-Furthermore, it is the standard case that samples can only be selected from the testset (*plot_train = False*), but if one instead sets the argument *plot_train = True*, then one can instead select samples from the train set. However, the latter option is only available if one has set [*evaluate_on_train_set = True*](https://github.com/julianschumann/General-Framework/tree/main/Framework#evaluate-overfitting) in the experiment parameters.
+It is the standard case that samples can only be selected from the testset (*plot_train = False*), but if one instead sets the argument *plot_train = True*, then one can instead select samples from the train set. However, the latter option is only available if one has set [*evaluate_on_train_set = True*](https://github.com/julianschumann/General-Framework/tree/main/Framework#evaluate-overfitting) in the experiment parameters.
 
-Lastly, if one wishes to toggle whether only the agents for which the predictions are made are plotted, one can do so by setting *only_show_pred_agents = True* if this is the case. Otherwise for plotting all the agents in a scene regardless of whether predictions are available for them one must set *only_show_pred_agents = False*.
+If one wishes to toggle whether only the agents for which the predictions are made are plotted, one can do so by setting *only_show_pred_agents = True* if this is the case. Otherwise for plotting all the agents in a scene regardless of whether predictions are available for them one must set *only_show_pred_agents = False*.
+
+It is additionally possible to plot the likelihoods of the predicted trajectories (*likelihood_visualization = True*), where the likelihoods are depicted by the opacity level of the trajectory. 
+
+Lastly, if one wishes to mark the locations at each time step of a prediction one must set *plot_only_lines = False*.
 
 
