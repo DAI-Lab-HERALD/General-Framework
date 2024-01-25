@@ -1761,6 +1761,9 @@ class Experiment():
         # Overwrite number of predictions
         model.num_samples_path_pred = 3000 - opp.shape[1]
 
+        if hasattr(model, 'Ind_pred'):
+            del model.Ind_pred
+
         # Run the actual prediction
         Pred_index, Output_path_pred = model.predict_actual()
 
@@ -1775,6 +1778,9 @@ class Experiment():
         # Remove previous results
         if hasattr(model, 'Path_pred'):
             del model.Path_pred, model.Path_true, model.Pred_step
+            
+        if hasattr (model, 'Log_prob_indep_pred'):
+            del model.Log_prob_indep_pred
         model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
         Lp = model.Log_prob_indep_pred
 
