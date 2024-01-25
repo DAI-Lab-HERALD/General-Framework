@@ -157,6 +157,24 @@ class model_template():
         print('')
         return self.model_file
         
+    def predict_actual(self):
+        # apply model to test samples
+        if self.get_output_type()[:4] == 'path':
+            self.create_empty_output_path()
+            self.predict_method()
+            output = [self.Index_test, self.Output_path_pred]
+        elif self.get_output_type() == 'class':
+            self.create_empty_output_A()
+            self.predict_method()
+            output = [self.Index_test, self.Output_A_pred]
+        elif self.get_output_type() == 'class_and_time':
+            self.create_empty_output_A()
+            self.create_empty_output_T()
+            self.predict_method()
+            output = [self.Index_test, self.Output_A_pred, self.Output_T_E_pred]
+        else:
+            raise TypeError("This output type for models is not implemented.")
+        return output
         
     def predict(self):
         assert not self.simply_load_results, 'This model instance is nonly for loading results.'
@@ -217,22 +235,7 @@ class model_template():
                 return output
         
         # create predictions, as no save file available
-        # apply model to test samples
-        if self.get_output_type()[:4] == 'path':
-            self.create_empty_output_path()
-            self.predict_method()
-            output = [self.Index_test, self.Output_path_pred]
-        elif self.get_output_type() == 'class':
-            self.create_empty_output_A()
-            self.predict_method()
-            output = [self.Index_test, self.Output_A_pred]
-        elif self.get_output_type() == 'class_and_time':
-            self.create_empty_output_A()
-            self.create_empty_output_T()
-            self.predict_method()
-            output = [self.Index_test, self.Output_A_pred, self.Output_T_E_pred]
-        else:
-            raise TypeError("This output type for models is not implemented.")
+        output = self.predict_actual()
         
         os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
         

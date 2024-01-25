@@ -551,6 +551,7 @@ class Experiment():
                                     
                                     test_results = metric_result[1]    
                                     self.Results[i,j,k,l,m] = test_results[0]
+
                                     
                                     if create_plot:
                                         figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
@@ -1749,11 +1750,46 @@ class Experiment():
         path_true_all = path_true_all[np.isfinite(path_true_all).any((1,2,3))]
         return path_true_all
         
-    
+    def _get_path_likelihoods(self, data_set, splitter, model, sample_ind, plot_train, opp, ind_pp):
+        # Manually overwrite saved test_index
+        if self.plot_train:
+            model.Index_test = splitter.Train_index[[sample_ind]]
+        else:
+            model.Index_test = splitter.Test_index[[sample_ind]]
+
+        
+        # Overwrite number of predictions
+        model.num_samples_path_pred = 3000 - opp.shape[1]
+
+        # Run the actual prediction
+        Pred_index, Output_path_pred = model.predict_actual()
+
+        # Concatenate old predictions with new ones
+        for i, agent in enumerate(ind_pp):
+            assert isinstance(Output_path_pred[agent].iloc[0], np.ndarray)
+
+            Output_path_pred[agent].iloc[0] = np.concatenate((opp[i], Output_path_pred[agent].iloc[0]), axis = 0)
+        model.num_samples_path_pred = 3000
+
+        # Get indpendent likelihoods
+        # Remove previous results
+        if hasattr(model, 'Path_pred'):
+            del model.Path_pred, model.Path_true, model.Pred_step
+        model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
+        Lp = model.Log_prob_indep_pred
+
+        # Only consider the likelihoods of trajectories in opp
+        Lp = model.Log_prob_indep_pred[0, :opp.shape[1], :opp.shape[0]]
+
+        return Lp
+
     
     def plot_paths(self, load_all = False, 
                    plot_similar_futures = False, 
-                   plot_train = False):
+                   plot_train = False,
+                   only_show_pred_agents = False,
+                   likelihood_visualization = False,
+                   plot_only_lines = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
         
@@ -1781,16 +1817,33 @@ class Experiment():
              output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
                                                                         Input_path, Output_path, 
                                                                         Output_A, Output_T_E, Domain)
+            
                                                                         
             [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(sample_ind, ip, ind_p, Output_path_pred)
             
+
+
+            if only_show_pred_agents:
+                useful_p = np.in1d(ind_p, ind_pp)
+
+                ind_p = ind_p[useful_p]
+                assert np.in1d(ind_pp, ind_p).all()
+
+                ip = ip[useful_p]
+                op = op[useful_p]
             
             # Check if multiple true input should be drawn
             if plot_similar_futures:
                 paths_true_all = self._get_similar_inputs(data_set, splitter, sample_ind)
 
+            # Get likelihoods of the given samples, based on 3000 predictions
+            if likelihood_visualization:
+                # Only available for path prediction models
+                if model.get_output_type() == 'path_all_wi_pov':
+                    Lp = self._get_path_likelihoods(data_set, splitter, model, sample_ind, plot_train, opp, ind_pp)
             
-            
+
+
             # plot figure
             fig, ax = plt.subplots(figsize = (10,8))            
             
@@ -1800,34 +1853,73 @@ class Experiment():
             # plot inputs
             colors = sns.color_palette("bright", len(ind_p))
             for i, agent in enumerate(ind_p):
-                color = colors[i]
-                ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
-                        marker = 'o', ms = 2.5, label = r'$A_{' + agent + r'}$', linewidth = 0.75)
+                if plot_only_lines:
+                    color = np.array(colors[i]) * 0.75
+                    if len(color) == 4:
+                        color[-1] = 1
+                else:
+                    color = colors[i]
+                if plot_only_lines:
+                    ax.plot(ip[i,:,0], ip[i,:,1], color = color, label = r'$A_{' + agent + r'}$', linewidth = 3)
+                    ax.scatter(ip[i,-1:,0], ip[i,-1:,1], color = color, marker = 'o', s = 5)
+                else:
+                    ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
+                            marker = 'o', ms = 2.5, label = r'$A_{' + agent + r'}$', linewidth = 0.75)
                 
                 # plot predicted future
                 if agent in ind_pp:
-                    color_pred = np.ones(4, float)
-                    color_pred[:3] = 1 - 0.5 * (1 - color[:3])
-                    i_agent = np.where(agent == ind_pp)[0][0]
-                    
                     num_samples_path_pred = self.parameters[1]
-                    for j in range(num_samples_path_pred):
-                        ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
-                                np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
-                                color = color_pred, marker = 'x', ms = 2, markeredgewidth = 0.5, 
-                                linestyle = 'dashed', linewidth = 0.25)
+                    color_pred = np.ones((num_samples_path_pred, 4), float)
+                    
+                    if plot_only_lines:
+                        color_pred[:, :3] = 4 / 3 * np.array(color[:3])[np.newaxis]
+                    else:
+                        color_pred[:, :3] = 1 - 0.5 * (1 - np.array(color[:3])[np.newaxis])
+                    i_agent = np.where(agent == ind_pp)[0][0]
+
+                    # Alpha value 
+                    if likelihood_visualization:
+                        lp = Lp[:,i_agent]
+                        l = ((lp - np.min(lp)) / (np.max(lp) - np.min(lp)))
+                        color_pred[:, 3] = 1 / (1 + np.exp(5 * (np.median(l) - l)))
+                    else:
+                        color_pred[:, 3] = np.ones(num_samples_path_pred)
+
+                    J_sort = np.argsort(color_pred[:, 3])
+
+                    for j in J_sort:
+                        if plot_only_lines:
+                            ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
+                                    color = color_pred[j], linewidth = 2)
+                        else:
+                            ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
+                                    color = color_pred[j], marker = 'x', ms = 2, markeredgewidth = 0.5, linewidth = 0.25)
                         
                     # plot true future
                     if plot_similar_futures:
                         for j_true in range(len(paths_true_all)):
-                            ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
-                                    np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
-                                    color = color, marker = 'x', ms = 2, markeredgewidth = 0.5, linewidth = 0.25)
-
-                ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
-                        np.concatenate((ip[i,-1:,1], op[i,:,1])),
-                        color = color, marker = 'x', ms = 2.5, 
-                        markeredgewidth = 0.5, linewidth = 0.75)
+                            if plot_only_lines:
+                                ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
+                                        np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
+                                        color = color, linestyle = 'dashed', linewidth = 2)
+                            else:
+                                ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
+                                        np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
+                                        color = color, marker = 'x', ms = 2.5, markeredgewidth = 0.5,
+                                        linestyle = 'dashed', linewidth = 0.25)
+                
+                if not plot_similar_futures:
+                    if plot_only_lines:
+                        ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
+                                np.concatenate((ip[i,-1:,1], op[i,:,1])),
+                                color = color, linestyle = 'dashed', linewidth = 3)
+                    else:
+                        ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
+                                np.concatenate((ip[i,-1:,1], op[i,:,1])),
+                                color = color, marker = 'x', ms = 2.5, 
+                                markeredgewidth = 0.5, linestyle = 'dashed', linewidth = 0.75)
             
             
             # Format plot
