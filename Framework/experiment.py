@@ -1977,7 +1977,8 @@ class Experiment():
             plt.axis('off')
             plt.legend()
             plt.tight_layout()
-            # plt.show()
+            if not load_all:
+                plt.show()
             
             if self.plot_train:
                 fig_str = 'traj_plot_test__'
@@ -1985,7 +1986,7 @@ class Experiment():
                 fig_str = 'traj_plot_train_'
             
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           fig_str + '{}'.format(sample_name + 1), '.png')
+                                                           fig_str + '{}'.format(sample_name + 1), '.pdf')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
