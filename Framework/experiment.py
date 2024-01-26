@@ -1746,7 +1746,7 @@ class Experiment():
             except:
                 if input_string[0] == '[' and input_string[-1] == ']':
                     try:
-                        ind = np.array(input_string.strip('[]').split(','), int)
+                        ind = np.array(input_string.strip('[]').split(','), int) - 1
                     except:
                         ind = np.array([-1])
                 else:
@@ -1770,10 +1770,14 @@ class Experiment():
                 ind = np.unique(ind)
             print('')
             
-            sample_inds = Chosen_sets[ind]
+            sample_inds = []
+            for ind_sample in ind:
+                sample_inds.append((ind_sample, Chosen_sets[ind_sample]))
         
         else:
-            sample_inds = Chosen_sets
+            sample_inds = []
+            for i, set in enumerate(Chosen_sets):
+                sample_inds.append((i, set))
             
         return sample_inds
     
@@ -1847,7 +1851,7 @@ class Experiment():
         sample_inds = self._select_testing_samples(data_set, splitter, load_all, Output_A, plot_similar_futures)
         
         ## Get specific case
-        for sample_name, sample_ind in enumerate(sample_inds):   
+        for sample_name, sample_ind in sample_inds:   
             [op, ip, ind_p,  
              output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
                                                                         Input_path, Output_path, 
@@ -1949,7 +1953,7 @@ class Experiment():
 
                 # For single GT, plot GT last
                 if not plot_similar_futures:
-                    assert len(opp) == 1, "Only one prediction is allowed for single GT."
+                    assert len(op) == 1, "Only one prediction is allowed for single GT."
 
                     if plot_only_lines:
                         ax.plot(np.concatenate((ip[i,-1:,0], op[0,i,:,0])), 
