@@ -1676,7 +1676,7 @@ class Experiment():
         
         # Add background picture
         if data_set.includes_images():
-            height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain))
+            height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain.iloc[0]))
             ax.imshow(img, extent=[-width/2, width/2, -height/2, height/2], interpolation='nearest')
         
         # Draw boundaries
@@ -1738,22 +1738,39 @@ class Experiment():
         if not load_all:
             print('', flush = True)
 
-            print('Type a number between in between 1 and {} to select the example: '.format(len(Chosen_sets)), flush = True)
+            print('Type a number between in between 1 and {} (or a list [...] including those samples) to select the example: '.format(len(Chosen_sets)), flush = True)
             print('', flush = True)
+            input_string = input('Enter a number: ')
             try:
-                ind = int(input('Enter a number: ')) - 1
+                ind = np.array([int(input_string) - 1])
             except:
-                ind = -1
-            while ind < 0 or ind >= len(Chosen_sets):
+                if input_string[0] == '[' and input_string[-1] == ']':
+                    try:
+                        ind = np.array(input_string.strip('[]').split(','), int)
+                    except:
+                        ind = np.array([-1])
+                else:
+                    ind = np.array([-1])
+            ind = np.unique(ind)
+            
+            while ind.min() < 0 or ind.max() >= len(Chosen_sets):
                 print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
+                input_string = input('Enter a number: ')
                 try:
-                    ind = int(input('Enter a number: ')) - 1
+                    ind = np.array([int(input_string) - 1])
                 except:
-                    ind = -1
+                    if input_string[0] == '[' and input_string[-1] == ']':
+                        try:
+                            ind = np.array(input_string.strip('[]').split(','), int)
+                        except:
+                            ind = np.array([-1])
+                    else:
+                        ind = np.array([-1])
+                ind = np.unique(ind)
             print('')
             
-            sample_inds = [Chosen_sets[ind]]
+            sample_inds = Chosen_sets[ind]
         
         else:
             sample_inds = Chosen_sets
@@ -1960,7 +1977,7 @@ class Experiment():
             plt.axis('off')
             plt.legend()
             plt.tight_layout()
-            plt.show()
+            # plt.show()
             
             if self.plot_train:
                 fig_str = 'traj_plot_test__'
@@ -1968,7 +1985,7 @@ class Experiment():
                 fig_str = 'traj_plot_train_'
             
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           fig_str + '{}'.format(sample_name + 1), '.pdf')#'.png')
+                                                           fig_str + '{}'.format(sample_name + 1), '.png')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
