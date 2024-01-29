@@ -37,6 +37,8 @@ class trajflow_meszaros(model_template):
         if not ('obs_encoding_size' in self.model_kwargs.keys()):
             self.model_kwargs['obs_encoding_size'] = 4
 
+        # TODO: Add the GNN encoding size (currently 32)
+
         if not ('beta_noise' in self.model_kwargs.keys()):
             self.model_kwargs['beta_noise'] = 0 # 0.2 (P) / 0.002
 
