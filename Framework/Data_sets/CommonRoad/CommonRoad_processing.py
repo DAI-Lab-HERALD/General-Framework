@@ -13,7 +13,7 @@ from commonroad.visualization.draw_dispatch_cr import draw_object
 
 import os
 
-px = 256 * 1.28
+px = 512 * 2.56
 # Draw scene
 def generate_scimg(
     lanelet_network, now_point, theta, time_step, watch_radius=64, draw_shape=True
@@ -91,7 +91,7 @@ agent_type_mapping = {
     'train': 'V'
 }
 
-for dataset_path in dataset_paths:
+for id_data, dataset_path in enumerate(dataset_paths):
     if not dataset_path.endswith('.xml'): continue
     print("Loading dataset {}".format(dataset_path))
     data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path
@@ -144,32 +144,33 @@ for dataset_path in dataset_paths:
         Final_data.loc[index] = data
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
 
-    draw_network = copy.deepcopy(scenario.lanelet_network)
-    translation = np.array([0,0])
-    theta = 0
-    watch_radius = 0
-    for i in range(len(draw_network.lanelets)):
-        a=draw_network.lanelets[i]
-        if watch_radius < np.max(np.abs(a.center_vertices)):
-            watch_radius = np.max(np.abs(a.center_vertices))
+    if id_data==0:
+        draw_network = copy.deepcopy(scenario.lanelet_network)
+        translation = np.array([0,0])
+        theta = 0
+        watch_radius = 0
+        for i in range(len(draw_network.lanelets)):
+            a=draw_network.lanelets[i]
+            if watch_radius < np.max(np.abs(a.center_vertices)):
+                watch_radius = np.max(np.abs(a.center_vertices))
 
-    watch_radius = 256 #math.ceil(watch_radius / 10.0) * 10
+        watch_radius = 256 #math.ceil(watch_radius / 10.0) * 10
 
-    timestep = 0
-    gray_img = generate_scimg(draw_network,
-                            translation,
-                            theta,
-                            timestep,
-                            watch_radius)
-    
-    
-    cv2.imwrite(path + os.sep + 'data' + os.sep + data.scenario + '.png', gray_img)
+        timestep = 0
+        gray_img = generate_scimg(draw_network,
+                                translation,
+                                theta,
+                                timestep,
+                                watch_radius)
+        
+        
+        cv2.imwrite(path + os.sep + 'data' + os.sep + data.scenario + '.png', gray_img)
 
-    with open(path + os.sep + 'data' + os.sep + data.scenario + '.csv', 'w') as f:
-        writer = csv.writer(f)
+        with open(path + os.sep + 'data' + os.sep + data.scenario + '.csv', 'w') as f:
+            writer = csv.writer(f)
 
-        writer.writerow(['MeterToPx', 'x_center', 'y_center', 'rot_angle'])
-        writer.writerow([(watch_radius)/px, (px/2), -(px/2), 0])
+            writer.writerow(['MeterToPx', 'x_center', 'y_center', 'rot_angle'])
+            writer.writerow([(2*watch_radius)/px, watch_radius, -watch_radius, 0])
 
         
 

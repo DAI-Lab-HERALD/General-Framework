@@ -30,6 +30,8 @@ class flomo_schoeller(model_template):
         if not ('scene_encoding_size' in self.model_kwargs.keys()):
             self.model_kwargs['scene_encoding_size'] = 4
 
+        # TODO: Add the GNN encoding size (currently 32)
+            
         if not ('obs_encoding_size' in self.model_kwargs.keys()):
             self.model_kwargs['obs_encoding_size'] = 16
 

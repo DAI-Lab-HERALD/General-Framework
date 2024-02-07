@@ -64,78 +64,84 @@ class CommonRoad(data_set_template):
         self.T = []
         self.Domain_old = []
 
-        self.Images = pd.DataFrame(np.zeros((len(self.Data), 1), object), 
-                            index = self.Data.index, columns = ['Image'])
+        self.Images = pd.DataFrame(np.zeros((1, 1), object), 
+                            index = self.Data.index[:1], columns = ['Image'])
+        
+        print('Got images')
         
         print('Got images')
         
         self.Images['Target_MeterPerPx'] = 0.0
         # extract raw samples
-        max_number_other = 0
         max_width = 0
         max_height = 0
-        for i in range(num_tars):
-            print('i = {}/{}'.format(i, num_tars))
-            data_i = self.Data.iloc[i]
-             
-            # Get other agents
-            other_agents_bool = ((self.Data.index != data_i.name) & 
-                                 (self.Data['First frame'] <= data_i['Last frame']) & 
-                                 (self.Data['Last frame'] >= data_i['First frame']) &
-                                 (self.Data.scenario == data_i.scenario))
-            
-            
-            other_agents = self.Data.loc[other_agents_bool]
-            
-            self.Data.iloc[i].path['CN'] = np.empty((len(data_i.path), 0)).tolist()
 
-            img_file = (self.path + os.sep + 'Data_sets' + os.sep + 
-                        'CommonRoad' + os.sep + 'data' + os.sep + 
-                        data_i.scenario + '.png')
-            
-            Meta_data = pd.read_csv(self.path + os.sep + 'Data_sets' + os.sep + 
-                        'CommonRoad' + os.sep + 'data' + os.sep + 
-                        data_i.scenario + '.csv')
-            
-            # img = Image.open(img_file)
-            img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-            self.Images.Image.loc[i] = np.array(img)
-            self.Images.Target_MeterPerPx.loc[i] = Meta_data['MeterToPx'][0]
-            self.Images.rename(index={i: data_i.scenario}, inplace=True)
+        unique_scenarios = np.unique(self.Data.scenario)
 
+        i_csv = np.where(unique_scenarios == 'ZAM_Tjunction-1_396_T-1')[0][0]
 
-            max_width = max(img.shape[0], max_width)
-            max_height = max(img.shape[1], max_height)
-            
-            for j, frame in enumerate(data_i.path.index):
-                useful = (other_agents['Last frame'] >= frame) & (other_agents['First frame'] <= frame)
-                self.Data.iloc[i].path.CN.iloc[j] = list(other_agents.index[useful])
-                max_number_other = max(max_number_other, useful.sum())
-                
-    
-            # find crossing point
-            track_all = data_i.path.copy(deep = True)
+        unique_scenarios = np.concatenate((unique_scenarios[[i_csv]], 
+                                           unique_scenarios[np.arange(len(unique_scenarios)) != i_csv]))
+        for i_scenario, scenario in enumerate(unique_scenarios):
+            data_scenario = self.Data[self.Data.scenario == scenario]
+
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
             agent_types = pd.Series(np.zeros(0, str), index = [])
-            
-            path['tar'] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
-            agent_types['tar'] = data_i.type
+            for i in range(len(data_scenario)):
+                print('scenario  {}/{}: agent {}/{}'.format(i_scenario + 1, len(unique_scenarios), i + 1, len(data_scenario)))
+                data_i = data_scenario.iloc[i]
+                
+                # img = Image.open(img_file)
+                if i_scenario == 0 and i==0:
+                    img_file = (self.path + os.sep + 'Data_sets' + os.sep + 
+                                'CommonRoad' + os.sep + 'data' + os.sep + 
+                                data_i.scenario + '.png')
+                    
+                    Meta_data = pd.read_csv(self.path + os.sep + 'Data_sets' + os.sep + 
+                                'CommonRoad' + os.sep + 'data' + os.sep + 
+                                data_i.scenario + '.csv')
 
-            t = track_all.t.to_numpy()
+                    img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
+                    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+                    self.Images.Image.loc[i] = np.array(img)
+                    self.Images.Target_MeterPerPx.loc[i] = Meta_data['MeterToPx'][0]
+                    self.Images.rename(index={i: data_i.scenario}, inplace=True)
 
-            
-            domain = pd.Series(np.zeros(8, object), 
-                               index = ['location', 'neighbors', 'name', 'type', 'image_id', 'rot_angle', 'x_center', 'y_center'])
-            domain.location = data_i.scenario
-            domain.image_id = data_i.scenario
-            domain.name = data_i.name
-            track_all = track_all.set_index('t')
-            domain.neighbors = track_all.CN
-            domain.type = data_i.type
-            domain.x_center = Meta_data['x_center'][0]
-            domain.y_center = Meta_data['y_center'][0]
-            domain.rot_angle = Meta_data['rot_angle'][0]
+
+                max_width = max(img.shape[0], max_width)
+                max_height = max(img.shape[1], max_height)
+                    
+        
+                # find crossing point
+                track_all = data_i.path.copy(deep = True)
+                if i == 0:
+                    agent_id = 'tar'
+                    t = track_all.t.to_numpy()
+                else:
+                    agent_id = 'v_{}'.format(i)
+                    assert (t == track_all.t.to_numpy()).all(), 'timesteps do not match'
+
+                path[agent_id] = np.stack([track_all.x.to_numpy(), track_all.y.to_numpy()], axis = -1)
+                agent_types[agent_id] = data_i.type
+
+                if i == 0:
+                    domain = pd.Series(np.zeros(8, object), 
+                                    index = ['location', 'neighbors', 'name', 'type', 'image_id', 'rot_angle', 'x_center', 'y_center'])
+                    domain.location = data_i.scenario
+                    domain.image_id = self.Data.iloc[0].scenario
+                    domain.type = data_i.type
+                    domain.x_center = Meta_data['x_center'][0]
+                    domain.y_center = Meta_data['y_center'][0]
+                    domain.rot_angle = Meta_data['rot_angle'][0]
+                else:
+                    # Check if Domain is consistent
+                    assert domain.location == data_i.scenario, 'Domain is not consistent'
+                    assert domain.image_id == self.Data.iloc[0].scenario, 'Domain is not consistent'
+                    assert domain.type == data_i.type, 'Domain is not consistent'
+                    assert domain.x_center == Meta_data['x_center'][0], 'Domain is not consistent'
+                    assert domain.y_center == Meta_data['y_center'][0], 'Domain is not consistent'
+                    assert domain.rot_angle == Meta_data['rot_angle'][0], 'Domain is not consistent'
+
 
             self.Path.append(path)
             self.Type_old.append(agent_types)
@@ -148,7 +154,7 @@ class CommonRoad(data_set_template):
         print('Removed duplicate images')
 
         # pad images to max size
-        for i in range(num_tars):
+        for i in range(1):
             data_i = self.Data.iloc[i]
             img = self.Images.loc[data_i.scenario].Image
             img_pad = np.pad(img, ((0, max_height - img.shape[0]),
@@ -234,38 +240,21 @@ class CommonRoad(data_set_template):
     
     
     def fill_empty_path(self, path, t, domain, agent_types):
-        if not hasattr(self, 'Data'):
-            self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'CommonRoad' + os.sep + 'CommonRoad_processed.pkl')
-            self.Data = self.Data.reset_index(drop = True)
-
-        I_t = t + domain.t_0
-        
-        n_I = self.num_timesteps_in_real
-        
-        Neighbor = domain.neighbors.copy()
-        N_U = (Neighbor.index >= I_t[0]) & (Neighbor.index <= I_t[n_I])
-
-        N_ID = np.unique(np.concatenate(Neighbor.iloc[N_U].to_numpy())).astype(int)
-        Own_pos = path.tar[np.newaxis]
-        
-        Pos = np.zeros((len(N_ID), len(I_t),2))
-        for j, nid in enumerate(N_ID):
-            t = self.T[nid]
-            pos = self.Path.iloc[nid,0]
-            for dim in range(2):
-                Pos[j, :, dim] = interp.interp1d(np.array(t), pos[:,dim], 
-                                                 fill_value = 'extrapolate', assume_sorted = True)(I_t)
-        
-        D = np.sqrt(((Pos[:,:n_I] - Own_pos[:,:n_I]) ** 2).sum(-1)).min(-1)
-        
-        Pos = Pos[np.argsort(D)]
-        if self.max_num_addable_agents is not None:
-            Pos = Pos[:self.max_num_addable_agents]
-        for i, pos in enumerate(Pos):
-            name = 'v_{}'.format(i+1)
-            path[name] = pos
-            agent_types[name] = domain.type#'P'
+        for agent in path.index:
+            if isinstance(path[agent], float):
+                assert str(path[agent]) == 'nan'
+            else:
+                x = path[agent][:,0]
+                y = path[agent][:,1]
+                
+                rewrite = np.isnan(x)
+                if not rewrite.any():
+                    continue
+                useful = np.invert(rewrite)
+                x = interp.interp1d(t[useful], x[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
+                y = interp.interp1d(t[useful], y[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
+            
+                path[agent] = np.stack([x, y], axis = -1)
         
         return path, agent_types
             

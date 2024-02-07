@@ -157,6 +157,24 @@ class model_template():
         print('')
         return self.model_file
         
+    def predict_actual(self):
+        # apply model to test samples
+        if self.get_output_type()[:4] == 'path':
+            self.create_empty_output_path()
+            self.predict_method()
+            output = [self.Index_test, self.Output_path_pred]
+        elif self.get_output_type() == 'class':
+            self.create_empty_output_A()
+            self.predict_method()
+            output = [self.Index_test, self.Output_A_pred]
+        elif self.get_output_type() == 'class_and_time':
+            self.create_empty_output_A()
+            self.create_empty_output_T()
+            self.predict_method()
+            output = [self.Index_test, self.Output_A_pred, self.Output_T_E_pred]
+        else:
+            raise TypeError("This output type for models is not implemented.")
+        return output
         
     def predict(self):
         assert not self.simply_load_results, 'This model instance is nonly for loading results.'
@@ -217,22 +235,7 @@ class model_template():
                 return output
         
         # create predictions, as no save file available
-        # apply model to test samples
-        if self.get_output_type()[:4] == 'path':
-            self.create_empty_output_path()
-            self.predict_method()
-            output = [self.Index_test, self.Output_path_pred]
-        elif self.get_output_type() == 'class':
-            self.create_empty_output_A()
-            self.predict_method()
-            output = [self.Index_test, self.Output_A_pred]
-        elif self.get_output_type() == 'class_and_time':
-            self.create_empty_output_A()
-            self.create_empty_output_T()
-            self.predict_method()
-            output = [self.Index_test, self.Output_A_pred, self.Output_T_E_pred]
-        else:
-            raise TypeError("This output type for models is not implemented.")
+        output = self.predict_actual()
         
         os.makedirs(os.path.dirname(self.pred_file), exist_ok=True)
         
@@ -301,7 +304,7 @@ class model_template():
             
             # Get required timesteps
             N_O_pred = self.data_set.N_O_pred_orig.copy()
-            N_O_data = np.minimum(self.data_set.N_O_data_orig, self.max_t_O_train)
+            N_O_data = self.data_set.N_O_data_orig.copy() 
             
             # Get positional data
             X = self.data_set.X_orig
@@ -491,7 +494,7 @@ class model_template():
         ----------
         Pred : np.ndarray
             This is the predicted future observed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
             If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
             The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
         Sample_id : np.ndarray, optional
@@ -695,7 +698,7 @@ class model_template():
                 num_train = int(len(I_train) * (1 - val_split_size))
                 self.Ind_val = [I_train[num_train:], np.array([], int)]
                 
-            N_O = self.N_O_data
+            N_O = np.minimum(self.N_O_data, self.max_t_O_train)
             Ind_advance = self.Ind_val
             
         elif mode == 'train':
@@ -705,7 +708,7 @@ class model_template():
                 num_train = int(len(I_train) * (1 - val_split_size))
                 self.Ind_train = [I_train[:num_train], np.array([], int)]
             
-            N_O = self.N_O_data
+            N_O = np.minimum(self.N_O_data, self.max_t_O_train)
             Ind_advance = self.Ind_train
         
         else:
@@ -964,7 +967,8 @@ class model_template():
         return self.check_trainability_method()
     
     # %% Method needed for evaluation_template
-    def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, exclude_ego = False):
+    def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, 
+                                        exclude_ego = False, exclude_late_timesteps = True):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
             if self.excluded_ego == exclude_ego:
                 return
@@ -982,8 +986,13 @@ class model_template():
         
         # Get predicted timesteps
         nto = self.num_timesteps_out
-        Nto_i = np.minimum(nto, self.N_O_data[Pred_index])
+        if exclude_late_timesteps:
+            nto_max = nto
+        else:
+            nto_max = self.N_O_data[Pred_index].max()
         
+        Nto_i = np.minimum(nto_max, self.N_O_data[Pred_index])
+
         # Get pred agents
         max_num_pred_agents = self.data_set.Pred_agents_eval.sum(1).max()
         Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
@@ -993,22 +1002,24 @@ class model_template():
         i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
-        # Get predicted timesteps
-        self.Pred_step = Nto_i[:,np.newaxis] > np.arange(nto)[np.newaxis]
-        self.Pred_step = self.Pred_step[:,np.newaxis] & Pred_agents[i_sampl_sort, i_agent_sort, np.newaxis]
-        
         # Get true predictions
         self.Path_true = self.data_set.Y_orig[Pred_index]
-        self.Path_true = self.Path_true[i_sampl_sort, i_agent_sort, :nto]
+        self.Path_true = self.Path_true[i_sampl_sort, i_agent_sort, :nto_max]
+
+        # Get predicted timesteps
+        self.Pred_step = Nto_i[:,np.newaxis] > np.arange(nto_max)[np.newaxis]
+        self.Pred_step = self.Pred_step[:,np.newaxis] & Pred_agents[i_sampl_sort, i_agent_sort, np.newaxis]
+        self.Pred_step = self.Pred_step & np.isfinite(self.Path_true).all(-1)
+        
+        # Remove nan values
         self.Path_true[~self.Pred_step] = 0.0
         self.Path_true = self.Path_true[:,np.newaxis]
         
         # Get predicted trajectories
         self.Path_pred = np.zeros((self.num_samples_path_pred, num_samples,
-                                   max_num_pred_agents, nto, 2), dtype = np.float32)
+                                   max_num_pred_agents, nto_max, 2), dtype = np.float32)
         
         for i in range(num_samples):
-            nto_i = Nto_i[i]
             pred_agents = np.where(self.Pred_step[i].any(-1))[0]
             
             # Avoid useless samples 
@@ -1019,6 +1030,7 @@ class model_template():
             path_pred_orig = Output_path_pred.iloc[i, pred_agents_id]
             path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
         
+            nto_i = min(Nto_i[i], path_pred.shape[2])
             # Assign to full length label
             self.Path_pred[:,i, pred_agents, :nto_i] = path_pred[:,:,:nto_i]
         

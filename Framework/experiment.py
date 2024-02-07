@@ -11,6 +11,7 @@ from matplotlib.collections import LineCollection
 import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 import time
+import seaborn as sns
 
 # allow for latex code
 # from matplotlib import rc
@@ -92,19 +93,21 @@ class Experiment():
     #%% Experiment setup        
     def set_modules(self, Data_sets, Data_params, Splitters, Models, Metrics):
         assert isinstance(Data_sets, list), "Data_sets must be a list."
-        assert len(Data_sets) > 0, "Data_sets must ot be empty."
+        assert len(Data_sets) > 0, "Data_sets must not be empty."
         
         assert isinstance(Data_params, list), "Data_params must be a list."
-        assert len(Data_params) > 0, "Data_params must ot be empty."
+        assert len(Data_params) > 0, "Data_params must not be empty."
         
         assert isinstance(Splitters, list), "Splitters must be a list."
-        assert len(Splitters) > 0, "Splitters must ot be empty."
+        assert len(Splitters) > 0, "Splitters must not be empty."
         
         assert isinstance(Models, list), "Models must be a list."
-        assert len(Models) > 0, "Models must ot be empty."
+        assert len(Models) > 0, "Models must not be empty."
         
         assert isinstance(Metrics, list), "Metrics must be a list."
-        assert len(Metrics) > 0, "Metrics must ot be empty."
+
+        if not 'NWA' in self.Experiment_name: 
+            assert len(Metrics) > 0, "Metrics must not be empty."
         
         self.num_data_sets   = len(Data_sets)
         self.num_data_params = len(Data_params)
@@ -536,30 +539,34 @@ class Experiment():
                             
                             
                             
-                            
+                            # print('--'.join(os.path.basename(results_file_name).split('--')[-2:]))
                             if os.path.isfile(results_file_name):
-                                metric_result = np.load(results_file_name, allow_pickle = True)[:-1]
-                                
-                                if return_train_results:
-                                    train_results = metric_result[0]
-                                    if train_results is not None:
-                                        self.Train_results[i,j,k,l,m] = train_results[0]
-                                
-                                test_results = metric_result[1]    
-                                self.Results[i,j,k,l,m] = test_results[0]
-                                
-                                if create_plot:
-                                    figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
+                                try:
+                                    metric_result = np.load(results_file_name, allow_pickle = True)[:-1]
                                     
-                                    # remove model name from figure file
-                                    num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
-                                    figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
+                                    if return_train_results:
+                                        train_results = metric_result[0]
+                                        if train_results is not None:
+                                            self.Train_results[i,j,k,l,m] = train_results[0]
                                     
-                                    os.makedirs(os.path.dirname(figure_file), exist_ok = True)
-                                    saving_figure = l == (self.num_models - 1)
-                                    metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model)
+                                    test_results = metric_result[1]    
+                                    self.Results[i,j,k,l,m] = test_results[0]
+
+                                    
+                                    if create_plot:
+                                        figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
+                                        
+                                        # remove model name from figure file
+                                        num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
+                                        figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
+                                        
+                                        os.makedirs(os.path.dirname(figure_file), exist_ok = True)
+                                        saving_figure = l == (self.num_models - 1)
+                                        metric.create_plot(test_results, figure_file, fig, ax, saving_figure, model)
+                                except:
+                                    print('Desired result cannot be opened: ' + '--'.join(results_file_name.split('--')[-2:]))
                             else:
-                                print('Desired result not findable')
+                                print('Desired result not findable.')
                                 
                             if m == 0 and return_train_loss:
                                 if model.provides_epoch_loss():
@@ -1511,7 +1518,7 @@ class Experiment():
     def _get_model_selection(self, data_set):
         if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
-            sample_string = 'In the current experiment, the following splitters are available:'
+            sample_string = 'In the current experiment, the following models are available:'
             for i, m_dict in enumerate(self.Models):
                 # get model subjects
                 m_name   = m_dict['model']
@@ -1525,7 +1532,7 @@ class Experiment():
                     mm = m_class(m_kwargs, data_set, None, self.evaluate_on_train_set)
                     sample_string += '\n{}: '.format(i + 1) + mm.get_name()['print']  
             print(sample_string, flush = True)  
-            print('Select the desired dataset by typing a number between 1 and {} for the specific splitter): '.format(self.num_models), flush = True)
+            print('Select the desired dataset by typing a number between 1 and {} for the specific model): '.format(self.num_models), flush = True)
             print('', flush = True)
             try:
                 i_d = int(input('Enter a number: ')) - 1
@@ -1593,17 +1600,24 @@ class Experiment():
         domain           = Domain.iloc[sample_ind]
         
         # Load raw darta
-        ind_p = np.array([name for name in input_path.index 
-                          if isinstance(input_path[name], np.ndarray)])
-        op = np.stack(output_path[ind_p].to_numpy(), 0) # n_a x n_O x 2
-        ip = np.stack(input_path[ind_p].to_numpy(), 0) # n_a x n_I x 2
+        ind_p = np.array([name for name in input_path.columns 
+                          if isinstance(input_path.iloc[0][name], np.ndarray)])
+        op = np.stack(output_path[ind_p].to_numpy().tolist(), 0) # n_samples x n_a x n_O x 2
+        # Only one example of input paths is needed
+        ip = np.stack(input_path[ind_p].to_numpy().tolist(), 0)[0] # n_a x n_I x 2
         
         if data_set.includes_images():
-            img = data_set.return_batch_images(Domain.iloc[[sample_ind]], None, None, 
+            img = data_set.return_batch_images(domain.iloc[[0]], None, None, 
                                                None, None, grayscale = False) 
             img = img[0] / 255
         else:
             img = None
+
+        # Ensure that op is not longer than 3000 samples
+        if len(op) > 3000:
+            np.random.seed(0)
+            np.random.shuffle(op)
+            op = op[:3000]
             
         return [op, ip, ind_p, output_A, output_T_E, img, domain]
     
@@ -1612,12 +1626,15 @@ class Experiment():
         output_path_pred = Output_path_pred.iloc[sample_ind]
         
         
-        ind_pp = np.array([name for name in output_path_pred.index 
-                           if isinstance(output_path_pred[name], np.ndarray)])
+        ind_pp = np.array([name for name in output_path_pred.columns 
+                           if isinstance(output_path_pred.iloc[0][name], np.ndarray)])
         
         use_input = np.in1d(ind_p, ind_pp)
         
-        opp = np.stack(output_path_pred[ind_pp].to_numpy(), 0) # n_a x n_p x n_O x 2
+        opp = np.stack(output_path_pred[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x n_p x n_O x 2
+
+        # Combine identical samples and number path predicted into one dimension
+        opp = opp.transpose(0,2,1,3,4).reshape(opp.shape[0] * opp.shape[2], opp.shape[1], opp.shape[3], opp.shape[4])
 
         max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)),
                                     np.max(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
@@ -1625,24 +1642,20 @@ class Experiment():
         min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)),
                                     np.min(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
 
-        max_v = np.ceil((max_v + 5) / 5) * 5
-        min_v = np.floor((min_v - 5) / 5) * 5
+        max_v = np.ceil(max_v)
+        min_v = np.floor(min_v)
         
-        
+        # Ensure that opp is not longer than 3000 samples
+        if len(opp) > 3000:
+            np.random.seed(0)
+            np.random.shuffle(opp)
+            opp = opp[:3000]
         return [opp, ind_pp, min_v, max_v]
-    
-    def _get_data_sample_image(self, data_set, domain):
-        if data_set.includes_images():
-            img = data_set.return_batch_images(domain, None, None, 
-                                                None, None, grayscale = False) 
-            img = img / 255
-        else:
-            img = None
             
     
     def _draw_background(self, ax, data_set, img, domain):
         # Load line segments of data_set 
-        map_lines_solid, map_lines_dashed = data_set.provide_map_drawing(domain = domain)
+        map_lines_solid, map_lines_dashed = data_set.provide_map_drawing(domain = domain.iloc[0])
         
         bcdict = {'red': ((0, 0.0, 0.0),
                           (1, 0.0, 0.0)),
@@ -1663,91 +1676,159 @@ class Experiment():
         
         # Add background picture
         if data_set.includes_images():
-            height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain))
+            height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain.iloc[0]))
             ax.imshow(img, extent=[-width/2, width/2, -height/2, height/2], interpolation='nearest')
         
         # Draw boundaries
         ax.add_collection(map_solid)
         ax.add_collection(map_dashed)
     
-    def _select_testing_samples(self, load_all, Output_A):
-        if not load_all:
-            print('------------------------------------------------------------------', flush = True)
-            if len(Output_A.columns) > 1:
-                sample_string = 'In this case '
-                for n_beh, beh in enumerate(Output_A.columns):
-                    if beh != Output_A.columns[-1]:
-                        sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
-                        if len(Output_A.columns) > 2:
-                            sample_string += ', '
-                        else:
-                            sample_string += ' '
-                    else:                            
-                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
-                sample_string += ' samples are available.'
-                print(sample_string, flush = True)  
-                print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
+    def _select_testing_samples(self, data_set, splitter, load_all, Output_A, plot_similar_futures):
+        print('------------------------------------------------------------------', flush = True)
+        if (not load_all) and (len(Output_A.columns) > 1) and (not plot_similar_futures):
+            sample_string = 'In this case '
+            for n_beh, beh in enumerate(Output_A.columns):
+                if beh != Output_A.columns[-1]:
+                    sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
+                    if len(Output_A.columns) > 2:
+                        sample_string += ', '
+                    else:
+                        sample_string += ' '
+                else:                            
+                    sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
+            sample_string += ' samples are available.'
+            print(sample_string, flush = True)  
+            print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
+            print('', flush = True)
+            try:
+                n_beh = int(input('Enter a number: ')) - 1
+            except:
+                n_beh = -1
+            while n_beh not in range(len(Output_A.columns)):
+                print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
                 try:
                     n_beh = int(input('Enter a number: ')) - 1
                 except:
-                    n_beh = -1
-                while n_beh not in range(len(Output_A.columns)):
-                    print('This answer was not accepted. Please repeat: ', flush = True)
-                    print('', flush = True)
-                    try:
-                        n_beh = int(input('Enter a number: ')) - 1
-                    except:
-                        n_beh = -1 
-                
-                Chosen_index = np.where(Output_A.iloc[:, n_beh].to_numpy())[0]
-            else:
-                Chosen_index = np.where(Output_A.iloc[:, 0].to_numpy())[0]
-                  
-            print('', flush = True)
+                    n_beh = -1 
             
-            print('Type a number between in between 1 and {} to select the example: '.format(len(Chosen_index)), flush = True)
+            Chosen_index = np.where(Output_A.iloc[:, n_beh].to_numpy())[0]
+        else:
+            Chosen_index = np.arange(len(Output_A))
+        
+        # For plot similar futures, transform Chosen_index into list of arrays
+        if plot_similar_futures:
+            # Get subgroups
+            data_set._group_indentical_inputs()
+            if self.plot_train:
+                Index = splitter.Train_index
+            else:
+                Index = splitter.Test_index
+            
+            subgroup = data_set.Subgroups[Index]
+
+            # Assemble sets of similar futures
+            Chosen_sets = []
+            for s in np.unique(subgroup):
+                Chosen_sets.append(np.where(subgroup == s)[0])
+        else:
+            Chosen_sets = list(Chosen_index[:,np.newaxis])
+
+
+        if not load_all:
             print('', flush = True)
+
+            print('Type a number between in between 1 and {} (or a list [...] including those samples) to select the example: '.format(len(Chosen_sets)), flush = True)
+            print('', flush = True)
+            input_string = input('Enter a number: ')
             try:
-                ind = int(input('Enter a number: ')) - 1
+                ind = np.array([int(input_string) - 1])
             except:
-                ind = -1
-            while ind < 0 or ind >= len(Chosen_index):
+                if input_string[0] == '[' and input_string[-1] == ']':
+                    try:
+                        ind = np.array(input_string.strip('[]').split(','), int) - 1
+                    except:
+                        ind = np.array([-1])
+                else:
+                    ind = np.array([-1])
+            ind = np.unique(ind)
+            
+            while ind.min() < 0 or ind.max() >= len(Chosen_sets):
                 print('This answer was not accepted. Please repeat: ', flush = True)
                 print('', flush = True)
+                input_string = input('Enter a number: ')
                 try:
-                    ind = int(input('Enter a number: ')) - 1
+                    ind = np.array([int(input_string) - 1])
                 except:
-                    ind = -1
+                    if input_string[0] == '[' and input_string[-1] == ']':
+                        try:
+                            ind = np.array(input_string.strip('[]').split(','), int)
+                        except:
+                            ind = np.array([-1])
+                    else:
+                        ind = np.array([-1])
+                ind = np.unique(ind)
             print('')
             
-            sample_inds = [Chosen_index[ind]]
+            sample_inds = []
+            for ind_sample in ind:
+                sample_inds.append((ind_sample, Chosen_sets[ind_sample]))
         
         else:
-            sample_inds = np.arange(len(Output_A))
+            sample_inds = []
+            for i, set in enumerate(Chosen_sets):
+                sample_inds.append((i, set))
             
         return sample_inds
     
-    
-    def _get_similar_inputs(self, data_set, splitter, sample_ind):
-        data_set._extract_identical_inputs()
         
+    def _get_path_likelihoods(self, data_set, splitter, model, sample_ind, plot_train, opp, ind_pp):
+        # Manually overwrite saved test_index
         if self.plot_train:
-            Index = splitter.Train_index
+            model.Index_test = splitter.Train_index[sample_ind[[0]]]
         else:
-            Index = splitter.Test_index
+            model.Index_test = splitter.Test_index[sample_ind[[0]]]
+
         
-        subgroup = data_set.Subgroups[Index[sample_ind]]
-        path_true_all = data_set.Path_true_all[subgroup]
-        
-        path_true_all = path_true_all[np.isfinite(path_true_all).any((1,2,3))]
-        return path_true_all
-        
-    
+        # Overwrite number of predictions
+        model.num_samples_path_pred = max(1, 3000 - len(opp))
+
+        if hasattr(model, 'Ind_pred'):
+            del model.Ind_pred
+
+        # Run the actual prediction
+        Pred_index, Output_path_pred = model.predict_actual()
+
+        # Concatenate old predictions with new ones
+        for i, agent in enumerate(ind_pp):
+            assert isinstance(Output_path_pred[agent].iloc[0], np.ndarray)
+            if len(opp) < 3000:
+                Output_path_pred[agent].iloc[0] = np.concatenate((opp[:,i], Output_path_pred[agent].iloc[0]), axis = 0)
+            else:
+                Output_path_pred[agent].iloc[0] = opp[:,i]
+        model.num_samples_path_pred = 3000
+
+        # Get indpendent likelihoods
+        # Remove previous results
+        if hasattr(model, 'Path_pred'):
+            del model.Path_pred, model.Path_true, model.Pred_step
+            
+        if hasattr (model, 'Log_prob_indep_pred'):
+            del model.Log_prob_indep_pred
+        model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
+
+        # Only consider the likelihoods of trajectories in opp
+        Lp = model.Log_prob_indep_pred[0, :opp.shape[0], :opp.shape[1]]
+
+        return Lp
+
     
     def plot_paths(self, load_all = False, 
                    plot_similar_futures = False, 
-                   plot_train = False):
+                   plot_train = False,
+                   only_show_pred_agents = False,
+                   likelihood_visualization = False,
+                   plot_only_lines = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
         
@@ -1767,24 +1848,37 @@ class Experiment():
         # Get model
         model, Output_path_pred = self._get_data_pred(data_set, splitter, model_dict)
         
-        sample_inds = self._select_testing_samples(load_all, Output_A)
+        sample_inds = self._select_testing_samples(data_set, splitter, load_all, Output_A, plot_similar_futures)
         
         ## Get specific case
-        for sample_ind in sample_inds:   
+        for sample_name, sample_ind in sample_inds:   
             [op, ip, ind_p,  
              output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
                                                                         Input_path, Output_path, 
                                                                         Output_A, Output_T_E, Domain)
+            
                                                                         
             [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(sample_ind, ip, ind_p, Output_path_pred)
             
-            
-            # Check if multiple true input should be drawn
-            if plot_similar_futures:
-                paths_true_all = self._get_similar_inputs(data_set, splitter, sample_ind)
 
+
+            if only_show_pred_agents:
+                useful_p = np.in1d(ind_p, ind_pp)
+
+                ind_p = ind_p[useful_p]
+                assert np.in1d(ind_pp, ind_p).all()
+
+                ip = ip[useful_p]
+                op = op[:,useful_p]
+
+            # Get likelihoods of the given samples, based on 3000 predictions
+            if likelihood_visualization:
+                # Only available for path prediction models
+                if model.get_output_type() == 'path_all_wi_pov':
+                    Lp = self._get_path_likelihoods(data_set, splitter, model, sample_ind, plot_train, opp, ind_pp)
             
-            
+
+
             # plot figure
             fig, ax = plt.subplots(figsize = (10,8))            
             
@@ -1792,36 +1886,84 @@ class Experiment():
             self._draw_background(ax, data_set, img, domain)
             
             # plot inputs
-            colors = matplotlib.cm.tab20(range(len(ind_p)))
+            colors = sns.color_palette("bright", len(ind_p))
             for i, agent in enumerate(ind_p):
-                color = colors[i]
-                ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
-                        marker = 'o', ms = 2.5, label = r'$A_{' + agent + r'}$', linewidth = 0.75)
+                if plot_only_lines:
+                    color = np.array(colors[i]) * 0.75
+                    if len(color) == 4:
+                        color[-1] = 1
+                else:
+                    color = np.array(colors[i])
+
+                if plot_only_lines:
+                    ax.plot(ip[i,:,0], ip[i,:,1], color = color, label = r'$A_{' + agent + r'}$', linewidth = 3)
+                    ax.scatter(ip[i,-1:,0], ip[i,-1:,1], color = color, marker = 'o', s = 5)
+                else:
+                    ax.plot(ip[i,:,0], ip[i,:,1], color = color, 
+                            marker = 'o', ms = 2.5, label = r'$A_{' + agent + r'}$', linewidth = 0.75)
                 
+                # For multiple GT (and pred agent), plot GT first
+                if plot_similar_futures and agent in ind_pp:
+                    linewidth_factor = (100 / len(op)) ** (1 / 2.5)
+                    for j in range(len(op)):
+                        if plot_only_lines:
+                            ax.plot(np.concatenate((ip[i,-1:,0], op[j,i,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], op[j,i,:,1])),
+                                    color = color, linewidth = 2 * linewidth_factor)
+                        else:
+                            ax.plot(np.concatenate((ip[i,-1:,0], op[j,i,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], op[j,i,:,1])),
+                                    color = color, marker = 'x', ms = 2, 
+                                    markeredgewidth = 0.5, linewidth = 0.25 * linewidth_factor)
+
+
                 # plot predicted future
                 if agent in ind_pp:
-                    color_pred = np.ones(4, float)
-                    color_pred[:3] = 1 - 0.5 * (1 - color[:3])
-                    i_agent = np.where(agent == ind_pp)[0][0]
-                    
-                    num_samples_path_pred = self.parameters[1]
-                    for j in range(num_samples_path_pred):
-                        ax.plot(np.concatenate((ip[i,-1:,0], opp[i_agent,j,:,0])), 
-                                np.concatenate((ip[i,-1:,1], opp[i_agent,j,:,1])), 
-                                color = color_pred, marker = 'x', ms = 2, markeredgewidth = 0.5, 
-                                linestyle = 'dashed', linewidth = 0.25)
-                        
-                    # plot true future
-                    if plot_similar_futures:
-                        for j_true in range(len(paths_true_all)):
-                            ax.plot(np.concatenate((ip[i,-1:,0], paths_true_all[j_true, i_agent,:,0])), 
-                                    np.concatenate((ip[i,-1:,1], paths_true_all[j_true, i_agent,:,1])),
-                                    color = color, marker = 'x', ms = 2, markeredgewidth = 0.5, linewidth = 0.25)
+                    # Get prediction colors
+                    color_preds = np.ones((len(opp), 4), float)
+                    color_preds[:, :3] = 1 / 3 + 2 / 3 * color[np.newaxis]
 
-                ax.plot(np.concatenate((ip[i,-1:,0], op[i,:,0])), 
-                        np.concatenate((ip[i,-1:,1], op[i,:,1])),
-                        color = color, marker = 'x', ms = 2.5, 
-                        markeredgewidth = 0.5, linewidth = 0.75)
+
+                    i_agent = np.where(agent == ind_pp)[0][0]
+
+                    # Add alpha value if needed
+                    linewidth_factor = (100 / len(opp)) ** (1 / 2.5)
+
+                    if likelihood_visualization:
+                        lp = Lp[:,i_agent]
+                        l = ((lp - np.min(lp)) / (np.max(lp) - np.min(lp)))
+                        color_preds[:, 3] = 0.9 / (1 + np.exp(5 * (np.median(l) - l)))
+                    else:
+                        color_preds[:, 3] = 0.8
+
+                    color_preds[:, 3] = color_preds[:, 3] ** (1 / linewidth_factor)
+
+                    J_sort = np.argsort(color_preds[:, 3])
+
+
+                    for j in J_sort:
+                        if plot_only_lines:
+                            ax.plot(np.concatenate((ip[i,-1:,0], opp[j,i_agent,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], opp[j,i_agent,:,1])), 
+                                    color = color_preds[j], linewidth = 2 * linewidth_factor)
+                        else:
+                            ax.plot(np.concatenate((ip[i,-1:,0], opp[j,i_agent,:,0])), 
+                                    np.concatenate((ip[i,-1:,1], opp[j,i_agent,:,1])), 
+                                    color = color_preds[j], marker = 'x', ms = 2, markeredgewidth = 0.5, linewidth = 0.25 * linewidth_factor)
+
+                # For single GT, plot GT last
+                if not plot_similar_futures:
+                    assert len(op) == 1, "Only one prediction is allowed for single GT."
+
+                    if plot_only_lines:
+                        ax.plot(np.concatenate((ip[i,-1:,0], op[0,i,:,0])), 
+                                np.concatenate((ip[i,-1:,1], op[0,i,:,1])),
+                                color = color, linestyle = 'dashed', linewidth = 3)
+                    else:
+                        ax.plot(np.concatenate((ip[i,-1:,0], op[0,i,:,0])), 
+                                np.concatenate((ip[i,-1:,1], op[0,i,:,1])),
+                                color = color, marker = 'x', ms = 2.5, 
+                                markeredgewidth = 0.5, linestyle = 'dashed', linewidth = 0.75)
             
             
             # Format plot
@@ -1831,14 +1973,16 @@ class Experiment():
             title = (r'Data set: ' + data_set.get_name()['print'] +  
                      r' with $\delta t = ' + str(data_param['dt']) + 
                      r'$, Model: ' + model.get_name()['print'])
-            behs = np.array(output_A.index)
-            if len(behs) > 1:
-                title += r': \\True behavior: ' + behs[output_A][0] + r' at $t = ' + str(output_T_E)[:5] + '$' 
+            behs = np.array(output_A.columns)
+            if len(behs) > 1 and not plot_similar_futures:
+                title += r': \\True behavior: ' + behs[output_A[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
+
             ax.set_title(title)
             plt.axis('off')
             plt.legend()
             plt.tight_layout()
-            plt.show()
+            if not load_all:
+                plt.show()
             
             if self.plot_train:
                 fig_str = 'traj_plot_test__'
@@ -1846,10 +1990,10 @@ class Experiment():
                 fig_str = 'traj_plot_train_'
             
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           fig_str + '{}'.format(sample_ind + 1), '.pdf')
+                                                           fig_str + '{}'.format(sample_name + 1), '.pdf')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
             
-            # plt.close(fig)
+            plt.close(fig)
                                                             

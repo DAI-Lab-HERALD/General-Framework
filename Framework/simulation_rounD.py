@@ -115,4 +115,4 @@ Results, Train_results, Loss = new_experiment.load_results(plot_if_possible = Fa
 new_experiment.write_tables(dataset_row=False)
 
 # new_experiment.plot_paths()
-# %%
+

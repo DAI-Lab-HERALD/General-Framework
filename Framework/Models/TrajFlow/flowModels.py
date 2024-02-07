@@ -950,7 +950,10 @@ class Future_Seq2Seq_Control(nn.Module):
                 
         for t in range(0, target_length):
             output, hidden = self.decoder(prev_step, x, hidden)
-            prev_step = output.squeeze()
+            output = output.squeeze()
+            if len(output.shape) == 1:
+                output = output.unsqueeze(0)
+            prev_step = output
             outputs[:, t, :] = prev_step
             
             x = hidden[-1].unsqueeze(1)

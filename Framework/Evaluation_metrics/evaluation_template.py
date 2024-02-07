@@ -143,7 +143,7 @@ class evaluation_template():
         return T_true, T_pred, Class_names
     
     
-    def get_true_and_predicted_paths(self, num_preds = None, return_types = False):
+    def get_true_and_predicted_paths(self, num_preds = None, return_types = False, exclude_late_timesteps = True):
         '''
         This returns the true and predicted trajectories.
 
@@ -154,6 +154,9 @@ class evaluation_template():
             in which case all available predictions are used.
         return_types : bool, optional
             Decides if agent types are returned as well. The default is False.
+        exclude_late_timesteps : bool, optional
+            Decides if predicted timesteps after the set prediction horizon should be excluded. 
+            The default is True.
 
         Returns
         -------
@@ -190,7 +193,8 @@ class evaluation_template():
                 idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
         self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
-                                                   self.get_output_type() == 'path_all_wo_pov')
+                                                   self.get_output_type() == 'path_all_wo_pov',
+                                                   exclude_late_timesteps)
         
         Path_true = self.model.Path_true[self.Index_curr_pred]
         Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
