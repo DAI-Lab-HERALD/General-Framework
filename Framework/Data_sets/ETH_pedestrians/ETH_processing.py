@@ -6,6 +6,7 @@ import json
 
 
 #%%
+path = os.path.dirname(os.path.realpath(__file__))
 dataset_paths = ["eth_univ",
                  "eth_hotel",
                  "ucy_zara01",
