@@ -7,7 +7,7 @@ from splitting_template import splitting_template
 class Cross_split(splitting_template):
     '''
     This splitting method implements one of the standard methods of evaluating
-    prediction model, themethod of crossvalidation. Here, the dataset is split
+    prediction model, the method of crossvalidation. Here, the dataset is split
     into a number of roughly similar sized partitions, which take turns as the
     testing set, while the respective other partitions are used as the 
     training set. 
