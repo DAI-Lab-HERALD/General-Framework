@@ -11,7 +11,7 @@ class HighD_lane_change(data_set_template):
     '''
     The highD dataset is extracted from drone recordings of real world traffic over
     german highways. This specific instance focuses on cases where a vehicle wants
-    to switch to a faster lane, along which vehicles already driving along the lane
+    to switch to a faster lane, along which vehicles already driving in that lane
     have priority. Predicting if the vehicle will change lanes in front or behind such 
     vehicles can therefore be seen as a gap acceptance problem.
     

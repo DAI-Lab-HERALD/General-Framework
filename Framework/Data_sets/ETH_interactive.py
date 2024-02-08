@@ -20,11 +20,11 @@ class ETH_interactive(data_set_template):
     for general trajectroy prediction models. It consists out of five parts
     recorded at the following locations (for the location splitting, it would
     be in the following order):
-    - Hotel
-    - ETH
-    - UCY
-    - Zara1
-    - Zara2
+    - 'eth_hotel'
+    - 'eth_univ'
+    - 'ucy_univ'
+    - 'ucy_zara01'
+    - 'ucy_zara02'
     
     The raw data can be found at 
     https://github.com/cschoeller/constant_velocity_pedestrian_motion/tree/master/data
