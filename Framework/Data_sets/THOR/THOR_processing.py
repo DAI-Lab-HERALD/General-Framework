@@ -1,39 +1,81 @@
+import csv
 import pandas as pd
 import numpy as np
 import os
 import glob
 import json
 
+path = os.path.dirname(os.path.realpath(__file__))
 
 #%%
-dataset_paths = ["eth_univ",
-                 "eth_hotel",
-                 "ucy_zara01",
-                 "ucy_zara02",
-                 "ucy_univ"]
+dataset_paths = ["Experiment_1",
+                 "Experiment_2",
+                 "Experiment_3"]
 
-Framerates = [2.5, 2.5, 2.5, 2.5, 2.5]
+framerate = 100
 
 
 Final_data = pd.DataFrame(np.zeros((1,5), object), columns = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
 overall_id = 0
 # Load each dataset separately; these will be concatenated later into one dataset
-for framerate, dataset_path in zip(Framerates, dataset_paths):
+for dataset_path in dataset_paths:
     print("Loading dataset {}".format(dataset_path))
-    data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path + os.sep + '*.json'
+    data_path_expanded = path + os.sep + 'data' + os.sep + dataset_path + os.sep + '3D' + os.sep + '*.tsv'
     detection_paths = glob.glob(data_path_expanded)
+
+
+    with open(path + os.sep + 'data' + os.sep + dataset_path + '.csv', 'w') as f:
+        writer = csv.writer(f)
+
+        MeterPerPx = 0.01
+        x_center = -11000*MeterPerPx
+        y_center = -10000*MeterPerPx
+
+        writer.writerow(['MeterPerPx', 'x_center', 'y_center', 'rot_angle'])
+        writer.writerow([MeterPerPx, x_center, y_center, 0])
     
     ordered_detections = []
     for i, detection_path in enumerate(detection_paths):
         if np.mod(i,10) == 0:
             print("Dataset {}: Stamp {:4.0f}/{}".format(dataset_path, i + 1, len(detection_paths)))
-        detection_file = open(detection_path, 'r')
-        detection = json.load(detection_file)
-        detection_file.close()
+        
+        measurements = []
+        columns = ['Frame', 'Time']
+        dtype = {'Frame': int, 'Time': float}
+        num_markers = [4,4,5,5,5,5,5,4,4,4,5]
+        if dataset_path == 'Experiment_2':
+            num_agents = 11
+        else:
+            num_agents = 10
+
+        for i in range(1, num_agents+1):
+            for j in range(1, num_markers[i-1]+1):
+                columns.extend([f'Agent {i} X Marker {j}', f'Agent {i} Y Marker {j}', f'Agent {i} Z Marker {j}'])
+
+                dtype.update({f'Agent {i} X Marker {j}': float})
+                dtype.update({f'Agent {i} Y Marker {j}': float})
+                dtype.update({f'Agent {i} Z Marker {j}': float})
+
+
+        with open(detection_path) as f:
+            for i, line in enumerate(f):
+                if i >= 11:
+                    measurements.append(line.split('\t'))
+
+        detection = pd.DataFrame(measurements, columns=columns).astype(dtype)
+
+        # Obtain Agent positions by averaging the marker positions
+        
+        for i in range(1, num_agents+1):
+            detection[f'Agent {i} X'] = detection[[f'Agent {i} X Marker {j}' for j in range(1, num_markers[i-1]+1)]].mean(axis=1)
+            detection[f'Agent {i} Y'] = detection[[f'Agent {i} Y Marker {j}' for j in range(1, num_markers[i-1]+1)]].mean(axis=1)
+            detection[f'Agent {i} Z'] = detection[[f'Agent {i} Z Marker {j}' for j in range(1, num_markers[i-1]+1)]].mean(axis=1)
+
+        
         frame = detection['timestamp']
-        for obj in detection['object_list']:
+        for agent in range(1, num_agents+1):
             # check if agent is already know
-            Index = Final_data.index[(Final_data.scenario == dataset_path) & (Final_data.Id == obj['id'])]
+            Index = Final_data.index[(Final_data.scenario == dataset_path) & (Final_data.Id == agent)]
             assert len(Index) < 2
             if len(Index) == 0:
                 track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
@@ -71,6 +113,8 @@ for framerate, dataset_path in zip(Framerates, dataset_paths):
         data.path = data.path.sort_index()
         Final_data.loc[index] = data
         assert len(data.path.index) == (1 + data['Last frame'] - data['First frame']), "Gaps in data"
+
+
         
-Final_data.to_pickle("ETH_processed.pkl")   
+Final_data.to_pickle(path + os.sep + "THOR_processed.pkl")   
     

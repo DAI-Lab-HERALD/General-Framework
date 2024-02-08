@@ -10,6 +10,7 @@ HRI_presentation.py
 *.txt
 *.tfw
 *.tif
+*.tsv
 !requirements.txt
 *.log
 *.npy
