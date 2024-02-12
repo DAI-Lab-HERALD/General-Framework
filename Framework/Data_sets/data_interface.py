@@ -689,15 +689,15 @@ class data_interface(object):
                 # Calculate differences
                 for i in range(int(np.ceil(len(index) / max_num))):
                     d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                    D = X[d_index, np.newaxis] - X[np.newaxis]
+                    D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
                     D_max[d_index] = np.nanmax(D, (2,3,4))
-                
+
                 # Find identical trajectories
                 Identical = D_max < 1e-3
                 
                 # Remove self references
                 Identical[np.arange(len(index)), np.arange(len(index))] = False
-                
+
                 # Get graph
                 G = nx.Graph(Identical)
                 unconnected_subgraphs = list(nx.connected_components(G))
