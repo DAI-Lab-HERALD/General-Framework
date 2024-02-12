@@ -1975,7 +1975,7 @@ class Experiment():
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.columns)
             if len(behs) > 1 and not plot_similar_futures:
-                title += r': \\True behavior: ' + behs[output_A[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
+                title += r': \\True behavior: ' + behs[output_A.iloc[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
 
             ax.set_title(title)
             plt.axis('off')
