@@ -2,7 +2,7 @@ The raw data can be obtained at [Google Cloud](https://console.cloud.google.com/
 
 There, one has to download the three folder named *training/*, *validation/*, and *testing/*.
 
-Those downloads then need then need do be extracted into the *Waymo/data/* folder, where they need to be rearranged to bild the following structure:
+Those downloads then need then need do be extracted into the *Waymo/data/* folder, where they need to be rearranged to build the following structure:
 ```
 └── ../Waymo/data
     ├── training/
