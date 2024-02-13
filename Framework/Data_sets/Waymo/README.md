@@ -5,15 +5,15 @@ There, one has to download the three folder named *training/*, *validation/*, an
 Those downloads then need then need do be extracted into the *Waymo/data/* folder, where they need to be rearranged to build the following structure:
 ```
 └── ../Waymo/data
-    ├── training/
+    ├── training
     │   ├── training.tfrecord-00000-of-01000
     │   ├── training.tfrecord-00001-of-01000
     │   └── ...
-    ├── validation/
+    ├── validation
     │   ├── validation.tfrecord-00000-of-00150
     │   ├── validation.tfrecord-00001-of-00150
     │   └── ...
-    └── testing/
+    └── testing
         ├── testing.tfrecord-00000-of-00150
         ├── testing.tfrecord-00001-of-00150
         └── ...
