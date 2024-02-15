@@ -21,9 +21,13 @@ class THOR(data_set_template):
         return True
     
     def set_scenario(self):
-        self.set_scenario = scenario_none()
+        self.scenario = scenario_none()
 
-        return self.set_scenario()
+        def thor_classifying_agents():
+            return []
+        
+        self.scenario.classifying_agents = thor_classifying_agents
+
     
     
     def create_path_samples(self): 
@@ -36,6 +40,8 @@ class THOR(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
+        frame_reduction = 1 # 10
+        dt = 0.1 # 0.01
 
         self.Images = pd.DataFrame(np.zeros((1, 1), object), 
                             index = self.Data.index[:1], columns = ['Image'])
@@ -47,7 +53,7 @@ class THOR(data_set_template):
             first_frame_all = np.min(Loc_data['First frame'])
             last_frame_all  = np.max(Loc_data['Last frame'])
             
-            t = np.arange(first_frame_all, last_frame_all + 1) * 0.01
+            t = np.arange(first_frame_all, last_frame_all + 1, frame_reduction) * dt * frame_reduction
             
             Loc_data['First frame'] -= first_frame_all
             Loc_data['Last frame']  -= first_frame_all
@@ -74,9 +80,10 @@ class THOR(data_set_template):
                 
                 traj = np.ones((num_timesteps, 2), float) * np.nan
                 
-                traj_exist = path_i.path[['x', 'y']].to_numpy()
+                # get every 10th frame
+                traj_exist = path_i.path[['x', 'y']].to_numpy()[0::frame_reduction]
                 
-                traj[path_i['First frame'] : path_i['Last frame'] + 1] = traj_exist
+                traj[int(path_i['First frame']/frame_reduction) : int(path_i['First frame']/frame_reduction)+len(traj_exist)] = traj_exist
                 
                 name = 'v_' + str(i)
                 
@@ -90,7 +97,7 @@ class THOR(data_set_template):
                 self.Images.rename(index={i: location}, inplace=True)
 
             
-            domain = pd.Series(np.zeros(2, object), index = ['location', 'name'])
+            domain = pd.Series(np.zeros(6, object), index = ['location', 'name', 'image_id','x_center', 'y_center', 'rot_angle'])
             domain.location = location
             domain.name     = str(loc_i)
             domain.image_id = location
@@ -110,13 +117,13 @@ class THOR(data_set_template):
         self.Domain_old = pd.DataFrame(self.Domain_old)
 
 
-    def calculate_distance(self):
+    def calculate_distance(self, path, t, domain):
         return None
     
-    def evaluate_scenario(self):
+    def evaluate_scenario(self, path, D_class, domain):
         return None
     
-    def calculate_additional_distances(self):
+    def calculate_additional_distances(self, path, t, domain):
         return None
     
     
@@ -141,7 +148,7 @@ class THOR(data_set_template):
     
 
     
-    def provide_map_drawing(self):
+    def provide_map_drawing(self, domain):
         lines_solid = []
         
         lines_dashed = []

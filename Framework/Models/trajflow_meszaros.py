@@ -202,69 +202,71 @@ class trajflow_meszaros(model_template):
         else:
             # Check if equivalent AE model is available
 
-            # Find all files in Model folder
-            model_files = os.listdir(os.path.dirname(self.model_file))
-
-            # Find all AE models
-            model_files = [f for f in model_files if f[-3:] == '_AE']
-
-            # Get desired environment name
-            env_name_desired = '--'.join(fut_model_file.split(os.sep)[-1].split('--')[:-1])
-            model_kwargs_potential = fut_model_file.split(os.sep)[-1].split('--')[-1][3:-3].split('_')
-
-            AE_kwargs = ['seed', 'fut', 'alpha', 'posLoss', 'varyInLen', 'sclAE']
-            if 'sclAE' in model_kwargs_potential:
-                AE_kwargs += ['smin', 'smax', 'sigma']
-
-            model_kwargs_desired = []
-            for i_kw, kw in enumerate(model_kwargs_potential):
-                for ae_kw in AE_kwargs:
-                    if ae_kw in kw:
-                        model_kwargs_desired.append(kw)
-                        break
-                # Check for lr_decay
-                if kw == 'lrDec':
-                    if model_kwargs_potential[i_kw - 1] == "ae":
-                        model_kwargs_desired.append(kw)
-
-            # Find all AE models with same parameters
             eqivalent_file = None
-            for file in model_files:
-                # Diveide Model name from rest
-                File_split = file.split('--')
-                
-                # Check env name
-                env_name = '--'.join(File_split[:-1])
-                if env_name != env_name_desired:
-                    continue
 
-                # Get model name
-                model_name = File_split[-1][:-3]
+            if os.path.isfile(self.model_file):
+                # Find all files in Model folder
+                model_files = os.listdir(os.path.dirname(self.model_file))
 
-                # Check for TF model
-                if model_name[:3] != 'TF_':
-                    continue
+                # Find all AE models
+                model_files = [f for f in model_files if f[-3:] == '_AE']
 
-                # Check for parameters
-                model_kwargs_pot = model_name[3:].split('_')
+                # Get desired environment name
+                env_name_desired = '--'.join(fut_model_file.split(os.sep)[-1].split('--')[:-1])
+                model_kwargs_potential = fut_model_file.split(os.sep)[-1].split('--')[-1][3:-3].split('_')
 
-                # Find important kwargs
-                model_kwargs = []
-                for kw in model_kwargs_pot:
+                AE_kwargs = ['seed', 'fut', 'alpha', 'posLoss', 'varyInLen', 'sclAE']
+                if 'sclAE' in model_kwargs_potential:
+                    AE_kwargs += ['smin', 'smax', 'sigma']
+
+                model_kwargs_desired = []
+                for i_kw, kw in enumerate(model_kwargs_potential):
                     for ae_kw in AE_kwargs:
                         if ae_kw in kw:
                             model_kwargs_desired.append(kw)
                             break
-                    
                     # Check for lr_decay
                     if kw == 'lrDec':
                         if model_kwargs_potential[i_kw - 1] == "ae":
                             model_kwargs_desired.append(kw)
 
-                # Check if AE settings are identical
-                if model_kwargs == model_kwargs_desired:
-                    eqivalent_file = file
-                    break
+                # Find all AE models with same parameters
+                for file in model_files:
+                    # Diveide Model name from rest
+                    File_split = file.split('--')
+                    
+                    # Check env name
+                    env_name = '--'.join(File_split[:-1])
+                    if env_name != env_name_desired:
+                        continue
+
+                    # Get model name
+                    model_name = File_split[-1][:-3]
+
+                    # Check for TF model
+                    if model_name[:3] != 'TF_':
+                        continue
+
+                    # Check for parameters
+                    model_kwargs_pot = model_name[3:].split('_')
+
+                    # Find important kwargs
+                    model_kwargs = []
+                    for kw in model_kwargs_pot:
+                        for ae_kw in AE_kwargs:
+                            if ae_kw in kw:
+                                model_kwargs_desired.append(kw)
+                                break
+                        
+                        # Check for lr_decay
+                        if kw == 'lrDec':
+                            if model_kwargs_potential[i_kw - 1] == "ae":
+                                model_kwargs_desired.append(kw)
+
+                    # Check if AE settings are identical
+                    if model_kwargs == model_kwargs_desired:
+                        eqivalent_file = file
+                        break
 
             if eqivalent_file is not None and not self.model_overwrite:
                 # Load model

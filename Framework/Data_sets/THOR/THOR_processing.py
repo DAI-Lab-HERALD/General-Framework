@@ -12,8 +12,11 @@ dataset_paths = ["Experiment_1",
                  "Experiment_2",
                  "Experiment_3"]
 
+# dataset_paths = ["Experiment_1"]
+
 framerate = 100
 
+frame_reduction = 10
 
 Final_data = pd.DataFrame(np.zeros((1,5), object), columns = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
 overall_id = 0
@@ -36,8 +39,7 @@ for dataset_path in dataset_paths:
     
     ordered_detections = []
     for i, detection_path in enumerate(detection_paths):
-        if np.mod(i,10) == 0:
-            print("Dataset {}: Stamp {:4.0f}/{}".format(dataset_path, i + 1, len(detection_paths)))
+        print("Dataset {}: Stamp {:4.0f}/{}".format(dataset_path, i + 1, len(detection_paths)))
         
         measurements = []
         columns = ['Frame', 'Time']
@@ -60,7 +62,13 @@ for dataset_path in dataset_paths:
         with open(detection_path) as f:
             for i, line in enumerate(f):
                 if i >= 11:
-                    measurements.append(line.split('\t'))
+                    measurement = line.split('\t')
+                    if len(measurement) > 137 and dataset_path != 'Experiment_2':
+                        print(dataset_path)
+                        print("Getting relevant measurements")
+                        measurement = measurement[:137]
+                    measurements.append(measurement)
+
 
         detection = pd.DataFrame(measurements, columns=columns).astype(dtype)
 
@@ -72,41 +80,50 @@ for dataset_path in dataset_paths:
             detection[f'Agent {i} Z'] = detection[[f'Agent {i} Z Marker {j}' for j in range(1, num_markers[i-1]+1)]].mean(axis=1)
 
         
-        frame = detection['timestamp']
+        
         for agent in range(1, num_agents+1):
-            # check if agent is already know
-            Index = Final_data.index[(Final_data.scenario == dataset_path) & (Final_data.Id == agent)]
-            assert len(Index) < 2
-            if len(Index) == 0:
-                track = pd.DataFrame(np.zeros((1,4), object), columns = ['frame', 't', 'x', 'y'])
+            observed_detections = detection[detection[f'Agent {agent} X'] != 0]
+                
+            # Identify jumps in indices
+            jumps = observed_detections.index.to_series().diff().fillna(1) != 1
+
+            # Group consecutive indices into segments
+            segments = jumps.cumsum()
+
+            # Analyze each segment of continuous data
+            for segment_id, segment_data in observed_detections.groupby(segments):
+                print(f"Segment {segment_id}")
+
+                frame = segment_data['Frame'].reset_index(drop=True).iloc[::frame_reduction].reset_index(drop=True)
+                frame = frame.to_frame()
+                frame['Frame'] = frame.index
+                frame = frame.melt()['value']
+                frame.name = 'Frame'
+
+                track = pd.DataFrame(np.zeros((len(frame),4), object), columns = ['frame', 't', 'x', 'y'])
+
                 track.frame = frame
-                track.t = (frame - 1) / framerate
-                track.x = obj['position'][0]
-                track.y = obj['position'][1]
+                track.t = segment_data['Time'].reset_index(drop=True).iloc[::frame_reduction].reset_index(drop=True)
+                track.x = segment_data[f'Agent {agent} X'].reset_index(drop=True).iloc[::frame_reduction].reset_index(drop=True)*MeterPerPx
+                track.y = segment_data[f'Agent {agent} Y'].reset_index(drop=True).iloc[::frame_reduction].reset_index(drop=True)*MeterPerPx
                 track = track.set_index('frame')
                 
                 data = pd.Series(np.zeros((5), object), index = ['scenario', 'Id', 'First frame', 'Last frame', 'path'])
-                data.Id             = obj['id']
-                data['First frame'] = frame
-                data['Last frame']  = frame
+                if agent == 10:
+                    data.Id             = 'Velodyne'
+                elif agent == 11:
+                    data.Id             = 'Robot'
+                else:
+                    data.Id             = agent + segment_id*10
+
+                data['First frame'] = frame[0]
+                data['Last frame']  = frame[len(frame)-1]
                 data.scenario       = dataset_path
                 data.path           = track
                 
                 Final_data.loc[overall_id] = data
                 overall_id += 1
-            else:
-                index = Index[0]
-                data = Final_data.loc[index]
-
-                data['First frame'] = min(frame, data['First frame'])
-                data['Last frame']  = max(frame, data['Last frame'])
-                 
-                data.path.loc[frame] = pd.Series(np.zeros(3), index = ['t', 'x', 'y'])
-                data.path.loc[frame].t = (frame - 1) / framerate
-                data.path.loc[frame].x = obj['position'][0]
-                data.path.loc[frame].y = obj['position'][1]
-
-                Final_data.loc[index] = data
+            
     
 # do tests
     for index, data in Final_data[Final_data.scenario == dataset_path].iterrows():
