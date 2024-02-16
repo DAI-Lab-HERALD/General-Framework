@@ -4,14 +4,14 @@ import os
 
 
 class splitting_template():
-    def __init__(self, data_set, test_partition = 0.2, repetition = (0)):
+    def __init__(self, data_set, test_part = 0.2, repetition = (0)):
         # Save data_set location
         self.data_set = data_set
         if self.data_set is not None:
             self.Domain = self.data_set.Domain
         
         # Set the part of datasets sorted into test sets
-        self.test_part = min(1.0, max(0.0, test_partition))
+        self.test_part = min(1.0, max(0.0, test_part))
         
         
         # Filter out usable repetitions
