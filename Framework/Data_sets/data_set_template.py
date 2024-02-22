@@ -7,7 +7,10 @@ import psutil
 
 class data_set_template():
     # %% Implement the provision of data
-    def __init__(self, model_class_to_path, num_samples_path_pred, 
+    def __init__(self, 
+                 Perturbation = None,
+                 model_class_to_path = None, 
+                 num_samples_path_pred = 20, 
                  enforce_num_timesteps_out = True, 
                  enforce_prediction_time = False, 
                  exclude_post_crit = True,
@@ -75,6 +78,14 @@ class data_set_template():
         self.path_models_trained = False
         
         self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
+
+        # Handle perturbation
+        if Perturbation is None:
+            self.is_perturbed = False
+            self.Perturbation = None
+        else:
+            self.is_perturbed = True
+            self.Perturbation = Perturbation
         
         
         
@@ -685,11 +696,14 @@ class data_set_template():
             pat = 'A'
         else:
             pat = self.agents_to_predict[0]
-        
-        
-        self.data_file = (self.path + os.sep + 'Results' + os.sep +
-                          self.get_name()['print'] + os.sep +
-                          'Data' + os.sep +
+
+
+        folder = self.path + os.sep + 'Results' + os.sep + self.get_name()['print'] + os.sep + 'Data' + os.sep
+
+        pert_string = ''
+        if self.is_perturbed:
+            # Check if there is a .xlsx document for perturbations
+            Pert_save_doc = (folder +
                           self.get_name()['file'] +
                           '--t0=' + t0_type_name +
                           '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
@@ -698,8 +712,43 @@ class data_set_template():
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(num).zfill(3) + '_agents_' + pat +
-                          '.npy')
+                          '--max_' + str(num).zfill(3) + '_agents_' + pat + '--Perturbations.xlsx')
+            
+            if os.path.isfile(Pert_save_doc):
+                Pert_df = pd.read_excel(Pert_save_doc)
+            else:
+                # Create the dataframe
+                Pert_df = pd.DataFrame(np.empty((0,2), str), columns=['attack', 'name'])
+            
+            pert_attack = self.Perturbation.attack
+            pert_name = self.Perturbation.name
+
+            # Check if a perturbation if the same attack and name allready exists
+            previous_version = (Pert_df['attack'] == pert_attack) & (Pert_df['name'] == pert_name)
+
+            if len(previous_version) > 0:
+                pert_index = np.min(Pert_df.index[previous_version])
+            else:
+                pert_index = np.max(Pert_df.index) + 1
+                
+                Pert_df.attack.loc[pert_index] = pert_attack
+                Pert_df.name.loc[pert_index] = pert_name
+
+            Pert_df.to_excel(Pert_save_doc)
+
+            pert_string = '--Pertubation_' + str(int(pert_index)).zfill(3)
+            
+        # Assemble full data_file name    
+        self.data_file = (folder +
+                          self.get_name()['file'] +
+                          '--t0=' + t0_type_name +
+                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
+                          '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
+                          'm' + str(self.num_timesteps_in_need).zfill(2) +
+                          '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
+                          'm' + str(self.num_timesteps_out_need).zfill(2) +
+                          '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
+                          '--max_' + str(num).zfill(3) + '_agents_' + pat + pert_string + '.npy')
 
         # check if same data set has already been done in the same way
         if os.path.isfile(self.data_file):
@@ -776,8 +825,6 @@ class data_set_template():
                 t_start = self.t_start[i]
                 t_decision = self.t_decision[i]
                 t_crit = self.t_crit[i]
-
-
 
                 # Get the time of prediction
                 T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, i, behavior)
@@ -981,6 +1028,14 @@ class data_set_template():
             self.Type     = pd.DataFrame(Type).reset_index(drop = True)
             self.Recorded = pd.DataFrame(Recorded).reset_index(drop = True)
             self.Domain   = pd.DataFrame(Domain).reset_index(drop = True)
+
+
+            # Apply perturbation if necessary
+            if self.is_perturbed:
+                self.Input_path, self.Output_path, self.Domain = self.Perturbation.perturb(self.Input_path, self.Input_T, 
+                                                                                           self.Output_path, self.Output_T,
+                                                                                           self.Domain)
+
 
             save_data = np.array([self.Input_prediction,
                                   self.Input_path,

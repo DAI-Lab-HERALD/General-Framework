@@ -45,6 +45,11 @@ metrics_path = path + os.sep + 'Evaluation_metrics' + os.sep
 if not metrics_path in sys.path:
     sys.path.insert(0, metrics_path)
 
+# Add path towards perturbation methods
+perturbation_path = path + os.sep + 'Perturbation_methods' + os.sep
+if not perturbation_path in sys.path:
+    sys.path.insert(0, perturbation_path)
+
 from data_interface import data_interface
 
 # Filter out the DeprecationWarning messages
