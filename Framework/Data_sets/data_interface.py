@@ -45,9 +45,8 @@ class data_interface(object):
                 # Check for valid keys
                 assert 'attack' in perturbation.keys(), "Perturbation attack type is missing (required key: 'attack')."
 
-
+                # TODO: For further methods, check 
                 if perturbation['attack'] == 'Adverserial':
-                    assert self.agents_to_predict == 'predefined', "Perturbed datasets can only be used if the agents' roles are predefined."
                     perturbation['exp_parameters'] = parameters
                 
                 # Get perturbation type

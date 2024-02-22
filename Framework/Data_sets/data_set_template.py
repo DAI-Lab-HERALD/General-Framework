@@ -1032,9 +1032,7 @@ class data_set_template():
 
             # Apply perturbation if necessary
             if self.is_perturbed:
-                self.Input_path, self.Output_path, self.Domain = self.Perturbation.perturb(self.Input_path, self.Input_T, 
-                                                                                           self.Output_path, self.Output_T,
-                                                                                           self.Domain)
+                self = self.Perturbation.perturb(self)
 
 
             save_data = np.array([self.Input_prediction,
