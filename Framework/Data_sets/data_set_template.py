@@ -1029,6 +1029,21 @@ class data_set_template():
             self.Recorded = pd.DataFrame(Recorded).reset_index(drop = True)
             self.Domain   = pd.DataFrame(Domain).reset_index(drop = True)
 
+            # Ensure that dataframes with agent columns have the same order
+            Agents = self.Input_path.columns
+            self.Input_path  = self.Input_path[Agents]
+            self.Output_path = self.Output_path[Agents]
+            self.Type        = self.Type[Agents]
+            self.Recorded    = self.Recorded[Agents]
+
+            # Ensure that indices of dataframes are the same
+            self.Input_prediction.index = self.Input_path.index
+            self.Output_path.index      = self.Input_path.index
+            self.Output_A.index         = self.Input_path.index
+            self.Type.index             = self.Input_path.index
+            self.Recorded.index         = self.Input_path.index
+            self.Domain.index           = self.Input_path.index
+            
 
             # Apply perturbation if necessary
             if self.is_perturbed:
