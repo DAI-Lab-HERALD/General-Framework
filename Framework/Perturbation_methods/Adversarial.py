@@ -98,11 +98,11 @@ class Adversarial(perturbation_template):
         X : np.ndarray
             This is the past observed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
+            If an agent is fully or at some timesteps partially not observed, then this can include np.nan values.
         Y : np.ndarray, optional
             This is the future observed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
+            If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
             This value is not returned for **mode** = *'pred'*.
         T : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
@@ -116,12 +116,11 @@ class Adversarial(perturbation_template):
         X_pert : np.ndarray
             This is the past perturbed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
+            If an agent is fully or at some timesteps partially not observed, then this can include np.nan values.
         Y_pert : np.ndarray, optional
             This is the future perturbed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
-            This value is not returned for **mode** = *'pred'*.
+            If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
         
 
         '''
