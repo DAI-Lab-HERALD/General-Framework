@@ -162,6 +162,12 @@ The splitting template provides a number of attributes that might be useful in t
   - 'Scenario_type' : This is the name of the Scenario, such as gap acceptance.
   Further keys that might be included, but do not necessarily have to exist:
   - 'location' : This is the location at which the current data was recorded.
+  - 'Unperturbed_input' and 'Unperturbed_output': For samples whose data was perturbed in some form, this two
+                                                  columns would include pandas series (where the indices correpond
+                                                  to the agent names, and contain numpy arrays with the respective
+                                                  agents' trajectories. This can be used to overwrite the data in
+                                                  **self.Input_path** and **self.Output_path** (both pandas DataFrames)
+                                                  if some training or testing samples should stay unperturbed.
   
 ```
 
