@@ -110,9 +110,6 @@ class Adversarial(perturbation_template):
             If an agent is not observed at all, the value will instead be '0'.
         Agent_names : np.ndarray
             This is a :math:`N_{agents}` long numpy array. It includes strings with the names of the agents.
-            
-            If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
-            be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
 
         Returns
         -------

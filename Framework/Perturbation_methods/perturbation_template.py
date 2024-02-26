@@ -69,6 +69,7 @@ class perturbation_template():
         # Get the batch size
         self.set_batch_size()
         assert hasattr(self, 'batch_size'), "The batch size is not defined."
+        assert isinstance(self.batch_size, int), "The given batch size must be an integer."
 
         # Run perturbation
         X_pert = np.copy(X)
