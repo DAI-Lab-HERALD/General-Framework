@@ -1,5 +1,6 @@
 from perturbation_template import perturbation_template
 import pandas as pd
+import os
 import numpy as np
 import importlib
 from Data_sets.data_interface import data_interface
@@ -85,7 +86,7 @@ class Adversarial(perturbation_template):
         self.pert_model.train()
 
         # Define the name of the perturbation method
-        self.name = 'Adversarial'
+        self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
 
     def perturb_batch(self, X, Y, Pred_agents, Perturb_agents):
         '''
