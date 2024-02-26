@@ -166,9 +166,9 @@ The splitting template provides a number of attributes that might be useful in t
                                                   columns would include pandas series (where the indices correpond
                                                   to the agent names, and contain numpy arrays with the respective
                                                   agents' trajectories. This can be used to overwrite the data in
-                                                  **self.Input_path** and **self.Output_path** (both pandas
-                                                  DataFrames) if some training or testing samples should stay
-                                                  unperturbed.
+                                                  **self.data_set.Input_path** and **self.data_set.Output_path**
+                                                  (both pandas DataFrames) if some training or testing samples
+                                                  should stay unperturbed.
   
 ```
 
