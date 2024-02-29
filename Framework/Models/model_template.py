@@ -286,6 +286,33 @@ class model_template():
         print('')
         return output
     
+
+    def extract_images(self, X, Img_needed, domain_needed):
+        '''
+        Returns image data 
+        img # num_overall_agents, height, width, channels
+        img_m_per_px # num_overall_agents
+        '''
+        centre = X[Img_needed, -1,:]
+        x_rel = centre - X[Img_needed, -2,:]
+        rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
+        try:
+            img_needed, img_m_per_px_needed = self.data_set.return_batch_images(domain_needed, centre, rot,
+                                                                                target_height = self.target_height, 
+                                                                                target_width = self.target_width,
+                                                                                grayscale = self.grayscale,
+                                                                                return_resolution = True)
+            use_batch_extraction = False
+        except:
+            img_needed = None
+            img_m_per_px_needed = None
+            use_batch_extraction = True
+
+        
+        return img_needed, img_m_per_px_needed, use_batch_extraction
+
+
+
     #%%     
     def prepare_batch_generation(self):
         # Required attributes of the model
@@ -310,9 +337,6 @@ class model_template():
             X = self.data_set.X_orig
             Y = self.data_set.Y_orig[:,:,:N_O_data.max()]
             
-            # Get metadata
-            domain_old = self.data_set.Domain
-            
             # Determine needed agents
             self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
             
@@ -325,7 +349,7 @@ class model_template():
             use_map = self.has_map and self.can_use_map
             
             # Reorder agents to save data
-            if self.predict_single_agent or (self.data_set.Pred_agents_pred.sum(1) == 1).all():
+            if self.predict_single_agent:
                 num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
                 
                 N_O_data = N_O_data.repeat(num_pred_agents)
@@ -355,24 +379,18 @@ class model_template():
                 
                 Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
                 
-                X = X[Sample_id_sorted, Agent_sorted_id] 
+                # Sort agents according to distance from pred agent
+                X         = X[Sample_id_sorted, Agent_sorted_id] 
                 Sample_id = Sample_id[Sample_id_sorted, Agent_sorted_id]
                 Agent_id  = Agent_id[Sample_id_sorted, Agent_sorted_id] 
                 
                 # remove nan columns
-                use_agents = np.where(~np.isnan(X).all((0,2,3)))[0]
+                useful_agents = np.where(np.isfinite(X).any((0,2,3)))[0]
                 
                 # Set agents to nan that are to far away from the predicted agent
                 num_agent = self.data_set.max_num_agents
                 if num_agent is not None:
-                    use_agents = use_agents[:num_agent]
-                
-                X         = X[:,use_agents]
-                Sample_id = Sample_id[:,use_agents]
-                Agent_id  = Agent_id[:,use_agents]
-                
-                self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id]
-                self.Pred_agents[:,1:] = False
+                    useful_agents = useful_agents[:num_agent]
                 
             else:
                 # Sort agents to move the absent ones to the behind, and pred agents first
@@ -381,71 +399,46 @@ class model_template():
                 Agent_id = np.argsort(Value, axis = 1)
                 Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
                 
-                
                 X = X[Sample_id, Agent_id]
-                
                 # remove nan columns
-                missing_agents = np.isnan(X).all((0,2,3))
-                X = X[:,~missing_agents]
-                
-                Sample_id = Sample_id[:,~missing_agents]
-                Agent_id  = Agent_id[:,~missing_agents]
-                self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id]
+                useful_agents = np.where(np.isfinite(X).any((0,2,3)))[0]
                 
             # remove nan columns
-            self.X = X.astype(np.float32) # num_samples, num_agents, num_timesteps, 2
-            self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+            self.X = X[:,useful_agents].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+            Sample_id = Sample_id[:,useful_agents]
+            Agent_id  = Agent_id[:,useful_agents]
             
+            # Get future data and agent types
+            self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2 
             self.T = T[Sample_id, Agent_id] # num_samples, num_agents
+
+            # Get pred agents
+            self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id] # num_samples, num_agents
+            if self.predict_single_agent:
+                # Only first agent gets predicted
+                self.Pred_agents[:,1:] = False
             
             self.N_O_pred = N_O_pred
             self.N_O_data = N_O_data
             
             self.ID = np.stack((Sample_id, Agent_id), -1)  
+
+            self.extract_image_once = True
+
             # Get images
             if use_map:
+                # Get metadata
+                domain_old = self.data_set.Domain
                 if self.predict_single_agent:
-                    centre = X[:,0,-1,:] #x_t.squeeze(-2)
-                    x_rel = centre - X[:,0,-2,:]
-                    rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
-            
-                    domain_repeat = domain_old.loc[domain_old.index.repeat(num_pred_agents)]
-                    
-                    img, img_m_per_px = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                                          target_height = self.target_height, 
-                                                                          target_width = self.target_width, 
-                                                                          grayscale = self.grayscale, 
-                                                                          return_resolution = True)
-            
-                    img          = img[:,np.newaxis]
-                    img_m_per_px = img_m_per_px[:,np.newaxis]
+                    Img_needed = np.zeros(self.X.shape[:2], bool)
+                    Img_needed[:,0] = True
                 else:
                     Img_needed = self.T != '0'
-                    
-                    centre = X[Img_needed, -1,:]
-                    x_rel = centre - X[Img_needed, -2,:]
-                    rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
-                
-                    domain_index = domain_old.index.to_numpy()
-                    domain_index = domain_index.repeat(Img_needed.sum(1))
-                    domain_repeat = domain_old.loc[domain_index]
-                    
-                    if self.grayscale:
-                        channels = 1
-                    else:
-                        channels = 3
-                
-                    img = np.zeros((X.shape[0], X.shape[1], self.target_height, self.target_width, channels), dtype = 'uint8')
-                    img_m_per_px = np.ones(T.shape) * np.nan
-                    
-                    img[Img_needed], img_m_per_px[Img_needed] = self.data_set.return_batch_images(domain_repeat, centre, rot,
-                                                                                                  target_height = self.target_height, 
-                                                                                                  target_width = self.target_width, 
-                                                                                                  grayscale = self.grayscale, 
-                                                                                                  return_resolution = True)
-    
-                self.img = img  # num_samples, num_agents, height, width, channels
-                self.img_m_per_px = img_m_per_px # num_samples, num_agents
+
+                domain_needed = domain_old.iloc[self.ID[Img_needed][:,0]]
+                self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.X, Img_needed, domain_needed)
+                self.img_needed_sample = np.where(Img_needed)[0]
+
             else:
                 self.img = None
                 self.img_m_per_px = None
@@ -599,9 +592,26 @@ class model_template():
         Pred_agents_train = self.Pred_agents[I_train]
         
         if self.img is not None:
-            img_train = self.img[I_train]
-            img_m_per_px_train = self.img_m_per_px[I_train]
+            use_images = np.in1d(self.img_needed_sample, I_train)
+
+            img_needed          = self.img[use_images]
+            img_m_per_px_needed = self.img_m_per_px[use_images]
+
+            if self.predict_single_agent:
+                Img_needed = np.zeros(X_train.shape[:2], bool)
+                Img_needed[:,0] = True
+            else:
+                Img_needed = T_train != '0'
+
+            img_train          = np.zeros((*Img_needed.shape, self.target_height, self.target_width, img_needed.shape[-1]), np.uint8)
+            img_m_per_px_train = np.ones(Img_needed.shape, np.float32) * np.nan
+
+            img_train[Img_needed]          = img_needed
+            img_m_per_px_train[Img_needed] = img_m_per_px_needed
         else:
+            if hasattr(self, 'use_batch_extraction'):
+                assert self.use_batch_extraction, 'Image data could still be extracted'
+                print('Image data could not be extracted due to memory issues for the whole dataset.')
             img_train = None
             img_m_per_px_train = None
         
@@ -738,6 +748,9 @@ class model_template():
         
         # Get the final indices to be returned
         ind_advance = Ind_advance[0][Ind_candidates[:batch_size]]
+
+        # Sort ind_advance
+        ind_advance = np.sort(ind_advance)
         
         # Get the indices that will remain
         ind_remain = np.setdiff1d(Ind_advance[0], ind_advance)
@@ -756,9 +769,36 @@ class model_template():
         if mode == 'pred':
             assert len(np.unique(N_O[ind_advance])) == 1
         
-        if (self.img is not None) and (not ignore_map):
-            img          = self.img[ind_advance]
-            img_m_per_px = self.img_m_per_px[ind_advance]
+        # Check if images need to be extracted
+        if hasattr(self, 'use_batch_extraction') and (not ignore_map):
+            if self.predict_single_agent:
+                Img_needed = np.zeros(X.shape[:2], bool)
+                Img_needed[:,0] = True
+            else:
+                Img_needed = T != '0'
+
+            if self.use_batch_extraction:
+                domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Img_needed]]
+                img_needed, img_m_per_px_needed, succesful = self.extract_images(X, Img_needed, domain_needed)
+                if not succesful:
+                    MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution')
+            else:
+                # Find at which places in self.img_needed_sample one can find ind_advance
+                use_images = np.in1d(self.img_needed_sample, ind_advance)
+
+                img_needed          = self.img[use_images]
+                img_m_per_px_needed = self.img_m_per_px[use_images]
+
+            if self.predict_single_agent:
+                Img_needed = Img_needed[:,:1]
+            
+            # Transfrom img needed back according to Img_needed into required format
+            img          = np.zeros((*Img_needed.shape, self.target_height, self.target_width, img_needed.shape[-1]), np.uint8)
+            img_m_per_px = np.ones(Img_needed.shape, np.float32) * np.nan
+
+            img[Img_needed]          = img_needed
+            img_m_per_px[Img_needed] = img_m_per_px_needed
+
         else:
             img          = None
             img_m_per_px = None
