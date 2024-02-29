@@ -1075,7 +1075,7 @@ class data_set_template():
             # Find the gpu
             if not torch.cuda.is_available():
                 device = torch.device('cpu')
-                raise TypeError("The GPU has gone and fucked itself")
+                raise TypeError("The GPU has encountered an issue.")
             else:
                 if torch.cuda.device_count() == 1:
                     # If you have CUDA_VISIBLE_DEVICES set, which you should,

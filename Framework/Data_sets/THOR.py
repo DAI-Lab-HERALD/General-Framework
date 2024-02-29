@@ -18,7 +18,7 @@ class THOR(data_set_template):
         return False
     
     def includes_images(self=None):
-        return True
+        return False #True
     
     def set_scenario(self):
         self.scenario = scenario_none()
@@ -40,13 +40,15 @@ class THOR(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
-        frame_reduction = 1 # 10
-        dt = 0.1 # 0.01
+        frame_reduction = 1 
+        dt = 0.01 
 
-        self.Images = pd.DataFrame(np.zeros((1, 1), object), 
-                            index = self.Data.index[:1], columns = ['Image'])
+        self.Images = pd.DataFrame(np.zeros((3, 1), object), 
+                            index = self.Data.index[:3], columns = ['Image'])
         
         self.Images['Target_MeterPerPx'] = 0.0
+
+        img_id = 0
         
         for loc_i, location in enumerate(np.unique(self.Data.scenario)):
             Loc_data = self.Data[self.Data.scenario == location].copy()
@@ -80,7 +82,7 @@ class THOR(data_set_template):
                 
                 traj = np.ones((num_timesteps, 2), float) * np.nan
                 
-                # get every 10th frame
+                # get every nth frame
                 traj_exist = path_i.path[['x', 'y']].to_numpy()[0::frame_reduction]
                 
                 traj[int(path_i['First frame']/frame_reduction) : int(path_i['First frame']/frame_reduction)+len(traj_exist)] = traj_exist
@@ -90,11 +92,15 @@ class THOR(data_set_template):
                 path[name] = traj
                 agent_types[name] = 'P'
 
-                img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
-                img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-                self.Images.Image.loc[i] = np.array(img)
-                self.Images.Target_MeterPerPx.loc[i] = Meta_data['MeterPerPx'][0]
-                self.Images.rename(index={i: location}, inplace=True)
+
+
+            img = cv2.imread(img_file, cv2.IMREAD_GRAYSCALE)
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            self.Images.Image.loc[img_id] = np.array(img)
+            self.Images.Target_MeterPerPx.loc[img_id] = Meta_data['MeterPerPx'][0]
+            self.Images.rename(index={img_id: location}, inplace=True)
+
+            img_id += 1
 
             
             domain = pd.Series(np.zeros(6, object), index = ['location', 'name', 'image_id','x_center', 'y_center', 'rot_angle'])
