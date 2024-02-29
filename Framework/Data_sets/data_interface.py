@@ -9,27 +9,72 @@ from Prob_function import OPTICS_GMM
 
 
 class data_interface(object):
-    def __init__(self, data_dicts, parameters):
+    def __init__(self, data_set_dict, parameters):
         # Initialize path
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
         
-        if isinstance(data_dicts, dict):
-            data_dicts = [data_dicts]
+        # Borrow dataset paprameters
+        self.model_class_to_path       = parameters[0]
+        self.num_samples_path_pred     = parameters[1]
+        self.enforce_num_timesteps_out = parameters[2]
+        self.enforce_prediction_time   = parameters[3]
+        self.exclude_post_crit         = parameters[4]
+        self.allow_extrapolation       = parameters[5]
+        self.agents_to_predict         = parameters[6]
+        self.overwrite_results         = parameters[7]
+
+        if isinstance(data_set_dict, dict):
+            data_set_dict = [data_set_dict]
         else:
-            assert isinstance(data_dicts, list), "To combine datasets, put the dataset dictionaries into lists."
+            assert isinstance(data_set_dict, list), "To combine datasets, put the dataset dictionaries into lists."
         
         # Initialize datasets
         self.Datasets = {}
         self.Latex_names = []
-        for data_dict in data_dicts:
+        for data_dict in data_set_dict:
             assert isinstance(data_dict, dict), "Dataset is not provided as a dictionary."
-            assert 'scenario' in data_dict.keys(), "Dataset name is missing."
-            assert 't0_type' in data_dict.keys(), "Prediction time is missing."
-            assert 'conforming_t0_types' in data_dict.keys(), "Prediction time constraints are missing."
+            assert 'scenario' in data_dict.keys(), "Dataset name is missing  (required key: 'scenario')."
+            assert 't0_type' in data_dict.keys(), "Prediction time is missing  (required key: 't0_type')."
+
+            # Check if theis is supposed to be a perturbed dataset
+            if 'perturbation' in data_dict.keys():
+                perturbation = data_dict['perturbation']
+                # Check if perturbation is in required format
+                assert isinstance(perturbation, dict), "Desired perturbation is not provided as a dictionary."
+                
+                # Check for valid keys
+                assert 'attack' in perturbation.keys(), "Perturbation attack type is missing (required key: 'attack')."
+
+                # TODO: For further methods, check 
+                if perturbation['attack'] == 'Adverserial':
+                    perturbation['exp_parameters'] = parameters
+                
+                # Get perturbation type
+                pert_name = perturbation['attack']
+
+                # Remove attack from dictionary
+                perturbation.pop('attack')
+
+
+                pert_module = importlib.import_module(pert_name)
+                pert_class = getattr(pert_module, pert_name)
+
+                Perturbation = pert_class(perturbation)
+
+            else:
+                Perturbation = None
+
+
+
+
+
             
             data_set_name = data_dict['scenario']
             t0_type       = data_dict['t0_type']
-            Comp_t0_types = data_dict['conforming_t0_types']
+            if 'conforming_t0_types' in data_dict.keys():
+                Comp_t0_types = data_dict['conforming_t0_types']
+            else:
+                Comp_t0_types = []
             
             if 'max_num_agents' in data_dict.keys():
                 max_num_agents = data_dict['max_num_agents']
@@ -46,7 +91,8 @@ class data_interface(object):
             data_set_module = importlib.import_module(data_set_name)
             data_set_class = getattr(data_set_module, data_set_name)
             
-            data_set = data_set_class(*parameters)
+            data_set = data_set_class(Perturbation, *parameters)
+
             data_set.set_extraction_parameters(t0_type, T0_type_compare, max_num_agents)
             
             latex_name = data_set.get_name()['latex']
@@ -57,16 +103,6 @@ class data_interface(object):
             self.Datasets[data_set.get_name()['print']] = data_set
             
         self.single_dataset = len(self.Datasets.keys()) <= 1    
-        
-        # Borrow dataset paprameters
-        self.model_class_to_path       = parameters[0]
-        self.num_samples_path_pred     = parameters[1]
-        self.enforce_num_timesteps_out = parameters[2]
-        self.enforce_prediction_time   = parameters[3]
-        self.exclude_post_crit         = parameters[4]
-        self.allow_extrapolation       = parameters[5]
-        self.agents_to_predict         = parameters[6]
-        self.overwrite_results         = parameters[7]
         
         # Get relevant scenario information
         scenario_names = []
@@ -514,7 +550,7 @@ class data_interface(object):
                     n_time = self.N_O_data_orig[i_sample]
                     self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
                     self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
-                    
+
                     
     def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
         if not (hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all')):
@@ -689,15 +725,15 @@ class data_interface(object):
                 # Calculate differences
                 for i in range(int(np.ceil(len(index) / max_num))):
                     d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                    D = X[d_index, np.newaxis] - X[np.newaxis]
+                    D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
                     D_max[d_index] = np.nanmax(D, (2,3,4))
-                
+
                 # Find identical trajectories
                 Identical = D_max < 1e-3
                 
                 # Remove self references
                 Identical[np.arange(len(index)), np.arange(len(index))] = False
-                
+
                 # Get graph
                 G = nx.Graph(Identical)
                 unconnected_subgraphs = list(nx.connected_components(G))

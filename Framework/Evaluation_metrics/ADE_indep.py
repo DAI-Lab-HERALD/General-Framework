@@ -4,7 +4,8 @@ from evaluation_template import evaluation_template
 
 class ADE_indep(evaluation_template):
     r'''
-    The value :math:`F` of the Average Displacement Error (assuming :math:`N_{agents, i}` independent agents :math:`j`), is calculated in the following way:
+    The value :math:`F` of the Average Displacement Error (assuming :math:`N_{agents, i}` independent agents :math:`j`), 
+    is calculated in the following way:
         
     .. math::
         F = {1 \over{|P| \sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}  

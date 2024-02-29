@@ -18,6 +18,17 @@ from MID.environment import DoubleHeaderNumpyArray
 
 
 class mid_gu(model_template):
+    '''
+    The Motion Indeterminacy Diffusion (MID) prediction model originially designed
+    for pedestrian predictionsm, in which indeterminacy from all the walkable areas is 
+    progressively discarded until reaching the desired trajectory.
+
+    The code it addapted from https://github.com/Gutianpei/MID
+
+    Gu, T., Chen, G., Li, J., Lin, C., Rao, Y., Zhou, J., & Lu, J. (2022). Stochastic trajectory 
+    prediction via motion indeterminacy diffusion. In Proceedings of the IEEE/CVF Conference on 
+    Computer Vision and Pattern Recognition (pp. 17113-17122).
+    '''
 
     def define_default_kwargs(self):
         if not('seed' in self.model_kwargs.keys()):

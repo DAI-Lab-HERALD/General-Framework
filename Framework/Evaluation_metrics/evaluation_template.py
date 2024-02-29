@@ -174,7 +174,7 @@ class evaluation_template():
             This is a :math:`\{N_{samples} \times N_{agents} \times N_{O}\}` dimensional numpy array with 
             boolean values. It indicates for each agent and timestep if the prediction should influence
             the final metric result.
-        T : np.ndarray, optional
+        Types : np.ndarray, optional
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
@@ -213,6 +213,61 @@ class evaluation_template():
             return Path_true, Path_pred, Pred_step, Types     
         else:
             return Path_true, Path_pred, Pred_step
+        
+    
+    def get_other_agents_paths(self, return_types = False):
+        '''
+        This returns the true observed trajectories of all agents that are not the
+        predicted agents.
+
+        Parameters
+        ----------
+        return_types : bool, optional
+            Decides if agent types are returned as well. The default is False.
+
+        Returns
+        -------
+        Path_other : np.ndarray
+            This is the true observed trajectory of the agents, in the form of a
+            :math:`\{N_{samples} \times 1 \times N_{agents_other} \times N_{O} \times 2\}` dimensional numpy 
+            array with float values. If an agent is fully or or some timesteps partially not observed, 
+            then this can include np.nan values.
+        Types : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents_other}\}` dimensional numpy array. It includes strings 
+            that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+            for available types). If an agent is not observed at all, the value will instead be '0'.
+            It is only returned if **return_types** is *True*.
+
+        '''
+        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
+        
+        self.data_set._extract_original_trajectories()
+        self.data_set._determine_pred_agents(eval_pov = self.get_output_type() != 'path_all_wo_pov')
+
+        Y_orig = self.data_set.Y_orig[self.Index_curr]
+        Pred_agents = self.data_set.Pred_agents_eval[self.Index_curr]
+        Other_agents = (~Pred_agents) & np.isfinite(Y_orig).all(-1).any(-1) # at least one position must be fully known
+
+        num_samples = len(self.Index_curr)
+        max_num_other_agents = Other_agents.sum(1).max()
+
+        i_agent_sort = np.argsort(-Other_agents.astype(float))
+        i_agent_sort = i_agent_sort[:,:max_num_other_agents]
+        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_other_agents))
+
+        Path_other = Y_orig[i_sampl_sort, i_agent_sort][:,np.newaxis]
+
+        if return_types:
+            Types = self.data_set.Type.iloc[self.Index_curr].to_numpy()
+            Types = Types.astype(str)
+            Types[self.T_pred == 'nan'] = '0'
+
+            Types = Types[i_sampl_sort, i_agent_sort]
+            
+            return Path_other, Types
+        
+        else:
+            return Path_other
         
         
     def get_KDE_probabilities(self, joint_agents = True):

@@ -284,7 +284,7 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False,
     This is a :math:`\{N_{samples} \times N_{agents} \times N_{O}\}` dimensional numpy array with 
     boolean values. It indicates for each agent and timestep if the prediction should influence
     the final metric result.
-  T : np.ndarray, optional
+  Types : np.ndarray, optional
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
@@ -299,6 +299,39 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False,
   else:
       return Path_true, Path_pred, Pred_step
 
+```
+```
+def get_other_agents_paths(self):
+  '''
+  This returns the true observed trajectories of all agents that are not the
+  predicted agents.
+  
+  Parameters
+  ----------
+  return_types : bool, optional
+    Decides if agent types are returned as well. The default is False.
+
+  Returns
+  -------
+  Path_other : np.ndarray
+    This is the true observed trajectory of the agents, in the form of a
+    :math:`\{N_{samples} \times 1 \times N_{agents_other} \times N_{O} \times 2\}` dimensional numpy 
+    array with float values. If an agent is fully or or some timesteps partially not observed, 
+    then this can include np.nan values.
+  Types : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times N_{agents_other}\}` dimensional numpy array. It includes strings 
+    that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
+    for available types). If an agent is not observed at all, the value will instead be '0'.
+    It is only returned if **return_types** is *True*.
+
+  '''
+  
+  ...
+  
+  if return_types:
+    return Path_other, Types     
+  else:
+    return Path_other
 ```
 ```
 def get_KDE_probabilities(self, joint_agents = True):

@@ -14,9 +14,9 @@ class Location_split(splitting_template):
     on the number of different recording locations.
     
     If ones passes a repetition as a string, then there are two options.
-    Either, one simly passes the location name, in which case it might be 
-    possible, that multiple locations with eual names across multiple datasets
-    are selected. Alternatively, one can specify the dataset by passing the 
+    Either, one simly passes the location name (see self.Domain.location), in which 
+    case it might be possible that multiple locations with equal names across multiple 
+    datasets are selected. Alternatively, one can specify the dataset by passing the 
     following string: *<dataset_name> -:- <location_name>*.
     '''
     def split_data_method(self):

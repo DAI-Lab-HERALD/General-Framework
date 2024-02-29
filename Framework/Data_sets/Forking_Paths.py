@@ -15,17 +15,14 @@ def rotate_track(track, angle, center):
     track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
     return track
 
-class Forking_Paths_interactive(data_set_template):
+
+class Forking_Paths_augmented(data_set_template):
     '''
     The forking paths dataset is an adaption of the ETH/UCY pedestrian dataset.
     In this case, in specific trajectories, test subjects where ask to use a 
     controler to continue the observed path of a specific agent in a scene towards
     a specific and (per subject varying goal), while other agents simply followed 
     their originally observed trjectories.
-    
-    It has to be pointed out, that the trajectories are recorded and provided not in 
-    meter, but in px, which might require some rescaling for specific models. Unfortunately,
-    the exact conversion rate from px to meters is unknown.
     
     The data can be found at https://github.com/JunweiLiang/Multiverse#the-forking-paths-dataset
     and the following citation can bes used:
@@ -103,6 +100,7 @@ class Forking_Paths_interactive(data_set_template):
         Path_init = pd.DataFrame(Path_init)
         T_init = np.array(T_init+[()], np.ndarray)[:-1]
         Domain_init = pd.DataFrame(Domain_init)
+
         
         for i in range(len(Path_init)):
             path_init   = Path_init.iloc[i].tar
@@ -127,28 +125,22 @@ class Forking_Paths_interactive(data_set_template):
             Dist = np.nanmax(Dist, axis = (0,2))
             ind_split = max(0, np.argmax(Dist > 1e-3) - 1)
 
-            Factors = [1.0]
-            for factor in Factors:
-                path = pd.Series(np.zeros(0, np.ndarray), index = [])
-                agent_types = pd.Series(np.zeros(0, str), index = [])
-                
-                traj = path_init.copy()
-                
-                traj[ind_split + 1:] = (traj[ind_split + 1:] - traj[[ind_split]]) * factor + traj[[ind_split]] 
-                
-                path['tar'] = traj
-                # should be done based on actual agent types
-                agent_types['tar'] = domain.type
-                
-                domain = domain_init.copy()
-                domain['t_split'] = t_init[ind_split]
-                domain['ind_split'] = ind_split
-                
-                self.Path.append(path)
-                self.Type_old.append(agent_types)
-                self.T.append(t_init)
-                self.Domain_old.append(domain)
-                self.num_samples = self.num_samples + 1
+            path = pd.Series(np.zeros(0, np.ndarray), index = [])
+            agent_types = pd.Series(np.zeros(0, str), index = [])
+            
+            path['tar'] = path_init
+            # should be done based on actual agent types
+            agent_types['tar'] = domain.type
+            
+            domain = domain_init.copy()
+            domain['t_split'] = t_init[ind_split]
+            domain['ind_split'] = ind_split
+            
+            self.Path.append(path)
+            self.Type_old.append(agent_types)
+            self.T.append(t_init)
+            self.Domain_old.append(domain)
+            self.num_samples = self.num_samples + 1
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
@@ -227,7 +219,7 @@ class Forking_Paths_interactive(data_set_template):
     def fill_empty_path(self, path, t, domain, agent_types):
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'Forking_Paths' + os.sep + 'FP_processed.pkl')
+                                   'Forking_Paths_complete' + os.sep + 'FP_comp_processed.pkl')
             self.Data = self.Data.reset_index(drop = True)
 
         I_t = t + domain.t_0
@@ -276,8 +268,8 @@ class Forking_Paths_interactive(data_set_template):
 
     
     def get_name(self = None):
-        names = {'print': 'Forking Paths (interactive pedestrians)',
-                 'file': 'Fork_Paths',
+        names = {'print': 'Forking Paths (interactive pedestrians - augmented)',
+                 'file': 'Fork_P_Aug',
                  'latex': r'\emph{FP}'}
         return names
     
@@ -287,3 +279,4 @@ class Forking_Paths_interactive(data_set_template):
     
     def includes_images(self = None):
         return False
+

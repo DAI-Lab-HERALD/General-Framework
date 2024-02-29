@@ -10,6 +10,20 @@ from PECNet.social_utils import *
 from PECNet.models import *
 
 class pecnet_mangalam(model_template):
+    '''
+    The Predicted Endpoint Conditioned Network (PECNet) is a prediction model for flexible 
+    human trajectory prediction. PECNet infers distant trajectory endpoints to assist in 
+    long-range multi-modal trajectory prediction. A novel nonlocal social pooling layer 
+    enables PECNet to infer diverse yet socially compliant trajectories.
+
+    The code was taken from the GitHub repository https://github.com/HarshayuGirase/Human-Path-Prediction
+
+    Mangalam, K., Girase, H., Agarwal, S., Lee, K. H., Adeli, E., Malik, J., & Gaidon, A. (2020). It is 
+    not the journey but the destination: Endpoint conditioned trajectory prediction. In Computer 
+    Vision–ECCV 2020: 16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part II 16 (pp. 759-776). 
+    Springer International Publishing.
+
+    '''
 
     def define_default_kwargs(self):
         if not('seed' in self.model_kwargs.keys()):

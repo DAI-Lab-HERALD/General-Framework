@@ -24,12 +24,8 @@ class Forking_Paths_augmented(data_set_template):
     a specific and (per subject varying goal), while other agents simply followed 
     their originally observed trjectories.
     
-    However, by slightly scaling those subject generated trajectories, the dataset is
-    enlarged significantly.
-    
-    It has to be pointed out, that the trajectories are recorded and provided not in 
-    meter, but in px, which might require some rescaling for specific models. Unfortunately,
-    the exact conversion rate from px to meters is unknown.
+    However, by slightly scaling and rotating those subject generated trajectories, 
+    the dataset is enlarged significantly.
     
     The data can be found at https://github.com/JunweiLiang/Multiverse#the-forking-paths-dataset
     and the following citation can bes used:

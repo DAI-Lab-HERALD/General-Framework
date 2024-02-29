@@ -146,8 +146,10 @@ The splitting template provides a number of attributes that might be useful in t
 ```
 **self.repetition** : int
   This is the number of the current split, which can be used to differentiate between different splits of the
-  same splitting method. It has to be noted that only up to ten repetitions per method are feasible, which means
-  that this attribute can only assume values between 0 and 9.
+  same splitting method. As one can use multiple separate parts in the training set, this will be a list of
+  numbers (if one single part is used, then the list will have a length of one). While it is possible to define
+  repetitions as a string in the simulation.py file, this will only be numbers, using the function
+  *tranform_str_to_number()* to get the specific number.
 **self.test_split** : float
   This is a value between 0 and 1 which denotes the portion of the whole dataset that is used for the evaluation
   of the trained method.
@@ -160,6 +162,13 @@ The splitting template provides a number of attributes that might be useful in t
   - 'Scenario_type' : This is the name of the Scenario, such as gap acceptance.
   Further keys that might be included, but do not necessarily have to exist:
   - 'location' : This is the location at which the current data was recorded.
+  - 'Unperturbed_input' and 'Unperturbed_output': For samples whose data was perturbed in some form, this two
+                                                  columns would include pandas series (where the indices correpond
+                                                  to the agent names, and contain numpy arrays with the respective
+                                                  agents' trajectories. This can be used to overwrite the data in
+                                                  **self.data_set.Input_path** and **self.data_set.Output_path**
+                                                  (both pandas DataFrames) if some training or testing samples
+                                                  should stay unperturbed.
   
 ```
 

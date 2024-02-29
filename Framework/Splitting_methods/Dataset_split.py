@@ -12,6 +12,10 @@ class Dataset_split(splitting_template):
     learn on the other datasets.
     
     Here, the number of possible repetitions depends on the number of datasets.
+    
+    When determining the desired repetition, the user can either input the string 
+    of the dataset (see the get_name()['print'] method of the dataset), or the number
+    corresponding to the position in a alphabetically sorted list of the dataset strings.
     '''
     def split_data_method(self):
         Situations = self.Domain['Scenario']

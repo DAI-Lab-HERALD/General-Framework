@@ -45,6 +45,11 @@ metrics_path = path + os.sep + 'Evaluation_metrics' + os.sep
 if not metrics_path in sys.path:
     sys.path.insert(0, metrics_path)
 
+# Add path towards perturbation methods
+perturbation_path = path + os.sep + 'Perturbation_methods' + os.sep
+if not perturbation_path in sys.path:
+    sys.path.insert(0, perturbation_path)
+
 from data_interface import data_interface
 
 # Filter out the DeprecationWarning messages
@@ -1975,7 +1980,7 @@ class Experiment():
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.columns)
             if len(behs) > 1 and not plot_similar_futures:
-                title += r': \\True behavior: ' + behs[output_A[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
+                title += r': \\True behavior: ' + behs[output_A.iloc[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
 
             ax.set_title(title)
             plt.axis('off')
