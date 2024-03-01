@@ -82,8 +82,8 @@ class perturbation_template():
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
             samples = np.arange(i_start, i_end)
-
-            X_pert[samples], Y_pert[samples] = self.perturb_batch(X[samples], Y[samples], T[samples], Agents[samples])
+            # TODO: Add images here
+            X_pert[samples], Y_pert[samples] = self.perturb_batch(X[samples], Y[samples], T[samples], Agents[samples], Domain.iloc[samples])
 
 
         # Add unperturberd input and output columns to Domain
@@ -109,7 +109,7 @@ class perturbation_template():
         return data
         
     
-    def perturb_batch(self, X, Y, T, Agent_names):
+    def perturb_batch(self, X, Y, T, Agent_names, Domain):
         '''
         This function takes a batch of data and generates perturbations.
 

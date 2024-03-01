@@ -4,6 +4,8 @@ import os
 import numpy as np
 import importlib
 from Data_sets.data_interface import data_interface
+import torch
+import matplotlib.pyplot as plt
 
 class Adversarial(perturbation_template):
     def check_and_extract_kwargs(self, kwargs):
@@ -47,8 +49,12 @@ class Adversarial(perturbation_template):
 
         # Exctract splitting method parameters
         pert_splitter_name = kwargs['splitter_dict']['Type']
-        pert_splitter_rep = kwargs['splitter_dict']['repetition']
+        pert_splitter_rep = [kwargs['splitter_dict']['repetition']]
         pert_splitter_tp = kwargs['splitter_dict']['test_part']
+
+        # print(kwargs)
+
+        # print(kwargs['splitter_dict']['repetition'])
             
         pert_splitter_module = importlib.import_module(pert_splitter_name)
         pert_splitter_class = getattr(pert_splitter_module, pert_splitter_name)
@@ -88,7 +94,7 @@ class Adversarial(perturbation_template):
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
 
-    def perturb_batch(self, X, Y, Pred_agents, Perturb_agents):
+    def perturb_batch(self, X, Y, T, Agent_names, Domain):
         '''
         This function takes a batch of data and generates perturbations.
 
@@ -121,11 +127,12 @@ class Adversarial(perturbation_template):
             This is the future perturbed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
             If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
-        
+
 
         '''
-        # TODO: Implement this function, using self.pert_model.adv_generation()
-        pass
+        
+        X = self.pert_model.adv_generation(X,Y,T,Domain)
+        return X
 
     
 
@@ -141,9 +148,11 @@ class Adversarial(perturbation_template):
 
         '''
 
+        self.batch_size = 1
+
         # TODO: Implement this function, you can decide here if you somehow rely on self.pert_model, if possible, or instead use a fixed value
 
-        raise AttributeError('This function has to be implemented in the actual perturbation method.')
+        # raise AttributeError('This function has to be implemented in the actual perturbation method.')
 
 
     def requirerments(self):
@@ -176,3 +185,4 @@ class Adversarial(perturbation_template):
         # TODO: Implement this function, use self.pert_model to get the requirements of the model.
 
         return {}
+    
