@@ -29,13 +29,13 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['n_layers_rnn'] = 3
 
         if not ('fut_enc_sz' in self.model_kwargs.keys()):
-            self.model_kwargs['fut_enc_sz'] = 4
+            self.model_kwargs['fut_enc_sz'] = 20
 
         if not ('scene_encoding_size' in self.model_kwargs.keys()):
-            self.model_kwargs['scene_encoding_size'] = 4
+            self.model_kwargs['scene_encoding_size'] = 64
 
         if not ('obs_encoding_size' in self.model_kwargs.keys()):
-            self.model_kwargs['obs_encoding_size'] = 4
+            self.model_kwargs['obs_encoding_size'] = 64
 
         # TODO: Add the GNN encoding size (currently 32)
 
@@ -46,7 +46,7 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['gamma_noise'] = 0 # 0.02 (P) / 0.002
 
         if not ('alpha' in self.model_kwargs.keys()):
-            self.model_kwargs['alpha'] = 3 # 10 (P) / 3
+            self.model_kwargs['alpha'] = 10 # 10 (P) / 3
 
         if not ('s_min' in self.model_kwargs.keys()):
             self.model_kwargs['s_min'] = 0.8 # 0.3 (P) / 0.8 
@@ -55,7 +55,7 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['s_max'] = 1.2 # 1.7 (P) / 1.2
 
         if not ('sigma' in self.model_kwargs.keys()):  
-            self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
+            self.model_kwargs['sigma'] = 0.5 # 0.5 (P) / 0.2
 
         if not ('fut_ae_epochs' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_epochs'] = 5000
@@ -64,7 +64,7 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['fut_ae_lr'] = 5e-4
 
         if not ('fut_ae_lr_decay' in self.model_kwargs.keys()):
-            self.model_kwargs['fut_ae_lr_decay'] = 1.0 # needed to not fuck up older models
+            self.model_kwargs['fut_ae_lr_decay'] = 1.0
 
         if not ('fut_ae_wd' in self.model_kwargs.keys()):
             self.model_kwargs['fut_ae_wd'] = 1e-4
@@ -76,7 +76,7 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['flow_lr'] = 1e-3
 
         if not ('flow_lr_decay' in self.model_kwargs.keys()):
-            self.model_kwargs['flow_lr_decay'] = 1.0 # needed to not fuck up older models
+            self.model_kwargs['flow_lr_decay'] = 0.98
 
         if not ('flow_wd' in self.model_kwargs.keys()):
             self.model_kwargs['flow_wd'] = 1e-5
@@ -91,13 +91,16 @@ class trajflow_meszaros(model_template):
             self.model_kwargs['scale_NF'] = False
 
         if not ('pos_loss' in self.model_kwargs.keys()):
-            self.model_kwargs['pos_loss'] = False
+            self.model_kwargs['pos_loss'] = True
 
         if not("decoder_type" in self.model_kwargs.keys()):
             self.model_kwargs["decoder_type"] = "none"
 
         if not('seed' in self.model_kwargs.keys()):
             self.model_kwargs['seed'] = 0
+
+        if not('interactions' in self.model_kwargs.keys()):
+            self.model_kwargs['interactions'] = True
 
     
     def setup_method(self):        
@@ -160,6 +163,8 @@ class trajflow_meszaros(model_template):
 
         # Get Decoder Type
         self.decoder_type = self.model_kwargs["decoder_type"] 
+
+        self.interactions = self.model_kwargs['interactions']
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -291,7 +296,7 @@ class trajflow_meszaros(model_template):
                 flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
                                             gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
                                             obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
-                                            n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
+                                            interactions=self.interactions ,n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
 
                 enc = Future_Encoder(2, enc_size, enc_size, enc_size)
 
@@ -770,6 +775,9 @@ class trajflow_meszaros(model_template):
 
         if self.model_kwargs['pos_loss']:
             kwargs_str += '_posLoss'
+
+        if self.model_kwargs['interactions']:
+            kwargs_str += '_interactions'
 
         model_str = 'TF_' + kwargs_str
         

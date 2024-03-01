@@ -36,28 +36,31 @@ class flomo_schoeller(model_template):
             self.model_kwargs['obs_encoding_size'] = 16
 
         if not ('beta_noise' in self.model_kwargs.keys()):
-            self.model_kwargs['beta_noise'] = 0.002 # 0.2 (P) / 0.002
+            self.model_kwargs['beta_noise'] = 0.2 # 0.2 (P) / 0.002
 
         if not ('gamma_noise' in self.model_kwargs.keys()):
-            self.model_kwargs['gamma_noise'] = 0.002 # 0.02 (P) / 0.002
+            self.model_kwargs['gamma_noise'] = 0.02 # 0.02 (P) / 0.002
 
         if not ('alpha' in self.model_kwargs.keys()):
-            self.model_kwargs['alpha'] = 3 # 10 (P) / 3
+            self.model_kwargs['alpha'] = 10 # 10 (P) / 3
 
         if not ('s_min' in self.model_kwargs.keys()):
-            self.model_kwargs['s_min'] = 0.8 # 0.3 (P) / 0.8 
+            self.model_kwargs['s_min'] = 0.3 # 0.3 (P) / 0.8 
 
         if not ('s_max' in self.model_kwargs.keys()):
-            self.model_kwargs['s_max'] = 1.2 # 1.7 (P) / 1.2
+            self.model_kwargs['s_max'] = 1.7 # 1.7 (P) / 1.2
 
         if not ('sigma' in self.model_kwargs.keys()):  
-            self.model_kwargs['sigma'] = 0.2 # 0.5 (P) / 0.2
+            self.model_kwargs['sigma'] = 0.5 # 0.5 (P) / 0.2
 
         if not ('lr_decay' in self.model_kwargs.keys()):
-            self.model_kwargs['lr_decay'] = 1.0 # needed to not fuck up older models
+            self.model_kwargs['lr_decay'] = 1.0 
 
         if not('seed' in self.model_kwargs.keys()):
             self.model_kwargs['seed'] = 0
+
+        if not('interactions' in self.model_kwargs.keys()):
+            self.model_kwargs['interactions'] = True
 
         
     
@@ -101,6 +104,8 @@ class flomo_schoeller(model_template):
         self.sigma = self.model_kwargs['sigma']
 
         self.lr_decay = self.model_kwargs['lr_decay']
+
+        self.interactions = self.model_kwargs['interactions']
         
 
         self.flow_epochs = 400
@@ -156,7 +161,7 @@ class flomo_schoeller(model_template):
                             obs_encoding_size=self.obs_encoding_size, 
                             scene_encoding_size=self.scene_encoding_size, n_layers_rnn=self.n_layers_rnn, 
                             es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=use_map, 
-                            n_layers_gnn=4, es_gnn=32, T_all = T_all)
+                            interactions=self.interactions, n_layers_gnn=4, es_gnn=32, T_all = T_all)
         
         
         flow_dist_file = self.model_file[:-4] + '_NF'
@@ -377,6 +382,9 @@ class flomo_schoeller(model_template):
         
         if self.model_kwargs['lr_decay'] != 1.0:
             kwargs_str += '_lrDec' + str(self.model_kwargs['lr_decay'])
+
+        if self.model_kwargs['interactions']:
+            kwargs_str += '_interactions'
                      
         model_str = 'FM_' + kwargs_str
         
