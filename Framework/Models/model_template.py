@@ -779,9 +779,10 @@ class model_template():
 
             if self.use_batch_extraction:
                 domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Img_needed]]
-                img_needed, img_m_per_px_needed, succesful = self.extract_images(X, Img_needed, domain_needed)
-                if not succesful:
-                    MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution')
+                img_needed, img_m_per_px_needed, unsuccesful = self.extract_images(X, Img_needed, domain_needed)
+                if unsuccesful:
+                    MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution.' +
+                    		'\nNote, however, that other errors might have caused this as well.')
             else:
                 # Find at which places in self.img_needed_sample one can find ind_advance
                 use_images = np.in1d(self.img_needed_sample, ind_advance)

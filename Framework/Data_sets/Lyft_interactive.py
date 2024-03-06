@@ -9,10 +9,6 @@ import shutil
 from data_set_template import data_set_template
 from scenario_none import scenario_none
 
-from trajdata import UnifiedDataset, MapAPI
-from trajdata.data_structures.agent import AgentType
-from trajdata.caching.df_cache import DataFrameCache
-
 
 class Lyft_interactive(data_set_template):
     '''
@@ -46,6 +42,11 @@ class Lyft_interactive(data_set_template):
         self.scenario = scenario_none()
         
     def create_path_samples(self):
+        # Only load if needed
+        from trajdata import UnifiedDataset, MapAPI
+        from trajdata.data_structures.agent import AgentType
+        from trajdata.caching.df_cache import DataFrameCache
+        
         # Prepare output
         self.num_samples = 0 
         self.Path = []
@@ -56,114 +57,117 @@ class Lyft_interactive(data_set_template):
         # The framed code should be the only dataset specific part whenusing trajdata
         ################################################################################
         data_path = self.path + os.sep + 'Data_sets' + os.sep + 'Lyft' + os.sep + 'data' + os.sep
-        
         cache_path  = data_path + '.unified_data_cache'
         scenes_path = data_path + 'scenes' + os.sep
         
-        dataset = UnifiedDataset(desired_data = ["lyft_sample", "lyft_train", "lyft_val"], #, "lyft_train_full"],
-                                 data_dirs = {"lyft_sample":     scenes_path + 'sample.zarr',
-                                              "lyft_train":      scenes_path + 'train.zarr',
-                                              "lyft_val":        scenes_path + 'validate.zarr',
-                                              "lyft_train_full": scenes_path + 'train_full.zarr'},
-                                 cache_location = cache_path,
-                                 verbose = True)
-        
         testing_env_names = ["lyft_val"]
-        ################################################################################
-        
-        map_api = MapAPI(Path(cache_path))
-        # Go over scenes
-        for i, scene in enumerate(dataset.scenes()):
-            print('')
-            print('Scene ' + str(i + 1) + ': ' + scene.name)
-            print('Number of frames: ' + str(scene.length_timesteps) + ' (' + str(scene.length_seconds()) + 's)')
+
+        # Get images 
+        self.Images = pd.DataFrame(np.zeros((0, 2), object), index = [], columns = ['Image', 'Target_MeterPerPx'])
+        px_per_meter = 2
+
+        # Treat the separate parts of the dataset separately
+        for part in ['val', 'train', 'sample']: # 'train_full' could be added
+            self.path = os.path.dirname(os.path.abspath(__file__))
+
+            lyft_string = 'lyft_' + part
+
+            dataset = UnifiedDataset(desired_data   = [lyft_string],
+                                     data_dirs      = {lyft_string:     scenes_path + part + '.zarr'},
+                                     cache_location = cache_path,
+                                     verbose = True)
             
-            # Get map
-            map_id = scene.env_name + ':' + scene.location
-            map_api.get_map(map_id)
+            ################################################################################
             
-            # Get map offset
-            min_x, min_y, _, _, _, _ = map_api.maps[map_id].extent 
+            map_api = MapAPI(Path(cache_path))
+            # Go over scenes
+            for i, scene in enumerate(dataset.scenes()):
+                print('')
+                print('Scene ' + str(i + 1) + ': ' + scene.name)
+                print('Number of frames: ' + str(scene.length_timesteps) + ' ({:0.1f} s)'.format(scene.length_seconds()))
+                
+                # Get map
+                map_id = scene.env_name + ':' + scene.location
+                map_api.get_map(map_id)
             
-            Cache = DataFrameCache(cache_path = dataset.cache_path,
-                                   scene = scene)
+                if map_id not in self.Images.index:
+                    img = map_api.maps[map_id].rasterize(px_per_meter)
+                    
+                    # Get less memory intensive saving form
+                    if (img.dtype != np.uint8) and (img.max() <= 1.0): 
+                        img *= 255.0
+                        img = img.astype(np.uint8)
+
+                    self.Images.loc[map_id] = [img, 1 / px_per_meter]
             
-            scene_agents = np.array([[agent.name, agent.type.name] for agent in scene.agents if agent.type != AgentType.UNKNOWN])
+                
+                # Get map offset
+                min_x, min_y, _, _, _, _ = map_api.maps[map_id].extent 
+                
+                Cache = DataFrameCache(cache_path = dataset.cache_path, scene = scene)
+                
+                scene_agents = np.array([[agent.name, agent.type.name] for agent in scene.agents if agent.type != AgentType.UNKNOWN])
+                
+                # Extract position data
+                scene_data = Cache.scene_data_df[['x', 'y']]
+                scene_data = scene_data.loc[scene_agents[:,0]]
+                
+                # Set indices
+                sort_index = np.argsort(scene_agents[:,0])
+                agent_index = scene_data.index.get_level_values(0).to_numpy()
+                agent_index = sort_index[np.searchsorted(scene_agents[sort_index,0], agent_index)]
+                times_index = scene_data.index.get_level_values(1).to_numpy()
+                
+                # Set trajectories
+                trajectories = np.ones((len(scene_agents),scene.length_timesteps, 2), dtype = np.float32) * np.nan
+                trajectories[agent_index, times_index] = scene_data.to_numpy()
+                
+                # Adjust to map
+                trajectories -= np.array([[[min_x, min_y]]])
+                trajectories[...,1] *= -1
+                
+                # Get agent names
+                assert scene_agents[0,0] == 'ego'
+                Index = ['tar'] + ['v_' + str(i) for i in range(1, len(scene_agents))]
+                
+                # Set path and agent types
+                path = pd.Series(list(trajectories.astype(np.float32)), dtype = object, index = Index)
+                path = pd.Series(list(trajectories.astype(np.float32)), dtype = object, index = Index)
+                agent_types = pd.Series(scene_agents[:,1].astype('<U1'), index = Index)
+                
+                # Get timesteps
+                t = np.arange(scene.length_timesteps) * scene.dt
+                
+                # Set domain
+                domain = pd.Series(np.zeros(4, object), index = ['location', 'scene', 'image_id', 'splitting'])
+                domain.location = scene.env_name
+                domain.scene = scene.name 
+                domain.image_id = map_id
+                
+                # Get sample purpose
+                if scene.env_name in testing_env_names:
+                    domain.splitting = 'test'
+                else:
+                    domain.splitting = 'train'
+                
+                print('Number of agents: ' + str(len(path)))
+                self.num_samples += 1
+                self.Path.append(path)
+                self.Type_old.append(agent_types)
+                self.T.append(t)
+                self.Domain_old.append(domain) 
             
-            # Extract position data
-            scene_data = Cache.scene_data_df[['x', 'y']]
-            scene_data = scene_data.loc[scene_agents[:,0]]
-            
-            # Set indices
-            sort_index = np.argsort(scene_agents[:,0])
-            agent_index = scene_data.index.get_level_values(0).to_numpy()
-            agent_index = sort_index[np.searchsorted(scene_agents[sort_index,0], agent_index)]
-            times_index = scene_data.index.get_level_values(1).to_numpy()
-            
-            # Set trajectories
-            trajectories = np.ones((len(scene_agents),scene.length_timesteps, 2), dtype = np.float32) * np.nan
-            trajectories[agent_index, times_index] = scene_data.to_numpy()
-            
-            # Adjust to map
-            trajectories -= np.array([[[min_x, min_y]]])
-            trajectories[...,1] *= -1
-            
-            # Get agent names
-            assert scene_agents[0,0] == 'ego'
-            Index = ['tar'] + ['v_' + str(i) for i in range(1, len(scene_agents))]
-            
-            # Set path and agent types
-            path = pd.Series(list(trajectories), dtype = object, index = Index)
-            agent_types = pd.Series(scene_agents[:,1].astype('<U1'), index = Index)
-            
-            # Get timesteps
-            t = np.arange(scene.length_timesteps) * scene.dt
-            
-            # Set domain
-            domain = pd.Series(np.zeros(4, object), index = ['location', 'scene', 'image_id', 'splitting'])
-            domain.location = scene.env_name
-            domain.scene = scene.name 
-            domain.image_id = map_id
-            
-            # Get sample purpose
-            if scene.env_name in testing_env_names:
-                domain.splitting = 'test'
-            else:
-                domain.splitting = 'train'
-            
-            print('Number of agents: ' + str(len(path)))
-            self.num_samples += 1
-            self.Path.append(path)
-            self.Type_old.append(agent_types)
-            self.T.append(t)
-            self.Domain_old.append(domain)
+            del dataset, scene_data, Cache, map_api
             
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
-        self.Domain_old = pd.DataFrame(self.Domain_old)  
-        
-        # Get images 
-        self.Images = pd.DataFrame(np.zeros((len(map_api.maps), 2), object), 
-                                   index = list(map_api.maps.keys()),
-                                   columns = ['Image', 'Target_MeterPerPx'])
-        
-        # set image resolution
-        px_per_meter = 2
-        self.Images.Target_MeterPerPx = 1 / px_per_meter
-        
-        # cycle through images
-        for map_key in self.Images.index:
-            img = map_api.maps[map_key].rasterize(px_per_meter)
-            
-            # Get less memory intensive saving form
-            if (img.dtype != np.unit8) and (img.max() <= 1.0): 
-                img *= 255.0
-                img = img.astype(np.uint8)
-            self.Images.Image.loc[map_key] = img       
+        self.Domain_old = pd.DataFrame(self.Domain_old)      
 
-        # # deletet cached data
-        # shutil.rmtree(cache_path)
+        # delete cached data
+        shutil.rmtree(cache_path)
+
+        print('Finished extraction, start saving data.')
 
 
         
