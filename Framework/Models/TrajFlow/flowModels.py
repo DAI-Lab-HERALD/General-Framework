@@ -313,9 +313,25 @@ class FloMo_I(FloMo):
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         for t in self.t_unique:
             t_in = T == t
+
+            # create mask for entries that start with NaN        
+            first_entry_nan = torch.isnan(x_in[:,:,0,:]).any(axis=2)
             
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
-            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
+            x_enc[t_in & ~first_entry_nan], _ = self.obs_encoder[t_key](x_in[t_in & ~first_entry_nan])
+
+
+
+            nan_mask = torch.isnan(x_in[t_in & first_entry_nan])
+            # Find the indices of the last non-NaN values along axis 2 (T axis)
+            last_nan_indices = (nan_mask.cumsum(dim=1) == nan_mask.sum(dim=1, keepdim=True)).to(torch.float32).argmax(dim=1)
+
+            # Extract the corresponding values
+            for i in range(len(last_nan_indices)):
+                x_enc[t_in & first_entry_nan][i, last_nan_indices[i,0]+1:], _ = self.obs_encoder[t_key](x_in[t_in & first_entry_nan][i,last_nan_indices[i,0]+1:,:])
+            
+            
+            
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
             
@@ -677,22 +693,33 @@ class TrajFlow_I(TrajFlow):
         if self.rel_coords:
             x_in = x[...,1:,:] - x[...,:-1,:]
         
+        
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         for t in self.t_unique:
             t_in = T == t
+
+            # create mask for entries that start with NaN        
+            first_entry_nan = torch.isnan(x_in[:,:,0,:]).any(axis=2)
             
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
-            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
+            x_enc[t_in & ~first_entry_nan], _ = self.obs_encoder[t_key](x_in[t_in & ~first_entry_nan])
+
+
+
+            nan_mask = torch.isnan(x_in[t_in & first_entry_nan])
+            # Find the indices of the last non-NaN values along axis 2 (T axis)
+            last_nan_indices = (nan_mask.cumsum(dim=1) == nan_mask.sum(dim=1, keepdim=True)).to(torch.float32).argmax(dim=1)
+
+            # Extract the corresponding values
+            for i in range(len(last_nan_indices)):
+                x_enc[t_in & first_entry_nan][i, last_nan_indices[i,0]+1:], _ = self.obs_encoder[t_key](x_in[t_in & first_entry_nan][i,last_nan_indices[i,0]+1:,:])
+            
+            
+            
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
             
-            
-        
-        # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
-        # To prevent sudden fluctuation
-        # x_enc     = x_enc[...,-1,:]
-        # Obtain last non-nan entry for each agent
         non_nan_mask = ~torch.isnan(x_enc)
 
         # Find the indices of the last non-NaN values along axis 2 (T axis)
@@ -702,6 +729,8 @@ class TrajFlow_I(TrajFlow):
         last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
         x_enc = last_non_nan_values.squeeze(2)
 
+        # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
+        # To prevent sudden fluctuation
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
