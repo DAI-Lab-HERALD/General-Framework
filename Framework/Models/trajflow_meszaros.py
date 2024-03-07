@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import random
 import scipy
-from TrajFlow.flowModels import TrajFlow_I, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder, Future_Decoder_Control, Future_Seq2Seq_Control
+from TrajFlow.flowModels import TrajFlow, Future_Encoder, Future_Decoder, Future_Seq2Seq, Scene_Encoder, Future_Decoder_Control, Future_Seq2Seq_Control
 import pickle
 import os
 
@@ -293,7 +293,7 @@ class trajflow_meszaros(model_template):
 
 
 
-                flow_dist_futMdl = TrajFlow_I(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
+                flow_dist_futMdl = TrajFlow(pred_steps=self.num_timesteps_out, alpha=self.alpha, beta=self.beta_noise, 
                                             gamma=self.gamma_noise, norm_rotation=True, device=self.device, 
                                             obs_encoding_size=obs_encoding_size, scene_encoding_size=scene_encoding_size, 
                                             interactions=self.interactions ,n_layers_rnn=n_layers_rnn, es_rnn=hs_rnn, hs_rnn=hs_rnn, T_all=T_all)
@@ -472,7 +472,7 @@ class trajflow_meszaros(model_template):
         else:
             scene_encoder = None
         # TODO: Set the gnn parameters
-        flow_dist = TrajFlow_I(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
+        flow_dist = TrajFlow(pred_steps=self.fut_enc_sz, alpha=self.alpha, beta=self.beta_noise, gamma=self.gamma_noise, 
                                scene_encoder=scene_encoder, norm_rotation=self.norm_rotation, device=self.device,
                                obs_encoding_size=self.obs_encoding_size, scene_encoding_size=self.scene_encoding_size, n_layers_rnn=self.n_layers_rnn, 
                                es_rnn=self.hs_rnn, hs_rnn=self.hs_rnn, use_map=use_map, 
