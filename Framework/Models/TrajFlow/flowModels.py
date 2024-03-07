@@ -320,6 +320,9 @@ class FloMo_I(FloMo):
         step_ind_adjust = first_entry_step.unsqueeze(-1)
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
+
+        # Replace NaN values with 0
+        x_in[torch.isnan(x_in)] = 0
         for t in self.t_unique:
             t_in = T == t
  
@@ -690,6 +693,9 @@ class TrajFlow_I(TrajFlow):
 
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
+
+        # Replace NaN values with 0
+        x_in[torch.isnan(x_in)] = 0
         for t in self.t_unique:
             t_in = T == t
  
@@ -704,6 +710,9 @@ class TrajFlow_I(TrajFlow):
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsqueeze(2),(1,1,x_enc.shape[-1])).unsqueeze(2))
+        x_enc = x_enc.squeeze(2)
+        
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
