@@ -372,7 +372,8 @@ class FloMo_I(FloMo):
         
         # Get distance between all agents at prediction time
         # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
-        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
+        # Scale the relative positions using tanh to get values between -1 and 1
+        D = torch.tanh(x[:,None,:,-1] - x[:,:,None,-1]) # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
@@ -750,7 +751,8 @@ class TrajFlow_I(TrajFlow):
         
         # Get distance between all agents at prediction time
         # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
-        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
+        # Scale the relative positions using tanh to get values between -1 and 1
+        D = torch.tanh(x[:,None,:,-1] - x[:,:,None,-1]) # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
