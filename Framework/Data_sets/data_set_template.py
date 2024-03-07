@@ -1020,7 +1020,7 @@ class data_set_template():
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
 
                             # Guarantee that the input path does contain only nan value
-                            if not (ind_start < self.num_timesteps_in_real and self.num_timesteps_in_real <= ind_last):
+                            if not (ind_start < self.num_timesteps_in_real - 1 and self.num_timesteps_in_real <= ind_last):
                                 input_path[agent]         = np.nan
                                 output_path[agent]        = np.nan
                                 recorded_positions[agent] = np.nan
