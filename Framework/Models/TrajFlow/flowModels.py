@@ -316,17 +316,9 @@ class FloMo_I(FloMo):
         
         # create mask for entries that start with NaN        
         first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
-        sample_ind, agent_ind, step_ind = torch.meshgrid(torch.ones(x_in.shape[:3], device = self.device))
+        sample_ind, agent_ind, step_ind = torch.meshgrid(x_in.shape[:3], device = self.device)
         step_ind_adjust = first_entry_step.unsqueeze(-1)
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
-        x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
-        for t in self.t_unique:
-            t_in = T == t
- 
-            t_key = str(int(t.detach().cpu().numpy().astype(int)))
-            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
-            # target agent is always first agent
-            x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
             t_in = T == t
@@ -693,8 +685,9 @@ class TrajFlow_I(TrajFlow):
         
         # create mask for entries that start with NaN        
         first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
-        sample_ind, agent_ind, step_ind = torch.meshgrid(torch.ones(x_in.shape[:3], device = self.device))
+        sample_ind, agent_ind, step_ind = torch.meshgrid(x_in.shape[:3], device = self.device)
         step_ind_adjust = first_entry_step.unsqueeze(-1)
+
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
