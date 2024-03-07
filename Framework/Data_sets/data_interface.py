@@ -244,7 +244,12 @@ class data_interface(object):
             pat = 'A'
         else:
             pat = self.agents_to_predict[0]
-        
+            
+        # Check if extrapolation is not allowed
+        if not self.allow_extrapolation:
+            extra_string = '--No_Extrap'
+        else:
+            extra_string = ''
         
         self.data_file = (list(self.Datasets.values())[0].path + os.sep + 'Results' + os.sep +
                           self.get_name()['print'] + os.sep +
@@ -257,8 +262,7 @@ class data_interface(object):
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(num).zfill(3) + '_agents_' + pat +
-                          '.npy')
+                          '--max_' + str(num).zfill(3) + '_agents_' + pat + extra_string + '.npy')
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
         self.set_data_file(dt, num_timesteps_in, num_timesteps_out)

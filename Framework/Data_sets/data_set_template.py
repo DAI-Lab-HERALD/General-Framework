@@ -647,26 +647,8 @@ class data_set_template():
             self.max_num_agents = None
         self.prediction_time_set = True
     
-    
-    def get_data(self, dt, num_timesteps_in, num_timesteps_out):
-        '''
-        Parameters
-        ----------
 
-
-        Returns
-        -------
-        input and output data
-
-        '''
-        # Get the current time step size
-        assert self.prediction_time_set, "No prediction time was set."
-        self.dt = dt
-        (self.num_timesteps_in_real, 
-         self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
-        (self.num_timesteps_out_real, 
-         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
-
+    def data_params_to_string(self):
         # create possible file name
         t0_type_file_name = {'start':            'start',
                              'all':              'all_p',
@@ -698,9 +680,15 @@ class data_set_template():
             pat = self.agents_to_predict[0]
 
 
+        # Check if extrapolation is not allowed
+        if not self.allow_extrapolation:
+            extra_string = '--No_Extrap'
+        else:
+            extra_string = ''
+
+
         folder = self.path + os.sep + 'Results' + os.sep + self.get_name()['print'] + os.sep + 'Data' + os.sep
 
-        pert_string = ''
         if self.is_perturbed:
             # Check if there is a .xlsx document for perturbations
             Pert_save_doc = (folder +
@@ -737,18 +725,46 @@ class data_set_template():
             Pert_df.to_excel(Pert_save_doc)
 
             pert_string = '--Pertubation_' + str(int(pert_index)).zfill(3)
-            
+        else:
+            pert_string = ''
+
         # Assemble full data_file name    
-        self.data_file = (folder +
-                          self.get_name()['file'] +
-                          '--t0=' + t0_type_name +
-                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
-                          '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
-                          'm' + str(self.num_timesteps_in_need).zfill(2) +
-                          '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
-                          'm' + str(self.num_timesteps_out_need).zfill(2) +
-                          '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(num).zfill(3) + '_agents_' + pat + pert_string + '.npy')
+        data_file = (folder + self.get_name()['file'] +
+                     '--t0=' + t0_type_name +
+                     '--dt=' + '{:0.2f}'.format(max(0, min(9.99, self.dt))).zfill(4) +
+                     '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
+                     'm' + str(self.num_timesteps_in_need).zfill(2) +
+                     '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
+                     'm' + str(self.num_timesteps_out_need).zfill(2) +
+                     '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
+                     '--max_' + str(num).zfill(3) + '_agents_' + pat +
+                     extra_string + pert_string + '.npy')
+        
+        return data_file
+
+
+    
+    def get_data(self, dt, num_timesteps_in, num_timesteps_out):
+        '''
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        input and output data
+
+        '''
+        # Get the current time step size
+        assert self.prediction_time_set, "No prediction time was set."
+        self.dt = dt
+        (self.num_timesteps_in_real, 
+         self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
+        (self.num_timesteps_out_real, 
+         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
+
+        self.data_file = self.data_params_to_string()
+        
 
         # check if same data set has already been done in the same way
         if os.path.isfile(self.data_file):
@@ -958,11 +974,6 @@ class data_set_template():
                             available_pos = np.isfinite(helper_path[agent]).all(-1)
                             assert available_pos.sum() > 1 
                             
-                            ind_start = np.where(available_pos)[0][0]
-                            ind_last = np.where(available_pos)[0][-1]
-                            
-                            available_pos[ind_start:ind_last] = True
-                            
                             recorded_positions[agent] = available_pos
                         else:
                             recorded_positions[agent] = np.nan
@@ -988,7 +999,15 @@ class data_set_template():
                                 recorded_positions[agent] = np.zeros(len(helper_path[agent]), dtype = bool)
                             else:
                                 if not self.allow_extrapolation:
-                                    helper_path[agent][~recorded_positions[agent]] = np.nan
+                                    available_pos = recorded_positions[agent]
+
+                                    # Do not delete interpolated data
+                                    ind_start = np.where(available_pos)[0][0]
+                                    ind_last = np.where(available_pos)[0][-1]
+                                    
+                                    available_pos[ind_start:ind_last] = True
+
+                                    helper_path[agent][~available_pos] = np.nan
                             
                             
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
@@ -1048,7 +1067,6 @@ class data_set_template():
             # Apply perturbation if necessary
             if self.is_perturbed:
                 self = self.Perturbation.perturb(self)
-
 
             save_data = np.array([self.Input_prediction,
                                   self.Input_path,
