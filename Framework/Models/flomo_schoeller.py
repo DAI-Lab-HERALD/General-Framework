@@ -231,8 +231,6 @@ class flomo_schoeller(model_template):
 
                     loss = -torch.mean(logprob) # NLL
                     losses_epoch.append(loss.item())
-
-                    print(loss.item())
                     
                     loss.backward()
                     optimizer.step()
@@ -277,7 +275,7 @@ class flomo_schoeller(model_template):
                         print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))
                         break     
                 
-                if step % 1 == 0:
+                if step % 10 == 0:
 
                     print('step: {}, loss: {}'.format(step, np.mean(losses_epoch)))
                     print('step: {}, val_loss: {}'.format(step, np.mean(val_losses_epoch)))

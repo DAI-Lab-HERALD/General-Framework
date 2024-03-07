@@ -318,6 +318,9 @@ class FloMo_I(FloMo):
         step_ind_adjust = first_entry_step.flatten().repeat_interleave(x_in.shape[2])
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
+
+        # Replace NaN values with 0
+        x_in[torch.isnan(x_in)] = 0
         for t in self.t_unique:
             t_in = T == t
  
@@ -326,17 +329,18 @@ class FloMo_I(FloMo):
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
-        non_nan_mask = ~torch.isnan(x_enc)
+        # non_nan_mask = ~torch.isnan(x_enc)
 
         # Find the indices of the last non-NaN values along axis 2 (T axis)
-        last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
+        # last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
 
         # Extract the corresponding values
-        last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
+        # last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        x_enc = last_non_nan_values.squeeze(2)
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsqueeze(2),(1,1,x_enc.shape[-1])).unsqueeze(2))
+        x_enc = x_enc.squeeze(2)
         
         x_tar_enc = x_tar_enc[...,-1,:]
         
@@ -373,7 +377,7 @@ class FloMo_I(FloMo):
         # Get distance between all agents at prediction time
         # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
         # Scale the relative positions using tanh to get values between -1 and 1
-        D = torch.tanh(x[:,None,:,-1] - x[:,:,None,-1]) # shape: num_samples x max_num_agents x max_num_agents x 2
+        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
@@ -695,6 +699,9 @@ class TrajFlow_I(TrajFlow):
         step_ind_adjust = first_entry_step.flatten().repeat_interleave(x_in.shape[2])
         # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
+
+        # Replace NaN values with 0
+        x_in[torch.isnan(x_in)] = 0
         for t in self.t_unique:
             t_in = T == t
  
@@ -703,20 +710,19 @@ class TrajFlow_I(TrajFlow):
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
-        non_nan_mask = ~torch.isnan(x_enc)
+        # non_nan_mask = ~torch.isnan(x_enc)
 
         # Find the indices of the last non-NaN values along axis 2 (T axis)
-        last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
+        # last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
 
         # Extract the corresponding values
-        last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
+        # last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        x_enc = last_non_nan_values.squeeze(2)
-
-        # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
-        # To prevent sudden fluctuation
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsqueeze(2),(1,1,x_enc.shape[-1])).unsqueeze(2))
+        x_enc = x_enc.squeeze(2)
+        
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
@@ -752,7 +758,7 @@ class TrajFlow_I(TrajFlow):
         # Get distance between all agents at prediction time
         # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
         # Scale the relative positions using tanh to get values between -1 and 1
-        D = torch.tanh(x[:,None,:,-1] - x[:,:,None,-1]) # shape: num_samples x max_num_agents x max_num_agents x 2
+        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
