@@ -102,32 +102,7 @@ class trajflow_meszaros(model_template):
         if not('interactions' in self.model_kwargs.keys()):
             self.model_kwargs['interactions'] = True
 
-    
-    def setup_method(self):        
-        # set random seeds
-        self.define_default_kwargs()
-        seed = self.model_kwargs['seed']
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
 
-        self.batch_size = self.model_kwargs['batch_size']
-        
-        # Required attributes of the model
-        self.min_t_O_train = self.num_timesteps_out
-        self.max_t_O_train = 100
-        self.predict_single_agent = True
-        self.can_use_map = True
-        # If self.can_use_map, the following is also required
-        self.target_width = 128#257
-        self.target_height = 128 #156
-        self.grayscale = True
-        
-        self.norm_rotation = True
-        
-        
         self.hs_rnn = self.model_kwargs['hs_rnn']
         self.n_layers_rnn = self.model_kwargs['n_layers_rnn']
         self.fut_enc_sz = self.model_kwargs['fut_enc_sz'] 
@@ -153,9 +128,6 @@ class trajflow_meszaros(model_template):
         self.flow_lr_decay = self.model_kwargs['flow_lr_decay']
         self.flow_wd = self.model_kwargs['flow_wd']
 
-        self.std_pos_ped = 1
-        self.std_pos_veh = 1 
-
         self.vary_input_length = self.model_kwargs['vary_input_length']
         self.scale_AE = self.model_kwargs['scale_AE']
         self.scale_NF = self.model_kwargs['scale_NF']
@@ -165,6 +137,34 @@ class trajflow_meszaros(model_template):
         self.decoder_type = self.model_kwargs["decoder_type"] 
 
         self.interactions = self.model_kwargs['interactions']
+
+    
+    def setup_method(self):        
+        # set random seeds
+        self.define_default_kwargs()
+        seed = self.model_kwargs['seed']
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+        self.batch_size = self.model_kwargs['batch_size']
+        
+        # Required attributes of the model
+        self.min_t_O_train = self.num_timesteps_out
+        self.max_t_O_train = 100
+        self.predict_single_agent = True
+        self.can_use_map = True
+        # If self.can_use_map, the following is also required
+        self.target_width = 257
+        self.target_height = 156
+        self.grayscale = True
+        
+        self.norm_rotation = True
+
+        self.std_pos_ped = 1
+        self.std_pos_veh = 1 
         
     
     def extract_batch_data(self, X, T, Y = None, img = None):
@@ -776,8 +776,8 @@ class trajflow_meszaros(model_template):
         if self.model_kwargs['pos_loss']:
             kwargs_str += '_posLoss'
 
-        if self.model_kwargs['interactions']:
-            kwargs_str += '_interactions'
+        if not self.model_kwargs['interactions']:
+            kwargs_str += '_NoInteractions'
 
         model_str = 'TF_' + kwargs_str
         

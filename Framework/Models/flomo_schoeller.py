@@ -63,6 +63,22 @@ class flomo_schoeller(model_template):
             self.model_kwargs['interactions'] = True
 
         
+        self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
+        self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
+
+        self.beta_noise = self.model_kwargs['beta_noise']
+        self.gamma_noise = self.model_kwargs['gamma_noise']
+        
+        self.alpha = self.model_kwargs['alpha']
+        self.s_min = self.model_kwargs['s_min']
+        self.s_max = self.model_kwargs['s_max']
+        self.sigma = self.model_kwargs['sigma']
+
+        self.lr_decay = self.model_kwargs['lr_decay']
+
+        self.interactions = self.model_kwargs['interactions']
+
+        
     
     def setup_method(self):
         # set random seeds
@@ -91,21 +107,6 @@ class flomo_schoeller(model_template):
         self.hs_rnn = 16
         self.n_layers_rnn = 3
         self.fut_enc_sz = 4
-
-        self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
-        self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
-
-        self.beta_noise = self.model_kwargs['beta_noise']
-        self.gamma_noise = self.model_kwargs['gamma_noise']
-        
-        self.alpha = self.model_kwargs['alpha']
-        self.s_min = self.model_kwargs['s_min']
-        self.s_max = self.model_kwargs['s_max']
-        self.sigma = self.model_kwargs['sigma']
-
-        self.lr_decay = self.model_kwargs['lr_decay']
-
-        self.interactions = self.model_kwargs['interactions']
         
 
         self.flow_epochs = 400
@@ -383,8 +384,8 @@ class flomo_schoeller(model_template):
         if self.model_kwargs['lr_decay'] != 1.0:
             kwargs_str += '_lrDec' + str(self.model_kwargs['lr_decay'])
 
-        if self.model_kwargs['interactions']:
-            kwargs_str += '_interactions'
+        if not self.model_kwargs['interactions']:
+            kwargs_str += '_NoInteractions'
                      
         model_str = 'FM_' + kwargs_str
         

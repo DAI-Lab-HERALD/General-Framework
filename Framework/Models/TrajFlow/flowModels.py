@@ -319,11 +319,20 @@ class FloMo_I(FloMo):
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
             
-            
-        
+        non_nan_mask = ~torch.isnan(x_enc)
+
+        # Find the indices of the last non-NaN values along axis 2 (T axis)
+        last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
+
+        # Extract the corresponding values
+        last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
+        x_enc = last_non_nan_values.squeeze(2)
+
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        x_enc     = x_enc[...,-1,:]
+        # x_enc     = x_enc[...,-1,:]
+        # Obtain last non-nan entry for each agent
+        
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
@@ -682,7 +691,17 @@ class TrajFlow_I(TrajFlow):
         
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        x_enc     = x_enc[...,-1,:]
+        # x_enc     = x_enc[...,-1,:]
+        # Obtain last non-nan entry for each agent
+        non_nan_mask = ~torch.isnan(x_enc)
+
+        # Find the indices of the last non-NaN values along axis 2 (T axis)
+        last_non_nan_indices = (non_nan_mask.cumsum(dim=2) == non_nan_mask.sum(dim=2, keepdim=True)).to(torch.float32).argmax(dim=2)
+
+        # Extract the corresponding values
+        last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
+        x_enc = last_non_nan_values.squeeze(2)
+
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
