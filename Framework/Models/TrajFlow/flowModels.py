@@ -216,7 +216,7 @@ class FloMo(nn.Module):
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
         # Extract the corresponding values
-        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsequeeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsqueeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
         x_enc = x_enc.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
@@ -488,7 +488,7 @@ class TrajFlow(nn.Module):
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
         # Extract the corresponding values
-        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsequeeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsqueeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
         x_enc = x_enc.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
