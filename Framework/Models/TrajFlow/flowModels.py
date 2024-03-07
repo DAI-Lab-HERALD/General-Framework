@@ -278,7 +278,7 @@ class FloMo_I(FloMo):
                                               hs=self.hs_rnn, nl=self.n_layers_rnn, device=device)
             self.tar_obs_encoder[t_key].to(device)
         
-        self.edge_dim_gnn = len(self.t_unique) * 2 + 2
+        self.edge_dim_gnn = len(self.t_unique) * 2 + 2 # 2 times number of classes for one hot encoding of agent type, 2 for distance
         
         self.GNNencoder = SocialInterGNN(num_layers=n_layers_gnn, emb_dim=es_gnn,
                                          in_dim=self.obs_encoding_size, edge_dim=self.edge_dim_gnn,
@@ -315,9 +315,18 @@ class FloMo_I(FloMo):
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         
         # create mask for entries that start with NaN        
-        first_entry_step = x_in.isfinite.any(dim=-1).argmax(dim = -1) # Batch_size * num_agents
+        first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
         sample_ind, agent_ind, step_ind = torch.meshgrid(torch.ones(x_in.shape[:3], device = self.device))
         step_ind_adjust = first_entry_step.unsqueeze(-1)
+        # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
+        x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
+        for t in self.t_unique:
+            t_in = T == t
+ 
+            t_key = str(int(t.detach().cpu().numpy().astype(int)))
+            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
+            # target agent is always first agent
+            x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
             t_in = T == t
@@ -328,13 +337,11 @@ class FloMo_I(FloMo):
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
         # Extract the corresponding values
-        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - first_entry_step)
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsequeeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
+        x_enc = x_enc.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        # x_enc     = x_enc[...,-1,:]
-        # Obtain last non-nan entry for each agent
-        
         x_tar_enc = x_tar_enc[...,-1,:]
         
         # Define sizes
@@ -649,7 +656,7 @@ class TrajFlow_I(TrajFlow):
         self.obs_encoder     = nn.ModuleDict(self.obs_encoder)
         self.tar_obs_encoder = nn.ModuleDict(self.tar_obs_encoder)
         
-        self.edge_dim_gnn = len(self.t_unique) * 2 + 2
+        self.edge_dim_gnn = len(self.t_unique) * 2 + 2 # 2 times number of classes for one hot encoding of agent type, 2 for distance
         
         self.GNNencoder = SocialInterGNN(num_layers=n_layers_gnn, emb_dim=es_gnn,
                                          in_dim=self.obs_encoding_size, edge_dim=self.edge_dim_gnn,
@@ -685,9 +692,10 @@ class TrajFlow_I(TrajFlow):
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         
         # create mask for entries that start with NaN        
-        first_entry_step = x_in.isfinite.any(dim=-1).argmax(dim = -1) # Batch_size * num_agents
+        first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
         sample_ind, agent_ind, step_ind = torch.meshgrid(torch.ones(x_in.shape[:3], device = self.device))
         step_ind_adjust = first_entry_step.unsqueeze(-1)
+        # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
         x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
             t_in = T == t
@@ -698,7 +706,8 @@ class TrajFlow_I(TrajFlow):
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
  
         # Extract the corresponding values
-        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - first_entry_step)
+        x_enc = torch.gather(x_enc, 2, x_enc.shape[2] - 1 - torch.tile(first_entry_step.unsequeeze(-1).unsqueeze(-1), (1,1,1,x_enc.shape[3])))
+        x_enc = x_enc.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
