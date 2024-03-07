@@ -278,7 +278,7 @@ class FloMo_I(FloMo):
                                               hs=self.hs_rnn, nl=self.n_layers_rnn, device=device)
             self.tar_obs_encoder[t_key].to(device)
         
-        self.edge_dim_gnn = len(self.t_unique) * 2 + 1
+        self.edge_dim_gnn = len(self.t_unique) * 2 + 2 # 2 times number of classes for one hot encoding of agent type, 2 for distance
         
         self.GNNencoder = SocialInterGNN(num_layers=n_layers_gnn, emb_dim=es_gnn,
                                          in_dim=self.obs_encoding_size, edge_dim=self.edge_dim_gnn,
@@ -311,30 +311,21 @@ class FloMo_I(FloMo):
         
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
+        
+        # create mask for entries that start with NaN        
+        first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
+        sample_ind, agent_ind, step_ind = torch.where(torch.ones(x_in.shape[:3], dtype = torch.bool, device = self.device))
+        step_ind_adjust = first_entry_step.flatten().repeat_interleave(x_in.shape[2])
+        # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
+        x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
             t_in = T == t
-
-            # create mask for entries that start with NaN        
-            first_entry_nan = torch.isnan(x_in[:,:,0,:]).any(axis=2)
-            
+ 
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
-            x_enc[t_in & ~first_entry_nan], _ = self.obs_encoder[t_key](x_in[t_in & ~first_entry_nan])
-
-
-
-            nan_mask = torch.isnan(x_in[t_in & first_entry_nan])
-            # Find the indices of the last non-NaN values along axis 2 (T axis)
-            last_nan_indices = (nan_mask.cumsum(dim=1) == nan_mask.sum(dim=1, keepdim=True)).to(torch.float32).argmax(dim=1)
-
-            # Extract the corresponding values
-            for i in range(len(last_nan_indices)):
-                x_enc[t_in & first_entry_nan][i, last_nan_indices[i,0]+1:], _ = self.obs_encoder[t_key](x_in[t_in & first_entry_nan][i,last_nan_indices[i,0]+1:,:])
-            
-            
-            
+            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
-            
+ 
         non_nan_mask = ~torch.isnan(x_enc)
 
         # Find the indices of the last non-NaN values along axis 2 (T axis)
@@ -342,12 +333,10 @@ class FloMo_I(FloMo):
 
         # Extract the corresponding values
         last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
-        x_enc = last_non_nan_values.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
         # To prevent sudden fluctuation
-        # x_enc     = x_enc[...,-1,:]
-        # Obtain last non-nan entry for each agent
+        x_enc = last_non_nan_values.squeeze(2)
         
         x_tar_enc = x_tar_enc[...,-1,:]
         
@@ -382,12 +371,14 @@ class FloMo_I(FloMo):
         class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
         
         # Get distance between all agents at prediction time
-        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
         # Concatenate edge information
-        graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
+        # graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
+        graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
         
         # Get encoded trajectory for each edge
         x_enc_existing_agents = x_enc[exist_sample2, exist_row2] # shape: num_nodes x enc_size
@@ -663,7 +654,7 @@ class TrajFlow_I(TrajFlow):
         self.obs_encoder     = nn.ModuleDict(self.obs_encoder)
         self.tar_obs_encoder = nn.ModuleDict(self.tar_obs_encoder)
         
-        self.edge_dim_gnn = len(self.t_unique) * 2 + 1
+        self.edge_dim_gnn = len(self.t_unique) * 2 + 2 # 2 times number of classes for one hot encoding of agent type, 2 for distance
         
         self.GNNencoder = SocialInterGNN(num_layers=n_layers_gnn, emb_dim=es_gnn,
                                          in_dim=self.obs_encoding_size, edge_dim=self.edge_dim_gnn,
@@ -696,30 +687,21 @@ class TrajFlow_I(TrajFlow):
         
         x_enc     = torch.zeros((x.shape[0], x.shape[1], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
         x_tar_enc = torch.zeros((x.shape[0], x.shape[2] - 1, self.obs_encoding_size), device = self.device)
+        
+        # create mask for entries that start with NaN        
+        first_entry_step = x_in.isfinite().all(-1).to(torch.float32).argmax(dim = -1) # Batch_size * num_agents
+        sample_ind, agent_ind, step_ind = torch.where(torch.ones(x_in.shape[:3], dtype = torch.bool, device = self.device))
+        step_ind_adjust = first_entry_step.flatten().repeat_interleave(x_in.shape[2])
+        # Roll the tensor to the left by step_ind_adjust so that the first non-NaN entry is at the first position
+        x_in[sample_ind, agent_ind, step_ind - step_ind_adjust] = x_in[sample_ind, agent_ind, step_ind]
         for t in self.t_unique:
             t_in = T == t
-
-            # create mask for entries that start with NaN        
-            first_entry_nan = torch.isnan(x_in[:,:,0,:]).any(axis=2)
-            
+ 
             t_key = str(int(t.detach().cpu().numpy().astype(int)))
-            x_enc[t_in & ~first_entry_nan], _ = self.obs_encoder[t_key](x_in[t_in & ~first_entry_nan])
-
-
-
-            nan_mask = torch.isnan(x_in[t_in & first_entry_nan])
-            # Find the indices of the last non-NaN values along axis 2 (T axis)
-            last_nan_indices = (nan_mask.cumsum(dim=1) == nan_mask.sum(dim=1, keepdim=True)).to(torch.float32).argmax(dim=1)
-
-            # Extract the corresponding values
-            for i in range(len(last_nan_indices)):
-                x_enc[t_in & first_entry_nan][i, last_nan_indices[i,0]+1:], _ = self.obs_encoder[t_key](x_in[t_in & first_entry_nan][i,last_nan_indices[i,0]+1:,:])
-            
-            
-            
+            x_enc[t_in], _ = self.obs_encoder[t_key](x_in[t_in])
             # target agent is always first agent
             x_tar_enc[t_in[:,0]], _ = self.tar_obs_encoder[t_key](x_in[[t_in[:,0],0]])
-            
+ 
         non_nan_mask = ~torch.isnan(x_enc)
 
         # Find the indices of the last non-NaN values along axis 2 (T axis)
@@ -727,6 +709,9 @@ class TrajFlow_I(TrajFlow):
 
         # Extract the corresponding values
         last_non_nan_values = torch.gather(x_enc, 2, last_non_nan_indices.unsqueeze(2)) 
+
+        # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
+        # To prevent sudden fluctuation
         x_enc = last_non_nan_values.squeeze(2)
 
         # TODO: Maybe put all the outputs here, and try to punish changes between timesteps
@@ -764,12 +749,14 @@ class TrajFlow_I(TrajFlow):
         class_in_out = T_one_hot_edge.permute(1,0,2).reshape(-1, 2 * len(self.t_unique)) # shape: num_edges x (2 num_classes)
         
         # Get distance between all agents at prediction time
-        D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        # D = torch.sqrt(torch.sum((x[:,None,:,-1] - x[:,:,None,-1]) ** 2, dim = -1)) # shape: num_samples x max_num_agents x max_num_agents
+        D = x[:,None,:,-1] - x[:,:,None,-1] # shape: num_samples x max_num_agents x max_num_agents x 2
         # Get distance along each edge
         dist_in_out = D[exist_sample3, exist_row3, exist_col3] # shape: num_edges
          
         # Concatenate edge information
-        graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
+        # graph_edge_attr = torch.cat((class_in_out, dist_in_out[:, None]), dim = 1)
+        graph_edge_attr = torch.cat((class_in_out, dist_in_out), dim = 1)
         
         # Get encoded trajectory for each edge
         x_enc_existing_agents = x_enc[exist_sample2, exist_row2] # shape: num_nodes x enc_size
