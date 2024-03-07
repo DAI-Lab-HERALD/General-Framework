@@ -996,22 +996,35 @@ class data_set_template():
                         if not isinstance(helper_path[agent], float):
                             # Reset extrapolated data if necessary
                             if agent not in recorded_positions.index:
+                                # This is the case if the agent was added in self.fill_empty_path
                                 recorded_positions[agent] = np.zeros(len(helper_path[agent]), dtype = bool)
+                                ind_start = 0
+                                ind_last = len(helper_T)
                             else:
                                 if not self.allow_extrapolation:
                                     available_pos = recorded_positions[agent]
 
                                     # Do not delete interpolated data
                                     ind_start = np.where(available_pos)[0][0]
-                                    ind_last = np.where(available_pos)[0][-1]
+                                    ind_last = np.where(available_pos)[0][-1] + 1
                                     
                                     available_pos[ind_start:ind_last] = True
 
                                     helper_path[agent][~available_pos] = np.nan
+                                else:
+                                    ind_start = 0
+                                    ind_last = len(helper_T)
                             
                             
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
+
+                            # Guarantee that the input path does contain only nan value
+                            if not (ind_start < self.num_timesteps_in_real and self.num_timesteps_in_real <= ind_last):
+                                input_path[agent]         = np.nan
+                                output_path[agent]        = np.nan
+                                recorded_positions[agent] = np.nan
+                                agent_types[agent] = float('nan')
                             
                         else:
                             input_path[agent]         = np.nan
