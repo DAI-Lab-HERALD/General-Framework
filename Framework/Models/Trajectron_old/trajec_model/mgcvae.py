@@ -557,7 +557,7 @@ class MultimodalGenerativeCVAE(object):
             # Used in Structural-RNN to combine edges as well.
             op_applied_edge_states_list = list()
             for neighbors_state in edge_states_list:
-                op_applied_edge_states_list.append(torch.sum(neighbors_state, dim=0))
+                op_applied_edge_states_list.append(torch.nansum(neighbors_state, dim=0))
             combined_neighbors = torch.stack(op_applied_edge_states_list, dim=0)
             if self.hyperparams['dynamic_edges'] == 'yes':
                 # Should now be (bs, time, 1)
@@ -571,7 +571,7 @@ class MultimodalGenerativeCVAE(object):
             # Used in NLP, e.g. max over word embeddings in a sentence.
             op_applied_edge_states_list = list()
             for neighbors_state in edge_states_list:
-                op_applied_edge_states_list.append(torch.max(neighbors_state, dim=0))
+                op_applied_edge_states_list.append(torch.nanmax(neighbors_state, dim=0))
             combined_neighbors = torch.stack(op_applied_edge_states_list, dim=0)
             if self.hyperparams['dynamic_edges'] == 'yes':
                 # Should now be (bs, time, 1)
@@ -585,7 +585,7 @@ class MultimodalGenerativeCVAE(object):
             # Used in NLP, e.g. mean over word embeddings in a sentence.
             op_applied_edge_states_list = list()
             for neighbors_state in edge_states_list:
-                op_applied_edge_states_list.append(torch.mean(neighbors_state, dim=0))
+                op_applied_edge_states_list.append(torch.nanmean(neighbors_state, dim=0))
             combined_neighbors = torch.stack(op_applied_edge_states_list, dim=0)
             if self.hyperparams['dynamic_edges'] == 'yes':
                 # Should now be (bs, time, 1)
@@ -597,6 +597,7 @@ class MultimodalGenerativeCVAE(object):
 
         joint_history = torch.cat([combined_neighbors, node_history_st], dim=-1)
 
+        first_history_indices = joint_history.isfinite().all(dim=-1).to(dtype = torch.float32).argmax(dim = -1)
         outputs, _ = run_lstm_on_variable_length_seqs(
             self.node_modules[DirectedEdge.get_str_from_types(*edge_type) + '/edge_encoder'],
             original_seqs=joint_history,

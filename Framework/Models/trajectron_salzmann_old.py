@@ -8,6 +8,7 @@ from Trajectron_old.trajec_model.trajectron import Trajectron
 from Trajectron_old.trajec_model.model_registrar import ModelRegistrar
 from Trajectron_old.environment.environment import Environment
 from attrdict import AttrDict
+import warnings
 
 class trajectron_salzmann_old(model_template):
     '''
@@ -281,16 +282,44 @@ class trajectron_salzmann_old(model_template):
         
         V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
         V = np.concatenate((V[...,[0],:], V), axis = -2)
+
+        overwrite_V = np.isnan(V).all(-1) & (~np.isnan(X_r).all(-1))
+        assert overwrite_V.sum(-1).max() <= 1, "Velocity interpolation failed."
+
+        if overwrite_V.any():
+            OV_s, OV_a, OV_t = np.where(overwrite_V)
+            OV_use = OV_t < V.shape[2] - 1
+            V[OV_s[OV_use], OV_a[OV_use], OV_t[OV_use]] = V[OV_s[OV_use], OV_a[OV_use], OV_t[OV_use] + 1]
+            V[OV_s[~OV_use], OV_a[~OV_use], OV_t[~OV_use]] = 0.0
        
         # get accelaration
         A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
         A = np.concatenate((A[...,[0],:], A), axis = -2)
+
+        overwrite_A = np.isnan(A).all(-1) & (~np.isnan(V).all(-1))
+        assert overwrite_A.sum(-1).max() <= 1, "Acceleration interpolation failed."
+
+        if overwrite_A.any():
+            OA_s, OA_a, OA_t = np.where(overwrite_A)
+            OA_use = OA_t < A.shape[2] - 1
+            A[OA_s[OA_use], OA_a[OA_use], OA_t[OA_use]] = A[OA_s[OA_use], OA_a[OA_use], OA_t[OA_use] + 1]
+            A[OA_s[~OA_use], OA_a[~OA_use], OA_t[~OA_use]] = 0.0
        
         H = np.arctan2(V[:,:,:,1], V[:,:,:,0])
         
-        DH = np.unwrap(H, axis = -1) 
+        DH = H.copy()
+        DH[np.isfinite(H)] = np.unwrap(H[np.isfinite(H)], axis = -1) 
         DH = (DH[:,:,1:] - DH[:,:,:-1]) / self.dt
         DH = np.concatenate((DH[...,[0]], DH), axis = -1)
+
+        overwrite_DH = np.isnan(DH) & (~np.isnan(H))
+        assert overwrite_DH.sum(-1).max() <= 1, "Heading change interpolation failed."
+
+        if overwrite_DH.any():
+            ODH_s, ODH_a, ODH_t = np.where(overwrite_DH)
+            ODH_use = ODH_t < DH.shape[2] - 1
+            DH[ODH_s[ODH_use], ODH_a[ODH_use], ODH_t[ODH_use]] = DH[ODH_s[ODH_use], ODH_a[ODH_use], ODH_t[ODH_use] + 1]
+            DH[ODH_s[~ODH_use], ODH_a[~ODH_use], ODH_t[~ODH_use]] = 0.0
        
         # final state S
         S = np.concatenate((X_r, V, A, H[...,np.newaxis], DH[...,np.newaxis]), axis = -1).astype(np.float32)
@@ -307,7 +336,10 @@ class trajectron_salzmann_old(model_template):
         S_st[~Ped_agents,:,6] /= self.std_hea_veh
         S_st[~Ped_agents,:,7] /= self.std_d_h_veh
         
-        D = np.min(np.sqrt(np.sum((X[:,[0]] - X) ** 2, axis = -1)), axis = - 1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category = RuntimeWarning)
+            D = np.nanmin(np.sqrt(np.sum((X[:,[0]] - X) ** 2, axis = -1)), axis = - 1)
+
         D_max = np.zeros_like(D)
         for i_sample in range(len(D)):
             for i_v in range(X.shape[1]):
@@ -347,8 +379,11 @@ class trajectron_salzmann_old(model_template):
             img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
         else:
             img_batch = None
-            
-        first_h = torch.from_numpy(np.zeros(len(X), np.int32))
+        
+        # Get the first non nan_indices
+        exists = np.isfinite(X[:,0]).all(-1)
+        first_h = np.argmax(exists, axis = -1)
+        first_h = torch.from_numpy(first_h.astype(np.int32))
         
         dim = DIM[node_type]
         S = torch.from_numpy(S[...,:dim]).to(dtype = torch.float32)
