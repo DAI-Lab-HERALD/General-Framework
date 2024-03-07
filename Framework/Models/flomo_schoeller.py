@@ -156,7 +156,7 @@ class flomo_schoeller(model_template):
         else:
             scene_encoder = None
         
-        flow_dist = FloMo_I(pred_steps=self.max_t_O_train, alpha=self.alpha, beta=self.beta_noise, 
+        flow_dist = FloMo(pred_steps=self.max_t_O_train, alpha=self.alpha, beta=self.beta_noise, 
                             gamma=self.gamma_noise, scene_encoder=scene_encoder, 
                             norm_rotation=self.norm_rotation, device=self.device,
                             obs_encoding_size=self.obs_encoding_size, 
