@@ -927,7 +927,7 @@ class RounD_round_about(data_set_template):
             Neighbor_type = Neighbor_type[:self.max_num_addable_agents]
         
         for i, pos in enumerate(Pos):
-            name = 'v_{}'.format(i + 4)
+            name = 'v_{}'.format(i + 5)
                 
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
