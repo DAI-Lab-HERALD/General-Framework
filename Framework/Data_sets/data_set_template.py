@@ -648,7 +648,13 @@ class data_set_template():
         self.prediction_time_set = True
     
 
-    def data_params_to_string(self):
+    def data_params_to_string(self, dt, num_timesteps_in, num_timesteps_out):
+        self.dt = dt
+        (self.num_timesteps_in_real, 
+         self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
+        (self.num_timesteps_out_real, 
+         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
+        
         # create possible file name
         t0_type_file_name = {'start':            'start',
                              'all':              'all_p',
@@ -694,7 +700,7 @@ class data_set_template():
             Pert_save_doc = (folder +
                           self.get_name()['file'] +
                           '--t0=' + t0_type_name +
-                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
+                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, self.dt))).zfill(4) +
                           '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
                           'm' + str(self.num_timesteps_in_need).zfill(2) +
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
@@ -703,24 +709,21 @@ class data_set_template():
                           '--max_' + str(num).zfill(3) + '_agents_' + pat + '--Perturbations.xlsx')
             
             if os.path.isfile(Pert_save_doc):
-                Pert_df = pd.read_excel(Pert_save_doc)
+                Pert_df = pd.read_excel(Pert_save_doc, index_col=0)
+                # Check if a perturbation if the same attack and name allready exists
+                previous_version = (Pert_df['attack'] == self.Perturbation.attack) & (Pert_df['name'] == self.Perturbation.name)
+
+                if previous_version.any() > 0:
+                    pert_index = np.min(Pert_df.index[previous_version])
+                else:
+                    pert_index = np.max(Pert_df.index) + 1
             else:
                 # Create the dataframe
                 Pert_df = pd.DataFrame(np.empty((0,2), str), columns=['attack', 'name'])
+                pert_index = 0
             
-            pert_attack = self.Perturbation.attack
-            pert_name = self.Perturbation.name
-
-            # Check if a perturbation if the same attack and name allready exists
-            previous_version = (Pert_df['attack'] == pert_attack) & (Pert_df['name'] == pert_name)
-
-            if len(previous_version) > 0:
-                pert_index = np.min(Pert_df.index[previous_version])
-            else:
-                pert_index = np.max(Pert_df.index) + 1
-                
-                Pert_df.attack.loc[pert_index] = pert_attack
-                Pert_df.name.loc[pert_index] = pert_name
+            pert = pd.Series([self.Perturbation.attack, self.Perturbation.name], index=Pert_df.columns, name=pert_index)
+            Pert_df.loc[pert_index] = pert
 
             Pert_df.to_excel(Pert_save_doc)
 
@@ -757,13 +760,8 @@ class data_set_template():
         '''
         # Get the current time step size
         assert self.prediction_time_set, "No prediction time was set."
-        self.dt = dt
-        (self.num_timesteps_in_real, 
-         self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
-        (self.num_timesteps_out_real, 
-         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
 
-        self.data_file = self.data_params_to_string()
+        self.data_file = self.data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
         
 
         # check if same data set has already been done in the same way
@@ -868,7 +866,12 @@ class data_set_template():
     
                     # Needed for later recovery of path data
                     domain['Path_ID'] = i_path
-                    domain['Scenario'] = self.get_name()['print']
+                    if self.is_perturbed:
+                        # Get perturbation index from file name
+                        pert_index = int(self.data_file.split('_')[-1].split('.')[0])
+                        domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + str(pert_index).zfill(3) + ')'
+                    else:
+                        domain['Scenario'] = self.get_name()['print']
                     domain['Scenario_type'] = self.scenario.get_name()
                     domain['t_0'] = t0
                     
@@ -1014,7 +1017,6 @@ class data_set_template():
                                 else:
                                     ind_start = 0
                                     ind_last = len(helper_T)
-                            
                             
                             input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
                             output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
