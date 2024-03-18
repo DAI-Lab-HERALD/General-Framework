@@ -932,7 +932,7 @@ class RounD_round_about(data_set_template):
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
                 if u.all():
-                    path[name] = pos
+                    path[name] = pos[1:]
                 else:
                     frames = frames_help[u]
                     p = pos[u].T
