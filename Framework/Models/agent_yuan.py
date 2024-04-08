@@ -44,7 +44,7 @@ class agent_yuan(model_template):
         # If self.can_use_map = True, the following is also required
         self.target_width = 180
         self.target_height = 100
-        self.grayscale = True
+        self.grayscale = False
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
         self.batch_size = 2 * total_memory / (len(self.input_names_train) ** 1.5 * (self.num_timesteps_out + self.num_timesteps_in))
@@ -147,6 +147,10 @@ class agent_yuan(model_template):
         self.model_vae = model_dict[model_id](cfg)
         
         cp_path = self.model_file[:-4] + '_vae.p'
+
+        # train vae model
+        epochs = cfg.yml_dict["num_epochs"]
+        print('')
         
         if not os.path.isfile(cp_path):
             
@@ -184,10 +188,6 @@ class agent_yuan(model_template):
                 
             self.model_vae.set_device(self.device)
             self.model_vae.train()
-            
-            # train vae model
-            epochs = cfg.yml_dict["num_epochs"]
-            print('')
             
             # Set up scheduler
             for epoch in range(1, start_epoch):
@@ -306,6 +306,11 @@ class agent_yuan(model_template):
         
         
         cp_path_dlow = self.model_file[:-4] + '_dlow.p'
+            
+        # train dlow model
+        epochs = cfg_d.yml_dict["num_epochs"]
+        print('')
+        
         if not os.path.isfile(cp_path_dlow):
             optimizer = optim.Adam(self.model_dlow.parameters(), lr=cfg_d.lr)
             scheduler_type = cfg_d.get('lr_scheduler', 'linear')
@@ -340,10 +345,6 @@ class agent_yuan(model_template):
                 
             self.model_dlow.set_device(self.device)
             self.model_dlow.train()
-            
-            # train dlow model
-            epochs = cfg_d.yml_dict["num_epochs"]
-            print('')
             
             # Set up scheduler
             for epoch in range(1, start_epoch):

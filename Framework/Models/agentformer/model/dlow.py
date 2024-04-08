@@ -112,7 +112,9 @@ class DLow(nn.Module):
     def main(self, mean=False, need_weights=False, sample_num = None):
         pred_model = self.pred_model[0]
         if hasattr(pred_model, 'use_map') and pred_model.use_map:
-            Maps = self.data['agent_maps'].reshape(-1, 3, 100,100)
+            assert pred_model.map_encoder.model.convs[0].in_channels == self.data['agent_maps'].shape[-3]
+
+            Maps = self.data['agent_maps'].reshape(-1, self.cfg.yml_dict.map_encoder['map_channels'], 100,100)
             D_maps = pred_model.map_encoder(Maps)
             self.data['map_enc'] = D_maps.reshape(self.data['batch_size'],-1,D_maps.shape[1])
         pred_model.context_encoder(self.data)
