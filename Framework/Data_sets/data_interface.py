@@ -46,7 +46,7 @@ class data_interface(object):
                 assert 'attack' in perturbation.keys(), "Perturbation attack type is missing (required key: 'attack')."
 
                 # TODO: For further methods, check 
-                if perturbation['attack'] == 'Adverserial':
+                if perturbation['attack'] == 'Adversarial':
                     perturbation['exp_parameters'] = parameters
                 
                 # Get perturbation type
@@ -63,11 +63,6 @@ class data_interface(object):
 
             else:
                 Perturbation = None
-
-
-
-
-
             
             data_set_name = data_dict['scenario']
             t0_type       = data_dict['t0_type']
@@ -100,7 +95,15 @@ class data_interface(object):
                 latex_name = latex_name[6:-1]
                 
             self.Latex_names.append(latex_name) 
-            self.Datasets[data_set.get_name()['print']] = data_set
+
+            data_set_name = data_set.get_name()['print']
+            if data_set.is_perturbed:
+                # Get perturbation index from filename
+                file_name = data_set.data_params_to_string(0.1, 10, 10)
+                pert_index = int(file_name.split('_')[-1].split('.')[0])
+                data_set_name += ' (Perturbed ' + str(pert_index) + ')'
+
+            self.Datasets[data_set_name] = data_set
             
         self.single_dataset = len(self.Datasets.keys()) <= 1    
         
@@ -218,51 +221,81 @@ class data_interface(object):
     
     def set_data_file(self, dt, num_timesteps_in, num_timesteps_out):
         (self.num_timesteps_in_real, 
-         self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
+        self.num_timesteps_in_need)  = self.determine_required_timesteps(num_timesteps_in)
         (self.num_timesteps_out_real, 
-         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
-        
-        t0_type_name_addon = '_'
-        if self.enforce_prediction_time:
-            t0_type_name_addon += 's' # s for severe
+        self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
+        if self.single_dataset:
+            self.data_file = list(self.Datasets.values())[0].data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
         else:
-            t0_type_name_addon += 'l' # l for lax
+            # Get data_file from every constituent dataset
+
+            self.data_file = (list(self.Datasets.values())[0].path + os.sep + 
+                              'Results' + os.sep +
+                              self.get_name()['print'] + os.sep +
+                              'Data' + os.sep + self.get_name()['file'])
+
+            Data_files = []
+            max_len = 0
+            for data_set in self.Datasets.values():
+                data_file = data_set.data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
+                Data_files.append(data_file.split(os.sep)[-1])
+                max_len = max(max_len, len(data_file.split('--')))
             
-        if self.enforce_num_timesteps_out:
-            t0_type_name_addon += 's'
-        else:
-            t0_type_name_addon += 'l'
-        
-        if self.max_num_agents is None:
-            num = 0 
-        else:
-            num = self.max_num_agents
-        
-        if self.agents_to_predict == 'predefined':
-            pat = '0'
-        elif self.agents_to_predict == 'all':
-            pat = 'A'
-        else:
-            pat = self.agents_to_predict[0]
+            Data_files_array = np.zeros((len(Data_files), max_len - 1), dtype = object)
+            for i, data_file in enumerate(Data_files):
+                strs = data_file[:-4].split('--')[1:]
+                Data_files_array[i, :len(strs)] = strs
+            Data_files_array = Data_files_array.astype(str)
+            unique_parts = np.unique(Data_files_array)
+            # Check if there is '0' in the unique parts
+            if '0' in unique_parts:
+                unique_parts = unique_parts[unique_parts != '0']
+
+            # Find the parts with 't0'
+            t0_parts = unique_parts[np.array(['t0' == s[:2] for s in unique_parts])]
+
+            if len(t0_parts) == 1:
+                self.data_file += '--' + t0_parts[0]
+            else:
+                # Assert that last two letters are the same
+                assert np.all([s[-2:] == t0_parts[0][-2:] for s in t0_parts[1:]])
+
+                self.data_file += '--mixed_' + t0_parts[0][-2:]
+
+            # Find the parts with 'dt'
+            dt_parts = unique_parts[np.array(['dt' == s[:2] for s in unique_parts])]
+            assert len(dt_parts) == 1
+            self.data_file += '--' + dt_parts[0]
+
+            if 'No_extrap' in unique_parts:
+                self.data_file += '--No_Extrap'
+
+            # Look for perturbation parts
+            pert_parts = []
+            for i in range(Data_files_array.shape[0]):
+                includes_pert = False
+                for j in range(Data_files_array.shape[1]):
+                    s = Data_files_array[i][j]
+                    if 'Pertubation' == s[:11]:
+                        pert_parts.append(s)
+                        includes_pert = True
+                if not includes_pert:
+                    pert_parts.append('')
+
+            pert_parts = unique_parts[np.array(['Pertubation' == s[:11] for s in unique_parts])]
+            if not np.all(pert_parts == ''):
+                useful_pert_parts = pert_parts[pert_parts != '']
+                if len(useful_pert_parts) > 1:
+                    self.data_file += '--Perturbations_(' 
+                    for i, pert_part in enumerate(useful_pert_parts):
+                        self.data_file += pert_part[12:] 
+                        if i < len(useful_pert_parts) - 1:
+                            self.data_file += '_'
+                    self.data_file += ')'
+                elif len(useful_pert_parts) == 1:
+                    self.data_file += '--' + useful_pert_parts[0]
             
-        # Check if extrapolation is not allowed
-        if not self.allow_extrapolation:
-            extra_string = '--No_Extrap'
-        else:
-            extra_string = ''
-        
-        self.data_file = (list(self.Datasets.values())[0].path + os.sep + 'Results' + os.sep +
-                          self.get_name()['print'] + os.sep +
-                          'Data' + os.sep +
-                          self.get_name()['file'] +
-                          '--t0=' + self.t0_type_name + t0_type_name_addon +
-                          '--dt=' + '{:0.2f}'.format(max(0, min(9.99, dt))).zfill(4) +
-                          '_nI=' + str(self.num_timesteps_in_real).zfill(2) + 
-                          'm' + str(self.num_timesteps_in_need).zfill(2) +
-                          '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
-                          'm' + str(self.num_timesteps_out_need).zfill(2) +
-                          '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(num).zfill(3) + '_agents_' + pat + extra_string + '.npy')
+            self.data_file += '.npy'
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
         self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
@@ -382,7 +415,7 @@ class data_interface(object):
         
     
     def get_Target_MeterPerPx(self, domain):
-        return self.Datasets[domain['Scenario']].Images.Target_MeterPerPx.loc[domain.image_id]
+        return self.Datasets[domain.Scenario].Images.Target_MeterPerPx.loc[domain.image_id]
     
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
