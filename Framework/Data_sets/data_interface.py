@@ -5,8 +5,7 @@ import os
 import warnings
 import networkx as nx
 
-from Prob_function import OPTICS_GMM
-
+from rome.ROME import ROME
 
 class data_interface(object):
     def __init__(self, data_set_dict, parameters):
@@ -228,7 +227,6 @@ class data_interface(object):
             self.data_file = list(self.Datasets.values())[0].data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
         else:
             # Get data_file from every constituent dataset
-
             self.data_file = (list(self.Datasets.values())[0].path + os.sep + 
                               'Results' + os.sep +
                               self.get_name()['print'] + os.sep +
@@ -884,7 +882,7 @@ class data_interface(object):
                 paths_true_comp = paths_true.reshape(-1, num_features)
                 
                 # Train model
-                kde = OPTICS_GMM().fit(paths_true_comp)
+                kde = ROME().fit(paths_true_comp)
                 log_prob_true = kde.score_samples(paths_true_comp)
                 
                 self.KDE_joint[subgroup][nto] = kde
@@ -951,7 +949,7 @@ class data_interface(object):
                     paths_true_agent_comp = paths_true_agent.reshape(-1, num_features)
                         
                     # Train model
-                    kde = OPTICS_GMM().fit(paths_true_agent_comp)
+                    kde = ROME().fit(paths_true_agent_comp)
                     log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
                     
                     self.KDE_indep[subgroup][nto][agent] = kde

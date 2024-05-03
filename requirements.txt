@@ -24,6 +24,7 @@ Pillow==9.5.0
 protobuf==3.19.4
 psutil==5.9.6
 pyquaternion==0.9.9
+pyrome==0.1.2
 PyYAML==6.0.1
 scikit_learn==1.2.2
 scipy==1.10.1

@@ -16,6 +16,8 @@ class perturbation_template():
 
 
     def perturb(self, data):
+        self.data   = data
+        
         Input_path  = data.Input_path
         Input_T     = data.Input_T
 
@@ -24,6 +26,8 @@ class perturbation_template():
 
         Type        = data.Type
         Domain      = data.Domain
+
+
 
         # Check the requirements for the data, create error if not fulfilled
         requirements = self.requirerments()
@@ -82,7 +86,7 @@ class perturbation_template():
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
             samples = np.arange(i_start, i_end)
-            # TODO: Add images here
+
             X_pert[samples], Y_pert[samples] = self.perturb_batch(X[samples], Y[samples], T[samples], Agents[samples], Domain.iloc[samples])
 
 

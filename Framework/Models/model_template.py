@@ -3,9 +3,9 @@ import numpy as np
 import os
 import torch
 import warnings
-from Prob_function import OPTICS_GMM
-import math
 import scipy as sp
+
+from rome.ROME import ROME
 
 class model_template():
     def __init__(self, model_kwargs, data_set, splitter, evaluate_on_train_set, behavior = None):
@@ -1157,7 +1157,7 @@ class model_template():
                     test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                     path_pred_train = paths_pred_comp[test_ind]
 
-                    kde = OPTICS_GMM().fit(path_pred_train)
+                    kde = ROME().fit(path_pred_train)
 
                     # Score samples
                     log_probs_true.append(kde.score_samples(paths_true_comp))
@@ -1271,7 +1271,7 @@ class model_template():
                     while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
                         path_pred_train = paths_pred_agent_comp[test_ind]
-                        kde = OPTICS_GMM().fit(path_pred_train)
+                        kde = ROME().fit(path_pred_train)
                         
                         # Score samples
                         log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))

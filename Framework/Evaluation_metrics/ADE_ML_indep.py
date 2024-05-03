@@ -1,9 +1,6 @@
 import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
-from sklearn.neighbors import KernelDensity
-
-from Prob_function import OPTICS_GMM
 
 class ADE_ML_indep(evaluation_template):
     r'''
