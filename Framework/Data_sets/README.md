@@ -200,7 +200,7 @@ The most important part of the dataset module is to provide access to training a
           \begin{pmatrix} x \\ y \end{pmatrix}
 
       NOTE: if any one of the values 'x_center', 'y_center', or 'rot_angle' is set, then the other two values also 
-      have to be set. Otherwise, a missing attribute error will be thrown.
+      have to be set. Even if no translation or rotation is needed, these values should be set to zero. Otherwise, a missing attribute error will be thrown.
 
       The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
       :math:`s` that gives us the scaling of the images in the unit :math:`m /` Px. 
