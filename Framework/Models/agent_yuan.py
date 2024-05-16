@@ -57,7 +57,7 @@ class agent_yuan(model_template):
         
         self.batch_size = 1
         
-        self.sample_number = 10
+        self.sample_number = 20
         
         self.use_map = self.can_use_map and self.has_map
         
