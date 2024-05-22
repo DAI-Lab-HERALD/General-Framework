@@ -64,13 +64,13 @@ class mid_gu(model_template):
             self.config_dict['map_encoding'] = False
             self.config_dict['encoder_dim'] = 256
         self.config_dict['tf_layer'] = 3
-        self.config_dict['epochs'] = 90
+        self.config_dict['epochs'] = 2000
         self.config_dict['batch_size'] = 256
         self.config_dict['eval_batch_size'] = 256
         self.config_dict['k_eval'] = 25
         self.config_dict['seed'] = 123
-        self.config_dict['eval_every'] = 1 # TODO 30
-        self.config_dict['eval_at'] = 70
+        self.config_dict['eval_every'] = 10
+        self.config_dict['eval_at'] = self.config_dict['epochs']
         self.config_dict['eval_mode'] = False
         self.config_dict['sampling'] = 'ddpm'
         self.config_dict['exp_name'] = 'MID_testing'
@@ -115,16 +115,12 @@ class mid_gu(model_template):
         self.predict_single_agent = True        
         self.can_use_map = True
         # If self.can_use_map = True, the following is also required
-        self.target_width = 175
+        self.target_width = 180
         self.target_height = 100
         self.grayscale = False
         
         self.use_map = self.can_use_map and self.has_map        
 
-
-        # self.epochs = 90
-        # self.augment = True
-        # self.eval_every = 1 # TODO 30
 
         batch_size = 256
 
@@ -360,12 +356,15 @@ class mid_gu(model_template):
         
         center_pos = X[:,0,-1]
         delta_x = center_pos - X[:,0,-2]
-        rot_angle = np.angle(delta_x[:,0] + 1j * delta_x[:,1])
+
+        # set rot angle
+        if Y is None:
+            rot_angle = np.zeros_like(delta_x[:,0])
+        else:
+            rot_angle = np.random.rand(*delta_x[:,0].shape) * 2 * np.pi
 
         center_pos = center_pos[:,np.newaxis,np.newaxis]        
         X_r = self.rotate_pos_matrix(X - center_pos, rot_angle)
-         
-        X_r = X_r * 0.6
         
         V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
         V = np.concatenate((V[...,[0],:], V), axis = -2)
@@ -430,7 +429,7 @@ class mid_gu(model_template):
         
 
         if img is not None:
-            img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
+            img_batch = img[:,0,:,80:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
             img_batch = img_batch.transpose(0,3,1,2) # put channels first
             img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
         else:
@@ -443,10 +442,9 @@ class mid_gu(model_template):
         S_st = torch.from_numpy(S_st[...,:dim]).to(dtype = torch.float32)
         
         if Y is None:
-            return S, S_st, first_h, Neighbor, Neighbor_edge, center_pos, rot_angle, img_batch, node_type
+            return S, S_st, first_h, Neighbor, Neighbor_edge, center_pos, img_batch, node_type
         else:
             Y = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
-            Y = Y * 0.6
 
             Y_st = Y.copy()
             Y_st[Ped_agents]  /= self.std_pos_ped
@@ -483,7 +481,7 @@ class mid_gu(model_template):
                 batch_number += 1
 
                 print(f"Epoch {epoch} - Batch {batch_number}", flush = True)
-                X, Y, T, img, img_m_per_px, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
+                X, Y, T, img, _, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
                                                                                                val_split_size = 0.1)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
@@ -584,9 +582,6 @@ class mid_gu(model_template):
                 ade = np.mean(eval_ade_batch_errors)
                 fde = np.mean(eval_fde_batch_errors)
 
-                ade = ade/0.6
-                fde = fde/0.6
-
 
                 print(f"Epoch evaluation {epoch} Best Of 20: ADE: {ade} FDE: {fde}")
 
@@ -624,8 +619,8 @@ class mid_gu(model_template):
         while not prediction_done:
             batch_number += 1
             print('Predict MID: Batch {}'.format(batch_number))
-            X, T, img, img_m_per_px, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
-            S, S_St, first_h, Neighbor, Neighbor_edge, center_pos, rot_angle, img, node_type = self.extract_data_batch(X, T, None, img, num_steps)
+            X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            S, S_St, first_h, Neighbor, Neighbor_edge, center_pos, img, node_type = self.extract_data_batch(X, T, None, img, num_steps)
                 
             # Move img to device
             if img is not None:
@@ -651,11 +646,8 @@ class mid_gu(model_template):
                                                 bestof=True, sampling='ddim', step=100//5) # B * 20 * 12 * 2
                 
             # set batchsize first
-            Pred = traj_pred.transpose(1,0,2,3) / 0.6
-            
-            # reverse rotation
-            Pred_r = self.rotate_pos_matrix(Pred, -rot_angle)
-            
+            Pred_r = traj_pred.transpose(1,0,2,3)
+
             # reverse translation
             Pred_t = Pred_r + center_pos
 

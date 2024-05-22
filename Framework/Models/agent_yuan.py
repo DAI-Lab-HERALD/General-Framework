@@ -94,6 +94,9 @@ class agent_yuan(model_template):
                 img_sample = img_sample.transpose(0,3,1,2) # Put channels first
                 
                 img_scale = 1 / img_m_per_px[i].mean()
+            else:
+                img_sample = None
+                img_scale = None
             
             data = {
                 'pre_motion_3D': pre_motion_3D,
