@@ -7,9 +7,15 @@ If one wants to use the framework, one has to [set up a new simulations.py file]
 python ../Framework/simulations.py
 ```
 
-It has to be noted that for the datasets already included in the model it is required to access the raw data first. The respective instructions can be found in the README.md files in the corresponding folders in [../Framework/Data_sets/](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets).
+It has to be noted that if one wants to use one of the datasets already included in the framework, it is required to access the respective raw data first. The instructions can be found in the README.md files in the corresponding folders in [../Framework/Data_sets/](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets).
 
 If one wants to instead add new modules, detailed explanations on how to integrate [datasets](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/README.md) and [scenario types](https://github.com/julianschumann/General-Framework/blob/main/Framework/Scenarios/README.md), [splitting methods](https://github.com/julianschumann/General-Framework/blob/main/Framework/Splitting_methods/README.md), [models](https://github.com/julianschumann/General-Framework/blob/main/Framework/Models/README.md), as well as [metrics](https://github.com/julianschumann/General-Framework/blob/main/Framework/Evaluation_metrics/README.md) are available.
 
 ## Contact and collaboration
 If you have questions regarding the usage of the framework or are interested in a collaboration, please contact J.F.Schumann@tudelft.nl.
+
+## Coming updates
+The following improvements are currently planned for the framework.
+- In its current version, the size of the datasets that models can be trained and tested upon is limited by the RAM. This problem is supposed to be rectified in a coming update, in which the framework will save intermediate results on the hard drive as well, allowing for larger datasets to be used.
+- An update which will ad the generation of adversarial attacks against models will be added.
+- The framework will be extended to be able to deal with map information that is saved both as pixelated images or as vectorized representation (showing positions of lane markers, ...). Currently, only the former is implemented.
