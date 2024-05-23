@@ -556,8 +556,12 @@ class data_set_template():
         
         
         elif t0_type[:3] == 'all':
-            T0 = np.arange(max(t_start, t.min() + self.dt * (self.num_timesteps_in_need - 1)), 
-                           min(t_decision, t.max() - self.dt * self.num_timesteps_out_need) + 1e-6, self.dt)
+            min_t0 = max(t_start, t.min() + self.dt * (self.num_timesteps_in_need - 1))
+            if self.enforce_prediction_time or not self.classification_useful:
+                max_t0 = min(t_decision, t.max() - self.dt * self.num_timesteps_out_need) + 1e-6
+            else:
+                max_t0 = t_decision + 1e-6
+            T0 = np.arange(min_t0, max_t0, self.dt)
 
         elif t0_type[:3] == 'col':
             if self.classification_useful:
@@ -610,7 +614,7 @@ class data_set_template():
         
         # Update sample if necessary and permittable
         if (t0 >= t_start and 
-            (((not self.classification_useful and t0 == t[0])) or
+            (((not self.classification_useful) and (t0 == t[0])) or
              (not self.enforce_prediction_time))):
             t0 = max(t0, t0_min)
         

@@ -196,6 +196,7 @@ class data_interface(object):
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
             del self.Pred_agents_eval_all
             del self.Pred_agents_pred_all
+        if hasattr(self, 'Not_pov_agent'):
             del self.Not_pov_agent
         
         if hasattr(self, 'Subgroups') and hasattr(self, 'Path_true_all'):
