@@ -17,7 +17,7 @@ class DBN(model_template):
     based on deep learning. Transportation research part C: emerging technologies, 106, 41-60.
     '''
     def setup_method(self, l2_regulization = 0.1):
-        self.timesteps = max([len(T) for T in self.Input_T_train])
+        pass
     
     def get_data(self, train = True):
         if train:
@@ -132,8 +132,10 @@ class DBN(model_template):
         [self.mean, self.xmin, self.xmax, self.structure, DBN_weights] = self.weights_saved
         
         self.DBN = deep_belief_network(self.structure, self.device) 
-        
-        self.DBN.DBN = DBN_instance(self.structure, len(self.structure) - 2)
+        DBN_classifier = Classifier(self.structure)
+        DBN_RBMs = Pre_classifier(self.structure, len(self.structure) - 2)
+
+        self.DBN.DBN = DBN_instance(DBN_RBMs, DBN_classifier)
         
         for param, weight in zip(self.DBN.DBN.parameters(), DBN_weights):
             param.data = torch.from_numpy(weight).to(dtype = torch.float32)
@@ -146,7 +148,7 @@ class DBN(model_template):
         
         Probs = self.DBN.predict(X)
         
-        self.save_predicted_classifications(Probs, class_names)
+        self.save_predicted_classifications(class_names, Probs)
     
     
     def check_trainability_method(self):

@@ -1361,7 +1361,9 @@ class data_set_template():
                 
                 self.path_models[beh] = self.model_class_to_path({}, data, None, True, beh)
                 self.path_models[beh].train()
-                self.path_models_pred[beh] = self.path_models[beh].predict()[0]
+                beh_pred = self.path_models[beh].predict()
+                beh_pred[1].index = beh_pred[0]
+                self.path_models_pred[beh] = beh_pred[1]
 
             self.path_models_trained = True
 
@@ -1693,7 +1695,7 @@ class data_set_template():
                     t = self.Output_T_pred[i_full]
                     domain = Domain.iloc[i_full]
                     for i_beh, beh in enumerate(self.Behaviors):
-                        paths_beh = self.path_models_pred[beh].iloc[i_full]
+                        paths_beh = self.path_models_pred[beh].loc[i_full]
                         T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
                         T_beh = T_class_beh[((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &
                                              (T_class_beh[:, i_beh] <= t[-1])), i_beh]
@@ -1764,7 +1766,7 @@ class data_set_template():
                 num_beh_paths = path_num[i_beh]
                 if num_beh_paths >= 1:
                     ind_n_end = ind_n_start + num_beh_paths
-                    paths_beh = self.path_models_pred[beh].iloc[i_full]
+                    paths_beh = self.path_models_pred[beh].loc[i_full]
                     T_class_beh = self.path_to_class_and_time_sample(paths_beh, t, domain)
 
                     Index_beh = np.where(((T_class_beh[:, i_beh] == T_class_beh.min(axis=-1)) &

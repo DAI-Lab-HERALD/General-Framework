@@ -1020,7 +1020,6 @@ class model_template():
         # Check if data is there
         self.data_set._extract_original_trajectories()
         self.data_set._determine_pred_agents(eval_pov = ~exclude_ego)
-        self.prepare_batch_generation()
         
         # Initialize output
         num_samples = len(Output_path_pred)
@@ -1030,9 +1029,9 @@ class model_template():
         if exclude_late_timesteps:
             nto_max = nto
         else:
-            nto_max = self.N_O_data[Pred_index].max()
+            nto_max = self.data_set.N_O_data_orig[Pred_index].max()
         
-        Nto_i = np.minimum(nto_max, self.N_O_data[Pred_index])
+        Nto_i = np.minimum(nto_max, self.data_set.N_O_data_orig[Pred_index])
 
         # Get pred agents
         max_num_pred_agents = self.data_set.Pred_agents_eval.sum(1).max()
