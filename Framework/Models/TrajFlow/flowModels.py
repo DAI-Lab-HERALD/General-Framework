@@ -663,12 +663,11 @@ class Future_Seq2Seq(nn.Module):
         x_in = traj
         
         x_enc, hidden = self.encoder(x_in) # encode relative histories
-        out = x_enc
+        out = x_enc[:,-1]
                 
-        hidden = torch.tile(out[:,-1].unsqueeze(0), (self.decoder.nl,1,1))
-        
         # Decoder part
-        x = out[:,-1].unsqueeze(1)
+        hidden = torch.tile(out.unsqueeze(0), (self.decoder.nl,1,1))
+        x = out.unsqueeze(1)
                 
         for t in range(0, target_length):
             output, hidden = self.decoder(x, hidden)

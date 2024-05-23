@@ -57,7 +57,7 @@ class logit_theofilatos(model_template):
         
         
     def predict_method(self):
-        X, _, class_names = self.get_data(train = True)
+        X, _, class_names = self.get_data(train = False)
         Probs = pd.DataFrame(self.model.predict_proba(X), columns = self.model.classes_)
         
         # Fill in required classes that have been missing in the training data

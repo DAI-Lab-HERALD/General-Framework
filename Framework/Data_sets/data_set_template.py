@@ -3,6 +3,7 @@ import numpy as np
 import os
 import torch
 import psutil
+from data_interface import data_interface
 
 
 class data_set_template():
@@ -1335,8 +1336,30 @@ class data_set_template():
         if not self.path_models_trained:
             self.path_models = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
             self.path_models_pred = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
+
+            # Create data interface out of self
+            # Get parameters
+            parameters = [None, 
+                            self.num_samples_path_pred,
+                            self.enforce_num_timesteps_out,
+                            self.enforce_prediction_time,
+                            self.exclude_post_crit,
+                            self.allow_extrapolation,
+                            self.agents_to_predict,
+                            'no']
+            # Get data set dict
+            data_set_dict = {'scenario': self.__class__.__name__,
+                             'max_num_agents': self.max_num_agents,
+                             't0_type': self.t0_type,
+                             'conforming_t0_types': self.T0_type_compare}
+            data = data_interface(data_set_dict, parameters)
+            data.get_data(self.dt,
+                          (self.num_timesteps_in_real, self.num_timesteps_in_need), 
+                          (self.num_timesteps_out_real, self.num_timesteps_out_need))
+
             for beh in self.Behaviors:
-                self.path_models[beh] = self.model_class_to_path(self, None, True, beh)
+                
+                self.path_models[beh] = self.model_class_to_path({}, data, None, True, beh)
                 self.path_models[beh].train()
                 self.path_models_pred[beh] = self.path_models[beh].predict()[0]
 

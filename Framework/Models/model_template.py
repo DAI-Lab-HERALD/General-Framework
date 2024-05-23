@@ -888,7 +888,7 @@ class model_template():
             D = np.ones(list(D_help.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
             for i_sample in range(D.shape[0]):
                 for i_dist in range(D.shape[1]):
-                    D[i_sample, i_dist] = D_help[i_sample, i_dist].astypt(np.float32)
+                    D[i_sample, i_dist] = D_help[i_sample, i_dist].astype(np.float32)
         else:
             D = np.zeros((len(T),0), dtype = np.float32)
         
@@ -903,11 +903,11 @@ class model_template():
         X = self.data_set.X_orig[Index]
         T = T[Index]
         D = D[Index]
-        P = self.data_set.Output_A.to_numpy().astpye(np.float32)[Index]
+        P = self.data_set.Output_A.to_numpy().astype(np.float32)[Index]
         DT = self.data_set.Output_T_E.astype(np.float32)[Index]
         
         class_names = self.data_set.Output_A.columns
-        agent_names = self.data_set.Input_paths.columns
+        agent_names = self.data_set.Input_path.columns
         dist_names = self.data_set.Input_prediction.columns
         
         if train:
@@ -945,17 +945,17 @@ class model_template():
         
         
         assert self.get_output_type()[:5] == 'class'
-        assert P.shape == self.Output_T_E_pred[class_names].to_numpy.shape
+        assert P.shape == self.Output_A_pred[class_names].to_numpy().shape
         for i in range(len(P)):
-            for name, j in enumerate(class_names):
+            for j, name in enumerate(class_names):
                 self.Output_A_pred.iloc[i][name] = P[i,j]
         
         
         if self.get_output_type() == 'class_and_time':
-            assert DT.shape[:2] == self.Output_T_E_pred[class_names].to_numpy.shape
+            assert DT.shape[:2] == self.Output_T_E_pred[class_names].to_numpy().shape
             assert DT.shape[2] == len(self.t_e_quantile)
             for i in range(len(DT)):
-                for name, j in enumerate(class_names):
+                for j, name in enumerate(class_names):
                     self.Output_T_E_pred.iloc[i][name] = DT[i,j]
         
     
