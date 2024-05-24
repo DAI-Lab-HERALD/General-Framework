@@ -62,6 +62,9 @@ class flomo_schoeller(model_template):
         if not('interactions' in self.model_kwargs.keys()):
             self.model_kwargs['interactions'] = True
 
+        if not ('scale_NF' in self.model_kwargs.keys()):
+            self.model_kwargs['scale_NF'] = False
+
         
         self.scene_encoding_size = self.model_kwargs['scene_encoding_size']
         self.obs_encoding_size = self.model_kwargs['obs_encoding_size'] 
@@ -77,6 +80,8 @@ class flomo_schoeller(model_template):
         self.lr_decay = self.model_kwargs['lr_decay']
 
         self.interactions = self.model_kwargs['interactions']
+
+        self.scale_NF = self.model_kwargs['scale_NF']
 
         
     
@@ -204,6 +209,9 @@ class flomo_schoeller(model_template):
                     scaler = scaler.unsqueeze(2)
                     scaler = scaler.unsqueeze(3)
                     scaler = scaler.to(device = self.device)
+
+                    if not self.scale_NF:
+                        scaler = torch.tensor(np.ones_like(scaler.cpu().numpy())).to(device = self.device)
                     
                     # TODO: check if this should be using all_pos or tar_pos
                     all_pos_past   = X
