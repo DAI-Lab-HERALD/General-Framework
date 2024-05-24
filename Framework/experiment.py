@@ -1106,14 +1106,14 @@ class Experiment():
                 x0_nI = legend_x_offset + i * legend_entry_width
                 if 60 < num_para_values:
                     Figure_string += self.write_single_data_point(allowed_width + inter_plot_space - y0_nI - legend_y_offset, 
-                                                                  x0_nI + 0.3, dx, Colors[i], 'Critical_split')
+                                                                  x0_nI + 0.3, dx, dx, Colors[i], 'Critical_split', False)
                     Figure_string += (r'        \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at ' + 
                                       '({:0.3f}, {:0.3f}) '.format(allowed_width + inter_plot_space - y0_nI - legend_y_offset, 
                                                                    x0_nI + 0.6) + r'{$n_I =' + str(data_params['num_timesteps_in'][0]) + r'$};' + ' \n')
                     
                 else:
                     # Random split
-                    Figure_string += self.write_single_data_point(x0_nI + 0.3, y0_nI + legend_y_offset, dx, Colors[i], 'Critical_split')
+                    Figure_string += self.write_single_data_point(x0_nI + 0.3, y0_nI + legend_y_offset, dx, dx, Colors[i], 'Critical_split', False)
                     Figure_string += (r'        \node[black, inner sep = 0, right, font = \footnotesize] at ' + 
                                       '({:0.3f}, {:0.3f}) '.format(x0_nI + 0.6, y0_nI + legend_y_offset) + 
                                       r'{$n_I =' + str(data_params['num_timesteps_in'][0]) + r'$};' + ' \n')
@@ -1127,14 +1127,14 @@ class Experiment():
                 
                 if 60 < num_para_values:
                     Figure_string += self.write_single_data_point(allowed_width + inter_plot_space - y0_st - legend_y_offset, 
-                                                                  x0_st + 0.3, dx, 'black', split_type)
+                                                                  x0_st + 0.3, dx, dx, 'black', split_type, False)
                     Figure_string += (r'        \node[black, rotate = 90, inner sep = 0, right, font = \footnotesize] at ' + 
                                       '({:0.3f}, {:0.3f}) '.format(allowed_width + inter_plot_space - y0_st - legend_y_offset, 
                                                                    x0_st + 0.6) + r'{' + split_name + r'};' + ' \n')
                     
                 else:
                     # Random split
-                    Figure_string += self.write_single_data_point(x0_st + 0.3, y0_st + legend_y_offset, dx, 'black', split_type)
+                    Figure_string += self.write_single_data_point(x0_st + 0.3, y0_st + legend_y_offset, dx, dx, 'black', split_type, False)
                     Figure_string += (r'        \node[black, inner sep = 0, right, font = \footnotesize] at ' + 
                                       '({:0.3f}, {:0.3f}) '.format(x0_st + 0.6, y0_st + legend_y_offset) + 
                                       r'{' + split_name + r'};' + ' \n')

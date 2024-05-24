@@ -63,7 +63,7 @@ class flomo_schoeller(model_template):
             self.model_kwargs['interactions'] = True
 
         if not ('scale_NF' in self.model_kwargs.keys()):
-            self.model_kwargs['scale_NF'] = False
+            self.model_kwargs['scale_NF'] = True
 
         
         self.scene_encoding_size = self.model_kwargs['scene_encoding_size']

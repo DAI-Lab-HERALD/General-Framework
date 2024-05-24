@@ -35,6 +35,7 @@ class logit_theofilatos(model_template):
         if not hasattr(self, 'mean'):
             assert train, "This should not be possible, loading failed"
             self.mean = np.nanmean(X, axis = 0, keepdims = True)
+            self.mean[np.isnan(self.mean)] = 0
         
         X = X - self.mean
         X[np.isnan(X)] = 0

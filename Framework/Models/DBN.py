@@ -33,6 +33,10 @@ class DBN(model_template):
             self.mean = np.nanmean(X, axis = 0, keepdims = True)
             self.xmax = np.nanmax(X, axis = 0, keepdims = True)
             self.xmin = np.nanmin(X, axis = 0, keepdims = True)
+
+            self.mean[np.isnan(self.mean)] = 0
+            self.xmax[np.isnan(self.xmax)] = 1
+            self.xmin[np.isnan(self.xmin)] = -1
         
         X = X - self.mean
         X[np.isnan(X)] = 0

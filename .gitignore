@@ -53,6 +53,7 @@ rndSeed*
 rename_files.py
 remove_files.py
 Results/
+Latex_files/
 *.zarr/
 Data_sets/NuScenes/v1.0-mini/
 simulations*.py
