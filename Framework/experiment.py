@@ -414,8 +414,8 @@ class Experiment():
                         # Go through each metric used on the current prediction time
                         for m, metric_name in enumerate(self.Metrics):
                             # Get metric class
-                            mwtric_module = importlib.import_module(metric_name)
-                            metric_class = getattr(mwtric_module, metric_name)  
+                            metric_module = importlib.import_module(metric_name)
+                            metric_class = getattr(metric_module, metric_name)  
                             
                             # Initialize the metric
                             metric = metric_class(data_set, splitter, model)

@@ -68,7 +68,7 @@ class TNR_PR(evaluation_template):
         if self.data_set.scenario_name != 'Gap acceptance problem':
             return 'this makes sense in the context of gap acceptance problems.'
         
-        if self.data_set.t0_type != 'Crit':
+        if self.data_set.t0_type != 'crit':
             return 'this metric is meaningless for t0_types outside "crit".'
         return None
     
