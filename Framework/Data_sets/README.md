@@ -220,8 +220,6 @@ It must be noted, that for **large datasets**, this approach might not work if t
     memory at once.
     
     It requires the following attributes to be set:
-    
-    # TODO: Add the attribute descriptions from the class
     **self.Path**:
       This is a list of pandas series. In each such series, each index includes the 
       trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`),

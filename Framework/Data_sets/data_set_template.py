@@ -25,7 +25,6 @@ class data_set_template():
         self.data_loaded = False
         self.raw_data_loaded = False
         self.raw_images_loaded = False
-        self.extracted_time_points = False
         self.prediction_time_set = False
 
         # Set the model used in transformation functions
@@ -186,8 +185,6 @@ class data_set_template():
         memory at once.
         
         It requires the following attributes to be set:
-        
-        # TODO: Add the attribute descriptions from the class
         **self.Path**:
             This is a list of pandas series. In each such series, each index includes the 
             trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`),
@@ -288,7 +285,7 @@ class data_set_template():
                 # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
                 file_path_save = file_path_test + '.npy'
             else:
-                file_path_save = file_path_test + '_' + str(file_number) + '.npy'
+                file_path_save = file_path_test + '_' + str(file_number).zfill(3) + '.npy'
                 
             num_samples_check = len(Path_check)
             
@@ -359,6 +356,13 @@ class data_set_template():
                 # Check if the las file allready exists
                 if os.path.isfile(test_file):
                     self.number_original_path_files = self.get_number_of_original_path_files()
+                    # If there is only one file, load the data
+                    if self.number_original_path_files == 1:
+                        [self.Path,
+                        self.Type_old,
+                        self.T,
+                        self.Domain_old,
+                        self.num_samples] = np.load(test_file, allow_pickle=True)
                     
                 else:
                     # Check that no other save files exists
@@ -557,169 +561,220 @@ class data_set_template():
         else:
             return None
 
-    def extract_time_points(self):
-        if not self.extracted_time_points:
-            # here for analyizing the dataset
-            self.data_time_file = (self.path + os.sep + 'Results' + os.sep +
-                                   self.get_name()['print'] + os.sep +
-                                   'Data' + os.sep +
-                                   self.get_name()['file'] + '--all_time_points.npy')
+    def extract_time_points(self, Path, T, Domain_old, num_samples, path_file):
+        # Replace in path file --all_orig_paths with --all_time_points
+        
+        time_file = path_file.replace('--all_orig_paths', '--all_time_points')
 
-            if os.path.isfile(self.data_time_file):
-                [self.id,
-                 self.t,
-                 self.D_class,
-                 self.behavior,
-                 self.T_D_class,
-                 self.T_class,
-                 self.t_start,
-                 self.t_decision,
-                 self.t_crit, _] = np.load(self.data_time_file, allow_pickle=True)
+        if os.path.isfile(time_file):
+            [
+                local_id,
+                local_t,
+                local_D_class,
+                local_behavior,
+                local_T_D_class,
+                local_T_class,
+                local_t_start,
+                local_t_decision,
+                local_t_crit, _] = np.load(time_file, allow_pickle=True)
 
-            else:
-                self.id = []
-                self.t = []
-                self.D_class = []
-                self.behavior = []
-                self.T_D_class = []
-                self.T_class = []
-                self.t_start = []
-                self.t_decision = []
-                self.t_crit = []
+        else:
+            local_id = []
+            local_t = []
+            local_D_class = []
+            local_behavior = []
+            local_T_D_class = []
+            local_T_class = []
+            local_t_start = []
+            local_t_decision = []
+            local_t_crit = []
 
-                for i_sample in range(self.num_samples):
-                    if np.mod(i_sample, 100) == 0:
-                        print('path ' + str(i_sample).rjust(len(str(self.num_samples))
-                                                            ) + '/{} divided'.format(self.num_samples))
+            for i_sample in range(num_samples):
+                if np.mod(i_sample, 100) == 0:
+                    print('path ' + str(i_sample).rjust(len(str(num_samples))) + '/{} divided'.format(num_samples))
 
-                    path = self.Path.iloc[i_sample]
-                    domain = self.Domain_old.iloc[i_sample]
-                    t = np.array(self.T[i_sample])
+                path = Path.iloc[i_sample]
+                domain = Domain_old.iloc[i_sample]
+                t = np.array(T[i_sample])
 
-                    # Get the corresponding class
-                    d_class, in_position, behavior, t_D_class, t_class = self.classify_path(path, t, domain)
+                # Get the corresponding class
+                d_class, in_position, behavior, t_D_class, t_class = self.classify_path(path, t, domain)
 
-                    # Check if scenario is fulfilled
-                    if not in_position.any():
-                        continue
-                    
-                    # Get decision time
-                    if self.classification_useful:
-                        t_decision = t_class.to_numpy().min()
-                    else:
-                        t_decision = t[in_position][-1]
+                # Check if scenario is fulfilled
+                if not in_position.any():
+                    continue
+                
+                # Get decision time
+                if self.classification_useful:
+                    t_decision = t_class.to_numpy().min()
+                else:
+                    t_decision = t[in_position][-1]
 
-                    # check if decision can be observed
-                    if t_decision > t[in_position].max():
-                        continue
+                # check if decision can be observed
+                if t_decision > t[in_position].max():
+                    continue
 
-                    ts_allowed = in_position & (t <= t_decision)
+                ts_allowed = in_position & (t <= t_decision)
+                try:
+                    ind_possible = np.where(ts_allowed)[0]
                     try:
-                        ind_possible = np.where(ts_allowed)[0]
-                        try:
-                            ind_start = np.where(np.invert(ts_allowed[:ind_possible[-1]]))[0][-1] + 1
-                        except:
-                            ind_start = ind_possible[0]
-
-                        t_start = t[ind_start]
+                        ind_start = np.where(np.invert(ts_allowed[:ind_possible[-1]]))[0][-1] + 1
                     except:
-                        # there never was as starting point here in the first place
-                        continue
+                        ind_start = ind_possible[0]
 
-                    # Determine tcrit
-                    if self.classification_useful and (self.pov_agent is not None):
-                        t_D_default = np.minimum(1000, t_D_class[self.behavior_default])
-                        
-                        t_D_useful = self.scenario.calculate_safe_action(d_class, t_D_class, self, path, t, domain)
-                        try:
-                            Delta_tD = t_D_default - t_D_useful
-                            critical = (t > t_start) & (t < t_decision) & (Delta_tD < 0)
-                            ind_crit = np.where(critical)[0][0]
-                            if Delta_tD[ind_crit - 1] < 0:
-                                t_crit = t_start
-                            else:
-                                # Gap starts uncritical
-                                fac_crit = Delta_tD[ind_crit] / (Delta_tD[ind_crit] - Delta_tD[ind_crit - 1])
-                                t_crit = t[ind_crit - 1] * fac_crit + t[ind_crit] * (1 - fac_crit)
-                        except:
-                            if t_D_default[ind_start + 1] < 0:
-                                t_crit = t_start
-                            else:
-                                t_crit = t_decision + 0.01
-                    else:
-                        t_crit = t_decision + 0.01
+                    t_start = t[ind_start]
+                except:
+                    # there never was as starting point here in the first place
+                    continue
+
+                # Determine tcrit
+                if self.classification_useful and (self.pov_agent is not None):
+                    t_D_default = np.minimum(1000, t_D_class[self.behavior_default])
                     
-                    self.id.append(i_sample)
-                    self.t.append(t.astype(float))
-                    self.D_class.append(d_class)
-                    self.behavior.append(behavior)
-                    self.T_D_class.append(t_D_class)
-                    self.T_class.append(t_class)
-                    self.t_start.append(t_start)
-                    self.t_decision.append(t_decision)
-                    self.t_crit.append(t_crit)
+                    t_D_useful = self.scenario.calculate_safe_action(d_class, t_D_class, self, path, t, domain)
+                    try:
+                        Delta_tD = t_D_default - t_D_useful
+                        critical = (t > t_start) & (t < t_decision) & (Delta_tD < 0)
+                        ind_crit = np.where(critical)[0][0]
+                        if Delta_tD[ind_crit - 1] < 0:
+                            t_crit = t_start
+                        else:
+                            # Gap starts uncritical
+                            fac_crit = Delta_tD[ind_crit] / (Delta_tD[ind_crit] - Delta_tD[ind_crit - 1])
+                            t_crit = t[ind_crit - 1] * fac_crit + t[ind_crit] * (1 - fac_crit)
+                    except:
+                        if t_D_default[ind_start + 1] < 0:
+                            t_crit = t_start
+                        else:
+                            t_crit = t_decision + 0.01
+                else:
+                    t_crit = t_decision + 0.01
+                
+                local_id.append(i_sample)
+                local_t.append(t.astype(float))
+                local_D_class.append(d_class)
+                local_behavior.append(behavior)
+                local_T_D_class.append(t_D_class)
+                local_T_class.append(t_class)
+                local_t_start.append(t_start)
+                local_t_decision.append(t_decision)
+                local_t_crit.append(t_crit)
 
-                self.id = np.array(self.id)
-                # Prevent problem if all t should have same length
-                self.t.append([])
-                self.t = np.array(self.t, object)[:-1]
-                self.D_class = pd.DataFrame(self.D_class)
-                self.behavior = np.array(self.behavior)
-                self.T_D_class = pd.DataFrame(self.T_D_class)
-                self.T_class = pd.DataFrame(self.T_class)
-                self.t_start = np.array(self.t_start)
-                self.t_decision = np.array(self.t_decision)
-                self.t_crit = np.array(self.t_crit)
+            # Prevent problem if all t should have same length
+            local_t.append([])
+            
+            local_id         = np.array(local_id)
+            local_t          = np.array(local_t, object)[:-1]
+            local_D_class    = pd.DataFrame(local_D_class)
+            local_behavior   = np.array(local_behavior)
+            local_T_D_class  = pd.DataFrame(local_T_D_class)
+            local_T_class    = pd.DataFrame(local_T_class)
+            local_t_start    = np.array(local_t_start)
+            local_t_decision = np.array(local_t_decision)
+            local_t_crit     = np.array(local_t_crit)
 
-                save_data_time = np.array([self.id,
-                                           self.t,
-                                           self.D_class,
-                                           self.behavior,
-                                           self.T_D_class,
-                                           self.T_class,
-                                           self.t_start,
-                                           self.t_decision,
-                                           self.t_crit, 0], object)  # 0 is there to avoid some numpy load and save errros
+            save_data_time = np.array([local_id,
+                                        local_t,
+                                        local_D_class,
+                                        local_behavior,
+                                        local_T_D_class,
+                                        local_T_class,
+                                        local_t_start,
+                                        local_t_decision,
+                                        local_t_crit, 0], object)  # 0 is there to avoid some numpy load and save errros
 
-                os.makedirs(os.path.dirname(
-                    self.data_time_file), exist_ok=True)
-                np.save(self.data_time_file, save_data_time)
-
-            self.extracted_time_points = True
+            os.makedirs(os.path.dirname(time_file), exist_ok=True)
+            np.save(time_file, save_data_time)
+        
+        return [local_id,
+                local_t,
+                local_D_class,
+                local_behavior,
+                local_T_D_class,
+                local_T_class,
+                local_t_start,
+                local_t_decision,
+                local_t_crit]
 
     def determine_dtc_boundary(self):
-        self.data_dtc_bound_file = (self.path + os.sep + 'Results' + os.sep +
-                                    self.get_name()['print'] + os.sep +
-                                    'Data' + os.sep +
-                                    self.get_name()['file'] + '--all_fixed_size.npy')
+        # Get name of save file
+        self.data_dtc_bound_file = self.file_path + '--all_fixed_size.npy'
 
         if os.path.isfile(self.data_dtc_bound_file):
             self.dtc_boundary = np.load( self.data_dtc_bound_file, allow_pickle=True)
         else:
             if self.classification_useful:
-                initial_size = np.zeros((1, len(self.id)), float)
-                final_size = np.zeros((1, len(self.id)), float)
-
-                for i, t_start in enumerate(self.t_start):
-                    t_D_default = self.T_D_class.iloc[i][self.behavior_default]
-                    [initial_size[0, i], final_size[0, i]] = np.interp([t_start, self.t_decision[i]],
-                                                                       self.t[i], t_D_default)
-
-                # Determine if a sample is included
+                # Get test boundaries
                 num_bounderies = 20001
                 dtc_boundaries = np.linspace(0, 20, num_bounderies)[:, np.newaxis]
-                included = (dtc_boundaries <= initial_size) & (dtc_boundaries > final_size)
-
+                
+                # initialize number of behaviors
+                num_beh = np.zeros((num_bounderies, len(self.Behaviors)), int)
+                
                 str_helper = np.array(['ZZZ_', ''])
-                included_behavior = np.core.defchararray.add(str_helper[included.astype(int)],
-                                                             self.behavior[np.newaxis, :])
+                
+                # Cycle through existing paths
+                for i_orig_path in range(self.number_original_path_files):
+                
+                    if self.number_original_path_files == 1:
+                        path_file = self.file_path + '--all_orig_paths.npy'
+                        
+                        # Get the allready loaded data
+                        Path_loaded = self.Path
+                        T_loaded = self.T
+                        Domain_old_loaded = self.Domain_old
+                        num_samples_loaded = self.num_samples
+                    else:
+                        # Get data file
+                        path_file = self.file_path + '--all_orig_paths'
+                        
+                        # Get path name adjustment
+                        if i_orig_path < self.number_original_path_files - 1:
+                            path_file_adjust = '_' + str(i_orig_path).zfill(3)
+                        else:
+                            path_file_adjust = ''
+                        
+                        path_file += path_file_adjust + '.npy'
+                        
+                        # Load the data
+                        [Path_loaded, _,
+                        T_loaded,
+                        Domain_old_loaded,
+                        num_samples_loaded] = np.load(path_file, allow_pickle=True)
+                
+                    # Load extracted time points
+                    [
+                        local_id,
+                        local_t,
+                        local_D_class,
+                        local_behavior,
+                        local_T_D_class,
+                        local_T_class,
+                        local_t_start,
+                        local_t_decision,
+                        local_t_crit] = self.extract_time_points(Path_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file)
+                
 
-                Beh = np.unique(self.behavior)
-                num_beh = np.zeros((num_bounderies, len(Beh)), int)
-                for i, beh in enumerate(Beh):
-                    num_beh[:, i] = np.sum(included_behavior == beh, axis=1)
+                
+                
+                    initial_size = np.zeros((1, len(local_id)), float)
+                    final_size = np.zeros((1, len(local_id)), float)
 
-                self.dtc_boundary = dtc_boundaries[np.argmax(num_beh.min(axis=1)), [0]]
+                    for i, t_start in enumerate(local_t_start):
+                        t_D_default = local_T_D_class.iloc[i][self.behavior_default]
+                        [initial_size[0, i], final_size[0, i]] = np.interp([t_start, local_t_decision[i]], local_t[i], t_D_default)
+                    
+                    # Determine if a sample is included
+                    included = (dtc_boundaries <= initial_size) & (dtc_boundaries > final_size)
+
+                    included_behavior = np.core.defchararray.add(str_helper[included.astype(int)], local_behavior[np.newaxis, :])
+                    for i, beh in enumerate(self.Behaviors):
+                        num_beh[:, i] += np.sum(included_behavior == beh, axis=1)
+                        
+                # remove columns that are always zero from num_beh
+                num_beh = num_beh[:, num_beh.sum(axis=0) > 0]
+                
+                self.dtc_boundary = dtc_boundaries[np.argmax(num_beh.min(axis=1))]
             else:
                 self.dtc_boundary = np.array([0.0])
 
@@ -931,7 +986,465 @@ class data_set_template():
         
         return data_file
 
+    def get_number_of_data_files(self):
+        # Check if file exists
+        if not os.path.isfile(self.data_file):
+            raise AttributeError("The data has not been completely compiled yet.")
+        
+        # Get the corresponding directory
+        test_file_directory = os.path.dirname(self.data_file)
+        
+        # Find files in same directory that start with file_path_test
+        num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(self.data_file[:-4]))])
+        return num_files
+    
+    
+    
+    def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, data_file):
+        # Extract time points from raw data
+        [
+            local_id,
+            local_t,
+            local_D_class,
+            local_behavior,
+            local_T_D_class,
+            local_T_class,
+            local_t_start,
+            local_t_decision,
+            local_t_crit] = self.extract_time_points(Path, T, Domain_old, num_samples, path_file)
 
+        # Get number of possible accepted/rejected samples in the whole dataset
+        num_behaviors = np.array([(beh == local_behavior).sum() for beh in self.Behaviors])
+        
+        # set number of maximum agents
+        if self.max_num_agents is not None:
+            min_num_agents = len(Path.columns)
+            self.max_num_addable_agents = max(0, self.max_num_agents - min_num_agents)
+            max_num_agent_local = self.max_num_addable_agents + min_num_agents
+        else:
+            self.max_num_addable_agents = None
+        
+        # prepare empty information
+        # Input
+        self.Input_prediction_local = []
+        self.Input_path_local       = []
+        self.Input_T_local          = []
+
+        # Output
+        self.Output_path_local   = []
+        self.Output_T_local      = []
+        self.Output_T_pred_local = []
+        self.Output_A_local      = []
+        self.Output_T_E_local    = []
+
+        # Domain
+        self.Type_local     = []
+        self.Recorded_local = []
+        self.Domain_local   = []
+
+        # Go through samples
+        local_num_samples = len(local_id)
+        for i in range(local_num_samples):
+            # print progress
+            if np.mod(i, 1) == 0:
+                print('path ' + str(i + 1).rjust(len(str(local_num_samples))) +
+                    '/{}: divide'.format(local_num_samples))
+
+            # load extracted data
+            i_path = local_id[i]
+            path = Path.iloc[i_path]
+            t = local_t[i]
+
+            behavior = local_behavior[i]
+            t_start = local_t_start[i]
+            t_decision = local_t_decision[i]
+            t_crit = local_t_crit[i]
+
+            # Get the time of prediction
+            T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, i, behavior)
+            
+            # Extract comparable T0 types
+            T0_compare = []
+            if self.t0_type[:3] != 'all':
+                for extra_t0_type in self.T0_type_compare:
+                    if extra_t0_type[:3] == 'all':
+                        raise TypeError("Comparing against the all method is not possible")
+                    else:
+                        T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, i, behavior)) 
+            
+            for ind_t0, t0 in enumerate(T0):
+                if len(T0) > 50:
+                    if np.mod(ind_t0, 10) == 0:
+                        print('path ' + str(i + 1).rjust(len(str(local_num_samples))) +
+                            '/{} - prediction time {}/{}: divide'.format(local_num_samples, ind_t0 + 1, len(T0)))
+
+                if isinstance(t0, str):
+                    return t0
+                # Prepare domain
+                # load original path data
+                domain = Domain_old.iloc[i_path].copy()
+
+                # Needed for later recovery of path data
+                domain['Path_ID'] = i_path
+                if self.is_perturbed:
+                    # Get perturbation index from file name
+                    pert_index = int(self.data_file.split('_')[-1].split('.')[0])
+                    domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + str(pert_index).zfill(3) + ')'
+                else:
+                    domain['Scenario'] = self.get_name()['print']
+                domain['Scenario_type'] = self.scenario.get_name()
+                domain['t_0'] = t0
+                
+                agent_types = Type_old.iloc[i_path].copy()
+                
+                # Check if this t0 is applicable
+                t0 = self.check_t0_constraint(t0, t, self.t0_type, t_start, t_crit, t_decision)
+                if t0 == None:
+                    continue
+                
+                # Ensure that the comparable t0 are applicable
+                if self.t0_type[:3] != 'all':
+                    T0_compare_ind = np.array([self.check_t0_constraint(t0_extra[ind_t0], t, self.t0_type, 
+                                                                        t_start, t_crit, t_decision)
+                                            for t0_extra in T0_compare])
+                    
+                    if (T0_compare_ind == None).any():
+                        continue
+                
+                
+
+                # calculate number of output time steps
+                num_timesteps_out_pred = self.num_timesteps_out_real
+                if self.classification_useful:
+                    t_default = local_T_class.iloc[i][self.behavior_default]
+                    
+                    # set prediction horizon considered for classification
+                    Pred_horizon_max = 2 * self.num_timesteps_in_real * self.dt
+                    Pred_horizon = min(Pred_horizon_max, t_default - t0)
+
+                    num_timesteps_out_pred = max(num_timesteps_out_pred, int(np.ceil(Pred_horizon / self.dt)) + 5)
+                
+
+                num_timesteps_out_data = min(num_timesteps_out_pred, int(np.floor((t.max() - t0) / self.dt)))
+
+                # build new path data
+                # create time points
+                input_T       = t0 + np.arange(1 - self.num_timesteps_in_real, 1) * self.dt
+                output_T      = t0 + np.arange(1, num_timesteps_out_data + 1) * self.dt
+                output_T_pred = t0 + np.arange(1, num_timesteps_out_pred + 1) * self.dt
+
+                # prepare empty pandas series for general values
+                if self.general_input_available:
+                    input_pred_old = self.projection_to_1D(path, t, domain)
+                    input_pred_index = input_pred_old.index
+                    input_prediction = pd.Series(np.empty(len(input_pred_index), np.ndarray), index=input_pred_index)
+                    for index in input_pred_index:
+                        input_prediction[index] = np.interp(input_T + 1e-5, t, input_pred_old[index].astype(np.float32),  # + 1e-5 is necessary to avoid nan for min(input_T) == min(t)
+                                                            left=np.nan, right=np.nan)
+                else:
+                    input_prediction = pd.Series(np.nan * np.ones(1), index=['empty'])
+                # prepare empty pandas series for path
+                helper_path   = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
+                helper_T_appr = np.concatenate((input_T + 1e-5, output_T - 1e-5))
+                
+                assert t.dtype == input_T.dtype
+                
+                correct_path = True
+                for agent in path.index:
+                    if not isinstance(path[agent], float):
+                        pos_x = path[agent][:,0]
+                        pos_y = path[agent][:,1]
+                        helper_path[agent] = np.stack([np.interp(helper_T_appr, t, pos_x, left=np.nan, right=np.nan),
+                                                    np.interp(helper_T_appr, t, pos_y, left=np.nan, right=np.nan)], 
+                                                    axis = -1).astype(np.float32)
+                        
+                        if np.sum(np.isfinite(helper_path[agent][:self.num_timesteps_in_real]).all(-1)) <= 1:
+                            helper_path[agent]  = np.nan
+                            agent_types[agent] = float('nan')
+                            
+                    else:
+                        helper_path[agent]  = np.nan
+                        agent_types[agent] = float('nan')
+                        
+                    # check if needed agents have reuqired input and output
+                    if agent in self.needed_agents:
+                        if np.isnan(helper_path[agent]).any():
+                            correct_path = False
+                            
+                if not correct_path:
+                    continue
+                
+                t_end = t0 + self.dt * num_timesteps_out_pred
+                if t_end >= t_decision:
+                    output_A = pd.Series(self.Behaviors == behavior, index=self.Behaviors)
+                    output_T_E = t_decision
+                else:
+                    output_A = pd.Series(self.Behaviors == self.behavior_default, index=self.Behaviors)
+                    output_T_E = t_end
+                
+                
+                # reset time origin
+                input_T = input_T - t0
+                output_T = output_T - t0
+                output_T_pred = output_T_pred - t0
+                output_T_E = output_T_E - t0
+                
+                # Save information abut missing positions to overwrite them back later if needed
+                recorded_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                
+                for agent in helper_path.index:
+                    if not isinstance(helper_path[agent], float):
+                        available_pos = np.isfinite(helper_path[agent]).all(-1)
+                        assert available_pos.sum() > 1 
+                        
+                        recorded_positions[agent] = available_pos
+                    else:
+                        recorded_positions[agent] = np.nan
+                
+                # Combine input and output data
+                helper_T = np.concatenate([input_T, output_T])
+                
+                # complete partially available paths
+                helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
+                
+                if self.max_num_agents is not None:
+                    helper_path = helper_path.iloc[:max_num_agent_local]
+                    agent_types = agent_types.iloc[:max_num_agent_local]
+                    
+                
+                # Split completed paths back into input and output
+                input_path  = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                output_path = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
+                for agent in helper_path.index:
+                    if not isinstance(helper_path[agent], float):
+                        # Reset extrapolated data if necessary
+                        if agent not in recorded_positions.index:
+                            # This is the case if the agent was added in self.fill_empty_path
+                            recorded_positions[agent] = np.zeros(len(helper_path[agent]), dtype = bool)
+                            ind_start = 0
+                            ind_last = len(helper_T)
+                        else:
+                            if not self.allow_extrapolation:
+                                available_pos = recorded_positions[agent]
+
+                                # Do not delete interpolated data
+                                ind_start = np.where(available_pos)[0][0]
+                                ind_last = np.where(available_pos)[0][-1] + 1
+                                
+                                available_pos[ind_start:ind_last] = True
+
+                                helper_path[agent][~available_pos] = np.nan
+                            else:
+                                ind_start = 0
+                                ind_last = len(helper_T)
+                        
+                        input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
+                        output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
+
+                        # Guarantee that the input path does contain only nan value
+                        if not (ind_start < self.num_timesteps_in_real - 1 and self.num_timesteps_in_real <= ind_last):
+                            input_path[agent]         = np.nan
+                            output_path[agent]        = np.nan
+                            recorded_positions[agent] = np.nan
+                            agent_types[agent] = float('nan')
+                        
+                    else:
+                        input_path[agent]         = np.nan
+                        output_path[agent]        = np.nan
+                        recorded_positions[agent] = np.nan
+                        agent_types[agent]        = float('nan')
+                        
+                # save results
+                self.Input_prediction_local.append(input_prediction)
+                self.Input_path_local.append(input_path)
+                self.Input_T_local.append(input_T)
+
+                self.Output_path_local.append(output_path)
+                self.Output_T_local.append(output_T)
+                self.Output_T_pred_local.append(output_T_pred)
+                self.Output_A_local.append(output_A)
+                self.Output_T_E_local.append(output_T_E)
+
+                self.Type_local.append(agent_types)
+                self.Recorded_local.append(recorded_positions)
+                self.Domain_local.append(domain)
+                
+                # Check if saving is needed
+                self.check_extracted_data_for_saving(num_behaviors, data_file)
+                
+        # Save the data with last = True
+        self.check_extracted_data_for_saving(num_behaviors, data_file, True)
+    
+    
+    def check_extracted_data_for_saving(self, num_behaviors, data_file, last = False):
+        
+        # Get the currently available RAM space
+        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        
+        # Get the memory needed to save data right now
+        # Count the number of timesteps in each sample
+        num_timesteps_in  = np.array([len(t) for t in self.Input_T_local])
+        num_timesteps_out = np.array([len(t) for t in self.Output_T_local])
+        
+        # TODO: Check if this also works for manually assinged np.nan values
+        # Get the number of saved agents for each sample
+        num_agents = (~self.Input_path_local.isnull()).sum(axis=1)
+        
+        # Get the needed memory per timestep
+        memory_per_timestep = 2 * 8 + 2 # one extra for timestep and recorded
+        
+        memory_used_path_in  = (num_timesteps_in * num_agents).sum() * memory_per_timestep
+        memory_used_path_out = (num_timesteps_out * num_agents).sum() * (memory_per_timestep + 1)
+        
+        # Get memory for prediction data
+        memory_used_pred = num_timesteps_in.sum() * len(self.Input_prediction_local.columns) * 8
+        
+        memory_used = memory_used_path_in + memory_used_path_out + memory_used_pred
+        
+        # As data needs to be manipulated after loading, check if more than 25% of the memory is used
+        if memory_used > 0.4 * available_memory or last:
+            # Transform data to dataframes
+            self.Input_prediction = pd.DataFrame(self.Input_prediction_local)
+            self.Input_path       = pd.DataFrame(self.Input_path_local)
+            self.Input_T          = np.array(self.Input_T_local + [np.random.rand(0)], np.ndarray)[:-1]
+            
+            self.Output_path   = pd.DataFrame(self.Output_path_local)
+            self.Output_T      = np.array(self.Output_T_local + [np.random.rand(0)], np.ndarray)[:-1]
+            self.Output_T_pred = np.array(self.Output_T_pred_local + [np.random.rand(0)], np.ndarray)[:-1]
+            self.Output_A      = pd.DataFrame(self.Output_A_local)
+            self.Output_T_E    = np.array(self.Output_T_E_local, float)
+            
+            self.Type     = pd.DataFrame(self.Type_local).reset_index(drop = True)
+            self.Recorded = pd.DataFrame(self.Recorded_local).reset_index(drop = True)
+            self.Domain   = pd.DataFrame(self.Domain_local).reset_index(drop = True)
+            
+            # Ensure that dataframes with agent columns have the same order
+            Agents = self.Input_path.columns
+            self.Input_path  = self.Input_path[Agents]
+            self.Output_path = self.Output_path[Agents]
+            self.Type        = self.Type[Agents]
+            self.Recorded    = self.Recorded[Agents]
+
+            # Ensure that indices of dataframes are the same
+            self.Input_prediction.index = self.Input_path.index
+            self.Output_path.index      = self.Input_path.index
+            self.Output_A.index         = self.Input_path.index
+            self.Type.index             = self.Input_path.index
+            self.Recorded.index         = self.Input_path.index
+            self.Domain.index           = self.Input_path.index
+            
+            ## Get the corresponding save file
+            data_file_name = os.path.basename(data_file)
+            data_file_directory = os.path.dirname(data_file)
+            
+            # Make directory
+            os.makedirs(data_file_directory, exist_ok=True)
+            
+            # Find files in same directory that start with file_path_test
+            files = [f for f in os.listdir(data_file_directory) if f.startswith(data_file_name)]
+            if len(files) > 0:
+                # Find the number that is attached to this file
+                file_number = np.array([int(f[len(data_file_name)+1:-4]) for f in files], int).max() + 1
+            else:
+                file_number = 0
+                
+                
+            # Apply perturbation if necessary:
+            self.Domain['perturbation'] = False
+            
+            if self.is_perturbed:
+                self = self.Perturbation.perturb(self)
+                
+                # Get unperturbed data
+                Input_path_unperturbed  = self.Domain['Unperturbed_input']
+                Output_path_unperturbed = self.Domain['Unperturbed_output']
+                
+                # Transform series to list
+                Input_path_unperturbed  = [path[0] for path in Input_path_unperturbed.to_list()]
+                Output_path_unperturbed = [path[0] for path in Output_path_unperturbed.to_list()]
+                
+                # Transform list to dataframe
+                Input_path_unperturbed  = pd.DataFrame(Input_path_unperturbed, index = self.Domain.index)
+                Output_path_unperturbed = pd.DataFrame(Output_path_unperturbed, index = self.Domain.index)
+                
+                # Remove unperturbed columns from domain
+                self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'])
+                self.Domain['perturbation'] = False
+                
+                # Get the unperturbed save data
+                save_data_unperturbed = [
+                                            self.Input_prediction,
+                                            Input_path_unperturbed,
+                                            self.Input_T,
+                                            
+                                            Output_path_unperturbed,
+                                            self.Output_T,
+                                            self.Output_T_pred,
+                                            self.Output_A,
+                                            self.Output_T_E,
+                                            
+                                            self.Type,
+                                            self.Recorded,
+                                            self.Domain,
+                                            num_behaviors, 0]
+                
+                # Get unperturbed save file
+                
+                data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
+                if last:
+                    data_file_unperturbed_save = data_file_unperturbed + '.npy'
+                else:
+                    data_file_unperturbed_save = data_file_unperturbed + '_' + str(file_number).zfill(3) + '.npy'
+                
+                # Save the unperturbed data
+                np.save(data_file_unperturbed_save, save_data_unperturbed)
+                
+                # Set perturbation to True
+                self.Domain['perturbation'] = True
+            
+            save_data = np.array([
+                                    self.Input_prediction,
+                                    self.Input_path,
+                                    self.Input_T,
+                                    
+                                    self.Output_path,
+                                    self.Output_T,
+                                    self.Output_T_pred,
+                                    self.Output_A,
+                                    self.Output_T_E,
+                                    
+                                    self.Type,
+                                    self.Recorded,
+                                    self.Domain,
+                                    num_behaviors, 0], object)
+            
+                
+            if last:
+                # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
+                data_file_save = data_file + '.npy'
+            else:
+                data_file_save = data_file + '_' + str(file_number).zfill(3) + '.npy'
+                
+            # Save the data
+            np.save(data_file_save, save_data)
+            
+            # Empty local data files
+            self.Input_prediction_local = []
+            self.Input_path_local       = []
+            self.Input_T_local          = []
+            
+            self.Output_path_local   = []
+            self.Output_T_local      = []
+            self.Output_T_pred_local = []
+            self.Output_A_local      = []
+            self.Output_T_E_local    = []
+            
+            self.Type_local     = []
+            self.Recorded_local = []
+            self.Domain_local   = []
+            
+        
+        
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
         '''
@@ -951,341 +1464,83 @@ class data_set_template():
         
 
         # check if same data set has already been done in the same way
-        if os.path.isfile(self.data_file):
-            [self.Input_prediction,
-             self.Input_path,
-             self.Input_T,
-
-             self.Output_path,
-             self.Output_T,
-             self.Output_T_pred,
-             self.Output_A,
-             self.Output_T_E,
-
-             self.Type,
-             self.Recorded,
-             self.Domain,
-             self.num_behaviors, _] = np.load(self.data_file, allow_pickle=True)
-
-        else:
+        if not os.path.isfile(self.data_file):
             # load initial dataset, if not yet done
             self.load_raw_data()
-
-            # Extract time points frow raw data
-            self.extract_time_points()
-
-            # Get number of possible accepted/rejected samples in the whole dataset
-            self.num_behaviors = np.array([(beh == self.behavior).sum() for beh in self.Behaviors])
+            
+            
 
             # If necessary, load constant gap size
             if ((self.t0_type[:9] == 'col_equal') or 
                 ('col_equal' in [t0_type_extra[:9] for t0_type_extra in self.T0_type_compare])):
                 self.determine_dtc_boundary()
             
-            # set number of maximum agents
-            if self.max_num_agents is not None:
-                min_num_agents = len(self.Path.columns)
-                self.max_num_addable_agents = max(0, self.max_num_agents - min_num_agents)
-                max_num_agent_local = self.max_num_addable_agents + min_num_agents
-            else:
-                self.max_num_addable_agents = None
+            # Go through original data
+            for i_orig_path in range(self.number_original_path_files):
             
-            # prepare empty information
-            # Input
-            Input_prediction = []
-            Input_path       = []
-            Input_T          = []
+                if self.number_original_path_files == 1:
+                    path_file = self.file_path + '--all_orig_paths.npy'
+                    
+                    # Get the allready loaded data
+                    Path_loaded = self.Path
+                    Type_old_loaded = self.Type_old
+                    T_loaded = self.T
+                    Domain_old_loaded = self.Domain_old
+                    num_samples_loaded = self.num_samples
+                    
+                    data_file_local = self.data_file[:-4]
+                    
+            
+                else:
+                    # Get data file
+                    path_file = self.file_path + '--all_orig_paths'
+                    
+                    # Get path name adjustment
+                    if i_orig_path < self.number_original_path_files - 1:
+                        path_file_adjust = '_' + str(i_orig_path).zfill(3)
+                    else:
+                        path_file_adjust = ''
+                    
+                    path_file += path_file_adjust + '.npy'
+                    
+                    # Load the data
+                    [Path_loaded,
+                    Type_old_loaded,
+                    T_loaded,
+                    Domain_old_loaded,
+                    num_samples_loaded] = np.load(path_file, allow_pickle=True)
+                    
+                    data_file_local = self.data_file[:-4] + path_file_adjust
+                    
 
-            # Output
-            Output_path   = []
-            Output_T      = []
-            Output_T_pred = []
-            Output_A      = []
-            Output_T_E    = []
-
-            # Domain
-            Type     = []
-            Recorded = []
-            Domain   = []
-
-            # Go through samples
-            num_samples = len(self.id)
-            for i in range(num_samples):
-                # print progress
-                if np.mod(i, 1) == 0:
-                    print('path ' + str(i + 1).rjust(len(str(num_samples))) +
-                          '/{}: divide'.format(num_samples))
-
-                # load extracted data
-                i_path = self.id[i]
-                path = self.Path.iloc[i_path]
-                t = self.t[i]
-
-                behavior = self.behavior[i]
-                t_start = self.t_start[i]
-                t_decision = self.t_decision[i]
-                t_crit = self.t_crit[i]
-
-                # Get the time of prediction
-                T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, i, behavior)
+                self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, data_file_local)
                 
-                # Extract comparable T0 types
-                T0_compare = []
-                if self.t0_type[:3] != 'all':
-                    for extra_t0_type in self.T0_type_compare:
-                        if extra_t0_type[:3] == 'all':
-                            raise TypeError("Comparing against the all method is not possible")
-                        else:
-                            T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, i, behavior)) 
                 
-                for ind_t0, t0 in enumerate(T0):
-                    if len(T0) > 50:
-                        if np.mod(ind_t0, 10) == 0:
-                            print('path ' + str(i + 1).rjust(len(str(num_samples))) +
-                                  '/{} - prediction time {}/{}: divide'.format(num_samples, ind_t0 + 1, len(T0)))
+        
+        # Get the number of files
+        self.number_data_files = self.get_number_of_data_files(self.data_file)
+        
+        # If only one file is available, load the data
+        if self.number_data_files == 1:
+            # Load the data
+            [self.Input_prediction,
+            self.Input_path,
+            self.Input_T,
 
-                    if isinstance(t0, str):
-                        return t0
-                    # Prepare domain
-                    # load original path data
-                    domain = self.Domain_old.iloc[i_path].copy()
-    
-                    # Needed for later recovery of path data
-                    domain['Path_ID'] = i_path
-                    if self.is_perturbed:
-                        # Get perturbation index from file name
-                        pert_index = int(self.data_file.split('_')[-1].split('.')[0])
-                        domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + str(pert_index).zfill(3) + ')'
-                    else:
-                        domain['Scenario'] = self.get_name()['print']
-                    domain['Scenario_type'] = self.scenario.get_name()
-                    domain['t_0'] = t0
-                    
-                    agent_types = self.Type_old.iloc[i_path].copy()
-                    
-                    # CHeck if this t0 is applicable
-                    t0 = self.check_t0_constraint(t0, t, self.t0_type, t_start, t_crit, t_decision)
-                    if t0 == None:
-                        continue
-                    
-                    # Ensure that the comparable t0 are applicable
-                    if self.t0_type[:3] != 'all':
-                        T0_compare_ind = np.array([self.check_t0_constraint(t0_extra[ind_t0], t, self.t0_type, 
-                                                                            t_start, t_crit, t_decision)
-                                                   for t0_extra in T0_compare])
-                        
-                        if (T0_compare_ind == None).any():
-                            continue
-                    
-                    
+            self.Output_path,
+            self.Output_T,
+            self.Output_T_pred,
+            self.Output_A,
+            self.Output_T_E,
 
-                    # calculate number of output time steps
-                    num_timesteps_out_pred = self.num_timesteps_out_real
-                    if self.classification_useful:
-                        t_default = self.T_class.iloc[i][self.behavior_default]
-                        
-                        # set prediction horizon considered for classification
-                        Pred_horizon_max = 2 * self.num_timesteps_in_real * self.dt
-                        Pred_horizon = min(Pred_horizon_max, t_default - t0)
-
-                        num_timesteps_out_pred = max(num_timesteps_out_pred, int(np.ceil(Pred_horizon / self.dt)) + 5)
-                    
-   
-                    num_timesteps_out_data = min(num_timesteps_out_pred, int(np.floor((t.max() - t0) / self.dt)))
-
-                    # build new path data
-                    # create time points
-                    input_T       = t0 + np.arange(1 - self.num_timesteps_in_real, 1) * self.dt
-                    output_T      = t0 + np.arange(1, num_timesteps_out_data + 1) * self.dt
-                    output_T_pred = t0 + np.arange(1, num_timesteps_out_pred + 1) * self.dt
-
-                    # prepare empty pandas series for general values
-                    if self.general_input_available:
-                        input_pred_old = self.projection_to_1D(path, t, domain)
-                        input_pred_index = input_pred_old.index
-                        input_prediction = pd.Series(np.empty(len(input_pred_index), np.ndarray), index=input_pred_index)
-                        for index in input_pred_index:
-                            input_prediction[index] = np.interp(input_T + 1e-5, t, input_pred_old[index].astype(np.float32),  # + 1e-5 is necessary to avoid nan for min(input_T) == min(t)
-                                                                left=np.nan, right=np.nan)
-                    else:
-                        input_prediction = pd.Series(np.nan * np.ones(1), index=['empty'])
-                    # prepare empty pandas series for path
-                    helper_path   = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
-                    helper_T_appr = np.concatenate((input_T + 1e-5, output_T - 1e-5))
-                    
-                    assert t.dtype == input_T.dtype
-                    
-                    correct_path = True
-                    for agent in path.index:
-                        if not isinstance(path[agent], float):
-                            pos_x = path[agent][:,0]
-                            pos_y = path[agent][:,1]
-                            helper_path[agent] = np.stack([np.interp(helper_T_appr, t, pos_x, left=np.nan, right=np.nan),
-                                                           np.interp(helper_T_appr, t, pos_y, left=np.nan, right=np.nan)], 
-                                                          axis = -1).astype(np.float32)
-                            
-                            if np.sum(np.isfinite(helper_path[agent][:self.num_timesteps_in_real]).all(-1)) <= 1:
-                                helper_path[agent]  = np.nan
-                                agent_types[agent] = float('nan')
-                                
-                        else:
-                            helper_path[agent]  = np.nan
-                            agent_types[agent] = float('nan')
-                            
-                        # check if needed agents have reuqired input and output
-                        if agent in self.needed_agents:
-                            if np.isnan(helper_path[agent]).any():
-                                correct_path = False
-                                
-                    if not correct_path:
-                        continue
-                    
-                    t_end = t0 + self.dt * num_timesteps_out_pred
-                    if t_end >= t_decision:
-                        output_A = pd.Series(self.Behaviors == behavior, index=self.Behaviors)
-                        output_T_E = t_decision
-                    else:
-                        output_A = pd.Series(self.Behaviors == self.behavior_default, index=self.Behaviors)
-                        output_T_E = t_end
-                    
-                    
-                    # reset time origin
-                    input_T = input_T - t0
-                    output_T = output_T - t0
-                    output_T_pred = output_T_pred - t0
-                    output_T_E = output_T_E - t0
-                    
-                    # Save information abut missing positions to overwrite them back later if needed
-                    recorded_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
-                    
-                    for agent in helper_path.index:
-                        if not isinstance(helper_path[agent], float):
-                            available_pos = np.isfinite(helper_path[agent]).all(-1)
-                            assert available_pos.sum() > 1 
-                            
-                            recorded_positions[agent] = available_pos
-                        else:
-                            recorded_positions[agent] = np.nan
-                    
-                    # Combine input and output data
-                    helper_T = np.concatenate([input_T, output_T])
-                    
-                    # complete partially available paths
-                    helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
-                    
-                    if self.max_num_agents is not None:
-                        helper_path = helper_path.iloc[:max_num_agent_local]
-                        agent_types = agent_types.iloc[:max_num_agent_local]
-                        
-                    
-                    # Split completed paths back into input and output
-                    input_path  = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
-                    output_path = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
-                    for agent in helper_path.index:
-                        if not isinstance(helper_path[agent], float):
-                            # Reset extrapolated data if necessary
-                            if agent not in recorded_positions.index:
-                                # This is the case if the agent was added in self.fill_empty_path
-                                recorded_positions[agent] = np.zeros(len(helper_path[agent]), dtype = bool)
-                                ind_start = 0
-                                ind_last = len(helper_T)
-                            else:
-                                if not self.allow_extrapolation:
-                                    available_pos = recorded_positions[agent]
-
-                                    # Do not delete interpolated data
-                                    ind_start = np.where(available_pos)[0][0]
-                                    ind_last = np.where(available_pos)[0][-1] + 1
-                                    
-                                    available_pos[ind_start:ind_last] = True
-
-                                    helper_path[agent][~available_pos] = np.nan
-                                else:
-                                    ind_start = 0
-                                    ind_last = len(helper_T)
-                            
-                            input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
-                            output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
-
-                            # Guarantee that the input path does contain only nan value
-                            if not (ind_start < self.num_timesteps_in_real - 1 and self.num_timesteps_in_real <= ind_last):
-                                input_path[agent]         = np.nan
-                                output_path[agent]        = np.nan
-                                recorded_positions[agent] = np.nan
-                                agent_types[agent] = float('nan')
-                            
-                        else:
-                            input_path[agent]         = np.nan
-                            output_path[agent]        = np.nan
-                            recorded_positions[agent] = np.nan
-                            agent_types[agent]        = float('nan')
-                            
-                    # save results
-                    Input_prediction.append(input_prediction)
-                    Input_path.append(input_path)
-                    Input_T.append(input_T)
-
-                    Output_path.append(output_path)
-                    Output_T.append(output_T)
-                    Output_T_pred.append(output_T_pred)
-                    Output_A.append(output_A)
-                    Output_T_E.append(output_T_E)
-
-                    Type.append(agent_types)
-                    Recorded.append(recorded_positions)
-                    Domain.append(domain)
-            
-            self.Input_prediction = pd.DataFrame(Input_prediction)
-            self.Input_path       = pd.DataFrame(Input_path)
-            self.Input_T          = np.array(Input_T + [np.random.rand(0)], np.ndarray)[:-1]
-
-            self.Output_path   = pd.DataFrame(Output_path)
-            self.Output_T      = np.array(Output_T + [np.random.rand(0)], np.ndarray)[:-1]
-            self.Output_T_pred = np.array(Output_T_pred + [np.random.rand(0)], np.ndarray)[:-1]
-            self.Output_A      = pd.DataFrame(Output_A)
-            self.Output_T_E    = np.array(Output_T_E, float)
-
-            self.Type     = pd.DataFrame(Type).reset_index(drop = True)
-            self.Recorded = pd.DataFrame(Recorded).reset_index(drop = True)
-            self.Domain   = pd.DataFrame(Domain).reset_index(drop = True)
-
-            # Ensure that dataframes with agent columns have the same order
-            Agents = self.Input_path.columns
-            self.Input_path  = self.Input_path[Agents]
-            self.Output_path = self.Output_path[Agents]
-            self.Type        = self.Type[Agents]
-            self.Recorded    = self.Recorded[Agents]
-
-            # Ensure that indices of dataframes are the same
-            self.Input_prediction.index = self.Input_path.index
-            self.Output_path.index      = self.Input_path.index
-            self.Output_A.index         = self.Input_path.index
-            self.Type.index             = self.Input_path.index
-            self.Recorded.index         = self.Input_path.index
-            self.Domain.index           = self.Input_path.index
-            
-
-            # Apply perturbation if necessary
-            if self.is_perturbed:
-                self = self.Perturbation.perturb(self)
-
-            save_data = np.array([self.Input_prediction,
-                                  self.Input_path,
-                                  self.Input_T,
-
-                                  self.Output_path,
-                                  self.Output_T,
-                                  self.Output_T_pred,
-                                  self.Output_A,
-                                  self.Output_T_E,
-
-                                  self.Type,
-                                  self.Recorded,
-                                  self.Domain,
-                                  self.num_behaviors, 0], object)  # 0 is there to avoid some numpy load and save errros
-
-            os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
-            np.save(self.data_file, save_data)
+            self.Type,
+            self.Recorded,
+            self.Domain,
+            self.num_behaviors, _] = np.load(self.data_file, allow_pickle=True)
+                
+                
+                
+                
 
         self.data_loaded = True
         # check if dataset is useful
