@@ -156,13 +156,13 @@ class Lyft_interactive(data_set_template):
                 self.Type_old.append(agent_types)
                 self.T.append(t)
                 self.Domain_old.append(domain) 
+                
+                # Chcek if data can be saved
+                self.check_created_paths_for_saving()
             
             del dataset, scene_data, Cache, map_api
-            
-        self.Path = pd.DataFrame(self.Path)
-        self.Type_old = pd.DataFrame(self.Type_old)
-        self.T = np.array(self.T+[()], np.ndarray)[:-1]
-        self.Domain_old = pd.DataFrame(self.Domain_old)      
+        
+        self.check_created_paths_for_saving(last = True)    
 
         # delete cached data
         shutil.rmtree(cache_path)

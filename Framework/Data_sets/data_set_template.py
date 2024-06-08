@@ -87,27 +87,267 @@ class data_set_template():
         else:
             self.is_perturbed = True
             self.Perturbation = Perturbation
-        
-        
-        
-
-    def load_raw_data(self):
-        if not self.raw_data_loaded:
-            file_path = (self.path + os.sep + 'Results' + os.sep +
+            
+        # Get file path for original paths
+        self.file_path = (self.path + os.sep + 'Results' + os.sep +
                          self.get_name()['print'] + os.sep +
                          'Data' + os.sep +
                          self.get_name()['file'])
-            
-            test_file = file_path + '--all_orig_paths.npy'
-            image_file = file_path + '--Images.npy'
+        
+        
+    def check_path_samples(self, Path, Type_old, T, Domain_old, num_samples):
+            # check some of the aspect to see if pre_process worked
+        if not isinstance(Path, pd.core.frame.DataFrame):
+            raise TypeError("Paths should be saved in a pandas data frame")
+        if len(Path) != num_samples:
+            raise TypeError("Path does not have right number of sampels")
 
-            if os.path.isfile(test_file):
-                [self.Path,
-                 self.Type_old,
-                 self.T,
-                 self.Domain_old,
-                 self.num_samples] = np.load(test_file, allow_pickle=True)
+        # check some of the aspect to see if pre_process worked
+        if not isinstance(Type_old, pd.core.frame.DataFrame):
+            raise TypeError("Agent Types should be saved in a pandas data frame")
+        if len(Type_old) != num_samples:
+            raise TypeError("Type dataframe does not have right number of sampels")
+    
+        if not isinstance(T, np.ndarray):
+            raise TypeError("Time points should be saved in a numpy array")
+        if len(T) != num_samples:
+            raise TypeError("Time points des not have right number of sampels")
+
+        if not isinstance(Domain_old,  pd.core.frame.DataFrame):
+            raise TypeError("Domain information should be saved in a Pandas Dataframe.")
+        
+        if len(Domain_old) != num_samples:
+            raise TypeError("Domain information should have correct number of sampels")
+        
+        if self.includes_images():
+            if not 'image_id' in Domain_old.columns:
+                raise AttributeError('Image identification is missing')
+        
+        # Check final paths
+        
+        path_names = Path.columns
+        
+        if (path_names != Type_old.columns).any():
+            raise TypeError("Agent Paths and Types need to have the same columns.")
+        
+        for needed_agent in self.needed_agents:
+            if not needed_agent in path_names:
+                raise AttributeError("Agent " + needed_agent + " must be included in the paths")
+        
+        for i in range(num_samples):
+            # check if time input consists out of tuples
+            if not isinstance(T[i], np.ndarray):
+                raise TypeError("A time point samples is expected to be a np.ndarray.")
+
+            test_length = len(T[i])
+            for j, agent in enumerate(path_names):
+                # check if time input consists out of tuples
+                agent_path = Path.iloc[i, j]
+                agent_type = Type_old.iloc[i, j]
+                # For needed agents, nan is not admissible
+                if agent in self.needed_agents:
+                    if not isinstance(agent_path, np.ndarray):
+                        raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                else:
+                    if not isinstance(agent_path, np.ndarray):
+                        if str(agent_path) != 'nan':
+                            raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                        
+                        if str(agent_type) != 'nan':
+                            raise TypeError("If no path is given, there should be no agent type.")
+                            
                 
+                # if the agent exists in this sample, adjust this
+                if isinstance(agent_path, np.ndarray):
+                    if not len(agent_path.shape) == 2:
+                        raise TypeError("Path is expected to be consisting of np.ndarrays with two dimension.")
+                    if not agent_path.shape[1] == 2:
+                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x 2).")
+                        
+                    # test if input tuples have right length
+                    if test_length != len(agent_path):
+                        raise TypeError("Path sample does not have a matching number of timesteps.")
+                        
+                    if str(agent_type) == 'nan':
+                        raise ValueError("For a given path, the agent type must not be nan.")
+        
+    def check_image_samples(self, Images):
+        if not hasattr(Images, 'Target_MeterPerPx'):
+            if not hasattr(self, 'Target_MeterPerPx'):
+                raise AttributeError('Images without Px to Meter scaling are useless.')
+            else:
+                Images['Target_MeterPerPx'] = self.Target_MeterPerPx
+        
+        
+    def check_created_paths_for_saving(self, last = False):
+        r'''
+        This function checks if the current data should be saved to free up memory.
+        It should be used during the extraction of datasets too large to be held in
+        memory at once.
+        
+        It requires the following attributes to be set:
+        
+        # TODO: Add the attribute descriptions from the class
+        **self.Path**:
+            This is a list of pandas series. In each such series, each index includes the 
+            trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`),
+            where the index name should be a unique identifier for the agent.
+            It is possible that positional data for an agent is only available at parts of the 
+            required time points, in which cases, the missing positions should be filled up with
+            (np.nan, np.nan).
+        
+        **self.Type_old**:
+            This is a list of pandas series. In each such series, the indices should be the same as
+            in the corresponding series in **self.Path**, and the values should be the agent types, 
+            with four types of agents currently implemented:
+                - 'V': Vehicles like cars and trucks
+                - 'M': Motorcycles
+                - 'B': Bicycles
+                - 'P': Pedestrians
+            
+        **self.T**:
+            This is a list of numpy arrays. It should have the same length as **self.Path** and
+            **self.Type_old**. Each array should have the length :math:`\vert T_i \vert` of the
+            trajecories of the agents in the corresponding series in **self.Path**. The values should
+            be the time points at which the positions of the agents were recorded.
+            
+        **self.Domain_old**:
+            This is a list of pandas series. Each series corresponds to an entry in **self.Path**, 
+            and contains the metadata of the corresponding scene. The metadata can include the 
+            location of the scene, or the id of the corresponding image, or the identification marker
+            of the scene in the raw data.
+        
+        
+        Parameters
+        ----------
+        last : bool
+            If true, the last of the data was added and should therefore be saved. During a run
+            of self.create_path_samples(), this should be set to *True* exactly once.
+        
+        '''
+        
+        # Check if the four required attributes exist
+        if not all([hasattr(self, attr) for attr in ['Path', 'Type_old', 'T', 'Domain_old']]):
+            raise AttributeError("The required arguments for saving have not been done.")
+        
+        # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
+        if not isinstance(self.Path, pd.core.frame.DataFrame):
+            assert isinstance(self.Path, list), "Path should be a list."
+            # Transform to dataframe
+            Path_check = pd.DataFrame(self.Path)
+            
+        if not isinstance(self.Type_old, pd.core.frame.DataFrame):
+            assert isinstance(self.Type_old, list), "Type_old should be a list."
+            # Transform to dataframe
+            Type_old_check = pd.DataFrame(self.Type_old)
+            
+        if not isinstance(self.T, np.ndarray):
+            assert isinstance(self.T, list), "T should be a list."
+            # Transform to array
+            T_check = np.array(self.T) 
+            
+        if not isinstance(self.Domain_old, pd.core.frame.DataFrame):
+            assert isinstance(self.Domain_old, list), "Domain_old should be a list."
+            # Transform to dataframe
+            Domain_old_check = pd.DataFrame(self.Domain_old)
+            
+        # Test if final file allready exists
+        final_test_name = self.file_path + '--all_orig_paths.npy'
+        if os.path.isfile(final_test_name):
+            raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
+            
+        # Get the currently available RAM space
+        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        
+        # Get the memory needed to save data right now
+        # Count the number of timesteps in each sample
+        num_timesteps = np.array([len(t) for t in self.T])
+        
+        # Get the number of saved agents for each sample
+        num_agents = (~Path_check.isnull()).sum(axis=1)
+        
+        # Get the needed memory per timestep
+        memory_per_timestep = 2 * 8 + 1
+        memory_used = (num_timesteps * num_agents).sum() * memory_per_timestep
+        
+        # As data needs to be manipulated after loading, check if more than 25% of the memory is used
+        if memory_used > 0.25 * available_memory or last:
+            # Check if some saved original data is allready available
+            file_path_test = self.file_path + '--all_orig_paths'
+            file_path_test_name = os.path.basename(file_path_test)
+            file_path_test_directory = os.path.dirname(file_path_test)
+            # Find files in same directory that start with file_path_test
+            files = [f for f in os.listdir(file_path_test_directory) if f.startswith(file_path_test_name)]
+            if len(files) > 0:
+                # Find the number that is attached to this file
+                file_number = np.array([int(f[len(file_path_test_name)+1:-4]) for f in files], int).max() + 1
+            else:
+                file_number = 0
+                
+            if last:
+                # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
+                file_path_save = file_path_test + '.npy'
+            else:
+                file_path_save = file_path_test + '_' + str(file_number) + '.npy'
+                
+            num_samples_check = len(Path_check)
+            
+            # Check the samples
+            self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check)
+            
+            # Save the results
+            os.makedirs(os.path.dirname(file_path_save), exist_ok=True)
+            test_data = np.array([Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check], object)
+            np.save(file_path_save, test_data)
+            
+            # Reset the data to empty lists
+            self.Path = []
+            self.Type_old = []
+            self.T = []
+            self.Domain_old = []
+                
+             
+            
+        
+    
+    def get_number_of_original_path_files(self):
+        # Get name of final file
+        test_file = self.file_path + '--all_orig_paths.npy'
+        
+        # Check if file exists
+        if not os.path.isfile(test_file):
+            raise AttributeError("The data has not been completely extracted yet.")
+        
+        # Get the corresponding directory
+        test_file_tester = self.file_path + '--all_orig_paths'
+        test_file_directory = os.path.dirname(test_file)
+        
+        # Find files in same directory that start with file_path_test
+        num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(test_file_tester))])
+        return num_files
+          
+
+    def load_raw_data(self):
+        if not self.raw_data_loaded:
+            # If extraction was successful, this file should exist.
+            test_file = self.file_path + '--all_orig_paths.npy'
+            image_file = self.file_path + '--Images.npy'
+            
+            image_creation_unneeded = (not self.includes_images()) or os.path.isfile(image_file)
+
+            if os.path.isfile(test_file) and image_creation_unneeded:
+                # Get number of files used for saving
+                self.number_original_path_files = self.get_number_of_original_path_files()
+                
+                if self.number_original_path_files == 1:
+                    # Allready load samples for higher efficiency
+                    [self.Path,
+                    self.Type_old,
+                    self.T,
+                    self.Domain_old,
+                    self.num_samples] = np.load(test_file, allow_pickle=True)
+                
+                # Load Images
                 if self.includes_images():
                     [self.Images, _] = np.load(image_file, allow_pickle=True)
                 else:
@@ -116,96 +356,39 @@ class data_set_template():
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
                 self.create_path_samples()
-
-                if not all([hasattr(self, attr) for attr in ['Path', 'T', 'Domain_old', 'num_samples']]):
-                    raise AttributeError("The preprocessing has failed, data is missing")
-
-                # check some of the aspect to see if pre_process worked
-                if not isinstance(self.Path, pd.core.frame.DataFrame):
-                    raise TypeError("Paths should be saved in a pandas data frame")
-                if len(self.Path) != self.num_samples:
-                    raise TypeError("Path does not have right number of sampels")
-
-                # check some of the aspect to see if pre_process worked
-                if not isinstance(self.Type_old, pd.core.frame.DataFrame):
-                    raise TypeError("Agent Types should be saved in a pandas data frame")
-                if len(self.Type_old) != self.num_samples:
-                    raise TypeError("Type dataframe does not have right number of sampels")
-            
-                if not isinstance(self.T, np.ndarray):
-                    raise TypeError("Time points should be saved in a numpy array")
-                if len(self.T) != self.num_samples:
-                    raise TypeError("Time points des not have right number of sampels")
-
-                if not isinstance(self.Domain_old,  pd.core.frame.DataFrame):
-                    raise TypeError("Domain information should be saved in a Pandas Dataframe.")
-                if len(self.Domain_old) != self.num_samples:
-                    raise TypeError("Domain information should have correct number of sampels")
-                path_names = self.Path.columns
+                # Check if the las file allready exists
+                if os.path.isfile(test_file):
+                    self.number_original_path_files = self.get_number_of_original_path_files()
+                    
+                else:
+                    # Check that no other save files exists
+                    test_file_tester = self.file_path + '--all_orig_paths'
+                    test_file_directory = os.path.dirname(test_file)
+                    # Find files in same directory that start with file_path_test
+                    num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(test_file_tester))])
+                    if num_files > 0:
+                        raise AttributeError("Incomplete use of self.check_created_paths_for_saving.")
+                    
+                    self.number_original_path_files = 1
+                    
+                    # Validate the data                    
+                    self.check_path_samples(self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples)
                 
-                if (path_names != self.Type_old.columns).any():
-                    raise TypeError("Agent Paths and Types need to have the same columns.")
+                    # save the results
+                    os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+                    
+                    test_data = np.array([self.Path,
+                                        self.Type_old,
+                                        self.T,
+                                        self.Domain_old,
+                                        self.num_samples], object)
                 
-                for needed_agent in self.needed_agents:
-                    if not needed_agent in path_names:
-                        raise AttributeError("Agent " + needed_agent + " must be included in the paths")
-                
-                for i in range(self.num_samples):
-                    # check if time input consists out of tuples
-                    if not isinstance(self.T[i], np.ndarray):
-                        raise TypeError("A time point samples is expected to be a np.ndarray.")
-
-                    test_length = len(self.T[i])
-                    for j, agent in enumerate(path_names):
-                        # check if time input consists out of tuples
-                        agent_path = self.Path.iloc[i, j]
-                        agent_type = self.Type_old.iloc[i, j]
-                        # For needed agents, nan is not admissible
-                        if agent in self.needed_agents:
-                            if not isinstance(agent_path, np.ndarray):
-                                raise TypeError("Path is expected to be consisting of np.ndarrays.")
-                        else:
-                            if not isinstance(agent_path, np.ndarray):
-                                if str(agent_path) != 'nan':
-                                    raise TypeError("Path is expected to be consisting of np.ndarrays.")
-                                
-                                if str(agent_type) != 'nan':
-                                    raise TypeError("If no path is given, there should be no agent type.")
-                                    
-                        
-                        # if the agent exists in this sample, adjust this
-                        if isinstance(agent_path, np.ndarray):
-                            if not len(agent_path.shape) == 2:
-                                raise TypeError("Path is expected to be consisting of np.ndarrays with two dimension.")
-                            if not agent_path.shape[1] == 2:
-                                raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x 2).")
-                                
-                            # test if input tuples have right length
-                            if test_length != len(agent_path):
-                                raise TypeError("Path sample does not have a matching number of timesteps.")
-                                
-                            if str(agent_type) == 'nan':
-                                raise ValueError("For a given path, the agent type must not be nan.")
-
-                # save the results
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                
-                test_data = np.array([self.Path,
-                                      self.Type_old,
-                                      self.T,
-                                      self.Domain_old,
-                                      self.num_samples], object)
-                
+                # Save the image data
                 if self.includes_images():
-                    if not 'image_id' in self.Domain_old.columns:
-                        raise AttributeError('Image identification is missing')
                     if not hasattr(self, 'Images'):
                         raise AttributeError('Images are missing.')
-                    if not hasattr(self.Images, 'Target_MeterPerPx'):
-                        if not hasattr(self, 'Target_MeterPerPx'):
-                            raise AttributeError('Images without Px to Meter scaling are useless.')
-                        else:
-                            self.Images['Target_MeterPerPx'] = self.Target_MeterPerPx
+                    
+                    self.check_image_samples(self.Images)
 
                     image_data = np.array([self.Images, 0], object)
                     np.save(image_file, image_data)
@@ -213,15 +396,13 @@ class data_set_template():
                     self.Images = None
                     
                 np.save(test_file, test_data)
+                
             self.raw_data_loaded = True
             self.raw_images_loaded = True
             
     def load_raw_images(self):
         if not self.raw_images_loaded and self.includes_images():
-            image_file = (self.path + os.sep + 'Results' + os.sep +
-                          self.get_name()['print'] + os.sep +
-                         'Data' + os.sep +
-                         self.get_name()['file'] + '--Images.npy')
+            image_file = self.file_path + '--Images.npy'
             if os.path.isfile(image_file):
                 [self.Images, _] = np.load(image_file, allow_pickle=True)
             else:

@@ -135,11 +135,9 @@ class Waymo_interactive(data_set_template):
             self.Type_old.append(agent_types)
             self.T.append(t)
             self.Domain_old.append(domain)
-            
-        self.Path = pd.DataFrame(self.Path)
-        self.Type_old = pd.DataFrame(self.Type_old)
-        self.T = np.array(self.T+[()], np.ndarray)[:-1]
-        self.Domain_old = pd.DataFrame(self.Domain_old)  
+        
+        
+        self.check_created_paths_for_saving(last = True) 
         
         # Get images 
         self.Images = pd.DataFrame(np.zeros((len(map_api.maps), 2), object), 
@@ -160,7 +158,6 @@ class Waymo_interactive(data_set_template):
                 img = img.astype(np.uint8)
             self.Images.Image.loc[map_key] = img       
 
-        assert False
         # deletet cached data
         shutil.rmtree(cache_path)
 

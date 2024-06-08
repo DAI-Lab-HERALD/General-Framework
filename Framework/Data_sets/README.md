@@ -210,7 +210,59 @@ The most important part of the dataset module is to provide access to training a
 
     ...
 ```
-If one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value in meters from **self.Domain_old.x_center**, $\Delta y$ from **self.Domain_old.y_center**, and $\theta$ (in radians) from **self.Domain_old.rot_angle**.
+
+It must be noted, that for **large datasets**, this approach might not work if the RAM of the computer is limited. In this case, there is an option that allows for the splitting into multiple datasets. Namely, as long as one tends to run a for loop during the extraction of the data, one should run the command self.check_created_paths_for_saving() at the end of each instance of this loop. This command checks the size if the currently extracted data, and if necessary, trasnferes this data to be saved on a harddrive.
+```
+  def check_created_paths_for_saving(self, last = False):
+    r'''
+    This function checks if the current data should be saved to free up memory.
+    It should be used during the extraction of datasets too large to be held in
+    memory at once.
+    
+    It requires the following attributes to be set:
+    
+    # TODO: Add the attribute descriptions from the class
+    **self.Path**:
+      This is a list of pandas series. In each such series, each index includes the 
+      trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`),
+      where the index name should be a unique identifier for the agent.
+      It is possible that positional data for an agent is only available at parts of the 
+      required time points, in which cases, the missing positions should be filled up with
+      (np.nan, np.nan).
+    
+    **self.Type_old**:
+      This is a list of pandas series. In each such series, the indices should be the same as
+      in the corresponding series in **self.Path**, and the values should be the agent types, 
+      with four types of agents currently implemented:
+        - 'V': Vehicles like cars and trucks
+        - 'M': Motorcycles
+        - 'B': Bicycles
+        - 'P': Pedestrians
+        
+    **self.T**:
+      This is a list of numpy arrays. It should have the same length as **self.Path** and
+      **self.Type_old**. Each array should have the length :math:`\vert T_i \vert` of the
+      trajecories of the agents in the corresponding series in **self.Path**. The values should
+      be the time points at which the positions of the agents were recorded.
+        
+    **self.Domain_old**:
+      This is a list of pandas series. Each series corresponds to an entry in **self.Path**, 
+      and contains the metadata of the corresponding scene. The metadata can include the 
+      location of the scene, or the id of the corresponding image, or the identification marker
+      of the scene in the raw data.
+    
+    
+    Parameters
+    ----------
+    last : bool
+      If true, the last of the data was added and should therefore be saved. During a run
+      of self.create_path_samples(), this should be set to *True* exactly once.
+    
+    '''
+```
+
+
+For **self.Images**, if one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value in meters from **self.Domain_old.x_center**, $\Delta y$ from **self.Domain_old.y_center**, and $\theta$ (in radians) from **self.Domain_old.rot_angle**.
 
 <img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_small.svg" alt="Image alinged coordinate system" width="75%">
 
