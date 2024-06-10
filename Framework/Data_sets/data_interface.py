@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import importlib
+import psutil
 import os
 import warnings
 import networkx as nx
@@ -44,9 +45,8 @@ class data_interface(object):
                 # Check for valid keys
                 assert 'attack' in perturbation.keys(), "Perturbation attack type is missing (required key: 'attack')."
 
-                # TODO: For further methods, check 
-                if perturbation['attack'] == 'Adversarial':
-                    perturbation['exp_parameters'] = parameters
+                # Pass the experiment parameters to perturbation method
+                perturbation['exp_parameters'] = parameters
                 
                 # Get perturbation type
                 pert_name = perturbation['attack']
@@ -299,77 +299,117 @@ class data_interface(object):
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
         self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
         complete_failure = None
+        self.data_in_one_piece = True
         for data_set in self.Datasets.values():
             data_failure = data_set.get_data(dt, num_timesteps_in, num_timesteps_out)
             if data_failure is not None:
                 complete_failure = data_failure[:-1] + ' (in ' + data_set.get_name()['print'] + ').'
             
-        # Set up 12 required attributes resulting from this function
-        self.Input_prediction = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Input_path       = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Input_T          = np.zeros(0, np.ndarray)
+            # Check the number of save parts in the dataset
+            if data_set.number_data_files > 1:
+                self.data_in_one_piece = False
+                
+        # Check for memory
+        if self.data_in_one_piece:
+            available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+            needed_memory = 0
+            for data_set in self.Datasets.values():
+                needed_memory += os.path.getsize(data_set.data_file)
 
-        self.Output_path      = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Output_T         = np.zeros(0, np.ndarray)
-        self.Output_T_pred    = np.zeros(0, np.ndarray)
-        self.Output_A         = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Output_T_E       = np.zeros(0, float)
-
-        self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.Domain           = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            if needed_memory > available_memory * 0.6:
+                self.data_in_one_piece = False
         
+        # Prepare the information needed here
+        self.Domain = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        self.num_behaviors_out = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        
+        self.Files = []
+        self.Agents = []
+        
+        # If possible, also load other data into one piece
+        if self.data_in_one_piece:
+            # Set up 12 required attributes resulting from this function
+            self.Input_prediction = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Input_path       = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Input_T          = np.zeros(0, np.ndarray)
+
+            self.Output_path      = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Output_T         = np.zeros(0, np.ndarray)
+            self.Output_T_pred    = np.zeros(0, np.ndarray)
+            self.Output_A         = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Output_T_E       = np.zeros(0, float)
+
+            self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
+        
         
         for data_set in self.Datasets.values():
-            # Combine datasets
-            self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
-            self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
+            # Save file indices
+            data_set_files, file_index_local = self._extract_save_files_from_data_set(data_set)
             
-            self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
-            self.Output_T_E       = np.concatenate((self.Output_T_E, data_set.Output_T_E), axis = 0)
+            # Remove the addition from the domai
+            Domain_local = data_set.Domain.drop(['path_addition', 'data_addition'], axis = 1)
+            Domain_local['file_index'] = file_index_local + len(self.Files)
             
-            self.Type             = pd.concat((self.Type, data_set.Type))
-            self.Recorded         = pd.concat((self.Recorded, data_set.Recorded))
-            self.Domain           = pd.concat((self.Domain, data_set.Domain))
+            # Add the new files 
+            self.Files += data_set_files
+            assert len(self.Files) == (max(Domain_local['file_index']) + 1), 'File index is not correctly assigned.'
             
-            self.Output_T_pred    = np.concatenate((self.Output_T_pred, data_set.Output_T_pred), axis = 0)
-            self.Output_T         = np.concatenate((self.Output_T, data_set.Output_T), axis = 0)
+            # Adjust the file Index
+            self.Domain = pd.concat((self.Domain, Domain_local))
             
-            self.Output_A         = pd.concat((self.Output_A, data_set.Output_A))
+            # Combine number of behaviors
+            self.num_behaviors[data_set.Behaviors]     += data_set.num_behaviors 
+            self.num_behaviors_out[data_set.Behaviors] += data_set.num_behaviors_out
             
-            # Get num behaviors
-            self.num_behaviors[data_set.Behaviors] += data_set.num_behaviors 
+            # Get new agents
+            self.Agents += data_set.Agents
             
-            # Consider generalized input
-            if self.general_input_available:
-                self.Input_prediction = pd.concat((self.Input_prediction, data_set.Input_prediction))
+            if self.data_in_one_piece:
+                # Always free up memory if possible
+                # Consider generalized input
+                if self.general_input_available:
+                    self.Input_prediction = pd.concat((self.Input_prediction, data_set.Input_prediction))
+                else:
+                    IP = pd.DataFrame(np.ones((len(data_set.Output_T), 1), float) * np.nan, columns = ['empty'])
+                    self.Input_prediction = pd.concat((self.Input_prediction, IP))
                 
-            else:
-                IP = pd.DataFrame(np.ones((len(data_set.Output_T), 1), float) * np.nan, columns = ['empty'])
-                self.Input_prediction = pd.concat((self.Input_prediction, IP))
+                self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
+                self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
+                
+                self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
+                self.Output_T_pred    = np.concatenate((self.Output_T_pred, data_set.Output_T_pred), axis = 0)
+                self.Output_T         = np.concatenate((self.Output_T, data_set.Output_T), axis = 0)
+                self.Output_T_E       = np.concatenate((self.Output_T_E, data_set.Output_T_E), axis = 0)
+                self.Output_A         = pd.concat((self.Output_A, data_set.Output_A))
+                
+                self.Type             = pd.concat((self.Type, data_set.Type))
+                self.Recorded         = pd.concat((self.Recorded, data_set.Recorded))
         
+        # combine the agents
+        self.Agents, index = np.unique(self.Agents, return_index = True)
+        # Sort the agents, so that the entry appearing first is the one that is kept first
+        self.Agents = list(self.Agents[np.argsort(index)])    
         
-        # Ensure that the same order of agents is maintained for input and output paths
-        self.Output_path = self.Output_path[self.Input_path.columns]
+        if self.data_in_one_piece:
+            # Ensure agent order is the same everywhere
+            self.Input_path  = self.Input_path[self.Agents]
+            self.Output_path = self.Output_path[self.Agents]
+            self.Type        = self.Type[self.Agents]
+            self.Recorded    = self.Recorded[self.Agents]
         
-        # Ensure agent order is the same everywhere
-        Agents = np.array(self.Input_path.columns)
-        self.Output_path = self.Output_path[Agents]
-        self.Type        = self.Type[Agents]
-        self.Recorded    = self.Recorded[Agents]
-        
-        # Ensure behavior stuff is aligned and fill missing behaviors
-        self.Output_A = self.Output_A[self.Behaviors].fillna(False)
+            # Ensure behavior stuff is aligned and fill missing behaviors
+            self.Output_A = self.Output_A[self.Behaviors].fillna(False)
         
         # Set final values
         self.data_loaded = True
         self.dt = dt
         
         # Remove useless samples
-        self._determine_pred_agents()
-        Num_eval_agents = self.Pred_agents_eval.sum(1)
-        Num_pred_agents = self.Pred_agents_pred.sum(1)
+        self._determine_pred_agents_unchecked()
+        Num_eval_agents = (self.Pred_agents_eval_all & self.Not_pov_agent).sum(1)
+        Num_pred_agents = (self.Pred_agents_pred_all & self.Not_pov_agent).sum(1)
         
         Useful_agents = (Num_eval_agents + Num_pred_agents) > 0 
         
@@ -377,43 +417,30 @@ class data_interface(object):
             complete_failure = "not enough prediction problems are avialable."
         
         # Overwrite
-        self.Input_prediction = self.Input_prediction.iloc[Useful_agents].reset_index(drop = True)
-        self.Input_path       = self.Input_path.iloc[Useful_agents].reset_index(drop = True)
-        self.Input_T          = self.Input_T[Useful_agents]
-
-        self.Output_path      = self.Output_path.iloc[Useful_agents].reset_index(drop = True)
-        self.Output_T         = self.Output_T[Useful_agents]
-        self.Output_T_pred    = self.Output_T_pred[Useful_agents]
-        self.Output_A         = self.Output_A.iloc[Useful_agents].reset_index(drop = True)
-        self.Output_T_E       = self.Output_T_E[Useful_agents]
-
-        self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
-        self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
         self.Domain           = self.Domain.iloc[Useful_agents].reset_index(drop = True)
-        
-        self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
-        
-        # Overwrite old saved aspects
-        self.X_orig = self.X_orig[Useful_agents]
-        self.Y_orig = self.Y_orig[Useful_agents]
-        
-        self.N_O_data_orig = self.N_O_data_orig[Useful_agents]
-        self.N_O_pred_orig = self.N_O_pred_orig[Useful_agents]
-        
         self.Pred_agents_eval_all = self.Pred_agents_eval_all[Useful_agents]
         self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
-        self.Pred_agents_eval     = self.Pred_agents_eval[Useful_agents]
-        self.Pred_agents_pred     = self.Pred_agents_pred[Useful_agents]
+        self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
         
-        if hasattr(self, 'Not_pov_agent'):
-            self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
-        
+        if self.data_in_one_piece:
+            self.Input_prediction = self.Input_prediction.iloc[Useful_agents].reset_index(drop = True)
+            self.Input_path       = self.Input_path.iloc[Useful_agents].reset_index(drop = True)
+            self.Input_T          = self.Input_T[Useful_agents]
+
+            self.Output_path      = self.Output_path.iloc[Useful_agents].reset_index(drop = True)
+            self.Output_T         = self.Output_T[Useful_agents]
+            self.Output_T_pred    = self.Output_T_pred[Useful_agents]
+            self.Output_A         = self.Output_A.iloc[Useful_agents].reset_index(drop = True)
+            self.Output_T_E       = self.Output_T_E[Useful_agents]
+
+            self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
+            self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
         
         return complete_failure
         
         
     
-    def get_Target_MeterPerPx(self, domain):
+    def get_Target_MeterPerPx(self, domain): 
         return self.Datasets[domain.Scenario].Images.Target_MeterPerPx.loc[domain.image_id]
     
     
@@ -587,15 +614,28 @@ class data_interface(object):
                     self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
                     self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
 
-                    
-    def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
-        if not (hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all')):
-            Agents = np.array(self.Recorded.columns)
+    
+    def _extract_save_files_from_data_set(data_set):
+        additions = data_set.Domain['path_addition', 'data_addition'].to_numpy().sum()
+        unique_additions, file_number = np.unique(additions, return_inverse = True, axis = 0)
+        
+        Files = []
+        data_file = data_set.data_file[:-4]
+        for unique_addition in unique_additions:
+            Files.append(data_file + unique_addition[0] + unique_addition[1])
             
+        return Files, file_number
+            
+            
+    
+                    
+    def _determine_pred_agents_unchecked(self):
+        ## NOTE: Method has been adjusted for large datasets
+        if not (hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all')):
             # Get unique boolean needed agents
             needed_agents_bool = []
             for needed_agents in self.scenario_needed_agents:
-                needed_agents_bool.append(np.in1d(Agents, needed_agents))
+                needed_agents_bool.append(np.in1d(self.Agents, needed_agents))
                     
             needed_agents_bool = np.stack(needed_agents_bool, axis = 0)
             
@@ -608,41 +648,60 @@ class data_interface(object):
             # Get needed agents for all cases
             Needed_agents = needed_agents_bool[Scenario_id]
             
-            # Get path data
-            self._extract_original_trajectories()
-            
+                
             if self.agents_to_predict == 'predefined':
                 self.Pred_agents_eval_all = Needed_agents
                 self.Pred_agents_pred_all = Needed_agents
             else:
-                Recorded_agents = np.zeros(Needed_agents.shape, bool)
-                for i_sample in range(len(self.Recorded)):
-                    R = self.Recorded.iloc[i_sample]
-                    for i_agent, agent in enumerate(Agents):
-                        if isinstance(R[agent], np.ndarray):
-                            Recorded_agents[i_sample, i_agent] = np.all(R[agent])
-
-                # remove non-moving agents
-                Tr = np.concatenate((self.X_orig, self.Y_orig), axis = 2)
-                Dr = np.abs(Tr[:,:,1:] - Tr[:,:,:-1])
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category = RuntimeWarning)
-                    Dr = np.nanmax(Dr, (2, 3))
-                
-                # Get moving vehicles
-                Moving_agents = Dr > 0.01
-                
-                # Get correct type 
-                T = self.Type[Agents].to_numpy()
-                if self.agents_to_predict != 'all':
-                    Correct_type_agents = T == self.agents_to_predict
+                if self.data_in_one_piece:
+                    Recorded_agents = np.zeros(Needed_agents.shape, bool)
+                    for i_sample in range(len(self.Recorded)):
+                        R = self.Recorded.iloc[i_sample]
+                        for i_agent, agent in enumerate(self.Agents):
+                            if isinstance(R[agent], np.ndarray):
+                                Recorded_agents[i_sample, i_agent] = np.all(R[agent])
+                    
+                    # Get correct type 
+                    if self.agents_to_predict != 'all':
+                        Correct_type_agents = self.Type.to_numpy() == self.agents_to_predict
+                    else:
+                        Correct_type_agents = np.ones(Needed_agents.shape, bool)
                 else:
-                    Correct_type_agents = np.ones(T.shape, bool)
+                    Recorded_agents     = np.zeros((len(self.Domain), len(self.Agents)), bool)
+                    Correct_type_agents = np.zeros((len(self.Domain), len(self.Agents)), bool)
+                    
+                    for file_index in range(len(self.Files)):
+                        used = self.Domain.file_index == file_index
+                        used_index = np.where(used)[0]
+                        
+                        # Get corresponding agent files
+                        agent_file = self.Files[file_index] + '_agents.npy'
+                        
+                        # Load the agent files
+                        [Type_local, Recorded_local, _] = np.load(agent_file, allow_pickle=True)
+                        
+                        # Get the corresponding indices
+                        Type_local     = Type_local[self.Domain[used].Index_saved]
+                        Recorded_local = Recorded_local[self.Domain[used].Index_saved]
+                        
+                        # Get the agent indices
+                        agent_index = (Type_local.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis]).argmax(1)
+                        
+                        for i_local, i_global in enumerate(used_index):
+                            R = Recorded_local.iloc[i_local]
+                            for i_agent, agent in enumerate(self.Agents):
+                                if (agent in Recorded_local.columns) and isinstance(R[agent], np.ndarray):
+                                    Recorded_agents[i_global, i_agent] = np.all(R[agent])
+                        
+                        # Get correct type 
+                        if self.agents_to_predict != 'all':
+                            Correct_type_agents[used, agent_index] = Type_local.to_numpy() == self.agents_to_predict
+                        else:
+                            Correct_type_agents[used, agent_index] = True
+                    
                 
-                Extra_agents = (Correct_type_agents & Moving_agents & Recorded_agents)
-                
-                self.Pred_agents_eval_all = (Correct_type_agents & Needed_agents) | Extra_agents
-                self.Pred_agents_pred_all = Needed_agents | Extra_agents
+                self.Pred_agents_eval_all = Correct_type_agents & (Needed_agents | Recorded_agents)
+                self.Pred_agents_pred_all = Needed_agents | (Correct_type_agents & Recorded_agents)
             
             
             # NuScenes exemption:
@@ -657,48 +716,49 @@ class data_interface(object):
                 PA = self.Domain.pred_agents
                 PT = self.Domain.pred_timepoints
                 T0 = self.Domain.t_0
-                for i_sample in range(len(self.Recorded)):
+                for i_sample in range(len(self.Domain)):
                     pt = PT.iloc[i_sample]
                     t0 = T0.iloc[i_sample]
                     i_time = np.argmin(np.abs(t0 - pt))
                     
                     pas = PA.iloc[i_sample]
-                    i_agents = (Agents[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
+                    i_agents = (np.array(self.Agents)[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
                     pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
                     
                     Pred_agents_N[i_sample, i_agents] = pa
                 
                 self.Pred_agents_eval_all = Pred_agents_N
                 self.Pred_agents_pred_all = Pred_agents_N | Needed_agents
-                
-            # Check if everything needed is there
-            assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
-            assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
-        
-        if not (pred_pov and eval_pov):
-            if not hasattr(self, 'Not_pov_agent'):
-                
-                # Get unique boolean pov agents
-                Agents = np.array(self.Recorded.columns)
-                pov_agents_bool = []
-                for pov_agent in self.scenario_pov_agents:
-                    if pov_agent is None:
-                        pov_agents_bool.append(np.zeros(len(Agents), bool))
-                    else:
-                        pov_agents_bool.append(Agents == pov_agent)
-                        
-                pov_agents_bool = np.stack(pov_agents_bool, axis = 0)
-                
-                # Get the unique scenario id for every sample
-                Scenario = self.Domain.Scenario_type.to_numpy()
-                Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
-                assert np.all(Scenario_id.sum(1) == 1)
-                Scenario_id = Scenario_id.argmax(1)
-                
-                # Get pov boolean for each agent
-                Pov_agent = pov_agents_bool[Scenario_id]
-                self.Not_pov_agent = np.invert(Pov_agent)
             
+            
+                
+                
+        
+        if not hasattr(self, 'Not_pov_agent'):
+            # Get unique boolean pov agents
+            pov_agents_bool = []
+            for pov_agent in self.scenario_pov_agents:
+                if pov_agent is None:
+                    pov_agents_bool.append(np.zeros(len(self.Agents), bool))
+                else:
+                    pov_agents_bool.append(self.Agents == pov_agent)
+                    
+            pov_agents_bool = np.stack(pov_agents_bool, axis = 0)
+            
+            # Get the unique scenario id for every sample
+            Scenario = self.Domain.Scenario_type.to_numpy()
+            Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
+            assert np.all(Scenario_id.sum(1) == 1)
+            Scenario_id = Scenario_id.argmax(1)
+            
+            # Get pov boolean for each agent
+            Pov_agent = pov_agents_bool[Scenario_id]
+            self.Not_pov_agent = np.invert(Pov_agent)
+        
+                    
+    def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
+        self._determine_pred_agents_unchecked(pred_pov = pred_pov, eval_pov = eval_pov)
+        
         if pred_pov:
             self.Pred_agents_pred = self.Pred_agents_pred_all.copy()
         else:
@@ -708,6 +768,13 @@ class data_interface(object):
             self.Pred_agents_eval = self.Pred_agents_eval_all.copy()
         else:
             self.Pred_agents_eval = self.Pred_agents_eval_all & self.Not_pov_agent
+
+        # Get path data
+        self._extract_original_trajectories()
+
+        # Check if everything needed is there
+        assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
+        assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
         
     
     def _group_indentical_inputs(self, eval_pov = True):
@@ -895,8 +962,6 @@ class data_interface(object):
             if self.excluded_ego_indep == exclude_ego:
                 return
         
-        Agents = np.array(self.Input_path.columns)
-        
         # Save last setting 
         self.excluded_ego_indep = exclude_ego
         
@@ -941,7 +1006,7 @@ class data_interface(object):
                 
                 self.KDE_indep[subgroup][nto] = {}
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                    agent = Agents[i_agent_orig]
+                    agent = self.Agents[i_agent_orig]
                     
                     # Get agent
                     paths_true_agent = paths_true[:,i_agent]

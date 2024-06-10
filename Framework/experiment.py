@@ -271,21 +271,17 @@ class Experiment():
             for beh in data_set.Behaviors:
                 if beh != data_set.Behaviors[-1]:
                     if len(data_set.Behaviors) > 2:
-                        sample_string += '{}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
+                        sample_string += '{}/{} '.format(data_set.num_behaviors_out[beh], 
                                                          data_set.num_behaviors[beh]) + beh + ', '
                     else:
-                        sample_string += '{}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
+                        sample_string += '{}/{} '.format(data_set.num_behaviors_out[beh], 
                                                          data_set.num_behaviors[beh]) + beh + ' '
                 else:                            
-                    sample_string += 'and {}/{} '.format(data_set.Output_A[beh].to_numpy().sum(), 
+                    sample_string += 'and {}/{} '.format(data_set.num_behaviors_out[beh], 
                                                          data_set.num_behaviors[beh]) + beh        
             sample_string += ' samples are admissible.'
         else:
-            if hasattr(data_set, 'Output_T'):
-                sample_string = '{}/{} samples are admissible.'.format(len(data_set.Output_T), 
-                                                                       data_set.num_behaviors[0])
-            else:
-                sample_string = ''
+            sample_string = ''
         print(sample_string)
         print('')
         

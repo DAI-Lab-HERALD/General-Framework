@@ -995,12 +995,14 @@ class data_set_template():
         test_file_directory = os.path.dirname(self.data_file)
         
         # Find files in same directory that start with file_path_test
-        num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(self.data_file[:-4]))])
-        return num_files
+        domain_files = [f for f in os.listdir(test_file_directory) if (f.startswith(os.path.basename(self.data_file[:-4]))
+                                                                       and f.endswith('_domain.npy'))]
+        num_files = len(domain_files)
+        return domain_files, num_files
     
     
     
-    def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, data_file):
+    def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, path_file_adjust):
         # Extract time points from raw data
         [
             local_id,
@@ -1014,7 +1016,7 @@ class data_set_template():
             local_t_crit] = self.extract_time_points(Path, T, Domain_old, num_samples, path_file)
 
         # Get number of possible accepted/rejected samples in the whole dataset
-        num_behaviors = np.array([(beh == local_behavior).sum() for beh in self.Behaviors])
+        self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
         
         # set number of maximum agents
         if self.max_num_agents is not None:
@@ -1059,6 +1061,9 @@ class data_set_template():
             t_start = local_t_start[i]
             t_decision = local_t_decision[i]
             t_crit = local_t_crit[i]
+            
+            # Update self.num_behaviors_local
+            self.num_behaviors_local[self.Behaviors == behavior] += 1
 
             # Get the time of prediction
             T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, i, behavior)
@@ -1192,11 +1197,18 @@ class data_set_template():
                 # Save information abut missing positions to overwrite them back later if needed
                 recorded_positions = pd.Series(np.empty(len(helper_path.index), object), index=helper_path.index)
                 
+                
                 for agent in helper_path.index:
                     if not isinstance(helper_path[agent], float):
                         available_pos = np.isfinite(helper_path[agent]).all(-1)
                         assert available_pos.sum() > 1 
                         
+                        # If an agent does not move at all, then mark the first timestep as unrecorded
+                        if available_pos.all():
+                            distances = np.linalg.norm(helper_path[agent][1:] - helper_path[agent][:-1], axis=-1)
+                            if np.all(distances < 1e-2):
+                                available_pos[0] = False
+                            
                         recorded_positions[agent] = available_pos
                     else:
                         recorded_positions[agent] = np.nan
@@ -1270,13 +1282,15 @@ class data_set_template():
                 self.Domain_local.append(domain)
                 
                 # Check if saving is needed
-                self.check_extracted_data_for_saving(num_behaviors, data_file)
+                self.check_extracted_data_for_saving(path_file_adjust)
                 
         # Save the data with last = True
-        self.check_extracted_data_for_saving(num_behaviors, data_file, True)
+        self.check_extracted_data_for_saving(path_file_adjust, True)
     
     
-    def check_extracted_data_for_saving(self, num_behaviors, data_file, last = False):
+    def check_extracted_data_for_saving(self, path_file_adjust, last = False):
+        # Get the dataset file
+        data_file = self.data_file[:-4] + path_file_adjust
         
         # Get the currently available RAM space
         available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
@@ -1318,8 +1332,10 @@ class data_set_template():
             self.Recorded = pd.DataFrame(self.Recorded_local).reset_index(drop = True)
             self.Domain   = pd.DataFrame(self.Domain_local).reset_index(drop = True)
             
+            self.num_behaviors = self.num_behaviors_local.copy()
+            
             # Ensure that dataframes with agent columns have the same order
-            Agents = self.Input_path.columns
+            Agents = self.Input_path.columns.to_list()
             self.Input_path  = self.Input_path[Agents]
             self.Output_path = self.Output_path[Agents]
             self.Type        = self.Type[Agents]
@@ -1337,6 +1353,9 @@ class data_set_template():
             data_file_name = os.path.basename(data_file)
             data_file_directory = os.path.dirname(data_file)
             
+            # Get data that has to be saved in Domain
+            num_behaviors_out = self.Output_A[self.Behaviors].sum(axis=0).to_numpy()
+            
             # Make directory
             os.makedirs(data_file_directory, exist_ok=True)
             
@@ -1351,6 +1370,18 @@ class data_set_template():
                 
             # Apply perturbation if necessary:
             self.Domain['perturbation'] = False
+            
+            if last:
+                data_file_addition = ''
+            else:
+                data_file_addition = '_' + str(file_number).zfill(3)
+                
+            # Check if there was any previous additions
+            self.Domain['path_addition'] = path_file_adjust
+            self.Domain['data_addition'] = data_file_addition
+            self.Domain['Index_saved']   = self.Input_path.index
+                
+            
             
             if self.is_perturbed:
                 self = self.Perturbation.perturb(self)
@@ -1367,12 +1398,15 @@ class data_set_template():
                 Input_path_unperturbed  = pd.DataFrame(Input_path_unperturbed, index = self.Domain.index)
                 Output_path_unperturbed = pd.DataFrame(Output_path_unperturbed, index = self.Domain.index)
                 
+                if self.classification_useful:
+                    # TODO: Overwrite the extracted behavior data respectively
+                    pass
+                
                 # Remove unperturbed columns from domain
                 self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'])
-                self.Domain['perturbation'] = False
                 
                 # Get the unperturbed save data
-                save_data_unperturbed = [
+                save_data_unperturbed = np.array([
                                             self.Input_prediction,
                                             Input_path_unperturbed,
                                             self.Input_T,
@@ -1381,25 +1415,24 @@ class data_set_template():
                                             self.Output_T,
                                             self.Output_T_pred,
                                             self.Output_A,
-                                            self.Output_T_E,
-                                            
-                                            self.Type,
-                                            self.Recorded,
-                                            self.Domain,
-                                            num_behaviors, 0]
+                                            self.Output_T_E, 0], object)
+                
+                save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
+                save_agent_unperturbed = np.array([self.Type, self.Recorded, 0], object)
                 
                 # Get unperturbed save file
                 
                 data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
-                if last:
-                    data_file_unperturbed_save = data_file_unperturbed + '.npy'
-                else:
-                    data_file_unperturbed_save = data_file_unperturbed + '_' + str(file_number).zfill(3) + '.npy'
+                data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '.npy'
+                domain_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_domain.npy'
+                agent_file_save = data_file_unperturbed + data_file_addition + '_AM.npy'
                 
                 # Save the unperturbed data
                 np.save(data_file_unperturbed_save, save_data_unperturbed)
+                np.save(domain_file_unperturbed_save, save_domain_unperturbed)
+                np.save(agent_file_save, save_agent_unperturbed)
                 
-                # Set perturbation to True
+                # Set perturbation to True in the Domain to be saved in the perturbed data
                 self.Domain['perturbation'] = True
             
             save_data = np.array([
@@ -1411,22 +1444,20 @@ class data_set_template():
                                     self.Output_T,
                                     self.Output_T_pred,
                                     self.Output_A,
-                                    self.Output_T_E,
-                                    
-                                    self.Type,
-                                    self.Recorded,
-                                    self.Domain,
-                                    num_behaviors, 0], object)
+                                    self.Output_T_E, 0], object)
             
-                
-            if last:
-                # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
-                data_file_save = data_file + '.npy'
-            else:
-                data_file_save = data_file + '_' + str(file_number).zfill(3) + '.npy'
-                
+            save_domain = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
+            save_agent = np.array([self.Type, self.Recorded, 0], object)
+            
+            
+            data_file_save = data_file + data_file_addition + '.npy'
+            domain_file_save = data_file + data_file_addition + '_domain.npy'
+            agent_file_save = data_file + data_file_addition + '_AM.npy'
+            
             # Save the data
             np.save(data_file_save, save_data)
+            np.save(domain_file_save, save_domain)
+            np.save(agent_file_save, save_agent)
             
             # Empty local data files
             self.Input_prediction_local = []
@@ -1442,6 +1473,8 @@ class data_set_template():
             self.Type_local     = []
             self.Recorded_local = []
             self.Domain_local   = []
+            
+            self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
             
         
         
@@ -1477,9 +1510,13 @@ class data_set_template():
             
             # Go through original data
             for i_orig_path in range(self.number_original_path_files):
-            
+                # Get path name adjustment
+                path_file = self.file_path + '--all_orig_paths'
+                
                 if self.number_original_path_files == 1:
-                    path_file = self.file_path + '--all_orig_paths.npy'
+                    # Get path name adjustment
+                    path_file_adjust = ''
+                    path_file += path_file_adjust + '.npy'
                     
                     # Get the allready loaded data
                     Path_loaded = self.Path
@@ -1487,20 +1524,13 @@ class data_set_template():
                     T_loaded = self.T
                     Domain_old_loaded = self.Domain_old
                     num_samples_loaded = self.num_samples
-                    
-                    data_file_local = self.data_file[:-4]
-                    
             
                 else:
-                    # Get data file
-                    path_file = self.file_path + '--all_orig_paths'
-                    
                     # Get path name adjustment
                     if i_orig_path < self.number_original_path_files - 1:
                         path_file_adjust = '_' + str(i_orig_path).zfill(3)
                     else:
                         path_file_adjust = ''
-                    
                     path_file += path_file_adjust + '.npy'
                     
                     # Load the data
@@ -1509,19 +1539,20 @@ class data_set_template():
                     T_loaded,
                     Domain_old_loaded,
                     num_samples_loaded] = np.load(path_file, allow_pickle=True)
-                    
-                    data_file_local = self.data_file[:-4] + path_file_adjust
-                    
-
-                self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, data_file_local)
+                
+                # Adjust base data file name accordingly
+                self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
                 
                 
         
         # Get the number of files
-        self.number_data_files = self.get_number_of_data_files(self.data_file)
+        domain_files, self.number_data_files = self.get_number_of_data_files(self.data_file)
         
         # If only one file is available, load the data
         if self.number_data_files == 1:
+            domain_file = self.data_file[:-4] + '_domain.npy'
+            agent_file = self.data_file[:-4] + '_AM.npy'
+            
             # Load the data
             [self.Input_prediction,
             self.Input_path,
@@ -1531,28 +1562,56 @@ class data_set_template():
             self.Output_T,
             self.Output_T_pred,
             self.Output_A,
-            self.Output_T_E,
-
-            self.Type,
-            self.Recorded,
-            self.Domain,
-            self.num_behaviors, _] = np.load(self.data_file, allow_pickle=True)
+            self.Output_T_E, _] = np.load(self.data_file, allow_pickle=True)
+            
+            [self.Domain, self.num_behaviors, self.num_behaviors_out, self.Agents, _] = np.load(domain_file, allow_pickle=True)
+            [self.Type, self.Recorded, _] = np.load(agent_file, allow_pickle=True)
+        
+        else:
+            # Free up memory
+            self.Input_prediction = None
+            self.Input_path = None
+            self.Input_T = None
+            
+            self.Output_path = None
+            self.Output_T = None
+            self.Output_T_pred = None
+            self.Output_A = None
+            
+            self.Type = None
+            self.Recorded = None
+            
+            # Combine the Domains and number of behaviors
+            self.Domain = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            
+            self.num_behaviors     = np.zeros(len(self.Behaviors), int)
+            self.num_behaviors_out = np.zeros(len(self.Behaviors), int)
+            
+            self.Agents = []
+            
+            # Get needed data files
+            domain_directory = os.path.dirname(self.data_file) 
+            for domain_file in domain_files:
+                domain_file_path = domain_directory + os.sep + domain_file
+                Domain, num_behaviors, num_behaviors_out, Agents, _ = np.load(domain_file_path, allow_pickle=True) 
                 
+                self.Domain = pd.concat([self.Domain, Domain], axis = 0)
+                self.num_behaviors     += num_behaviors
+                self.num_behaviors_out += num_behaviors_out
                 
+                self.Agents += Agents
                 
-                
+        self.Agents, index = np.unique(self.Agents, return_index = True)
+        # Sort the agents, so that the entry appearing first is the one that is kept first
+        self.Agents = list(self.Agents[np.argsort(index)])
 
         self.data_loaded = True
         # check if dataset is useful
         if len(self.Output_A) < 100:
             return "there are not enough samples for a reasonable training process."
 
-        if self.classification_useful:
-            beh_counts = np.unique(self.Output_A.to_numpy(), axis=0, return_counts=True)[1]
-            if len(beh_counts) == 1:
-                return "the dataset is too unbalanced for a reasonable training process."
-            if 10 > np.sort(beh_counts)[-2]:
-                return "the dataset is too unbalanced for a reasonable training process."
+        if self.classification_useful and np.sort(self.num_behaviors_out)[-2] < 10:
+            return "the dataset is too unbalanced for a reasonable training process."
 
         return None
 
