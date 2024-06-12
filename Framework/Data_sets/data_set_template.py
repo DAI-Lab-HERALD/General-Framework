@@ -249,7 +249,7 @@ class data_set_template():
             Domain_old_check = pd.DataFrame(self.Domain_old)
             
         # Test if final file allready exists
-        final_test_name = self.file_path + '--all_orig_paths.npy'
+        final_test_name = self.file_path + '--all_orig_paths_LLL.npy'
         if os.path.isfile(final_test_name):
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
             
@@ -283,7 +283,7 @@ class data_set_template():
                 
             if last:
                 # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
-                file_path_save = file_path_test + '.npy'
+                file_path_save = file_path_test + '_LLL.npy'
             else:
                 file_path_save = file_path_test + '_' + str(file_number).zfill(3) + '.npy'
                 
@@ -309,7 +309,7 @@ class data_set_template():
     
     def get_number_of_original_path_files(self):
         # Get name of final file
-        test_file = self.file_path + '--all_orig_paths.npy'
+        test_file = self.file_path + '--all_orig_paths_LLL.npy'
         
         # Check if file exists
         if not os.path.isfile(test_file):
@@ -327,7 +327,7 @@ class data_set_template():
     def load_raw_data(self):
         if not self.raw_data_loaded:
             # If extraction was successful, this file should exist.
-            test_file = self.file_path + '--all_orig_paths.npy'
+            test_file = self.file_path + '--all_orig_paths_LLL.npy'
             image_file = self.file_path + '--Images.npy'
             
             image_creation_unneeded = (not self.includes_images()) or os.path.isfile(image_file)
@@ -717,7 +717,7 @@ class data_set_template():
                 for i_orig_path in range(self.number_original_path_files):
                 
                     if self.number_original_path_files == 1:
-                        path_file = self.file_path + '--all_orig_paths.npy'
+                        path_file = self.file_path + '--all_orig_paths_LLL.npy'
                         
                         # Get the allready loaded data
                         Path_loaded = self.Path
@@ -732,7 +732,7 @@ class data_set_template():
                         if i_orig_path < self.number_original_path_files - 1:
                             path_file_adjust = '_' + str(i_orig_path).zfill(3)
                         else:
-                            path_file_adjust = ''
+                            path_file_adjust = '_LLL'
                         
                         path_file += path_file_adjust + '.npy'
                         
@@ -1342,6 +1342,7 @@ class data_set_template():
             self.Recorded    = self.Recorded[Agents]
 
             # Ensure that indices of dataframes are the same
+            self.Input_path = self.Input_path.reset_index(drop = True, inplace = True)
             self.Input_prediction.index = self.Input_path.index
             self.Output_path.index      = self.Input_path.index
             self.Output_A.index         = self.Input_path.index
@@ -1372,7 +1373,7 @@ class data_set_template():
             self.Domain['perturbation'] = False
             
             if last:
-                data_file_addition = ''
+                data_file_addition = '_LLL'
             else:
                 data_file_addition = '_' + str(file_number).zfill(3)
                 
@@ -1418,7 +1419,7 @@ class data_set_template():
                                             self.Output_T_E, 0], object)
                 
                 save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-                save_agent_unperturbed = np.array([self.Type, self.Recorded, 0], object)
+                save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
                 
                 # Get unperturbed save file
                 
@@ -1447,7 +1448,7 @@ class data_set_template():
                                     self.Output_T_E, 0], object)
             
             save_domain = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-            save_agent = np.array([self.Type, self.Recorded, 0], object)
+            save_agent  = np.array([self.Type, self.Recorded, 0], object)
             
             
             data_file_save = data_file + data_file_addition + '.npy'
@@ -1515,7 +1516,7 @@ class data_set_template():
                 
                 if self.number_original_path_files == 1:
                     # Get path name adjustment
-                    path_file_adjust = ''
+                    path_file_adjust = '_LLL'
                     path_file += path_file_adjust + '.npy'
                     
                     # Get the allready loaded data
@@ -1530,7 +1531,7 @@ class data_set_template():
                     if i_orig_path < self.number_original_path_files - 1:
                         path_file_adjust = '_' + str(i_orig_path).zfill(3)
                     else:
-                        path_file_adjust = ''
+                        path_file_adjust = '_LLL'
                     path_file += path_file_adjust + '.npy'
                     
                     # Load the data
@@ -1550,8 +1551,8 @@ class data_set_template():
         
         # If only one file is available, load the data
         if self.number_data_files == 1:
-            domain_file = self.data_file[:-4] + '_domain.npy'
-            agent_file = self.data_file[:-4] + '_AM.npy'
+            domain_file = self.data_file[:-4] + '_LLL_domain.npy'
+            agent_file = self.data_file[:-4] + '_LLL_AM.npy'
             
             # Load the data
             [self.Input_prediction,

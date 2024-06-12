@@ -16,7 +16,33 @@ class Random_split(splitting_template):
         Subgroups = self.data_set.Subgroups - 1
         
         # Get Behaviors, with non appearing ones being neglected
-        Behaviors = np.unique(self.data_set.Output_A.to_numpy().argmax(1), return_inverse = True)[1]
+        if self.data_set.classification_possible:
+            if self.data_set.data_in_one_piece:
+                Behaviors = self.data_set.Output_A.to_numpy().argmax(1)
+            else:
+                Behaviors = np.zeros(len(self.Domain), int)
+                for file_index in range(len(self.data_set.Files)):
+                    file = self.data_set.Files[file_index] + '.npy'
+                    used = self.Domain.file_index == file_index
+                    used_index = np.where(used)[0]
+
+                    [_, _, _, _, _, _, Output_A, _, _] = np.load(file, allow_pickle=True)
+                    
+                    # Get the actual indices of Output_A
+                    Output_A = Output_A.loc[self.Domain[used].Index_saved]
+                    
+                    # Map behaviors from Output_A column to self.data_set.Behaviors
+                    index_map = np.array(Output_A.columns)[:,np.newaxis] == self.data_set.Behaviors[np.newaxis]
+                    assert (index_map.sum(1) == 1).all()
+                    index_map = index_map.argmax(1)
+                    
+                    # Get the actual behaviors
+                    beh_ind = Output_A.to_numpy().argmax(1)
+                    Behaviors[used_index] = index_map[beh_ind]
+                    
+            Behaviors = np.unique(Behaviors, return_inverse = True)[1]
+        else:
+            Behaviors = np.zeros(len(self.Domain))
         
         # Get unique subgroups
         uni_subgroups = np.unique(Subgroups)
@@ -54,7 +80,7 @@ class Random_split(splitting_template):
         
         Test_ind = np.unique(np.concatenate(Test_ind), axis = 0)
         
-        Index = np.arange(len(self.data_set.Output_A))
+        Index = np.arange(len(self.Domain))
         Test_index = []
         for ind in Test_ind:
             subgroup = uni_subgroups[ind]

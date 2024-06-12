@@ -192,10 +192,13 @@ class data_interface(object):
         if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
             del self.X_orig
             del self.Y_orig
+            del self.orig_file_index
         
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
             del self.Pred_agents_eval_all
             del self.Pred_agents_pred_all
+            del self._checked_pred_agents
+            
         if hasattr(self, 'Not_pov_agent'):
             del self.Not_pov_agent
         
@@ -588,31 +591,61 @@ class data_interface(object):
             return names
             
     #%% Useful function for later modules
-    def _extract_original_trajectories(self):
+    def _extract_original_trajectories(self, file_index = 0):
+        ## NOTE: Method has been adjusted for large datasets
         if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
-            return
+            # Check if the currently extracted values correspond to the file index
+            if hasattr(self, 'orig_file_index'):
+                if file_index == self.orig_file_index:
+                    return
+            self.orig_file_index = file_index
+        else:
+            assert not hasattr(self, 'orig_file_index'), 'Original trajectories have been extracted for unknown file index.'
+            
+        # Load the specific file
+        if self.data_in_one_piece:
+            Input_path    = self.Input_path
+            Output_path   = self.Output_path
+            Output_T      = self.Output_T
+            Output_T_pred = self.Output_T_pred
+            
+            assert file_index == 0, 'Only one file index is available.'
+        else:
+            file = self.Files[file_index] + '_data.npy'
+            [_, Input_path, _, Output_path, Output_T, Output_T_pred, _, _, _] = np.load(file, allow_pickle=True)
+            
+            # Get the required inidices
+            ind = self.Domain[self.Domain.file_index == file_index].Index_saved
+            Input_path    = Input_path.loc[ind]
+            Output_path   = Output_path.loc[ind]
+            
+            Output_T      = Output_T[ind]
+            Output_T_pred = Output_T_pred[ind]
+            
+            
         
-        self.N_O_data_orig = np.zeros(len(self.Output_T), int)
-        self.N_O_pred_orig = np.zeros(len(self.Output_T), int)
-        for i_sample in range(self.Output_T.shape[0]):
-            self.N_O_data_orig[i_sample] = len(self.Output_T[i_sample])
-            self.N_O_pred_orig[i_sample] = len(self.Output_T_pred[i_sample])
+        self.N_O_data_orig = np.zeros(len(Output_T), int)
+        self.N_O_pred_orig = np.zeros(len(Output_T), int)
+        for i_sample in range(Output_T.shape[0]):
+            self.N_O_data_orig[i_sample] = len(Output_T[i_sample])
+            self.N_O_pred_orig[i_sample] = len(Output_T_pred[i_sample])
         
-        Agents = np.array(self.Input_path.columns)
         
-        X_help = self.Input_path.to_numpy()
-        Y_help = self.Output_path.to_numpy()
+        X_help = Input_path.to_numpy()
+        Y_help = Output_path.to_numpy()
             
         self.X_orig = np.ones(list(X_help.shape) + [self.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
         self.Y_orig = np.ones(list(Y_help.shape) + [self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
         
         # Extract data from original number a samples
         for i_sample in range(self.X_orig.shape[0]):
-            for i_agent, agent in enumerate(Agents):
-                if not isinstance(X_help[i_sample, i_agent], float):    
-                    n_time = self.N_O_data_orig[i_sample]
-                    self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent].astype(np.float32)
-                    self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent][:n_time].astype(np.float32)
+            for i_agent, agent in enumerate(self.Agents):
+                if agent in Input_path.columns:
+                    i_agent_data = np.where(Input_path.columns == agent)[0][0]
+                    if not isinstance(X_help[i_sample, i_agent_data], float):    
+                        n_time = self.N_O_data_orig[i_sample]
+                        self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent_data].astype(np.float32)
+                        self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent_data][:n_time].astype(np.float32)
 
     
     def _extract_save_files_from_data_set(data_set):
@@ -675,14 +708,14 @@ class data_interface(object):
                         used_index = np.where(used)[0]
                         
                         # Get corresponding agent files
-                        agent_file = self.Files[file_index] + '_agents.npy'
+                        agent_file = self.Files[file_index] + '_AM.npy'
                         
                         # Load the agent files
                         [Type_local, Recorded_local, _] = np.load(agent_file, allow_pickle=True)
                         
                         # Get the corresponding indices
-                        Type_local     = Type_local[self.Domain[used].Index_saved]
-                        Recorded_local = Recorded_local[self.Domain[used].Index_saved]
+                        Type_local     = Type_local.loc[self.Domain[used].Index_saved]
+                        Recorded_local = Recorded_local.loc[self.Domain[used].Index_saved]
                         
                         # Get the agent indices
                         agent_index = (Type_local.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis]).argmax(1)
@@ -757,7 +790,27 @@ class data_interface(object):
         
                     
     def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
+        ## NOTE: Method has been adjusted for large datasets
         self._determine_pred_agents_unchecked(pred_pov = pred_pov, eval_pov = eval_pov)
+        
+        # Check the all trajectories
+        if not hasattr(self, '_checked_pred_agents'):
+            self._checked_pred_agents = False
+            
+        if not self._checked_pred_agents:
+            # Go through all file indicies
+            for file_index in range(len(self.Files)):            
+                # Get path data
+                self._extract_original_trajectories(file_index)
+                
+                used_parts = self.Domain.file_index == file_index
+                
+                # Check if everything needed is there
+                assert not np.isnan(self.X_orig[self.Pred_agents_pred_all[used_parts]]).all((1,2)).any(), 'A needed agent is not given.'
+                assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all[used_parts]]).all((1,2)).any(), 'A needed agent is not given.'
+            
+            self._checked_pred_agents = True
+            
         
         if pred_pov:
             self.Pred_agents_pred = self.Pred_agents_pred_all.copy()
@@ -768,19 +821,11 @@ class data_interface(object):
             self.Pred_agents_eval = self.Pred_agents_eval_all.copy()
         else:
             self.Pred_agents_eval = self.Pred_agents_eval_all & self.Not_pov_agent
-
-        # Get path data
-        self._extract_original_trajectories()
-
-        # Check if everything needed is there
-        assert not np.isnan(self.X_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
-        assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all]).all((1,2)).any(), 'A needed agent is not given.'
+        
         
     
     def _group_indentical_inputs(self, eval_pov = True):
-        self._extract_original_trajectories()
-        self._determine_pred_agents(eval_pov = eval_pov)
-        
+        ## NOTE: Method has been adjusted for large datasets
         if hasattr(self, 'Subgroups'):
             return
         
@@ -789,65 +834,149 @@ class data_interface(object):
         if os.path.isfile(test_file):
             self.Subgroups = np.load(test_file)
         else:
-            # Get the same entrie in full dataset
-            T = self.Type.to_numpy().astype(str)
-            PA_str = self.Pred_agents_eval.astype(str) 
-            if hasattr(self.Domain, 'location'):
-                Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
-                Div = np.stack((T, PA_str, Loc), axis = -1)
-            else:
-                Div = np.stack((T, PA_str), axis = -1)
-                
-            Div_unique, Div_inverse, _ = np.unique(Div, axis = 0,
-                                                   return_inverse = True, 
-                                                   return_counts = True)
-            
-            # Prepare subgroup saving
-            self.Subgroups = np.zeros(len(T), int)
-            subgroup_index = 1
-            
-            # go through all potentiall similar entries
-            for div_inverse in range(len(Div_unique)):
-                # Get potentially similar samples
-                index = np.where(Div_inverse == div_inverse)[0]
-                
-                # Get agents that are there
-                T_div = Div_unique[div_inverse,:,0]
-                useful_agents = np.where(T_div != 'nan')[0]
-                
-                # Get corresponding input path
-                X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
-                # X.shape: len(index) x len(useful_agents) x nI x 2
-                
-                # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
-                max_num = np.floor(2 ** 29 / np.prod(X.shape))
-                
-                # Prepare maximum differences
-                D_max = np.zeros((len(index), len(index)), np.float32)
-                
-                # Calculate differences
-                for i in range(int(np.ceil(len(index) / max_num))):
-                    d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                    D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
-                    D_max[d_index] = np.nanmax(D, (2,3,4))
-
-                # Find identical trajectories
-                Identical = D_max < 1e-3
-                
-                # Remove self references
-                Identical[np.arange(len(index)), np.arange(len(index))] = False
-
-                # Get graph
-                G = nx.Graph(Identical)
-                unconnected_subgraphs = list(nx.connected_components(G))
-                
-                for subgraph in unconnected_subgraphs:
-                    # Set subgraph
-                    self.Subgroups[index[list(subgraph)]] = subgroup_index
+            self._determine_pred_agents(eval_pov = eval_pov)
+            if self.data_in_one_piece:
+                # Get the same entries in full dataset
+                T = self.Type.to_numpy().astype(str)
+                PA_str = self.Pred_agents_eval.astype(str) 
+                if hasattr(self.Domain, 'location'):
+                    Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
+                    Div = np.stack((T, PA_str, Loc), axis = -1)
+                else:
+                    Div = np.stack((T, PA_str), axis = -1)
                     
-                    # Update parameters
-                    subgroup_index += 1
-            
+                Div_unique, Div_inverse, _ = np.unique(Div, axis = 0,
+                                                    return_inverse = True, 
+                                                    return_counts = True)
+                
+                # Prepare subgroup saving
+                self.Subgroups = np.zeros(len(T), int)
+                subgroup_index = 1
+                
+                self._extract_original_trajectories()
+                # go through all potentiall similar entries
+                for div_inverse in range(len(Div_unique)):
+                    # Get potentially similar samples
+                    index = np.where(Div_inverse == div_inverse)[0]
+                    
+                    # Get agents that are there
+                    T_div = Div_unique[div_inverse,:,0]
+                    useful_agents = np.where(T_div != 'nan')[0]
+                    
+                    # Get corresponding input path
+                    X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+                    # X.shape: len(index) x len(useful_agents) x nI x 2
+                    
+                    # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
+                    max_num = np.floor(2 ** 29 / np.prod(X.shape))
+                    
+                    # Prepare maximum differences
+                    D_max = np.zeros((len(index), len(index)), np.float32)
+                    
+                    # Calculate differences
+                    for i in range(int(np.ceil(len(index) / max_num))):
+                        d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                        D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
+                        D_max[d_index] = np.nanmax(D, (2,3,4))
+
+                    # Find identical trajectories
+                    Identical = D_max < 1e-3
+                    
+                    # Remove self references
+                    Identical[np.arange(len(index)), np.arange(len(index))] = False
+
+                    # Get graph
+                    G = nx.Graph(Identical)
+                    unconnected_subgraphs = list(nx.connected_components(G))
+                    
+                    for subgraph in unconnected_subgraphs:
+                        # Set subgraph
+                        self.Subgroups[index[list(subgraph)]] = subgroup_index
+                        
+                        # Update parameters
+                        subgroup_index += 1
+                        
+                        
+            else:
+                # Assume that identical inputs will not be found across multiple files
+                self.Subgroups = np.zeros(len(self.Domain), int)
+                subgroup_index = 1
+                
+                for file_index in range(len(self.Files)):
+                    agent_file = self.Files[file_index] + '_AM.npy'
+                    [Type, _, _] = np.load(agent_file, allow_pickle = True)
+                    
+                    used = self.Domain.file_index == file_index
+                    used_index = np.where(used)[0]
+                    
+                    # Adjust Type to used indices
+                    Type = Type.loc[self.Domain[used].Index_saved]
+                    
+                    # Get data corresponding to file
+                    Domain = self.Domain[used]
+                    Pred_agents_eval = self.Pred_agents_eval[used]
+                    
+                    # Initialize file subgroups
+                    Subgroups = np.zeros(len(Domain), int)
+                    
+                    # Get the same entries in full dataset
+                    T = Type.to_numpy().astype(str)
+                    PA_str = Pred_agents_eval.astype(str) 
+                    if hasattr(Domain, 'location'):
+                        Loc = np.tile(Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
+                        Div = np.stack((T, PA_str, Loc), axis = -1)
+                    else:
+                        Div = np.stack((T, PA_str), axis = -1)
+                        
+                    Div_unique, Div_inverse, _ = np.unique(Div, axis = 0, return_inverse = True,  return_counts = True)
+                    
+                    
+                    self._extract_original_trajectories(file_index)
+                    # go through all potentiall similar entries
+                    for div_inverse in range(len(Div_unique)):
+                        # Get potentially similar samples
+                        index = np.where(Div_inverse == div_inverse)[0]
+                        
+                        # Get agents that are there
+                        T_div = Div_unique[div_inverse,:,0]
+                        useful_agents = np.where(T_div != 'nan')[0]
+                        
+                        # Get corresponding input path
+                        X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+                        # X.shape: len(index) x len(useful_agents) x nI x 2
+                        
+                        # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
+                        max_num = np.floor(2 ** 29 / np.prod(X.shape))
+                        
+                        # Prepare maximum differences
+                        D_max = np.zeros((len(index), len(index)), np.float32)
+                        
+                        # Calculate differences
+                        for i in range(int(np.ceil(len(index) / max_num))):
+                            d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                            D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
+                            D_max[d_index] = np.nanmax(D, (2,3,4))
+
+                        # Find identical trajectories
+                        Identical = D_max < 1e-3
+                        
+                        # Remove self references
+                        Identical[np.arange(len(index)), np.arange(len(index))] = False
+
+                        # Get graph
+                        G = nx.Graph(Identical)
+                        unconnected_subgraphs = list(nx.connected_components(G))
+                        
+                        for subgraph in unconnected_subgraphs:
+                            # Set subgraph
+                            Subgroups[index[list(subgraph)]] = subgroup_index
+                            
+                            # Update parameters
+                            subgroup_index += 1   
+                    
+                    # Assemble complete subgroups
+                    self.Subgroups[used_index] = Subgroups
+                    
             # Save subgroups
             os.makedirs(os.path.dirname(test_file), exist_ok = True)
             np.save(test_file, self.Subgroups)
