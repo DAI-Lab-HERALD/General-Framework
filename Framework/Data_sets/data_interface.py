@@ -51,10 +51,6 @@ class data_interface(object):
                 # Get perturbation type
                 pert_name = perturbation['attack']
 
-                # Remove attack from dictionary
-                perturbation.pop('attack')
-
-
                 pert_module = importlib.import_module(pert_name)
                 pert_class = getattr(pert_module, pert_name)
 

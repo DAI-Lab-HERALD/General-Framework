@@ -46,8 +46,8 @@ class splitting_template():
 
         # Check for pertubation if they exist
         if train_pert or test_pert:
-            if not 'Unperturbed_input' in self.Domain.columns:
-                raise AttributeError('The domain does not contain the unperturbed input data.')
+            if not self.Domain.perturbation.any():
+                raise AttributeError('The domain does not contain any perturbed data.')
             
         self.train_pert = train_pert
         self.test_pert = test_pert

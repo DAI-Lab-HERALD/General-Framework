@@ -80,6 +80,11 @@ class model_template():
                                                                        'Models', self.get_name()['file'])
                     self.pred_file  = data_set.change_result_directory(self.model_file,
                                                                        'Predictions', pred_string)
+                    
+                    if '_pert=' in self.model_file:
+                        pert_split = self.model_file.split('_pert=')
+                        self.model_file = pert_split[0] + '_pert=' + pert_split[1][0] + pert_split[1][2:]
+                        
                     self.simply_load_results = False
                 else:
                     self.simply_load_results = True
