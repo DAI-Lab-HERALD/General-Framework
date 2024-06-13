@@ -563,7 +563,6 @@ class data_set_template():
 
     def extract_time_points(self, Path, T, Domain_old, num_samples, path_file):
         # Replace in path file --all_orig_paths with --all_time_points
-        
         time_file = path_file.replace('--all_orig_paths', '--all_time_points')
 
         if os.path.isfile(time_file):
@@ -1369,8 +1368,6 @@ class data_set_template():
                 file_number = 0
                 
                 
-            # Apply perturbation if necessary:
-            self.Domain['perturbation'] = False
             
             if last:
                 data_file_addition = '_LLL'
@@ -1384,57 +1381,66 @@ class data_set_template():
                 
             
             
+            # Apply perturbation if necessary:
+            self.Domain['perturbation'] = False
+            
             if self.is_perturbed:
-                self = self.Perturbation.perturb(self)
-                
-                # Get unperturbed data
-                Input_path_unperturbed  = self.Domain['Unperturbed_input']
-                Output_path_unperturbed = self.Domain['Unperturbed_output']
-                
-                # Transform series to list
-                Input_path_unperturbed  = [path[0] for path in Input_path_unperturbed.to_list()]
-                Output_path_unperturbed = [path[0] for path in Output_path_unperturbed.to_list()]
-                
-                # Transform list to dataframe
-                Input_path_unperturbed  = pd.DataFrame(Input_path_unperturbed, index = self.Domain.index)
-                Output_path_unperturbed = pd.DataFrame(Output_path_unperturbed, index = self.Domain.index)
-                
-                if self.classification_useful:
-                    # TODO: Overwrite the extracted behavior data respectively
-                    pass
-                
-                # Remove unperturbed columns from domain
-                self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'])
-                
-                # Get the unperturbed save data
-                save_data_unperturbed = np.array([
-                                            self.Input_prediction,
-                                            Input_path_unperturbed,
-                                            self.Input_T,
-                                            
-                                            Output_path_unperturbed,
-                                            self.Output_T,
-                                            self.Output_T_pred,
-                                            self.Output_A,
-                                            self.Output_T_E, 0], object)
-                
-                save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-                save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
-                
                 # Get unperturbed save file
-                
                 data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
                 data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '.npy'
                 domain_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_domain.npy'
                 agent_file_save = data_file_unperturbed + data_file_addition + '_AM.npy'
                 
-                # Save the unperturbed data
-                np.save(data_file_unperturbed_save, save_data_unperturbed)
-                np.save(domain_file_unperturbed_save, save_domain_unperturbed)
-                np.save(agent_file_save, save_agent_unperturbed)
+                # Check if the unperturbed dataset allready exists
+                if not os.path.isfile(data_file_unperturbed_save):          
+                    # Get the unperturbed save data
+                    save_data_unperturbed = np.array([
+                                                self.Input_prediction,
+                                                self.Input_path,
+                                                self.Input_T,
+                                                
+                                                self.Output_path,
+                                                self.Output_T,
+                                                self.Output_T_pred,
+                                                self.Output_A,
+                                                self.Output_T_E, 0], object)
+                    
+                    save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
+                    save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
+                    
+                    
+                    # Save the unperturbed data
+                    np.save(data_file_unperturbed_save, save_data_unperturbed)
+                    np.save(domain_file_unperturbed_save, save_domain_unperturbed)
+                    np.save(agent_file_save, save_agent_unperturbed)
+                
+                # Apply the perturbation
+                self = self.Perturbation.perturb(self)
                 
                 # Set perturbation to True in the Domain to be saved in the perturbed data
                 self.Domain['perturbation'] = True
+                
+                if self.classification_useful:
+                    # save old num_samples_path_pred
+                    num_samples_path_pred = self.num_samples_path_pred + 0
+                    self.num_samples_path_pred = 1
+                    
+                    # Exctract the update behavior for perturbed output
+                    Output_A, Output_T_E = self._path_to_class_and_time(self.Output_path, np.arange(len(self.Output_path)), self.Output_T_pred, self.Domain)
+                    
+                    # Reset num_samples_path_pred
+                    self.num_samples_path_pred = num_samples_path_pred
+                    
+                    # Set Output_A to bool
+                    self.Output_A = Output_A.astype(int).astype(bool)
+                    assert (self.Output_A.sum(1) == 1).all(), "Behavior extraction of perturbed data failed."
+                    
+                    # Set Output_T_E from dataframe to corresponding value
+                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A], 0).mean(1)
+                    assert np.isfinite(self.Output_T_E).all(), "Behavior time extraction of perturbed data failed."
+                
+                # Remove unperturbed columns from domain
+                self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'], errors = 'ignore')
             
             save_data = np.array([
                                     self.Input_prediction,
@@ -1976,8 +1982,7 @@ class data_set_template():
             T = np.zeros((self.num_samples_path_pred, len(self.Behaviors)), float)
             for i_beh, beh in enumerate(self.Behaviors):
                 for j in range(self.num_samples_path_pred):
-                    class_change = np.where(
-                        (Dist[beh][j, 1:] <= 0) & (Dist[beh][j, :-1] > 0))[0]
+                    class_change = np.where((Dist[beh][j, 1:] <= 0) & (Dist[beh][j, :-1] > 0))[0]
                     if len(class_change) == 0:
                         if Dist[beh][j, 0] <= 0:
                             T[j, i_beh] = 0.5 * self.dt
@@ -2136,6 +2141,48 @@ class data_set_template():
             
         return Output_path_pred_remove
 
+    
+    def _path_to_class_and_time(self, Output_path_pred, Pred_index, Output_T_pred, Domain):
+        Output_A_pred = pd.DataFrame(np.zeros((len(Output_path_pred), len(self.Behaviors)), float),
+                                             columns = self.Behaviors)
+        Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
+                                        columns = self.Behaviors)
+
+        for i_sample, i_full in enumerate(Pred_index):
+            paths = Output_path_pred.iloc[i_sample]
+            
+            # Check if we need to increase the paths dim
+            need_dim_increase = False
+            for agent in paths.index:
+                if not isinstance(paths[agent], float):
+                    need_dim_increase = len(paths[agent].shape) == 2
+                    break
+            
+            # Increase dimensions if needed
+            if need_dim_increase:
+                paths = self.increase_path_dim(paths)
+            
+            t = Output_T_pred[i_full]
+            domain = Domain.iloc[i_full]
+            T_class = self.path_to_class_and_time_sample(paths, t, domain)
+
+            output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
+
+            Output_A_pred.iloc[i_sample] = pd.Series(output_A.mean(axis=0), index=self.Behaviors)
+
+            for i_beh, beh in enumerate(self.Behaviors):
+                T_beh = T_class[output_A[:, i_beh], i_beh]
+                if len(T_beh) > 1:
+                    Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
+                if len(T_beh) == 1:
+                    Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), T_beh[0])
+                else:
+                    Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
+        return Output_A_pred, Output_T_E_pred            
+        
+        
+    
+    
     def path_to_class_and_time(self, Output_path_pred, Pred_index, 
                                Output_T_pred, Domain, pred_save_file, save_results=True):
         if self.classification_useful:
@@ -2146,27 +2193,7 @@ class data_set_template():
                 [Output_A_pred,
                  Output_T_E_pred, _] = np.load(test_file, allow_pickle=True)
             else:
-                Output_A_pred = pd.DataFrame(np.zeros((len(Output_path_pred), len(self.Behaviors)), float),
-                                             columns = self.Behaviors)
-                Output_T_E_pred = pd.DataFrame(np.empty((len(Output_path_pred), len(self.Behaviors)), object),
-                                               columns = self.Behaviors)
-    
-                for i_sample, i_full in enumerate(Pred_index):
-                    paths = Output_path_pred.iloc[i_sample]
-                    t = Output_T_pred[i_full]
-                    domain = Domain.iloc[i_full]
-                    T_class = self.path_to_class_and_time_sample(paths, t, domain)
-    
-                    output_A = np.arange(len(self.Behaviors))[np.newaxis] == T_class.argmin(axis=-1)[:,np.newaxis]
-    
-                    Output_A_pred.iloc[i_sample] = pd.Series(output_A.mean(axis=0), index=self.Behaviors)
-    
-                    for i_beh, beh in enumerate(self.Behaviors):
-                        T_beh = T_class[output_A[:, i_beh], i_beh]
-                        if len(T_beh) > 0:
-                            Output_T_E_pred.iloc[i_sample, i_beh] = np.quantile(T_beh, self.p_quantile)
-                        else:
-                            Output_T_E_pred.iloc[i_sample, i_beh] = np.full(len(self.p_quantile), np.nan)
+                Output_A_pred, Output_T_E_pred = self._path_to_class_and_time(Output_path_pred, Pred_index, Output_T_pred, Domain)
                 if save_results:
                     save_data = np.array(
                         [Output_A_pred, Output_T_E_pred, 0], object)

@@ -120,17 +120,21 @@ class splitting_template():
                     if self.data_set.data_in_one_piece:
                         # Load the respective input and output data
                         data_file_unperturbed = file_unperturbed + '.npy'
-                        [_, Input_path, _, Output_path, _, _, _, _, _] = np.load(data_file_unperturbed, allow_pickle=True)
+                        [_, Input_path, _, Output_path, _, _, Output_A, Output_T_E, _] = np.load(data_file_unperturbed, allow_pickle=True)
                         
                         # Apply the local index
                         used_index = self.Domain.iloc[index_local].Index_saved
                         Input_path  = Input_path.loc[used_index]
                         Output_path = Output_path.loc[used_index]
+                        Output_A    = Output_A.loc[used_index]
+                        Output_T_E  = Output_T_E[used_index]
                         
                         # Overwrite the data
-                        index_loca_loc = self.Domain.iloc[index_local].index
-                        self.data_set.Input_path.loc[index_loca_loc, Input_path.columns]   = Input_path
-                        self.data_set.Output_path.loc[index_loca_loc, Output_path.columns] = Output_path
+                        index_local_loc = self.Domain.iloc[index_local].index
+                        self.data_set.Input_path.loc[index_local_loc, Input_path.columns]   = Input_path
+                        self.data_set.Output_path.loc[index_local_loc, Output_path.columns] = Output_path
+                        self.data_set.Output_A.loc[index_local_loc, Output_A.columns]       = Output_A 
+                        self.data_set.Output_T_E[index_local]                               = Output_T_E
                         
             # Set overwritten files to status unperturbed
             self.Domain['perturbation'].iloc[overwrite_with_unperturbed] = False
