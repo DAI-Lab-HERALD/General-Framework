@@ -295,6 +295,19 @@ class data_interface(object):
             
             self.data_file += '.npy'
     
+
+    def _extract_save_files_from_data_set(data_set):
+        additions = data_set.Domain['path_addition', 'data_addition'].to_numpy().sum()
+        unique_additions, file_number = np.unique(additions, return_inverse = True, axis = 0)
+        
+        Files = []
+        data_file = data_set.data_file[:-4]
+        for unique_addition in unique_additions:
+            Files.append(data_file + unique_addition[0] + unique_addition[1])
+            
+        return Files, file_number
+    
+    
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
         self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
         complete_failure = None
@@ -585,7 +598,11 @@ class data_interface(object):
                      'file': file_name,
                      'latex': r'/'.join(self.Latex_names)}
             return names
-            
+
+    #############################################################################################################################
+    #############################################################################################################################
+    #############################################################################################################################
+    
     #%% Useful function for later modules
     def _extract_original_trajectories(self, file_index = 0):
         ## NOTE: Method has been adjusted for large datasets
@@ -642,22 +659,9 @@ class data_interface(object):
                         n_time = self.N_O_data_orig[i_sample]
                         self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent_data].astype(np.float32)
                         self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent_data][:n_time].astype(np.float32)
-
-    
-    def _extract_save_files_from_data_set(data_set):
-        additions = data_set.Domain['path_addition', 'data_addition'].to_numpy().sum()
-        unique_additions, file_number = np.unique(additions, return_inverse = True, axis = 0)
-        
-        Files = []
-        data_file = data_set.data_file[:-4]
-        for unique_addition in unique_additions:
-            Files.append(data_file + unique_addition[0] + unique_addition[1])
-            
-        return Files, file_number
             
             
     
-                    
     def _determine_pred_agents_unchecked(self):
         ## NOTE: Method has been adjusted for large datasets
         if not (hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all')):

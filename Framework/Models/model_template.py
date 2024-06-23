@@ -203,6 +203,9 @@ class model_template():
         if hasattr(self, 'Log_prob_true_joint_pred'):
             del self.Log_prob_true_joint_pred
             
+        if hasattr(self, 'Type'):
+            del self.Type
+            
         # check if prediction can be loaded
         self.model_mode = 'pred'
         # perform prediction
@@ -316,7 +319,30 @@ class model_template():
         
         return img_needed, img_m_per_px_needed, use_batch_extraction
 
-
+    def _extract_types(self):
+        if not hasattr(self, 'Type'):
+            if self.data_set.data_in_one_piece:
+                # Get agent types
+                T = self.data_set.Type.to_numpy()
+                T = T.astype(str)
+                T[T == 'nan'] = '0'
+            else:
+                T = np.zeros(self.data_set.Pred_agents_pred.shape, str)
+                for file_index in range(len(self.data_set.Files)):
+                    used = self.data_set.Domain.file_index == file_index
+                    used_index = np.where(used)[0]
+                    
+                    agent_file = self.data_set.Files[file_index] + '_AM.npy'
+                    T_local, _, _ = np.load(agent_file, allow_pickle = True)
+                    T_local = T_local.astype(str)
+                    T_local[T_local == 'nan'] = '0'
+                    
+                    T[used] = T_local
+                
+            self.Type = T.astype(str)
+            
+            
+        
 
     #%%     
     def prepare_batch_generation(self):
@@ -331,122 +357,210 @@ class model_template():
         # self.grayscale: Are image required in grayscale
         
         if not self.extracted_data:
-            # Extract old trajectories
-            self.data_set._extract_original_trajectories()
-            
-            # Get required timesteps
-            N_O_pred = self.data_set.N_O_pred_orig.copy()
-            N_O_data = self.data_set.N_O_data_orig.copy() 
-            
-            # Get positional data
-            X = self.data_set.X_orig
-            Y = self.data_set.Y_orig[:,:,:N_O_data.max()]
-            
             # Determine needed agents
             self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
+
+            # Load data type
+            self._extract_types()
             
-            # Get agent types
-            T = self.data_set.Type.to_numpy()
-            T = T.astype(str)
-            T[T == 'nan'] = '0'
+            if self.data_set.data_in_one_piece:
+                # Extract old trajectories
+                self.data_set._extract_original_trajectories()
+                
+                # Get required timesteps
+                N_O_pred = self.data_set.N_O_pred_orig.copy()
+                N_O_data = self.data_set.N_O_data_orig.copy() 
+                
+                # Get positional data
+                X = self.data_set.X_orig
+                Y = self.data_set.Y_orig[:,:,:N_O_data.max()]
+                
+                # Determine map use
+                use_map = self.has_map and self.can_use_map
+                
+                # Reorder agents to save data
+                if self.predict_single_agent:
+                    num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
+                    
+                    N_O_data = N_O_data.repeat(num_pred_agents)
+                    N_O_pred = N_O_pred.repeat(num_pred_agents)
+                    
+                    # set agent to be predicted into first location
+                    sample_id, pred_agent_id = np.where(self.data_set.Pred_agents_pred)
+                    
+                    # Get sample id
+                    num_agents = self.data_set.Pred_agents_pred.shape[1]
+                    Sample_id = np.tile(sample_id[:,np.newaxis], (1, num_agents))
+                    
+                    # Roll agents so that pred agent is first
+                    Agent_id = np.tile(np.arange(num_agents)[np.newaxis,:], (len(sample_id), 1))
+                    Agent_id = Agent_id + pred_agent_id[:,np.newaxis]
+                    Agent_id = np.mod(Agent_id, num_agents) 
+                    
+                    # Project out the sample ID
+                    X_help = X[Sample_id, Agent_id]
+                    
+                    # Find closest distance between agents during past observation
+                    D = ((X_help[:,[0]] - X_help) ** 2).sum(-1)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category = RuntimeWarning)
+                        D = np.nanmin(D, axis = -1)
+                    Agent_sorted_id = np.argsort(D, axis = 1)
+                    
+                    Sample_id_sorted = np.tile(np.arange(len(X_help))[:,np.newaxis], (1, X_help.shape[1])) 
+                    
+                    # Sort agents according to distance from pred agent
+                    X_help    = X_help[Sample_id_sorted, Agent_sorted_id] 
+                    Sample_id = Sample_id[Sample_id_sorted, Agent_sorted_id]
+                    Agent_id  = Agent_id[Sample_id_sorted, Agent_sorted_id] 
+                    
+                    # remove nan columns
+                    useful_agents = np.where(np.isfinite(X_help).any((0,2,3)))[0]
+                    
+                    # Set agents to nan that are to far away from the predicted agent
+                    num_agent = self.data_set.max_num_agents
+                    if num_agent is not None:
+                        useful_agents = useful_agents[:num_agent]
+                    
+                else:
+                    # Sort agents to move the absent ones to the behind, and pred agents first
+                    Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - self.data_set.Pred_agents_pred.astype(int)
+                    
+                    Agent_id = np.argsort(Value, axis = 1)
+                    Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
+                    
+                    X_help = X[Sample_id, Agent_id]
+                    # remove nan columns
+                    useful_agents = np.where(np.isfinite(X_help).any((0,2,3)))[0]
             
-            # Determine map use
-            use_map = self.has_map and self.can_use_map
-            
-            # Reorder agents to save data
-            if self.predict_single_agent:
-                num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
-                
-                N_O_data = N_O_data.repeat(num_pred_agents)
-                N_O_pred = N_O_pred.repeat(num_pred_agents)
-                
-                # set agent to be predicted into first location
-                sample_id, pred_agent_id = np.where(self.data_set.Pred_agents_pred)
-                
-                # Get sample id
-                num_agents = self.data_set.Pred_agents_pred.shape[1]
-                Sample_id = np.tile(sample_id[:,np.newaxis], (1, num_agents))
-                
-                # Roll agents so that pred agent is first
-                Agent_id = np.tile(np.arange(num_agents)[np.newaxis,:], (len(sample_id), 1))
-                Agent_id = Agent_id + pred_agent_id[:,np.newaxis]
-                Agent_id = np.mod(Agent_id, num_agents) 
-                
-                # Project out the sample ID
-                X = X[Sample_id, Agent_id]
-                
-                # Find closest distance between agents during past observation
-                D = ((X[:,[0]] - X) ** 2).sum(-1)
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category = RuntimeWarning)
-                    D = np.nanmin(D, axis = -1)
-                Agent_sorted_id = np.argsort(D, axis = 1)
-                
-                Sample_id_sorted = np.tile(np.arange(len(X))[:,np.newaxis], (1, X.shape[1])) 
-                
-                # Sort agents according to distance from pred agent
-                X         = X[Sample_id_sorted, Agent_sorted_id] 
-                Sample_id = Sample_id[Sample_id_sorted, Agent_sorted_id]
-                Agent_id  = Agent_id[Sample_id_sorted, Agent_sorted_id] 
-                
-                # remove nan columns
-                useful_agents = np.where(np.isfinite(X).any((0,2,3)))[0]
-                
-                # Set agents to nan that are to far away from the predicted agent
-                num_agent = self.data_set.max_num_agents
-                if num_agent is not None:
-                    useful_agents = useful_agents[:num_agent]
-                
             else:
-                # Sort agents to move the absent ones to the behind, and pred agents first
-                Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - self.data_set.Pred_agents_pred.astype(int)
+                # Initialize the sample and agent id
+                Sample_id = np.zeros(self.self.data_set.Pred_agents_pred.shape, int)
+                Agent_id = np.zeros(self.self.data_set.Pred_agents_pred.shape, int)
                 
-                Agent_id = np.argsort(Value, axis = 1)
-                Sample_id = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
+                useful_agents = np.zeros(Sample_id.shape[1], bool)
                 
-                X = X[Sample_id, Agent_id]
-                # remove nan columns
-                useful_agents = np.where(np.isfinite(X).any((0,2,3)))[0]
-                
+                for file_index in range(len(self.Files)):
+                    used = self.Domain.file_index == file_index
+                    used_index = np.where(used)[0]
+                    
+                    # Get the original data
+                    self.data_set._extract_original_trajectories(self, file_index = 0)
+                    
+                    # Get required timesteps
+                    N_O_pred = self.data_set.N_O_pred_orig.copy()
+                    N_O_data = self.data_set.N_O_data_orig.copy() 
+                    
+                    # Get positional data
+                    X = self.data_set.X_orig
+                    Y = self.data_set.Y_orig[:,:,:N_O_data.max()]
+                    
+                    # Determine map use
+                    use_map = self.has_map and self.can_use_map
+                    
+                    # Reorder agents to save data
+                    if self.predict_single_agent:
+                        num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
+                        
+                        N_O_data = N_O_data.repeat(num_pred_agents)
+                        N_O_pred = N_O_pred.repeat(num_pred_agents)
+                        
+                        # set agent to be predicted into first location
+                        sample_id, pred_agent_id = np.where(self.data_set.Pred_agents_pred)
+                        
+                        # Get sample id
+                        num_agents = self.data_set.Pred_agents_pred.shape[1]
+                        Sample_id_local = np.tile(sample_id[:,np.newaxis], (1, num_agents))
+                        
+                        # Roll agents so that pred agent is first
+                        Agent_id_local = np.tile(np.arange(num_agents)[np.newaxis,:], (len(sample_id), 1))
+                        Agent_id_local = Agent_id_local + pred_agent_id[:,np.newaxis]
+                        Agent_id_local = np.mod(Agent_id_local, num_agents) 
+                        
+                        # Project out the sample ID
+                        X_help = X[Sample_id_local, Agent_id_local]
+                        
+                        # Find closest distance between agents during past observation
+                        D = ((X_help[:,[0]] - X_help) ** 2).sum(-1)
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", category = RuntimeWarning)
+                            D = np.nanmin(D, axis = -1)
+                        Agent_sorted_id = np.argsort(D, axis = 1)
+                        
+                        Sample_id_sorted = np.tile(np.arange(len(X_help))[:,np.newaxis], (1, X_help.shape[1])) 
+                        
+                        # Sort agents according to distance from pred agent
+                        X_help    = X_help[Sample_id_sorted, Agent_sorted_id] 
+                        Sample_id_local = Sample_id_local[Sample_id_sorted, Agent_sorted_id]
+                        Agent_id_local  = Agent_id_local[Sample_id_sorted, Agent_sorted_id] 
+                        
+                        # remove nan columns
+                        useful_agents_local = np.where(np.isfinite(X_help).any((0,2,3)))[0]
+                        
+                        # Set agents to nan that are to far away from the predicted agent
+                        num_agent = self.data_set.max_num_agents
+                        if num_agent is not None:
+                            useful_agents_local = useful_agents_local[:num_agent]
+                        
+                    else:
+                        # Sort agents to move the absent ones to the behind, and pred agents first
+                        Value = - np.isfinite(X).sum((2,3)) - np.isfinite(Y).sum((2,3)) - self.data_set.Pred_agents_pred.astype(int)
+                        
+                        Agent_id_local  = np.argsort(Value, axis = 1)
+                        Sample_id_local = np.tile(np.arange(len(X))[:,np.newaxis], (1, Value.shape[1]))
+                        
+                        X_help = X[Sample_id_local, Agent_id_local]
+                        # remove nan columns
+                        useful_agents_local = np.where(np.isfinite(X_help).any((0,2,3)))[0]
+
+                    Sample_id[used_index] = Sample_id_local
+                    Agent_id[used_index] = Agent_id_local
+                    useful_agents |= useful_agents_local 
+            
             # remove nan columns
-            self.X = X[:,useful_agents].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
             Sample_id = Sample_id[:,useful_agents]
             Agent_id  = Agent_id[:,useful_agents]
             
-            # Get future data and agent types
-            self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2 
-            self.T = T[Sample_id, Agent_id] # num_samples, num_agents
-
+            # Save ID
+            self.ID = np.stack((Sample_id, Agent_id), -1) 
+            
             # Get pred agents
             self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id] # num_samples, num_agents
             if self.predict_single_agent:
                 # Only first agent gets predicted
                 self.Pred_agents[:,1:] = False
+                
+            # Get agent types
+            self.T = self.Types[Sample_id, Agent_id] # num_samples, num_agents
             
-            self.N_O_pred = N_O_pred
-            self.N_O_data = N_O_data
-            
-            self.ID = np.stack((Sample_id, Agent_id), -1)  
+            if self.data_set.data_in_one_piece:
+                # Get trajectory data
+                self.X = X[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
+                self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2 
 
-            self.extract_image_once = True
+                self.N_O_pred = N_O_pred
+                self.N_O_data = N_O_data
+                
 
-            # Get images
-            if use_map:
-                # Get metadata
-                domain_old = self.data_set.Domain
-                if self.predict_single_agent:
-                    Img_needed = np.zeros(self.X.shape[:2], bool)
-                    Img_needed[:,0] = True
+                self.extract_image_once = True
+
+                # Get images
+                if use_map:
+                    # Get metadata
+                    domain_old = self.data_set.Domain
+                    if self.predict_single_agent:
+                        Img_needed = np.zeros(self.X.shape[:2], bool)
+                        Img_needed[:,0] = True
+                    else:
+                        Img_needed = self.T != '0'
+
+                    domain_needed = domain_old.iloc[self.ID[Img_needed][:,0]]
+                    self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.X, Img_needed, domain_needed)
+                    self.img_needed_sample = np.where(Img_needed)[0]
+
                 else:
-                    Img_needed = self.T != '0'
-
-                domain_needed = domain_old.iloc[self.ID[Img_needed][:,0]]
-                self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.X, Img_needed, domain_needed)
-                self.img_needed_sample = np.where(Img_needed)[0]
-
-            else:
-                self.img = None
-                self.img_m_per_px = None
+                    self.img = None
+                    self.img_m_per_px = None
         
         self.extracted_data = True
     
@@ -466,11 +580,8 @@ class model_template():
     
         '''
         # get all agent types
-        T = self.data_set.Type.to_numpy()
-        T = T.astype(str)
-        T[T == 'nan'] = '0'
-        
-        T_all = np.unique(T)
+        self._extract_types()
+        T_all = np.unique(self.Type)
         T_all = T_all[T_all != '0']
         return T_all
     
@@ -879,10 +990,7 @@ class model_template():
         
 
         '''
-        
-        T = self.data_set.Type.to_numpy()
-        T = T.astype(str)
-        T[T == 'nan'] = '0'
+        self._extract_types()
         
         # Determine map use
         self.data_set._extract_original_trajectories()
@@ -895,7 +1003,7 @@ class model_template():
                 for i_dist in range(D.shape[1]):
                     D[i_sample, i_dist] = D_help[i_sample, i_dist].astype(np.float32)
         else:
-            D = np.zeros((len(T),0), dtype = np.float32)
+            D = np.zeros((len(self.Domain),0), dtype = np.float32)
         
         # Select current samples
         if train:
@@ -906,7 +1014,7 @@ class model_template():
             Index = self.Index_test
             
         X = self.data_set.X_orig[Index]
-        T = T[Index]
+        T = self.Type[Index]
         D = D[Index]
         P = self.data_set.Output_A.to_numpy().astype(np.float32)[Index]
         DT = self.data_set.Output_T_E.astype(np.float32)[Index]
