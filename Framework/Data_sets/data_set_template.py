@@ -1301,7 +1301,9 @@ class data_set_template():
         
         # TODO: Check if this also works for manually assinged np.nan values
         # Get the number of saved agents for each sample
-        num_agents = (~self.Input_path_local.isnull()).sum(axis=1)
+        self.Input_path = pd.DataFrame(self.Input_path_local)
+        self.Input_prediction = pd.DataFrame(self.Input_prediction_local)
+        num_agents = (~self.Input_path.isnull()).sum(axis=1)
         
         # Get the needed memory per timestep
         memory_per_timestep = 2 * 8 + 2 # one extra for timestep and recorded
@@ -1310,15 +1312,13 @@ class data_set_template():
         memory_used_path_out = (num_timesteps_out * num_agents).sum() * (memory_per_timestep + 1)
         
         # Get memory for prediction data
-        memory_used_pred = num_timesteps_in.sum() * len(self.Input_prediction_local.columns) * 8
+        memory_used_pred = num_timesteps_in.sum() * len(self.Input_prediction.columns) * 8
         
         memory_used = memory_used_path_in + memory_used_path_out + memory_used_pred
         
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
         if memory_used > 0.4 * available_memory or last:
             # Transform data to dataframes
-            self.Input_prediction = pd.DataFrame(self.Input_prediction_local)
-            self.Input_path       = pd.DataFrame(self.Input_path_local)
             self.Input_T          = np.array(self.Input_T_local + [np.random.rand(0)], np.ndarray)[:-1]
             
             self.Output_path   = pd.DataFrame(self.Output_path_local)
@@ -1553,7 +1553,7 @@ class data_set_template():
                 
         
         # Get the number of files
-        domain_files, self.number_data_files = self.get_number_of_data_files(self.data_file)
+        domain_files, self.number_data_files = self.get_number_of_data_files()
         
         # If only one file is available, load the data
         if self.number_data_files == 1:

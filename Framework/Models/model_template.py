@@ -42,7 +42,7 @@ class model_template():
             self.agents_to_predict = data_set.agents_to_predict
             self.general_input_available = self.data_set.general_input_available
             
-            self.input_names_train = np.array(data_set.Input_path.columns)
+            self.input_names_train = np.array(data_set.Agents)
             
             self.t_e_quantile = self.data_set.p_quantile
                 
@@ -320,6 +320,7 @@ class model_template():
         return img_needed, img_m_per_px_needed, use_batch_extraction
 
     def _extract_types(self):
+        ## NOTE: Method has been adjusted for large datasets
         if not hasattr(self, 'Type'):
             if self.data_set.data_in_one_piece:
                 # Get agent types
@@ -346,6 +347,7 @@ class model_template():
 
     #%%     
     def prepare_batch_generation(self):
+        ## NOTE: Method has been adjusted for large datasets
         # Required attributes of the model
         # self.min_t_O_train: How many timesteps do we need for training
         # self.max_t_O_train: How many timesteps do we allow training for
@@ -380,11 +382,6 @@ class model_template():
                 
                 # Reorder agents to save data
                 if self.predict_single_agent:
-                    num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
-                    
-                    N_O_data = N_O_data.repeat(num_pred_agents)
-                    N_O_pred = N_O_pred.repeat(num_pred_agents)
-                    
                     # set agent to be predicted into first location
                     sample_id, pred_agent_id = np.where(self.data_set.Pred_agents_pred)
                     
@@ -407,7 +404,7 @@ class model_template():
                         D = np.nanmin(D, axis = -1)
                     Agent_sorted_id = np.argsort(D, axis = 1)
                     
-                    Sample_id_sorted = np.tile(np.arange(len(X_help))[:,np.newaxis], (1, X_help.shape[1])) 
+                    Sample_id_sorted = np.tile(np.arange(len(Sample_id))[:,np.newaxis], (1, Sample_id.shape[1])) 
                     
                     # Sort agents according to distance from pred agent
                     X_help    = X_help[Sample_id_sorted, Agent_sorted_id] 
@@ -434,11 +431,18 @@ class model_template():
                     useful_agents = np.where(np.isfinite(X_help).any((0,2,3)))[0]
             
             else:
+                num_data_samples, max_num_agents = self.data_set.Pred_agents_pred.shape
+
                 # Initialize the sample and agent id
-                Sample_id = np.zeros(self.self.data_set.Pred_agents_pred.shape, int)
-                Agent_id = np.zeros(self.self.data_set.Pred_agents_pred.shape, int)
+                Sample_id = np.zeros((0,max_num_agents), int)
+                Agent_id = np.zeros((0,max_num_agents), int)
+
+                # Initialize the number of future timesteps
+                N_O_data = np.zeros(num_data_samples, int)
+                N_O_pred = np.zeros(num_data_samples, int)
                 
-                useful_agents = np.zeros(Sample_id.shape[1], bool)
+                useful_agents = np.zeros(max_num_agents, bool)
+
                 
                 for file_index in range(len(self.Files)):
                     used = self.Domain.file_index == file_index
@@ -448,8 +452,8 @@ class model_template():
                     self.data_set._extract_original_trajectories(self, file_index = 0)
                     
                     # Get required timesteps
-                    N_O_pred = self.data_set.N_O_pred_orig.copy()
-                    N_O_data = self.data_set.N_O_data_orig.copy() 
+                    N_O_data[used_index] = self.data_set.N_O_data_orig.copy() 
+                    N_O_pred[used_index] = self.data_set.N_O_pred_orig.copy()
                     
                     # Get positional data
                     X = self.data_set.X_orig
@@ -460,11 +464,6 @@ class model_template():
                     
                     # Reorder agents to save data
                     if self.predict_single_agent:
-                        num_pred_agents = self.data_set.Pred_agents_pred.sum(axis = 1)
-                        
-                        N_O_data = N_O_data.repeat(num_pred_agents)
-                        N_O_pred = N_O_pred.repeat(num_pred_agents)
-                        
                         # set agent to be predicted into first location
                         sample_id, pred_agent_id = np.where(self.data_set.Pred_agents_pred)
                         
@@ -513,8 +512,14 @@ class model_template():
                         # remove nan columns
                         useful_agents_local = np.where(np.isfinite(X_help).any((0,2,3)))[0]
 
-                    Sample_id[used_index] = Sample_id_local
-                    Agent_id[used_index] = Agent_id_local
+                    # Adjust Sample_id_local to actual position in dataset
+                    Sample_id_local = used_index[Sample_id_local]
+
+                    # Add to global arrays
+                    Sample_id = np.concatenate((Sample_id, Sample_id_local), 0)
+                    Agent_id  = np.concatenate((Agent_id, Agent_id_local), 0)
+
+                    # Track useful agents
                     useful_agents |= useful_agents_local 
             
             # remove nan columns
@@ -533,16 +538,14 @@ class model_template():
             # Get agent types
             self.T = self.Types[Sample_id, Agent_id] # num_samples, num_agents
             
+            # Get the number of future timesteps
+            self.N_O_pred = N_O_pred[Sample_id[:,0]]
+            self.N_O_data = N_O_data[Sample_id[:,0]]
+            
             if self.data_set.data_in_one_piece:
                 # Get trajectory data
                 self.X = X[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2
                 self.Y = Y[Sample_id, Agent_id].astype(np.float32) # num_samples, num_agents, num_timesteps, 2 
-
-                self.N_O_pred = N_O_pred
-                self.N_O_data = N_O_data
-                
-
-                self.extract_image_once = True
 
                 # Get images
                 if use_map:
@@ -561,11 +564,15 @@ class model_template():
                 else:
                     self.img = None
                     self.img_m_per_px = None
+
+            else:
+                self.use_batch_extraction = True
         
         self.extracted_data = True
     
     
     def provide_all_included_agent_types(self):
+        ## NOTE: Method has been adjusted for large datasets
         '''
         This function allows a quick generation of all the available agent types. Right now, the following are implemented:
         - 'P':    Pedestrian
@@ -586,70 +593,20 @@ class model_template():
         return T_all
     
     def _extract_useful_training_samples(self):
+        ## NOTE: Method has been adjusted for large datasets
+        # Get training samples
         I_train = np.where(np.in1d(self.ID[:,0,0], self.Index_train))[0]
         
+        # Get samples with enough timesteps
         remain_samples = self.N_O_data[I_train] >= self.min_t_O_train
-        
+
         # Only use samples with enough timesteps for training
         I_train = I_train[remain_samples]
         
         return I_train
     
-    
-    def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
-        r'''
-
-        Parameters
-        ----------
-        Pred : np.ndarray
-            This is the predicted future observed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
-            The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
-        Sample_id : np.ndarray, optional
-            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
-            in the dataset this sample was extracted.
-        Agent_id : np.ndarray, optional
-            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
-            original agent in the dataset this agent was extracted.
-        Pred_agents : np.ndarray, optional
-            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
-            if it expected by the framework that a prediction will be made for the specific agent.
-            
-            This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
-            incaable of joint predictions.
-
-        Returns
-        -------
-        None.
-
-        '''
-        assert self.get_output_type()[:4] == 'path'
-        if self.predict_single_agent:
-            if len(Pred.shape) == 4:
-                Pred = Pred[:,np.newaxis]
-                
-            assert Pred.shape[:1] == Sample_id.shape
-            if Pred_agents is None:
-                Pred_agents = np.zeros(Agent_id.shape, bool)
-                Pred_agents[:,0] = True
-        else:
-            assert Pred_agents is not None
-            assert Pred.shape[:2] == Agent_id.shape
-            assert Pred_agents.shape == Agent_id.shape
-        
-        assert Sample_id.shape == Agent_id.shape[:1]
-        assert Pred.shape[2] == self.num_samples_path_pred
-        assert Pred.shape[4] == 2
-        
-        for i, i_sample in enumerate(Sample_id):
-            for j, agent in enumerate(Agent_id[i]):
-                if not Pred_agents[i,j]:
-                    continue
-                self.Output_path_pred.loc[i_sample][agent] = None
-                self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
-    
     def provide_all_training_trajectories(self):
+        ## NOTE: Method has been adjusted for large datasets
         r'''
         This function provides trajectroy data an associated metadata for the training of model
         during prediction and training. It returns the whole training set (including validation set)
@@ -695,6 +652,7 @@ class model_template():
             original agent in the dataset this agent was extracted.. This value is only returned for **mode** = *'pred'*.
 
         '''
+        assert self.data_set.data_in_one_piece, 'This method is only useful for datasets that are in one piece.'
         
         assert self.get_output_type()[:4] == 'path'
         
@@ -739,10 +697,30 @@ class model_template():
         return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
                 Pred_agents_train, Sample_id_train, Agent_id_train]
         
+    def _update_available_samples(self, Ind_advance, ind_advance):
+        ## NOTE: Method has been adjusted for large datasets
+        # Get the indices that will remain
+        ind_remain = np.setdiff1d(Ind_advance[0], ind_advance)
+
+        # Check if epoch is completed
+        if len(ind_remain) == 0:
+            epoch_done = True
+            ind_all = np.concatenate((Ind_advance[1], ind_advance))
+            np.random.shuffle(ind_all)
+            
+            Ind_advance[1] = np.array([], int)
+            Ind_advance[0] = ind_all
+            
+        else:
+            epoch_done = False
+            Ind_advance[1] = np.concatenate((Ind_advance[1], ind_advance))
+            Ind_advance[0] = ind_remain  
         
+        return epoch_done, Ind_advance
     
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+        ## NOTE: Method has been adjusted for large datasets
         r'''
         This function provides trajectroy data an associated metadata for the training of model
         during prediction and training.
@@ -840,24 +818,39 @@ class model_template():
         else:
             raise TypeError("Unknown mode.")
         
-        # Find identical agents
-        N_O_advance = N_O[Ind_advance[0]]
-        Use_candidate = N_O_advance == N_O_advance[0]
+        # Get data needed for selecting batch from available
+        Sample_id_advance  = self.ID[Ind_advance[0],0,0]
+        File_index_advance = self.data_set.Domain.file_index.iloc[Sample_id_advance] # File index
+        Image_id_advance   = self.data_set.Domain.image_id.iloc[Sample_id_advance] # Image id
+        N_O_advance = N_O[Ind_advance[0]]   # Number of timesteps
+
+        # Check for file index and image id
+        Use_candidate = ((File_index_advance == File_index_advance[0]) & 
+                         (Image_id_advance == Image_id_advance[0]))
         
-        # If not enough agents are available during training, use the next ones
-        if mode == 'train' and Use_candidate.sum() < batch_size:
-            N_O_possible, N_O_counts = np.unique(N_O_advance[N_O_advance >= N_O_advance[0]], return_counts = True)
-            N_O_cum = np.cumsum(N_O_counts)
-            
-            if N_O_cum[-1] > batch_size:
-                needed_length = np.where(N_O_cum > batch_size)[0][0]
-                Use_candidate = (N_O_advance >= N_O_advance[0]) & (N_O_advance <= N_O_possible[needed_length])
-            else:
-                Use_candidate = (N_O_advance >= N_O_advance[0])
-            
+        # Check for predicted agent type
         if self.predict_single_agent:
             T_advance = self.T[Ind_advance[0],0]
-            Use_candidate = Use_candidate & (T_advance == T_advance[0])
+            Use_candidate &= (T_advance == T_advance[0])
+
+        # Check for number of timesteps
+        if mode == 'train':
+            Use_candidate_N_O = (N_O_advance == N_O_advance[0]) & Use_candidate
+            if Use_candidate_N_O.sum() < batch_size:
+                N_O_advance_possible = N_O_advance[Use_candidate & (N_O_advance >= N_O_advance[0])]
+                N_O_possible, N_O_counts = np.unique(N_O_advance_possible, return_counts = True)
+                N_O_cum = np.cumsum(N_O_counts)
+                
+                if N_O_cum[-1] > batch_size:
+                    needed_length = np.where(N_O_cum > batch_size)[0][0]
+                    Use_candidate_N_O = (N_O_advance >= N_O_advance[0]) & (N_O_advance <= N_O_possible[needed_length])
+                else:
+                    Use_candidate_N_O = (N_O_advance >= N_O_advance[0])
+        else:
+            Use_candidate_N_O = N_O_advance == N_O_advance[0]
+
+        Use_candidate &= Use_candidate_N_O
+            
              
         # Find in remaining samples those whose type corresponds to that of the first
         Ind_candidates = np.where(Use_candidate)[0]
@@ -868,23 +861,49 @@ class model_template():
         # Sort ind_advance
         ind_advance = np.sort(ind_advance)
         
-        # Get the indices that will remain
-        ind_remain = np.setdiff1d(Ind_advance[0], ind_advance)
+        # Update the used samples in this epoch
+        epoch_done, Ind_advance = self._update_available_samples(Ind_advance, ind_advance) 
+
         
+        ## Prepare the data to be returned
         # get num_steps
         num_steps = N_O[ind_advance].min()
         
-        X = self.X[ind_advance]
+        # Get data as available for whole dataset
         T = self.T[ind_advance]
-        Y = self.Y[ind_advance,:,:num_steps]
         Pred_agents = self.Pred_agents[ind_advance]
-        
-        if self.predict_single_agent:
-            assert len(np.unique(T[:,0])) == 1
-        
-        if mode == 'pred':
-            assert len(np.unique(N_O[ind_advance])) == 1
-        
+
+        # Get data that is potentially not available yet
+        if self.data_set.data_in_one_piece:
+            X = self.X[ind_advance]
+            Y = self.Y[ind_advance,:,:num_steps]
+        else:
+            # Get the corresponding sample_ids 
+            Sample_id = self.ID[ind_advance,:,0]
+            Agent_id  = self.ID[ind_advance,:,1]
+
+            # Get the corresponding domain_files
+            Domain_files = self.data_set.Domain.iloc[Sample_id[:,0]].file_index
+
+            # Assert that only one file is used
+            assert len(np.unique(Domain_files)) == 1
+
+            # Load corresponding data
+            self.data_set._extract_original_trajectories(file_index = int(Domain_files.iloc[0]))
+
+            # Transform sample_id to the id in self.X_orig
+            used_index = np.where(self.data_set.Domain.file_index == Domain_files.iloc[0])[0]
+
+            # Det the position of Sample_id in used_index
+            Sample_id_used = Sample_id[:,[0]] == used_index[np.newaxis, :]
+
+            assert (Sample_id_used.sum(1) == 1).all(), "Something went wrong with finding samples"
+            Sample_id_used = np.tile(Sample_id_used.argmax(1)[:,np.newaxis], (1, Sample_id.shape[1]))
+
+            # Get the data
+            X = self.data_set.X_orig[Sample_id_used, Agent_id]
+            Y = self.data_set.Y_orig[Sample_id_used, Agent_id, :num_steps]
+
         # Check if images need to be extracted
         if hasattr(self, 'use_batch_extraction') and (not ignore_map):
             if self.predict_single_agent:
@@ -897,8 +916,8 @@ class model_template():
                 domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Img_needed]]
                 img_needed, img_m_per_px_needed, unsuccesful = self.extract_images(X, Img_needed, domain_needed)
                 if unsuccesful:
-                    MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution.' +
-                    		'\nNote, however, that other errors might have caused this as well.')
+                    raise MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution.' +
+                                      '\nNote, however, that other errors might have caused this as well.')
             else:
                 # Find at which places in self.img_needed_sample one can find ind_advance
                 use_images = np.in1d(self.img_needed_sample, ind_advance)
@@ -919,29 +938,68 @@ class model_template():
         else:
             img          = None
             img_m_per_px = None
-            
-        # Check if epoch is completed
-        if len(ind_remain) == 0:
-            epoch_done = True
-            ind_all = np.concatenate((Ind_advance[1], ind_advance))
-            np.random.shuffle(ind_all)
-            
-            Ind_advance[1] = np.array([], int)
-            Ind_advance[0] = ind_all
-            
-        else:
-            epoch_done = False
-            Ind_advance[1] = np.concatenate((Ind_advance[1], ind_advance))
-            Ind_advance[0] = ind_remain
-            
+
         # check if epoch is completed, if so, shuffle and reset index
         if mode == 'pred':
             Sample_id = self.ID[ind_advance,0,0]
-            Agents = np.array(self.input_names_train)
-            Agent_id = Agents[self.ID[ind_advance,:,1]]
+            Agent_id = np.array(self.input_names_train)[self.ID[ind_advance,:,1]]
             return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
         else:
             return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
+    
+    
+    def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
+        r'''
+
+        Parameters
+        ----------
+        Pred : np.ndarray
+            This is the predicted future observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+            The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+        Sample_id : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+            in the dataset this sample was extracted.
+        Agent_id : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+            original agent in the dataset this agent was extracted.
+        Pred_agents : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+            if it expected by the framework that a prediction will be made for the specific agent.
+            
+            This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
+            incaable of joint predictions.
+
+        Returns
+        -------
+        None.
+
+        '''
+        assert self.get_output_type()[:4] == 'path'
+        if self.predict_single_agent:
+            if len(Pred.shape) == 4:
+                Pred = Pred[:,np.newaxis]
+                
+            assert Pred.shape[:1] == Sample_id.shape
+            if Pred_agents is None:
+                Pred_agents = np.zeros(Agent_id.shape, bool)
+                Pred_agents[:,0] = True
+        else:
+            assert Pred_agents is not None
+            assert Pred.shape[:2] == Agent_id.shape
+            assert Pred_agents.shape == Agent_id.shape
+        
+        assert Sample_id.shape == Agent_id.shape[:1]
+        assert Pred.shape[2] == self.num_samples_path_pred
+        assert Pred.shape[4] == 2
+        
+        for i, i_sample in enumerate(Sample_id):
+            for j, agent in enumerate(Agent_id[i]):
+                if not Pred_agents[i,j]:
+                    continue
+                self.Output_path_pred.loc[i_sample][agent] = None
+                self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
     
     
     def get_classification_data(self, train = True):

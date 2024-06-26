@@ -647,8 +647,8 @@ class data_interface(object):
         X_help = Input_path.to_numpy()
         Y_help = Output_path.to_numpy()
             
-        self.X_orig = np.ones(list(X_help.shape) + [self.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
-        self.Y_orig = np.ones(list(Y_help.shape) + [self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
+        self.X_orig = np.ones([len(X_help), len(self.Agents), self.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
+        self.Y_orig = np.ones([len(X_help), len(self.Agents), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
         
         # Extract data from original number a samples
         for i_sample in range(self.X_orig.shape[0]):
