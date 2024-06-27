@@ -1,3 +1,7 @@
+# existing splitting methods
+In the framework, the following splitting methids are currently implemented:
+...
+
 # Adding a new splitting method to the framework
 
 One can easily add a new splitting method to the Framework, by implementing this splitting method as a new class.
