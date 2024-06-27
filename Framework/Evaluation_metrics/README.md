@@ -27,6 +27,7 @@ Here, the following notation is used:
 - $t$: Value of those timesteps.
 - $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
 - $`\hat{x}_{i,p,j}(t)`$, $`\hat{y}_{i,p,j}(t)`$: Predicted positions of an agent.
+- $P_{KDE}$: A probability density function trained over $p \in P$. 
 - $N_{B}$: Number of potentially classifiable behaviors.
 - $k$: Index for those behaviors.
 
