@@ -10,9 +10,9 @@ In the framework, the following models are currently implemented:
 | [Logistic Regression](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos.py) | Trajectories / Classifications | Simple logistic regression | No |
 | [Logistic Regression - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
 | [Motion Indeterminacy Diffusion](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/mid_gu.py) | Trajectories / Trajectories | Denoising Diffusion | Yes |
-| [PECNet](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/pecnet_mangalam.py) | Trajectories / Trajectories | Goal preidction followed by socially compliant trajectory inference | Yes |
-| [Trajectron++](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajectron_salzmann_old.py) | Trajectories / Trajectories | LSTM based CVAE network | Yes |
-| [TrajFlow](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajflow_meszaros.py) | Trajectories / Trajectories | Normalizing flow inside LSTM based autoencoder | Yes |
+| [PECNet](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/pecnet_mangalam.py) | Trajectories / Trajectories | Goal prediction followed by socially compliant trajectory inference. | Yes |
+| [Trajectron++](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajectron_salzmann_old.py) | Trajectories / Trajectories | LSTM based CVAE network. | Yes |
+| [TrajFlow](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajflow_meszaros.py) | Trajectories / Trajectories | Normalizing flow inside LSTM based autoencoder. | Yes |
 
 
 
