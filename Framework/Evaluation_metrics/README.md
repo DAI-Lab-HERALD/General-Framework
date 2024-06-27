@@ -2,7 +2,7 @@
 In the framework, the following metrics are currently implemented:
 | Metric | Input | Formula |
 | :------------ |:---------------| :----- |
-| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $$`{1\over{20\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}\sum\limits_{p \in P_{20}}`$$ |
+| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $${1\over{20\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}\sum\limits_{p \in P_{20}}$$ |
 
 
 Here, the following notation is used:
