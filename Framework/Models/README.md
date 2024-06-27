@@ -487,6 +487,13 @@ def save_predicted_classifications(self, class_names, P, DT = None):
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
 ```
+**self.model_kwargs** : dict
+  This is a dictionary with all relevant model parameters which you may want to easily vary for example
+  for the sake of model tuning. It is beneficial to use this attribute not only for setting the model
+  hyperparameters but also altering the model's filename to represent specific model characteristics.
+  If the model requires it, it is recommended that one includes a function in the model class which
+  fills in missing fields in the provided dictionary with some default values.
+
 **self.data_set.path** : str
   This is the global path to the framework. It might for example be useful to load model
   hyper-parameters that are saved in a different directory.
@@ -525,10 +532,5 @@ Meanwhile, the following model attributes set by the framework are useful or giv
 **self.model_overwrite** : bool
   This if true if the framework demands that the model is retrained from scratch, so if one customarily
   saves parts of the model separately, they would need to be retrained as well.
-
-**self.model_kwargs** : dict
-  This is a dictionary with all relevant model parameters which you may want to easily vary for example
-  for the sake of model tuning. It is beneficial to use this attribute not only for setting the model
-  hyperparameters but also altering the model's filename to represent specific model characteristics.
 
 ```
