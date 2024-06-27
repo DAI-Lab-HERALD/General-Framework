@@ -2,7 +2,7 @@
 In the framework, the following metrics are currently implemented:
 | Metric | Input | Formula |
 | :------------ |:---------------| :----- |
-| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $${1\over{20\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}\sum\limits_{p \in P_{20}}{1\over{N_{O,i} }} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{agents,i}} \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}$$ |
+| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $${1\over{20\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S}\sum\limits_{p \in P_{20}}{1\over{N_{O,i} }} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{A,i}} \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}$$ |
 
 
 Here, the following notation is used:
@@ -294,20 +294,20 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False,
   -------
   Path_true : np.ndarray
     This is the true observed trajectory of the agents, in the form of a
-    :math:`\{N_{samples} \times 1 \times N_{agents} \times N_{O} \times 2\}` dimensional numpy 
+    :math:`\{N_S \times 1 \times N_{A} \times N_{O} \times 2\}` dimensional numpy 
     array with float values. If an agent is fully or some timesteps partially not observed, 
     then this can include np.nan values.
   Path_pred : np.ndarray
     This is the predicted furure trajectories of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{preds} \times N_{agents} \times N_{O} \times 2\}` dimensional 
+    :math:`\{N_S \times N_{preds} \times N_{A} \times N_{O} \times 2\}` dimensional 
     numpy array with float values. If an agent is fully or for some timesteps partially not predicted, 
     then this can include np.nan values.
   Pred_steps : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{agents} \times N_{O}\}` dimensional numpy array with 
+    This is a :math:`\{N_S \times N_{A} \times N_{O}\}` dimensional numpy array with 
     boolean values. It indicates for each agent and timestep if the prediction should influence
     the final metric result.
   Types : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
+    This is a :math:`\{N_S \times N_{A}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
     It is only returned if **return_types** is *True*.
@@ -337,11 +337,11 @@ def get_other_agents_paths(self):
   -------
   Path_other : np.ndarray
     This is the true observed trajectory of the agents, in the form of a
-    :math:`\{N_{samples} \times 1 \times N_{agents_other} \times N_{O} \times 2\}` dimensional numpy 
+    :math:`\{N_S \times 1 \times N_{A_other} \times N_{O} \times 2\}` dimensional numpy 
     array with float values. If an agent is fully or or some timesteps partially not observed, 
     then this can include np.nan values.
   Types : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents_other}\}` dimensional numpy array. It includes strings 
+    This is a :math:`\{N_S \times N_{A_other}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
     It is only returned if **return_types** is *True*.
@@ -366,17 +366,17 @@ def get_KDE_probabilities(self, joint_agents = True):
   joint_agents : bool, optional
     This says if the probabilities for the predicted trajectories
     are to be calculated for all agents jointly. If this is the case,
-    then the array dimension :math:`N_{agents}` mentioned in the
+    then the array dimension :math:`N_{A}` mentioned in the
     returns is 1. The default is True.
 
   Returns
   -------
   KDE_pred_log_prob_true : np.ndarray
-    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    This is a :math:`\{N_S \times 1 \times N_{A}\}`
     array that includes the log probabilities for the true observations according
     to the KDE model trained on the predicted trajectories.
   KDE_pred_log_prob_pred : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
+    This is a :math:`\{N_S \times N_{preds} \times N_{A}\}`
     array that includes the log probabilities for the predicted trajectories 
     according to the KDE model trained on the predicted trajectories.
 
@@ -397,13 +397,13 @@ def get_true_prediction_with_same_input(self):
   -------
   Path_true_all : np.ndarray
     This is the true observed trajectory of the agents, in the form of a
-    :math:`\{N_{subgroups} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+    :math:`\{N_{subgroups} \times N_{same} \times N_{A} \times N_{O} \times 2\}` 
     dimensional numpy array with float values. If an agent is fully or on some 
     timesteps partially not observed, then this can include np.nan values. It
     must be noted that :math:`N_{same}` is the maximum number of similar samples,
     so for a smaller number, there will also be np.nan values.
   Subgroup_ind : np.ndarray
-    This is a :math:`N_{samples}` dimensional numpy array with int values. 
+    This is a :math:`N_S` dimensional numpy array with int values. 
     All samples with the same value belong to a group with the same corresponding
     input. This can be used to avoid having to evaluate the same metric values
     for identical samples. It must however be noted, that due to randomness in 
@@ -427,11 +427,11 @@ def get_true_and_predicted_class_probabilities(self):
   -------
   P_true : np.ndarray
     This is the true probabilities with which one will observe a class, in the form of a
-    :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
+    :math:`\{N_S \times N_{classes}\}` dimensional numpy array with float values. 
     One value per row will be one, while the others will be zero.
   P_pred : np.ndarray
     This is the predicted probabilities with which one will observe a class, in the form of 
-    a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array with float values. 
+    a :math:`\{N_S \times N_{classes}\}` dimensional numpy array with float values. 
     The sum in each row will be 1.
   Class_names : list
     The list with :math:`N_{classes}` entries contains the names of the aforementioned
@@ -456,17 +456,17 @@ def get_true_likelihood(self, joint_agents = True):
   joint_agents : bool, optional
     This says if the probabilities for the predicted trajectories
     are to be calculated for all agents jointly. If this is the case,
-    then, math:`N_{agents}` in the output is 1. The default is True.
+    then, math:`N_{A}` in the output is 1. The default is True.
 
   Returns
   -------
   KDE_true_log_prob_true : np.ndarray
-    This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+    This is a :math:`\{N_S \times 1 \times N_{A}\}`
     array that includes the probabilities for the true observations according 
     to the KDE model trained on the grouped true trajectories.
 
   KDE_true_log_prob_pred : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
+    This is a :math:`\{N_S \times N_{preds} \times N_{A}\}`
     array that includes the probabilities for the predicted trajectories
     according to the KDE model trained on the grouped true trajectories.
 
@@ -486,12 +486,12 @@ def get_true_and_predicted_class_times(self):
   -------
   T_true : np.ndarray
     This is the true time points at which one will observe a class, in the form of a
-    :math:`\{N_{samples} \times N_{classes} \times 1\}` dimensional numpy array with float 
+    :math:`\{N_S \times N_{classes} \times 1\}` dimensional numpy array with float 
     values. One value per row will be given (actual observed class), while the others 
     will be np.nan.
   T_pred : np.ndarray
     This is the predicted time points at which one will observe a class, in the form of a
-    :math:`\{N_{samples} \times N_{classes} \times N_{quantiles}\}` dimensional numpy array 
+    :math:`\{N_S \times N_{classes} \times N_{quantiles}\}` dimensional numpy array 
     with float values. Along the last dimension, the time values correspond to the quantile 
     values of the predicted distribution of the time points. The quantile values can be found
     in **self.t_e_quantile**.
