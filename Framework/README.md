@@ -16,7 +16,7 @@ The only required input here is **Experiment_name**, which will be included in t
 In the second step, one then has to make the choices regarding the modules (datasets, models, etc.) one wants to include in the current experiment. 
 
 ### Extracting past and future timesteps
-In the next step, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** below, this will be a number of dictionaries:
+First, one then has to set the parameters for the past and future trajectories given to the models. Like with **Data_sets** below, this will be a number of dictionaries:
 ```
 Data_params = [{'dt': 0.2, 'num_timesteps_in': (8, 8), 'num_timesteps_out': (12, 12)},
                {'dt': 0.2, 'num_timesteps_in': (4, 8), 'num_timesteps_out': 12}] 
@@ -30,7 +30,7 @@ It must be noted that both $n_{I, need}$ and $n_{O, need}$ are automatically set
 It must be noted that if both values in the tuple are identical, setting one integer instead of a tuple with two integers is also permissible, as seen in the second line in the above code snippet, where setting *'num_timesteps_out': 12* is identical to setting *'num_timesteps_out': (12, 12)*.
 
 ### Datasets
-The first selection regards the datasets (a list of available datasets can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Data_sets/README.md#existing-datasets)):
+The second selection regards the datasets (a list of available datasets can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Data_sets/README.md#existing-datasets)):
 ```
 Data_sets = [{'scenario': '<Dataset 1>', 'max_num_agents': 6, 't0_type': 'all', 'conforming_t0_types': [], 'perturbation': {'attack': '<Perturbation_name>', ...}},
              [{'scenario': '<Dataset 2>', 'max_num_agents': 3, 't0_type': 'start', 'conforming_t0_types': []},
