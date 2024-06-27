@@ -26,6 +26,9 @@ In the framework, the following metrics are currently implemented:
 | [NLL (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/KDE_NLL_joint.py) | Trajectories | $`- {1 \over{N_{S}}}  \sum\limits_{i = 1}^{N_{S}} \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \} \right)\right) `$ |
 | [ECE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ECE_traj_indep.py) | Trajectories | $`{1\over{201}} \sum\limits_{k = 0}^{200} \left\vert \left({1\over{\sum\limits_{i = 1}^{N_{S}} N_{A, i}}} \lvert \left\{i,j \, \vert \, {1\over{\vert P\vert}} \lvert \left\{ p \in P \, \vert \, \hat{L}_{i,p,j} > L_{i,j}\right\} \rvert > {k\over{200}}  \right\} \rvert \right) + {k\over{200}} - 1 \right\vert `$, with $`L_{i,j} = P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right) `$ and $` \hat{L}_{i,p,j} = P_{KDE,i,j} \left(\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right) `$ |
 | [ECE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ECE_traj_joint.py) | Trajectories | $`{1\over{201}} \sum\limits_{k = 0}^{200} \left\vert \left({1\over{N_{S}}} \lvert \left\{i \, \vert \, {1\over{\vert P\vert}} \lvert \left\{ p \in P \, \vert \, \hat{L}_{i,p} > L_{i}\right\} \rvert > {k\over{200}}  \right\} \rvert \right) + {k\over{200}} - 1 \right\vert `$, with $`L_{i} = P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_O\} \, \vert \; \forall \, j \} \right)`$ and $` \hat{L}_{i,p} = P_{KDE,i} \left(\{\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_O\} \, \vert \; \forall \, j \} \right)`$ |
+| [Collision rate (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Collision_rate_indep.py) | Trajectories | Needs to be rewritten, but should evaluate collision rate against GT of other agents |
+| [Collision rate (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Collision_rate_joint.py) | Trajectories | Needs to be rewritten, but should evaluate collision rate against predicted futures of other agents if available, otherwise against GT |
+| [Area under Receiver Operator Cureve (AUC)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/AUC_ROC.py) | Classifications | $`{1 \over{N_{S}}} \sum\limits_{k} {\left(\sum\limits_{i = 1}^{N_{S}} r_{i,k} p_{i,k} \right) - {1\over{2}} N_k (N_k + 1)  \over {N_{S} - \sum\limits_{i = 1}^{N_{S}} p_{i,k} }}`$ |
 
 
 
@@ -44,6 +47,7 @@ Here, the following notation is used:
 - $P_{KDE}$: A probability density function trained over $p \in P$. 
 - $N_{B}$: Number of potentially classifiable behaviors.
 - $k$: Index for those behaviors.
+- $p_{i,k}$, $`\hat{p}_{i,k}`$ : The actual and predicted likelihood of behavior $k$ in smaple $i$.
 
 # Adding a new evaluation metric to the framework
 
