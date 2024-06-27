@@ -1,3 +1,8 @@
+# Existing Models
+In the framework, the following models are currently implemented:
+...
+
+
 # Adding a new model to the framework
 
 One can easily add a new model to the Framework by implementing this model as a new class.
