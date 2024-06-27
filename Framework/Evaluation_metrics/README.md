@@ -1,7 +1,24 @@
 # Existing evaluation metrics
 In the framework, the following metrics are currently implemented:
-...
+| Metric | Input | Description | Formula |
+| :------------ |:---------------| :----- | :----- |
+| [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer based CVAE network. | No |
 
+
+Here, the following notation is used:
+- $N_{samples}$: Number of samples in the dataset
+- $i$: Index for those samples
+- $N_{agents,i}$: The number of evaluated agents in each sample.
+- $j$: Index for those agents
+- $P$: Number of predictions made for each agent in each sample.
+- $P_{N_p}$: A random subset of $P$ with $|P_{N_p}| = N_p$.
+- $p$: Index for those predictions
+- $T_{O,i}$: The output timesteps for trajectories.
+- $t$: Value of those timesteps.
+- $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
+- $\widehat{x}_{i,p,j}(t)$, $\widehat{y}_{i,p,j}(t)$: Predicted positions of an agent.
+- $N_{classes}$: Number of potentially classifiable behaviors.
+- $k$: Index for those behaviors.
 
 # Adding a new evaluation metric to the framework
 
