@@ -1,4 +1,4 @@
-# existing splitting methods
+# Existing splitting methods
 In the framework, the following splitting methids are currently implemented:
 ...
 
