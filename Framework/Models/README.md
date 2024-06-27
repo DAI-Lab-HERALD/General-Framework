@@ -2,10 +2,10 @@
 In the framework, the following models are currently implemented:
 | Model | Input/Output | Description | Has kwargs |
 | :------------ |:---------------| :----- | :----- |
-| [Deep Belief Network](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN.py) | Trajectories / Classifications | A simple deep belief network, i.e., a chain of random boltzmann machines. | No |
-| [Deep Belief Netowrk - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
 | [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer based CVAE network. | No |
 | [Commotions](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/commotions_markkula.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Gap acceptance classifications | Combinations of optimal planning and evidence accumulation. | Yes |
+| [Deep Belief Network](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN.py) | Trajectories / Classifications | A simple deep belief network, i.e., a chain of random boltzmann machines. | No |
+| [Deep Belief Netowrk - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
 | [FloMo](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/flomo_schoeller.py) | Trajectories / Trajectories | Normalizing flow | Yes |
 | [Logistic Regression](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos.py) | Trajectories / Classifications | Simple logistic regression | No |
 | [Logistic Regression - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
