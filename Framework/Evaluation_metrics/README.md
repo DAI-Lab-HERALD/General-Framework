@@ -1,3 +1,8 @@
+# Existing evaluation metrics
+In the framework, the following metrics are currently implemented:
+...
+
+
 # Adding a new evaluation metric to the framework
 
 One can easily add a new evaluation metric to the Framework, by implementing this metric as a new class.

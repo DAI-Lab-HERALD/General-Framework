@@ -1,3 +1,19 @@
+# Existing splitting methods
+In the framework, the following splitting methids are currently implemented:
+| Splitting method | Description | Repetitions | Limitations |
+| :------------ |:---------------| :----- | :----- |
+| [Critical splits](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Critical_split.py) | The most unintuitive behavior in gap acceptance scenarios (i.e., the smallest accepted gaps and the largest rejected gaps) is used for testing. | This has only one possible repetition: *0*. | The samples in the dataset must be gap acceptance problems |
+| [Cross validation](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Cross_split.py) | This splits the dataset into a number of equal parts. with each defined behavior in the dataset being distributed equally. The number of splits depends on the choice of in the *'test_part'* key.  | The repetition have to be given as intergers, with the maximum number being one less than the number of created splits (zero indexing). For proper cross validation, each split should be evaluated. | None |
+| [Dataset split](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Dataset_split.py) | If a dataset consists out of multiple part (e.g., combining Waymo and Lyft), one can select one dataset to be the specific test set. | The repetitions can be selected by giving the string that is returned by *<Dataset>.get_name()['print']*. Alternatively, one can give the index of the corresponding dataset in an alphabetically sorted list of those aforementioned strings. | At least two different datasets have to have been included. |
+| [Identical sets](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/no_split.py) | The whole dataset is used both for splitting and testing. | This has only one possible repetition: *0*. | None |
+| [Location split](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Location_split.py) | If a dataset contains data collected at different locations, than one can split this accordingly. | One can select the location based on the corresponding string in *self.Domain.location*, or by giving the integer of the corresponding alphabetically sorted list | *self.Domain* must have the column *location* with more than one unique entry. |
+| [Predefined split](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Predefined_split.py) | In some cases (such as NuScenes), there is a predifined split allready. | This has only one possible repetition: *0*. | *self.Domain* must have the column *splitting*, with at least one entry being 'test' and and at least one being 'train'. |
+| [Random split](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/Random_split.py) | The dataset is randomly split into train and test sets, but defined behaviors are distributed equally. | Unlimited repetitions are possible, with the given integer corresponding to the random seed used for the splitting. | None |
+| [Perturbation split](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/perturb_split.py) | If some of the samples in the dataset are perturbed by some mechanism, then in this case the perturbed samples are used in the test set. | This has only one possible repetition: *0*. | At least one entry in *self.Domain.perturbation* needs to be set to *True*. |
+
+
+The column **Repetitions** explains potential entries for the *'repetition'* key used for selecting splitting methods in the [*simulations.py* file](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework#splitting-method).
+
 # Adding a new splitting method to the framework
 
 One can easily add a new splitting method to the Framework, by implementing this splitting method as a new class.
@@ -162,13 +178,8 @@ The splitting template provides a number of attributes that might be useful in t
   - 'Scenario_type' : This is the name of the Scenario, such as gap acceptance.
   Further keys that might be included, but do not necessarily have to exist:
   - 'location' : This is the location at which the current data was recorded.
-  - 'Unperturbed_input' and 'Unperturbed_output': For samples whose data was perturbed in some form, this two
-                                                  columns would include pandas series (where the indices correpond
-                                                  to the agent names, and contain numpy arrays with the respective
-                                                  agents' trajectories. This can be used to overwrite the data in
-                                                  **self.data_set.Input_path** and **self.data_set.Output_path**
-                                                  (both pandas DataFrames) if some training or testing samples
-                                                  should stay unperturbed.
+  - 'perturbation': A boolean value, indicating if the corresponding trajectory comes from a perturbed dataset
+                    or not.
   
 ```
 
