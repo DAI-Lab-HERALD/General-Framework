@@ -16,7 +16,7 @@ Here, the following notation is used:
 - $T_{O,i}$: The output timesteps for trajectories.
 - $t$: Value of those timesteps.
 - $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
-- $\widehat{x}_{i,p,j}(t)$, $\widehat{y}_{i,p,j}(t)$: Predicted positions of an agent.
+- $\hat{x}_{i,p,j}(t)$, $\hat{y}_{i,p,j}(t)$: Predicted positions of an agent.
 - $N_{classes}$: Number of potentially classifiable behaviors.
 - $k$: Index for those behaviors.
 
