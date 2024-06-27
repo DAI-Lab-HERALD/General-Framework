@@ -1,3 +1,12 @@
+# Existing datasets
+In the framework, the following datasets ar currently implemented:
+| Dataset | Description | Behaviors |
+| :------------ |:---------------| :----- |
+| [L-GAP](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Data_sets/CoR_left_turns.py) | This is a small simulator based dataset that contains samples of human behaviors at unsignalled intersections where they want to turn left in front of an oncoming (computer controlled vehicle). | Gap acceptance (accept/reject) |
+| [Commotions](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Data_sets/Commotions_crossing.py) | This is a small simulator based dataset that covers the crossing behavior of humans across a major road (with priority) at intersections, along which a column of computer controlled vehicles is driving (Left hand traffic)  | Gap acceptance (accept/reject) |
+
+
+
 # Adding a new dataset to the framework
 One can easily add a new dataset to the Framework, by implementing this dataset as a new class. 
 
