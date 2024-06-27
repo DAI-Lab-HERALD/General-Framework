@@ -161,7 +161,7 @@ so it can be disabled via this flag as well.
 ```
 model_for_path_transform = '<Trajecotry Prediction Model>'
 ```
-One part of the framework allows one to transform the predictions made by classification models into trajectories. This is based on a number of conditional trajectory prediction models trained only on the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
+One part of the framework allows one to transform the predictions made by classification models into trajectories (a list of currently available classification mdoels can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/README.md#existing-models). This is based on a number of conditional trajectory prediction models trained only on the samples where the respective class was observed, predicting a number of trajectories proportional to the predicted probability that this class will be observed. This trajectory prediction model has to be selected here.
 
 Finally, one has to pass these parameters to the experiment.
 ```
