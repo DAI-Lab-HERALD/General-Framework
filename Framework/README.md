@@ -30,7 +30,7 @@ It must be noted that both $n_{I, need}$ and $n_{O, need}$ are automatically set
 It must be noted that if both values in the tuple are identical, setting one integer instead of a tuple with two integers is also permissible, as seen in the second line in the above code snippet, where setting *'num_timesteps_out': 12* is identical to setting *'num_timesteps_out': (12, 12)*.
 
 ### Datasets
-The first selection regards the datasets:
+The first selection regards the datasets (a list of available datasets can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Data_sets/README.md#existing-datasets)):
 ```
 Data_sets = [{'scenario': '<Dataset 1>', 'max_num_agents': 6, 't0_type': 'all', 'conforming_t0_types': [], 'perturbation': {'attack': '<Perturbation_name>', ...}},
              [{'scenario': '<Dataset 2>', 'max_num_agents': 3, 't0_type': 'start', 'conforming_t0_types': []},
@@ -55,7 +55,7 @@ As can be seen above, each dataset is passed as a dictionary to the list of data
 It is also possible to combine multiple datasets into one. In this case, one has to put those multiple datasets into another list inside the list **Data_sets**, as was done with '<Dataset 2>' and '<Dataset 3>' in the example above. If multiple datasets are combined, then the 'max_num_agents' of the combined dataset will be the smallest number that is seen in all of the combined datasets (in this selection, 'None' would count as infinity).
 
 ### Splitting method
-After setting up the dataset and its parameters, one then has to select the splitting method.
+After setting up the dataset and its parameters, one then has to select the splitting method (a list of available methods can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Splitting_methods/README.md#existing-splitting-methods)).
 ```
 Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
              {'Type': '<Split_method_2>', 'repetition': [0,1,2], 'test_part': 0.2}]
@@ -73,7 +73,7 @@ Again, this is passed as a dictionary with three keys:
 - 'test_pert': Same as above, only for the testing set.
 
 ### Models
-Next, one has to select the models that are to be evaluated in this experiment.
+Next, one has to select the models (list of currently available choices can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/README.md#existing-models)) that are to be evaluated in this experiment.
 ```
 Models = ['<Model name 1>',
           {'model': '<Model name 2>'},
@@ -82,7 +82,7 @@ Models = ['<Model name 1>',
 Different from the previous list, **Models** has two distinct entry types. The first is simply in the form of a *string* with the name of the available **.py* files from the [Model folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models). Alternatively, one can pass a *dictionary* in which it is required to have a key named *model* with the corresponding value being a *string* with the name of an available **.py* file. This dictionary has the optional key *kwargs* which expects a dictionary as its value. The *kwargs* dictionary then contains all relevant model hyperparameters that one may wish to vary and which will be given to the model as the model attribute **model_kwargs** (see [Model attributes](https://github.com/julianschumann/General-Framework/tree/main/Framework/Models#model-attributes))
 
 ### Metrics
-Lastly, one has to select the metrics by which the models are to be evaluated. 
+Lastly, one has to select the metrics by which the models are to be evaluated, with the list of currently implemented methods available [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/README.md#existing-evaluation-metrics). 
 ```
 Metrics = ['<Metric name 1>', '<Metric name 2>']
 ```
