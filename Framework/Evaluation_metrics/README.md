@@ -1,8 +1,10 @@
 # Existing evaluation metrics
 In the framework, the following metrics are currently implemented:
-| Metric | Input | Description | Formula |
-| :------------ |:---------------| :----- | :----- |
-| [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer based CVAE network. | No |
+| Metric | Input | Formula |
+| :------------ |:---------------| :----- |
+| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $$ {1 \over{|P_{20}| \sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}  
+            \sum\limits_{p \in P_{20}} {1\over{| T_{O,i} | }} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{agents,i}} 
+            \sqrt{\left( x_{i,j}(t) - x_{pred,i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}$$ |
 
 
 Here, the following notation is used:
