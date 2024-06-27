@@ -1,5 +1,5 @@
 # Existing evaluation metrics
-In the framework, the following metrics are currently implemented:
+In the framework, the following metrics are currently implemented (notations below the table):
 | Metric | Input | Formula |
 | :------------ |:---------------| :----- |
 | [ADE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE_indep.py) | Trajectories | $`{1\over{\vert P \vert\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S}{1\over{N_{O,i} }}\sum\limits_{p \in P} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{A,i}} \sqrt{\left( x_{i,j}(t) - \hat{x}_{i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - \hat{y}_{i,p,j} (t) \right)^2}`$ |
@@ -35,13 +35,13 @@ In the framework, the following metrics are currently implemented:
 
 
 Here, the following notation is used:
-- $N_{S}$: Number of samples in the dataset
-- $i$: Index for those samples
+- $N_{S}$: Number of samples in the dataset.
+- $i$: Index for those samples.
 - $N_{A,i}$: The number of evaluated agents in each sample.
-- $j$: Index for those agents
+- $j$: Index for those agents.
 - $P$: Number of predictions made for each agent in each sample.
 - $P_{N_p}$: A random subset of $P$ with $|P_{N_p}| = N_p$.
-- $p$: Index for those predictions
+- $p$: Index for those predictions.
 - $T_{O,i}$: The output timesteps for trajectories, with length $N_{O,i}$.
 - $t$: Value of those timesteps.
 - $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
