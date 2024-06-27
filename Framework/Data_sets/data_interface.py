@@ -296,14 +296,14 @@ class data_interface(object):
             self.data_file += '.npy'
     
 
-    def _extract_save_files_from_data_set(data_set):
-        additions = data_set.Domain['path_addition', 'data_addition'].to_numpy().sum()
-        unique_additions, file_number = np.unique(additions, return_inverse = True, axis = 0)
+    def _extract_save_files_from_data_set(self, data_set):
+        additions = data_set.Domain[['path_addition', 'data_addition']].to_numpy().sum(-1)
+        unique_additions, file_number = np.unique(additions, return_inverse = True)
         
         Files = []
         data_file = data_set.data_file[:-4]
         for unique_addition in unique_additions:
-            Files.append(data_file + unique_addition[0] + unique_addition[1])
+            Files.append(data_file + unique_addition)
             
         return Files, file_number
     
@@ -326,7 +326,8 @@ class data_interface(object):
             available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
             needed_memory = 0
             for data_set in self.Datasets.values():
-                needed_memory += os.path.getsize(data_set.data_file)
+                data_file_final = data_set.data_file[:-4] + '_LLL_LLL_data.npy'
+                needed_memory += os.path.getsize(data_file_final)
 
             if needed_memory > available_memory * 0.6:
                 self.data_in_one_piece = False

@@ -119,7 +119,7 @@ class splitting_template():
                     # If we can load complete dataset, we will also overwrite this
                     if self.data_set.data_in_one_piece:
                         # Load the respective input and output data
-                        data_file_unperturbed = file_unperturbed + '.npy'
+                        data_file_unperturbed = file_unperturbed + '_data.npy'
                         [_, Input_path, _, Output_path, _, _, Output_A, Output_T_E, _] = np.load(data_file_unperturbed, allow_pickle=True)
                         
                         # Apply the local index

@@ -700,7 +700,7 @@ class data_set_template():
         self.data_dtc_bound_file = self.file_path + '--all_fixed_size.npy'
 
         if os.path.isfile(self.data_dtc_bound_file):
-            self.dtc_boundary = np.load( self.data_dtc_bound_file, allow_pickle=True)
+            self.dtc_boundary = np.load(self.data_dtc_bound_file, allow_pickle=True)
         else:
             if self.classification_useful:
                 # Get test boundaries
@@ -987,7 +987,8 @@ class data_set_template():
 
     def get_number_of_data_files(self):
         # Check if file exists
-        if not os.path.isfile(self.data_file):
+        data_file_final = self.data_file[:-4] + '_LLL_LLL_data.npy'
+        if not os.path.isfile(data_file_final):
             raise AttributeError("The data has not been completely compiled yet.")
         
         # Get the corresponding directory
@@ -1327,10 +1328,6 @@ class data_set_template():
             self.Output_A      = pd.DataFrame(self.Output_A_local)
             self.Output_T_E    = np.array(self.Output_T_E_local, float)
             
-            self.Type     = pd.DataFrame(self.Type_local).reset_index(drop = True)
-            self.Recorded = pd.DataFrame(self.Recorded_local).reset_index(drop = True)
-            self.Domain   = pd.DataFrame(self.Domain_local).reset_index(drop = True)
-            
             self.num_behaviors = self.num_behaviors_local.copy()
             
             # Ensure that dataframes with agent columns have the same order
@@ -1341,7 +1338,7 @@ class data_set_template():
             self.Recorded    = self.Recorded[Agents]
 
             # Ensure that indices of dataframes are the same
-            self.Input_path = self.Input_path.reset_index(drop = True, inplace = True)
+            self.Input_path = self.Input_path.reset_index(drop = True)
             self.Input_prediction.index = self.Input_path.index
             self.Output_path.index      = self.Input_path.index
             self.Output_A.index         = self.Input_path.index
@@ -1387,7 +1384,7 @@ class data_set_template():
             if self.is_perturbed:
                 # Get unperturbed save file
                 data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
-                data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '.npy'
+                data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_data.npy'
                 domain_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_domain.npy'
                 agent_file_save = data_file_unperturbed + data_file_addition + '_AM.npy'
                 
@@ -1457,7 +1454,7 @@ class data_set_template():
             save_agent  = np.array([self.Type, self.Recorded, 0], object)
             
             
-            data_file_save = data_file + data_file_addition + '.npy'
+            data_file_save = data_file + data_file_addition + '_data.npy'
             domain_file_save = data_file + data_file_addition + '_domain.npy'
             agent_file_save = data_file + data_file_addition + '_AM.npy'
             
@@ -1501,10 +1498,10 @@ class data_set_template():
         assert self.prediction_time_set, "No prediction time was set."
 
         self.data_file = self.data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
-        
+        data_file_final = self.data_file[:-4] + '_LLL_LLL_data.npy'
 
         # check if same data set has already been done in the same way
-        if not os.path.isfile(self.data_file):
+        if not os.path.isfile(data_file_final):
             # load initial dataset, if not yet done
             self.load_raw_data()
             
@@ -1557,8 +1554,9 @@ class data_set_template():
         
         # If only one file is available, load the data
         if self.number_data_files == 1:
-            domain_file = self.data_file[:-4] + '_LLL_domain.npy'
-            agent_file = self.data_file[:-4] + '_LLL_AM.npy'
+            domain_file = self.data_file[:-4] + '_LLL_LLL_domain.npy'
+            agent_file = self.data_file[:-4] + '_LLL_LLL_AM.npy'
+            data_file = self.data_file[:-4] + '_LLL_LLL_data.npy'
             
             # Load the data
             [self.Input_prediction,
@@ -1569,7 +1567,7 @@ class data_set_template():
             self.Output_T,
             self.Output_T_pred,
             self.Output_A,
-            self.Output_T_E, _] = np.load(self.data_file, allow_pickle=True)
+            self.Output_T_E, _] = np.load(data_file, allow_pickle=True)
             
             [self.Domain, self.num_behaviors, self.num_behaviors_out, self.Agents, _] = np.load(domain_file, allow_pickle=True)
             [self.Type, self.Recorded, _] = np.load(agent_file, allow_pickle=True)

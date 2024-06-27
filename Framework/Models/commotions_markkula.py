@@ -4,14 +4,15 @@ from commotions.commotions_expanded_model import commotions_template, Commotions
 from model_template import model_template
 
     
-class commotions_markkula_L1(model_template, commotions_template):
+class commotions_markkula(model_template, commotions_template):
     '''
     This is a model for predicting human behavior in gap acceptance scenarios,
     which is based on cognitive theory and includes concepts such as noisy
     perception, evidence accumulation and theory of mind in a multi agent setting.
     
-    It uses the original loss function :math:`\mathcal{L}_1` from the paper cited 
-    below.
+    In **self.model_kwargs['loss_type']**, the value 'Time_MSE' uses the original loss 
+    function :math:`\mathcal{L}_1` from the paper cited below, while 'ADE' uses the
+    loss function :math:`\mathcal{L}_2`.
     
     The code is taken from https://github.com/julianschumann/Commotions-model-evaluation
     and the the model is published under the following citation:
@@ -20,12 +21,20 @@ class commotions_markkula_L1(model_template, commotions_template):
     Using Models Based on Cognitive Theory to Predict Human Behavior in Traffic: A Case 
     Study. arXiv preprint arXiv:2305.15187.
     '''
+
+    def define_default_kwargs(self):
+        if not('loss_type' in self.model_kwargs.keys()):
+            self.model_kwargs['loss_type'] = 'Time_MSE'
+        assert self.model_kwargs['loss_type'] in ['Time_MSE', 'ADE']
+
     def setup_method(self):
+        self.define_default_kwargs()
+
         # set model settings
         self.adjust_free_speeds = False
         self.vehicle_acc_ctrl   = False
         self.const_accs         = [0, None]
-        self.train_loss_type    = 'Time_MSE'
+        self.train_loss_type    = self.model_kwargs['loss_type'] 
         
         # prepare torch
         self.prepare_gpu()
@@ -95,9 +104,16 @@ class commotions_markkula_L1(model_template, commotions_template):
     
     
     def get_name(self = None):
-        names = {'print': 'Commotions (Loss 1)',
-                 'file': 'commotion1',
-                 'latex': r'$\text{\emph{CM}}_{\mathcal{L}_1}$'}
+        self.define_default_kwargs()
+
+        if self.model_kwargs['loss_type'] == 'Time_MSE':
+            number = '1'
+        else:
+            number = '2'
+
+        names = {'print': 'Commotions (' + self.model_kwargs['loss_type'] + ' loss)',
+                 'file': 'commotion' + number,
+                 'latex': r'$\text{\emph{CM}}_{\mathcal{L}_' + number + r'}$'}
         return names
         
     def save_params_in_csv(self = None):
