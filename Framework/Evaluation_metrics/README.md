@@ -2,7 +2,8 @@
 In the framework, the following metrics are currently implemented:
 | Metric | Input | Formula |
 | :------------ |:---------------| :----- |
-| [marginal ADE (20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $`{1\over{20\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S}{1\over{N_{O,i} }}\sum\limits_{p \in P_{20}} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{A,i}} \sqrt{\left( x_{i,j}(t) - \hat{x}_{i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - y_{pred,i,p,j} (t) \right)^2}`$ |
+| [ADE (marginal, 20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_indep.py) | Trajectories | $`{1\over{20\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S}{1\over{N_{O,i} }}\sum\limits_{p \in P_{20}} \sum\limits_{t \in T_{O,i}} \sum\limits_{j = 1}^{N_{A,i}} \sqrt{\left( x_{i,j}(t) - \hat{x}_{i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - \hat{y}_{i,p,j} (t) \right)^2}`$ |
+| [ADE (joint, 20)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE20_joint.py) | Trajectories | $`{1\over{20 N_{S}}} \sum\limits_{i = 1}^{N_S}{1\over{N_{O,i} }}\sum\limits_{p \in P_{20}} \sum\limits_{t \in T_{O,i}} \sqrt{{1\over{20 N_{A,i}}} \sum\limits_{j = 1}^{N_{A,i}} \left( x_{i,j}(t) - \hat{x}_{i,p,j} (t) \right)^2 + \left( y_{i,j}(t) - \hat{y}_{i,p,j} (t) \right)^2}`$ |
 
 
 Here, the following notation is used:
