@@ -64,6 +64,10 @@ class Oracle_joint(evaluation_template):
         
         return [Error, np.concatenate(([0], Step_error)), np.arange(len(Step_error) + 1) * self.data_set.dt]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[1]  
+    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         plt_label = model_class.get_name()['latex']
         ax.plot(results[2], results[1], label = plt_label)

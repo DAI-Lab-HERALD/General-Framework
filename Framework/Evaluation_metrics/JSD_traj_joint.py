@@ -167,6 +167,10 @@ class JSD_traj_joint(evaluation_template):
             fig.savefig(model_test_file, bbox_inches='tight')
         
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[1]  
+    
     def plot_results(self, Path_in, Path_out, Log, Pred_step, ax, x_lim, y_lim, max_samples):
         # Combine samples and predictions
         Path_out = Path_out.reshape(-1, *Path_out.shape[2:])[:,0]

@@ -40,6 +40,10 @@ class KDE_NLL_indep(evaluation_template):
         Error = NLL.mean()
         return [Error, PLL, KDE_log_prob_pred.max(1)[Pred_agents], KDE_log_prob_pred.min(1)[Pred_agents]]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[2]  
+    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     

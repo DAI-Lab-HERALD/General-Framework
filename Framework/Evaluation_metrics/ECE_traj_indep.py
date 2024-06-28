@@ -90,7 +90,10 @@ class ECE_traj_indep(evaluation_template):
             ax.legend(loc='lower left')
             fig.show()
             fig.savefig(test_file, bbox_inches='tight')
-            
+    
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[0]
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

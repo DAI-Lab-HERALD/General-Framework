@@ -386,6 +386,8 @@ class data_set_template():
                                         self.T,
                                         self.Domain_old,
                                         self.num_samples], object)
+                    
+                    np.save(test_file, test_data)
                 
                 # Save the image data
                 if self.includes_images():
@@ -399,7 +401,6 @@ class data_set_template():
                 else:
                     self.Images = None
                     
-                np.save(test_file, test_data)
                 
             self.raw_data_loaded = True
             self.raw_images_loaded = True

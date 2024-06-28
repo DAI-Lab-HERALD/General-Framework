@@ -1255,6 +1255,9 @@ class model_template():
         self.T_pred = self.T_pred.astype(str)
         self.T_pred[self.T_pred == 'nan'] = '0'
         self.T_pred = self.T_pred[i_sampl_sort, i_agent_sort]
+
+        # Set agent types of agents not included in Pred step to '0'
+        self.T_pred[~self.Pred_step.any(-1)] = '0'
     
     
     def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):

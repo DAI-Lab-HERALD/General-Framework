@@ -79,6 +79,10 @@ class KLD_traj_indep(evaluation_template):
         
         return [KLD]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[2]  
+    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     

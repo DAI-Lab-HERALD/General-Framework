@@ -40,6 +40,10 @@ class TNR_PR(evaluation_template):
         Result = np.mean(P_accepted_pred[~P_accepted_true] < Threshold)
         return [Result]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[0]  
+    
     def get_output_type(self = None):
         return 'class'
     

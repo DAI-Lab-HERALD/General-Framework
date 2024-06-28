@@ -68,6 +68,10 @@ class AUC_ROC(evaluation_template):
         
         return [auc]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[0]
+    
     def create_plot(self, results, test_file):
         pass
         

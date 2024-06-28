@@ -15,56 +15,67 @@ class Collision_rate_indep(evaluation_template):
         Path_true, Path_pred, Pred_steps, Type_pred = self.get_true_and_predicted_paths(return_types = True)
         Path_other, Type_other = self.get_other_agents_paths()
 
-        # Reform to treat each agent separately
-        Pred_agents = Pred_steps.any(-1)
-        num_samples, num_agent_pred = Pred_agents.shape
-        sample_pred, agent_pred = np.where(Pred_agents)
+        num_pred_agents = Path_true.shape[2]
+        # Information
+        # Shape of Path_true:  (num_samples, 1, num_pred_agents, n_O, 2)
+        # Shape of Path_pred:  (num_samples, P, num_pred_agents, n_O, 2)
+        # Shape of Pred_steps: (num_samples, num_pred_agents, n_O)
+        # Shape of Type_pred:  (num_samples, num_pred_agents)
 
-        sample_pred_tiles = np.tile(sample_pred[:,np.newaxis], (1, num_agent_pred - 1)).T
-        agent_pred_tiles = np.tile(np.arange(len(num_agent_pred - 1))[np.newaxis], (len(sample_pred), 1))
-        agent_pred_tiles[agent_pred_tiles >= agent_pred[:,np.newaxi]] += 1
+        # Positions where Pred_steps == Flase, Path_true and Path_pred are 0.0
 
-        # get all combinations
-        path_pred = Path_pred[sample_pred, :, agent_pred][:, :, np.newaxis] # num_pred_agents x num_pred x 1 x n_O x 2
-        path_other = Path_other[sample_pred] # num_pred_agents x 1 x other_agents x n_O x 2
-        path_pred_other = Path_true[sample_pred_tiles, :, agent_pred_tiles].transpose(0, 2, 1, 3, 4) # num_pred_agents x 1 x other_pred_agents x n_O x 2
+        # Shape of Path_other: (num_pred_agents, 1, num_other_agents, n_O, 2)
+        # Shape of Type_other: (num_pred_agents, num_other_agents)
 
-        path_other = np.concatenate([path_other, path_pred_other], axis = 2) # num_pred_agents x 1 x all_other_agents x n_O x 2
+        # Check for each predicted agent against the ground truth of other agents
+        pred_sample, pred_agent = np.where(Pred_steps.any(-1)) # Assume there are N pred agents
 
-        # Get all types
-        type_pred = Type_pred[sample_pred, agent_pred]
-        type_other = Type_other[sample_pred]
-        type_pred_other = Type_pred[sample_pred_tiles, agent_pred_tiles]
-        type_other = np.concatenate([type_other, type_pred_other], axis = 2)
+        Path_pred_agent = Path_pred[pred_sample, :, pred_agent] # Shape: (N, P, n_O, 2)
+        Type_pred_agent = Type_pred[pred_sample, pred_agent] # Shape: (N,)
+        N = len(Path_pred_agent)
+        # Get the ground truth of all other agents
+        num_pred_agents = Path_pred.shape[2]
+        Idx_sample = np.repeat(np.arange(N)[:, np.newaxis], num_pred_agents - 1, axis = 1)
+        Idx_agents = np.repeat(np.arange(1, num_pred_agents)[np.newaxis], N, axis = 0)
+        Idx_agents = np.mod(Idx_agents + pred_agent[:, np.newaxis], num_pred_agents)
 
-        # Check for collisions
-        Dist = np.linalg.norm(path_pred - path_other, axis = -1) # num_pred_agents x num_pred x all_other_agents x n_O
+        # Apply the indexing to the ground truth of other agents
+        Path_pred_other = Path_true.squeeze(1)[pred_sample] # Shape: (N, num_pred_agents, n_O, 2)
+        Path_pred_other = Path_pred_other[Idx_sample, Idx_agents] # Shape: (N, num_pred_agents - 1, n_O, 2)
+        Type_pred_other = Type_pred[pred_sample][Idx_sample, Idx_agents] # Shape: (N, num_pred_agents - 1)
 
-        # Min dist over timesteps
-        Dist = np.nanmin(Dist, axis = 1) # num_pred_agents x num_pred x all_other_agents
+        Path_other = Path_other.squeeze(1)[pred_sample] # Shape: (N, num_other_agents, n_O, 2)
+        Type_other = Type_other[pred_agent] # Shape: (N, num_other_agents)
 
-        # Get comparison distance
-        Dist_comp = np.zeros(type_other.shape)
-        Dist_comp[type_pred == 'P'] += 0.2
-        Dist_comp[type_pred == 'V'] += 1
-        Dist_comp[type_pred == 'B'] += 0.5
-        Dist_comp[type_pred == 'M'] += 0.6
-        Dist_comp[type_other == 'P'] += 0.2
-        Dist_comp[type_other == 'V'] += 1
-        Dist_comp[type_other == 'B'] += 0.5
-        Dist_comp[type_other == 'M'] += 0.6
+        # Concatenate the ground truth of other agents
+        Path_other = np.concatenate([Path_pred_other, Path_other], axis = 1) # Shape: (N, num_agents, n_O, 2)
+        Type_other = np.concatenate([Type_pred_other, Type_other], axis = 1) # Shape: (N, num_agents)
 
-        # Exclude non existent agents
-        Dist_comp[type_pred == '0'] += np.inf
-        Dist_comp[type_other == '0'] += np.inf
+        # Fit range so that types are N, P, num agents, and paths are N, P, num agents, n_O, 2
+        P = Path_pred_agent.shape[1]
+        num_agents = Path_other.shape[1]
+        Path_pred_agent = np.repeat(Path_pred_agent[:,:,np.newaxis], num_agents, axis = 2)
+        Type_pred_agent = np.repeat(np.repeat(Type_pred_agent[:,np.newaxis,np.newaxis], P, axis = 1), num_agents, axis = 2)
 
-        # Check for collisions
-        Collisions = np.any((Dist < Dist_comp[:,np.newaxis]) & np.isfinite(Dist), axis = -1)
+        Path_other = np.repeat(Path_other[:,np.newaxis], P, axis = 1)
+        Type_other = np.repeat(Type_other[:,np.newaxis], P, axis = 1)
 
-        # Get collision rate 
-        Collision_rate = Collisions.mean()
+        # Compute the collision rate
+        Collided = self._check_collisions(Path_pred_agent, Path_other, Type_pred_agent, Type_other) # Shape: (N, P, num_agents)
 
+        # A single collision with other agent is enough to count as a collision
+        Collided = Collided.any(-1) # Shape: (N, P)
+
+        # Get probability of collision
+        Prob_collision = Collided.mean(-1) # Shape: (N) 
+
+        # Get the mean value over all samples
+        Collision_rate = Prob_collision.mean()
         return [Collision_rate]
+    
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[2]
         
     def get_output_type(self = None):
         return 'path_all_wi_pov'

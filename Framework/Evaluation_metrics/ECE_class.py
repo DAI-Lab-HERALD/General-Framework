@@ -130,6 +130,10 @@ class ECE_class(evaluation_template):
         assert np.isfinite(ece)
         return [ece, P_pred, P_hat]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[0]
+    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         P = np.unique(np.stack((results[1], results[2])), axis = 1)
         

@@ -62,6 +62,10 @@ class ECE_traj_joint(evaluation_template):
         ece = np.abs(ECE - (1 - T)).mean()
         
         return [ece, T, ECE]
+    
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[0]
    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         idx = np.argsort(results[1])

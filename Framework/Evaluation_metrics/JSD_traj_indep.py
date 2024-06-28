@@ -179,7 +179,11 @@ class JSD_traj_indep(evaluation_template):
             
             # Save results
             fig.savefig(model_test_file, bbox_inches='tight')
-        
+    
+    
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[2]      
     
     def plot_results(self, Path_in, Path_out, Log, Pred_step, ax, x_lim, y_lim, max_samples):
         # Combine samples and predictions

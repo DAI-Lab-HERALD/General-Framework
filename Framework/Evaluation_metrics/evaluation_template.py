@@ -257,13 +257,30 @@ class evaluation_template():
 
         Path_other = Y_orig[i_sampl_sort, i_agent_sort][:,np.newaxis]
 
+        # Adjust to used samples
+        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        # Apply the same adjustemnt as to predicted agents
+        Path_other = Path_other[Use_samples]
+
         if return_types:
             Types = self.data_set.Type.iloc[self.Index_curr].to_numpy()
             Types = Types.astype(str)
-            Types[self.T_pred == 'nan'] = '0'
+            Types[Types == 'nan'] = '0'
 
             Types = Types[i_sampl_sort, i_agent_sort]
+
+            # Apply the same adjustemnt as to predicted agents
+            Types = Types[Use_samples]
+
+            # Find positions where Path_other is nan
+            nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
             
+            # Test if all nonexisting paths have type zero
+            assert (Types[nan_pos] == '0').all(), 'There are types for nonexisting paths.'
+            assert (Types[~nan_pos] != '0').all(), 'There are no types for existing paths.'
+
             return Path_other, Types
         
         else:
@@ -530,7 +547,182 @@ class evaluation_template():
             self.create_plot(Results[1], self.metric_file)
  
         return Results
+    
+
+    def _check_collisions(self, Path_A, Path_B, Type_A, Type_B):
+        r'''
+        This function checks if two agents collide with each other.
+
+        Parameters
+        ----------
+        Path_A : np.ndarray
+            The path of the first agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional 
+            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
+        Path_B : np.ndarray
+            The path of the second agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional
+            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
+        Type_A : np.ndarray
+            The type of the first agent, in the form of a :math:`\{...\}` dimensional numpy array, with 
+            string values.
+        Type_B : np.ndarray
+            The type of the second agent, in the form of a :math:`\{...\}` dimensional numpy array, with
+            string values.
         
+        Returns
+        -------
+        Collided : np.ndarray
+            This is a :math:`\{...\}` dimensional numpy array with boolean values. It indicates if a 
+            collision was detected for the corresponding pair of agents.
+        '''
+        # Extract distance over timesteps
+        V_A = Path_A[...,1:,:] - Path_A[...,:-1,:]
+        V_B = Path_B[...,1:,:] - Path_B[...,:-1,:]
+
+        # Get the corresponding angles
+        Theta_A = np.arctan2(V_A[...,1], V_A[...,0])
+        Theta_B = np.arctan2(V_B[...,1], V_B[...,0])
+        
+        # Elongate the theta values to original length, assuming that the
+        # Calculated angels correspond to the recorded angles at the middle of each timestep
+        Theta_A_middle = np.nanmean(np.stack((Theta_A[...,1:], Theta_A[...,:-1]), -1), -1)
+        Theta_B_middle = np.nanmean(np.stack((Theta_B[...,1:], Theta_B[...,:-1]), -1), -1)
+
+        Theta_A_start = Theta_A[...,0] - 0.5 * (Theta_A[...,1] - Theta_A[...,0])
+        Theta_B_start = Theta_B[...,0] - 0.5 * (Theta_B[...,1] - Theta_B[...,0])
+
+        Theta_A_end = Theta_A[...,-1] + 0.5 * (Theta_A[...,-1] - Theta_A[...,-2])
+        Theta_B_end = Theta_B[...,-1] + 0.5 * (Theta_B[...,-1] - Theta_B[...,-2])
+
+        Theta_A = np.concatenate((Theta_A_start[...,np.newaxis], Theta_A_middle, Theta_A_end[...,np.newaxis]), axis=-1)
+        Theta_B = np.concatenate((Theta_B_start[...,np.newaxis], Theta_B_middle, Theta_B_end[...,np.newaxis]), axis=-1)
+
+        # Get the relative positions
+        Path_B_adj = Path_B - Path_A
+
+        # Turn the relative positions so that the ego vehicle is aligned with the x-axis
+        Path_B_adj = np.stack((Path_B_adj[...,0] * np.cos(-Theta_A) - Path_B_adj[...,1] * np.sin(-Theta_A),
+                               Path_B_adj[...,0] * np.sin(-Theta_A) + Path_B_adj[...,1] * np.cos(-Theta_A)), axis=-1)
+
+        # Get the relative angles
+        Theta_B_adj = Theta_B - Theta_A # Shape (..., N_O)
+
+        # Get widths (y-axis) and lengths (x-axis) of the vihicles
+        W = {'V': 2, 
+             'B': 0.5,
+             'M': 0.5,
+             'P': 0.5}
+        
+        L = {'V': 5,
+             'B': 2,
+             'M': 2,
+             'P': 0.5}
+        
+        # Tranform the Type arrays to interger ones 
+        Type_A_int = np.zeros_like(Type_A, int)
+        Type_B_int = np.zeros_like(Type_B, int)
+
+        Type_A_int[Type_A == 'V'] = 0
+        Type_A_int[Type_A == 'B'] = 1
+        Type_A_int[Type_A == 'M'] = 2
+        Type_A_int[Type_A == 'P'] = 3
+
+        Type_B_int[Type_B == 'V'] = 0
+        Type_B_int[Type_B == 'B'] = 1
+        Type_B_int[Type_B == 'M'] = 2
+        Type_B_int[Type_B == 'P'] = 3
+
+        W_int = np.array([W['V'], W['B'], W['M'], W['P']])
+        L_int = np.array([L['V'], L['B'], L['M'], L['P']])
+
+        # Extract the agents width and length
+        W_A = W_int[Type_A_int]
+        W_B = W_int[Type_B_int]
+
+        L_A = L_int[Type_A_int]
+        L_B = L_int[Type_B_int]
+
+        # Get initial corner positions
+        Corner_A = np.stack([np.stack([-L_A/2, -W_A/2], -1),
+                             np.stack([ L_A/2, -W_A/2], -1),
+                             np.stack([ L_A/2,  W_A/2], -1),
+                             np.stack([-L_A/2,  W_A/2], -1)], -2) # Shape (..., 4, 2)
+        
+        Corner_B = np.stack([np.stack([-L_B/2, -W_B/2], -1),
+                             np.stack([ L_B/2, -W_B/2], -1),
+                             np.stack([ L_B/2,  W_B/2], -1),
+                             np.stack([-L_B/2,  W_B/2], -1)], -2) # Shape (..., 4, 2)
+
+        # Rotate the Corner B with the relative angles
+        Corner_A = Corner_A[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
+        Corner_B = Corner_B[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
+        Theta_B_adj = Theta_B_adj[...,np.newaxis] # Shape (..., N_O, 1)
+
+        Corner_B = np.stack((Corner_B[...,0] * np.cos(Theta_B_adj) - Corner_B[...,1] * np.sin(Theta_B_adj),
+                             Corner_B[...,0] * np.sin(Theta_B_adj) + Corner_B[...,1] * np.cos(Theta_B_adj)), axis=-1) # Shape (..., N_O, 4, 2)
+        
+        # Translate the corners to the center
+        Corner_B += Path_B_adj[...,np.newaxis, :] # Shape (..., N_O, 4, 2)
+
+        # Use the separating axis theorem to check for collisions
+        # Get the 2 normals of rectangle A
+        Norm_A_1 = np.array([1, 0])
+        Norm_A_2 = np.array([0, 1])
+
+        # Get the 2 normals of rectangle B
+        Norm_B_1 = np.concatenate([np.cos(Theta_B_adj), np.sin(Theta_B_adj)], -1) # Shape (..., N_O, 2)
+        Norm_B_2 = np.concatenate([-np.sin(Theta_B_adj), np.cos(Theta_B_adj)], -1) # Shape (..., N_O, 2)
+
+        # Combine the normals
+        for size in Norm_B_1.shape[:-1]:
+            Norm_A_1 = np.repeat(Norm_A_1[...,np.newaxis, :], size, axis = -2)
+            Norm_A_2 = np.repeat(Norm_A_2[...,np.newaxis, :], size, axis = -2)
+
+        Normals = np.stack((Norm_A_1, Norm_A_2, Norm_B_1, Norm_B_2), -2) # Shape (..., N_O, 4, 2)
+        
+        # Switch last two dimensions for the corners A and B
+        Corner_A = np.moveaxis(Corner_A, -1, -2) # Shape (..., 1, 2, 4)
+        Corner_B = np.moveaxis(Corner_B, -1, -2) # Shape (..., N_O, 2, 4)
+
+        # Project the corners of rectangle A onto Normals
+        Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4, 4)
+        Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4, 4)
+
+        # Get the diffrences between the points
+        Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4, 4, 4)
+        Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4, 16)
+
+        Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4, 16)
+        Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4, 16)
+
+        shape = Differences_0.shape
+
+        # Analytical solution is to complicate din vectorform, cheat by doing linear interpolations
+        Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
+
+        # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
+        Sign_test = np.sign(Differences_test)
+        Sign_equal = np.all(Sign_test[...,[0],:] == Sign_test) # Shape (..., N_O - 1, 4, 16, 11)
+        Sign_equal = Sign_equal.all(-2) # Shape (..., N_O - 1, 4, 11)
+
+        # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs
+        No_collision = np.any(Sign_equal, -2) # Shape (..., N_O - 1, 11)
+
+        # For there to be no collision in the current timesteps, there must be no collision at all interpolated timesteps
+        No_collision = No_collision.all(-1) # Shape (..., N_O - 1)
+
+        # Check if any of the Paths had nan values here
+        Path_A_nan = np.isnan(Path_A).any(-1) # Shape (..., N_O)
+        Path_B_nan = np.isnan(Path_B).any(-1) # Shape (..., N_O)
+
+        # For a collision to be possible, both ends need to be observed
+        Missing_agent = ~Path_A_nan[...,1:] & ~Path_B_nan[...,1:] & ~Path_A_nan[...,:-1] & ~Path_B_nan[...,:-1] # Shape (..., N_O - 1)
+        No_collision |= Missing_agent
+
+        # For no collision to be observed, this must be the case for all original timesteps
+        No_collision = No_collision.all(-1) # Shape (...,)
+
+        Collided = ~No_collision
+        return Collided
 
         
     #########################################################################################
@@ -596,6 +788,12 @@ class evaluation_template():
         # Should return a list with two entries. These are the minimum and 
         # maximum possible values. If no such boundary on potential metric values 
         # exists, then those values should be none instead
+        raise AttributeError('Has to be overridden in actual metric class')
+    
+
+    def partial_calculation(self = None):
+        # This function returns the way that the metric work over subparts of the dataset.
+        options = ['No', 'Sample', 'Pred_agents']
         raise AttributeError('Has to be overridden in actual metric class')
         
         

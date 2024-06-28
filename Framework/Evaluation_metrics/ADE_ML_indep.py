@@ -60,6 +60,10 @@ class ADE_ML_indep(evaluation_template):
         Error = Diff.mean()
         return [Error]
     
+    def partial_calculation(self = None):
+        options = ['No', 'Sample', 'Pred_agents']
+        return options[2]
+    
     def get_output_type(self = None):
         return 'path_all_wi_pov'
     
