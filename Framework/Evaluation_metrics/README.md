@@ -164,7 +164,7 @@ If the metric can be applied, it should return None, while otherwise, it should 
 A potential reason why the metric might not be applicable could be the restriction to a certain scenario (see [*self.data_set.scenario_name*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Scenarios#setting-up-the-class)) or dataset (see [*self.data_set.get_name()*](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets#setting-up-the-class)).
 
 
-Finally, when comparing metrics, it is important to know if a superior model would minimize or maximize them. For this, the method *get_opt_goal()* is used:
+Furthermore, when comparing metrics, it is important to know if a superior model would minimize or maximize them. For this, the method *get_opt_goal()* is used:
 ```    
   def get_opt_goal(self):
     r'''
@@ -199,6 +199,29 @@ Similarly, it is also the case that metric values can have hard limits on what f
     return boundaries
 ```
 
+Lastly, when dealing with large datasets, it might not be possible to calculate a metric all in once. In those cases, the metric has to be calculated on subsets, and the combined into a final version in the end. For this combination, the framework need to know how this metric was calculated, with the different options visible in the text below
+```
+  def partial_calculation(self = None):
+  r'''
+  This function informs the framework, if and how a metric could be calculated on subsets of
+  the complete test set.
+
+  Returns
+  -------
+  caluculation_form : str
+    This string returns the form of combining metrics calculated over subsets of the test set.
+    There are three options, 'No' (The metric can only be calculated on the complete dataset,
+    weighted average contains an error), 'Sample' (The metric is calcualted by averaging over
+    samples), and 'Pred_agents' (The metric is calcualted by averaging over values calculated
+    for the varying number of predicted agents in each sample).
+
+  '''
+
+  options = ['No', 'Sample', 'Pred_agents']
+  i_option = ...
+
+  return options[i_option] 
+```
 
 ## Defining the evaluation metric
 
