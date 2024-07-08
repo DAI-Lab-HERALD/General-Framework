@@ -26,6 +26,9 @@ class trajectron_salzmann_old(model_template):
     def define_default_kwargs(self):
         if not('seed' in self.model_kwargs.keys()):
             self.model_kwargs['seed'] = 0
+
+        if not('predict_ego' in self.model_kwargs.keys()):
+            self.model_kwargs['predict_ego'] = True
     
     def setup_method(self):
         self.define_default_kwargs()
@@ -241,6 +244,8 @@ class trajectron_salzmann_old(model_template):
         self.trajectron.set_annealing_params()
     
     
+
+    # Data extraction in numpy
     def rotate_pos_matrix(self, M, rot_angle):
         assert M.shape[-1] == 2
         assert M.shape[0] == len(rot_angle)
@@ -402,6 +407,171 @@ class trajectron_salzmann_old(model_template):
             Y_st = torch.from_numpy(Y_st).to(dtype = torch.float32)
             return S, S_st, first_h, Y, Y_st, Neighbor, Neighbor_edge, img_batch, node_type
     
+
+    # Data extraction in torch
+    def rotate_pos_matrix_tensor(self, M, rot_angle):
+        assert M.shape[-1] == 2
+        assert M.shape[0] == len(rot_angle)
+
+
+        rot_angle_tensor = rot_angle.to(dtype=torch.float32)
+        # rot_angle_tensor = torch.tensor(rot_angle, dtype=torch.float32)
+        cos_rot = torch.cos(rot_angle_tensor)
+        sin_rot = torch.sin(rot_angle_tensor)
+        
+        R = torch.stack([torch.stack([cos_rot, -sin_rot], dim=-1),
+                        torch.stack([sin_rot, cos_rot], dim=-1)], dim=-2)
+        
+        R = R.transpose(1, 2)  
+        R = R.unsqueeze(1)     
+        
+        M_r = torch.matmul(M, R)
+        return M_r
+
+    def unwrap_phase(self,input_tensor, dim=-1):
+        unwrapped = torch.atan2(torch.sin(input_tensor), torch.cos(input_tensor))
+        cumulative_diff = torch.cumsum((input_tensor - unwrapped + torch.pi) % (2 * torch.pi) - torch.pi, dim=dim)
+        return unwrapped + cumulative_diff
+
+    def extract_data_batch_tensor(self, X, T, Y = None, img = None, num_steps = 10):
+        attention_radius = {}
+        DIM = {'VEHICLE': 8, 'PEDESTRIAN': 6}
+        
+        if (self.provide_all_included_agent_types() == 'P').all():
+            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 3.0
+        else:
+            attention_radius[('PEDESTRIAN', 'PEDESTRIAN')] = 10.0
+            attention_radius[('PEDESTRIAN', 'VEHICLE')]    = 50.0
+            attention_radius[('VEHICLE',    'PEDESTRIAN')] = 25.0
+            attention_radius[('VEHICLE',    'VEHICLE')]    = 150.0
+
+        Types = np.empty(T.shape, dtype = object)
+
+        Types[T == 'P'] = 'PEDESTRIAN'
+        Types[T == 'V'] = 'VEHICLE'
+        Types[T == 'B'] = 'VEHICLE'
+        Types[T == 'M'] = 'VEHICLE'
+        Types = Types.astype(str)
+
+        # X = torch.from_numpy(X).to(dtype = torch.float32) #uncomment
+        
+        center_pos = X[:,0,-1]
+        delta_x = center_pos - X[:,0,-2]
+        rot_angle = torch.angle(delta_x[:,0] + 1j * delta_x[:,1])
+
+        center_pos = center_pos[:,None,None]        
+        X_r = self.rotate_pos_matrix_tensor(X - center_pos, rot_angle) 
+
+        V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
+        zero_mask = (V[...,0] == 0)
+
+        V[zero_mask] = 1e-10
+
+        V = torch.cat((V[...,[0],:], V), dim = -2)
+       
+        # get accelaration
+        A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
+        A = torch.cat((A[...,[0],:], A), dim = -2)
+
+        H = torch.atan2(V[:,:,:,1], V[:,:,:,0])
+        
+        DH = self.unwrap_phase(H, dim=-1) 
+        DH = (DH[:,:,1:] - DH[:,:,:-1]) / self.dt
+        DH = torch.cat((DH[...,[0]], DH), dim = -1)
+       
+        # final state S
+        S = torch.cat((X_r, V, A, H[...,None], DH[...,None]), dim = -1).to(dtype=torch.float32)
+ 
+        Ped_agents = Types == 'PEDESTRIAN'
+
+        S_st = S.clone()
+
+        S_st[Ped_agents,:,:,0:2]  /= self.std_pos_ped
+        S_st[~Ped_agents,:,:,0:2] /= self.std_pos_veh
+        S_st[Ped_agents,:,:,2:4]  /= self.std_vel_ped
+        S_st[~Ped_agents,:,:,2:4] /= self.std_vel_veh
+        S_st[Ped_agents,:,:,4:6]  /= self.std_acc_ped
+        S_st[~Ped_agents,:,:,4:6] /= self.std_acc_veh
+        S_st[~Ped_agents,:,:,6] /= self.std_hea_veh
+        S_st[~Ped_agents,:,:,7] /= self.std_d_h_veh
+        
+        D ,_ = torch.min(torch.sqrt(torch.sum((X[:,[0]] - X) ** 2, dim = -1)), dim = - 1)
+        D_max = torch.zeros_like(D)
+        for i_sample in range(len(D)):
+            for i_v in range(X.shape[1]):
+                if not Types[i_sample, i_v] == 'None':
+                    D_max[i_sample, i_v] = attention_radius[(Types[i_sample, 0], Types[i_sample, i_v])]
+        
+        # Oneself cannot be own neighbor
+        D_max[:,0] = -10
+
+        if D.is_cuda:
+            D = D.cpu()
+        if D_max.is_cuda:
+            D_max = D_max.cpu()
+        # if Types.is_cuda:
+        #     Types = Types.cpu()
+        
+        Neighbor_bool = D < D_max
+        
+        # Get Neighbor for each pred value
+        Neighbor = {}
+        Neighbor_edge = {}
+        
+        node_type = str(Types[0, 0])
+        for node_goal in DIM.keys():
+            Dim = DIM[node_goal]
+            
+            key = (node_type, str(node_goal))
+            Neighbor[key] = []
+            Neighbor_edge[key] = []
+            
+            for i_sample in range(S.shape[0]):
+                I_agent_goal = torch.where(Neighbor_bool[i_sample] & 
+                                        (Types[i_sample] == node_goal))[0]
+                
+                Neighbor[key].append([])
+                Neighbor_edge[key].append(torch.ones(len(I_agent_goal), dtype=torch.float32))
+                for i_agent_goal in I_agent_goal:
+                    Neighbor[key][i_sample].append(S[i_sample, i_agent_goal, :, :Dim])
+        
+
+        if img is not None:
+            img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
+            img_batch = img_batch.transpose(0,3,1,2) # put channels first
+            img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
+        else:
+            img_batch = None
+            
+        first_h = torch.zeros(len(X), dtype=torch.int32)
+        
+        dim = DIM[node_type]
+        S = S[...,:dim].to(dtype = torch.float32)
+        S_st = S_st[...,:dim].to(dtype = torch.float32)
+        
+        if Y is None:
+            return S, S_st, first_h, Neighbor, Neighbor_edge, img_batch, node_type, center_pos, rot_angle
+        else:
+            Y = torch.from_numpy(Y).to(dtype = torch.float32)
+            Y = self.rotate_pos_matrix_tensor(Y - center_pos, rot_angle).clone()
+            
+            Y_st = Y.clone()
+            Y_st[Ped_agents]  /= self.std_pos_ped
+            Y_st[~Ped_agents] /= self.std_pos_veh
+        
+            Y_st = Y_st.to(dtype = torch.float32)
+            return S, S_st, first_h, Y, Y_st, Neighbor, Neighbor_edge, img_batch, node_type
+
+
+
+
+
+
+
+
+
+
+
     def prepare_model_training(self, Pred_types):
         optimizer = dict()
         lr_scheduler = dict()
@@ -509,13 +679,19 @@ class trajectron_salzmann_old(model_template):
         self.weights_saved = []
         for weigths in Weights:
             self.weights_saved.append(weigths.detach().cpu().numpy())
-        
-        
+
+
     def load_method(self, l2_regulization = 0):
         Weights = list(self.trajectron.model_registrar.parameters())
         with torch.no_grad():
+            ii = 0
             for i, weights in enumerate(self.weights_saved):
-                Weights[i][:] = torch.from_numpy(weights)[:]
+                weights_torch = torch.from_numpy(weights)
+                assert False
+                # TODO: Check if the shape is the same
+                if Weights[ii].shape == weights_torch.shape:
+                    Weights[ii][:] = weights_torch[:]
+                    ii += 1
         
     def predict_method(self):
         batch_size = max(1, int(self.trajectron.hyperparams['batch_size'] / 10))
@@ -562,12 +738,54 @@ class trajectron_salzmann_old(model_template):
             
             self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
     
+
+    def predict_batch_tensor(self,X,T,Domain,img, img_m_per_px,num_steps,num_samples = 20):
+
+        X = X.to(self.trajectron.device)
+        self.trajectron.model_registrar.to(self.trajectron.device)
+    
+        S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch_tensor(X, T, None, img, num_steps)
+        
+        # Move img to device
+        if img is not None:
+            img = img.to(self.trajectron.device)
+            
+        torch.cuda.empty_cache()
+        # Run prediction pass
+        model = self.trajectron.node_models_dict[node_type]
+        self.trajectron.model_registrar.to(self.trajectron.device)
+        
+        
+        predictions = model.predict(inputs                = S[:,0].to(self.trajectron.device),
+                                    inputs_st             = S_St[:,0].to(self.trajectron.device),
+                                    first_history_indices = first_h.to(self.trajectron.device),
+                                    neighbors             = Neighbor,
+                                    neighbors_edge_value  = Neighbor_edge,
+                                    robot                 = None,
+                                    map                   = img,
+                                    prediction_horizon    = num_steps,
+                                    num_samples           = num_samples)
+        
+
+        Pred = predictions.permute(1,0,2,3)
+        # reverse rotation
+        Pred_r = self.rotate_pos_matrix_tensor(Pred, -rot_angle)
+        # reverse translation
+        Pred_t = Pred_r + center_pos
+
+        return Pred_t
+
     
     def check_trainability_method(self):
         return None
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        # get default kwargs
+        self.define_default_kwargs()
+        if self.model_kwargs['predict_ego']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_name(self = None):
         self.define_default_kwargs()
