@@ -213,6 +213,45 @@ After training or loading a trained model, one then has to make predictions. Her
     ...
 ```
 
+## Making predictions for adversarial attacks
+If [adversarial attacks](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Perturbation_methods) are used to validate the prediction model, it is necessary to write a function that makes predictions on batches.
+
+```
+  def predict_batch_tensor(self):
+    Inputs
+    -------
+    X_batch : tensor
+      This is the past observed data of the agents, in the form of a
+      :math:`\{N_{batch size} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+      If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
+    T_batch : np.ndarray
+      This is a :math:`\{N_{batch size} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+      the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
+      If an agent is not observed at all, the value will instead be '0'.
+    domain : pandas.Series
+      A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
+      sample.
+    img_train : np.ndarray
+      This is a :math:`\{N_{batch size} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+      It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
+      (:math:`C = 1`) of the map image with height :math:`H` and width :math:`W`. These images are centered around
+      the agent at its current position and are rotated so that the agent is driving to the right. 
+      If an agent is not observed at prediction time, 0 values are returned.
+    img_m_per_px_train : np.ndarray
+      This is a :math:`\{N_{batch size} \times N_{agents}\}` dimensional numpy array. It includes float values that
+      indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
+      np.nan.
+    num_steps: scalar
+      This specifies the number of timesteps the prediction model needs to predict.
+    num_samples: scalar
+      This specifies how many predictions the prediction model needs to make.
+
+    Returns
+    -------
+    Y_pred: tensor
+      These are prediction on past observed data of the agents, in the form of a
+      :math:`\{N_{batch size} \times N_{predictions} \times N_{I} \times 2\}` dimensional numpy array with float values.       
+```
 
 ## Useful helper functions
 During the training and prediction parts of the model, the following functions are provided by the model template to allow for easier access 
