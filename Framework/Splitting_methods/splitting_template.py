@@ -4,7 +4,7 @@ import os
 
 
 class splitting_template():
-    def __init__(self, data_set, test_part = 0.2, repetition = (0), train_pert = False, test_pert = False):
+    def __init__(self, data_set, test_part = 0.2, repetition = (0), train_pert = False, test_pert = False, train_on_test = False):
         # Save data_set location
         self.data_set = data_set
         if self.data_set is not None:
@@ -49,8 +49,9 @@ class splitting_template():
             if not self.Domain.perturbation.any():
                 raise AttributeError('The domain does not contain any perturbed data.')
             
-        self.train_pert = train_pert
-        self.test_pert = test_pert
+        self.train_pert    = train_pert
+        self.test_pert     = test_pert
+        self.train_on_test = train_on_test
        
     def split_data(self):
         self.split_file = self.data_set.change_result_directory(self.data_set.data_file, 'Splitting', 
@@ -68,14 +69,6 @@ class splitting_template():
             
             np.random.shuffle(self.Train_index)
             np.random.shuffle(self.Test_index)
-            
-            save_data = np.array([self.Train_index, 
-                                  self.Test_index,
-                                  0], object) #0 is there to avoid some numpy load and save errors
-            
-            
-            os.makedirs(os.path.dirname(self.split_file), exist_ok=True)
-            np.save(self.split_file, save_data)
             
             # Overwrite the respective File location for the perturbed data
             perturbed = self.Domain['perturbation']
@@ -135,14 +128,39 @@ class splitting_template():
                         self.data_set.Output_path.loc[index_local_loc, Output_path.columns] = Output_path
                         self.data_set.Output_A.loc[index_local_loc, Output_A.columns]       = Output_A 
                         self.data_set.Output_T_E[index_local]                               = Output_T_E
-                        
-            # Set overwritten files to status unperturbed
+              
+            # Set overwritten files to status unperturbed          
             self.Domain['perturbation'].iloc[overwrite_with_unperturbed] = False
+            
+
+            # If we train on test set, add test set to training set
+            if self.train_on_test:
+                self.Train_index = np.unique(np.concatenate([self.Train_index, self.Test_index]))
+
+                # random shuffle
+                np.random.shuffle(self.Train_index)
+
+
+            # Save the split
+            save_data = np.array([self.Train_index, 
+                                  self.Test_index,
+                                  0], object) #0 is there to avoid some numpy load and save errors
+            
+            
+            os.makedirs(os.path.dirname(self.split_file), exist_ok=True)
+            np.save(self.split_file, save_data)
 
     
     def get_rep_str(self):
+        # Save repetition as string
         dig = len(str(self.max_max_rep - 1))
         rep_str = '_'.join([str(rep).zfill(dig) for rep in self.repetition])
+
+        # Save the train_on_test usage as string
+        if self.train_on_test:
+            rep_str += '_tot'
+
+        # Save pertubation usage as string
         rep_str += '_pert=' + str(int(self.train_pert)) + str(int(self.test_pert))
         return '_' + rep_str
 

@@ -180,11 +180,17 @@ class Experiment():
                 assert isinstance(test_pert, bool), "test_pert must be a boolean."
             else:
                 test_pert = False
+
+            if 'train_on_test' in split_dict.keys():
+                train_on_test = split_dict['train_on_test']
+                assert isinstance(train_on_test, bool), "train_on_test must be a boolean."
+            else:
+                train_on_test = False
                 
                     
             for rep in reps:
                 new_split_dict = {'Type': splitter_name, 'repetition': rep, 'test_part': splitter_tp, 
-                                  'train_pert': train_pert, 'test_pert': test_pert}
+                                  'train_pert': train_pert, 'test_pert': test_pert, 'train_on_test': train_on_test}
                 self.Splitters.append(new_split_dict)
         
         self.num_splitters = len(self.Splitters)
@@ -364,17 +370,18 @@ class Experiment():
                 # Go through each splitting method
                 for k, splitter_param in enumerate(self.Splitters):
                     # Get splitting method class
-                    splitter_name = splitter_param['Type']
-                    splitter_rep = splitter_param['repetition']
-                    splitter_tp = splitter_param['test_part']
+                    splitter_name       = splitter_param['Type']
+                    splitter_rep        = splitter_param['repetition']
+                    splitter_tp         = splitter_param['test_part']
                     splitter_train_pert = splitter_param['train_pert']
-                    splitter_test_pert = splitter_param['test_pert']
+                    splitter_test_pert  = splitter_param['test_pert']
+                    splitter_tot        = splitter_param['train_on_test']
 
                     splitter_module = importlib.import_module(splitter_name)
                     splitter_class = getattr(splitter_module, splitter_name)
 
                     # Initialize Splitting method
-                    splitter = splitter_class(data_set, splitter_tp, splitter_rep, splitter_train_pert, splitter_test_pert)
+                    splitter = splitter_class(data_set, splitter_tp, splitter_rep, splitter_train_pert, splitter_test_pert, splitter_tot)
                     
                     # Check if splitting method can be used
                     split_failure = splitter.check_splitability()
@@ -509,16 +516,17 @@ class Experiment():
             for j, data_param in enumerate(self.Data_params):
                 data_set.get_data(**data_param)
                 for k, splitter_param in enumerate(self.Splitters):
-                    splitter_name = splitter_param['Type']
-                    splitter_rep = splitter_param['repetition']
-                    splitter_tp = splitter_param['test_part']
+                    splitter_name       = splitter_param['Type']
+                    splitter_rep        = splitter_param['repetition']
+                    splitter_tp         = splitter_param['test_part']
                     splitter_train_pert = splitter_param['train_pert']
-                    splitter_test_pert = splitter_param['test_pert']
+                    splitter_test_pert  = splitter_param['test_pert']
+                    splitter_tot        = splitter_param['train_on_test']
 
                     splitter_module = importlib.import_module(splitter_name)
                     splitter_class = getattr(splitter_module, splitter_name)
 
-                    splitter = splitter_class(data_set, splitter_tp, splitter_rep, splitter_train_pert, splitter_test_pert)
+                    splitter = splitter_class(data_set, splitter_tp, splitter_rep, splitter_train_pert, splitter_test_pert, splitter_tot)
 
                     # Get the name of the splitmethod used.
                     splitter_str = splitter.get_name()['file'] + splitter.get_rep_str()
@@ -1478,14 +1486,15 @@ class Experiment():
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following splitters are available:'
             for i, s_param in enumerate(self.Splitters):
-                s_name  = s_param['Type']
-                s_rep = s_param['repetition']
-                s_tp = s_param['test_part']                
+                s_name   = s_param['Type']
+                s_rep    = s_param['repetition']
+                s_tp     = s_param['test_part']                
                 s_trainp = s_param['train_pert']
-                s_testp = s_param['test_pert']
+                s_testp  = s_param['test_pert']
+                s_tot    = s_param['train_on_test']
 
                 s_class = getattr(importlib.import_module(s_name), s_name)
-                s_inst  = s_class(None, s_tp, s_rep, s_trainp, s_testp)
+                s_inst  = s_class(None, s_tp, s_rep, s_trainp, s_testp, s_tot)
                 
                 sample_string += '\n{}: '.format(i + 1) + s_inst.get_name()['print']  
             print(sample_string, flush = True)  
@@ -1511,12 +1520,13 @@ class Experiment():
         split_class = getattr(importlib.import_module(split_name), split_name)
         
         # Use splitting method to get train and test samples
-        split_rep = split_param['repetition']
-        split_tp = split_param['test_part']
-        split_testp = split_param['test_pert']
+        split_rep    = split_param['repetition']
+        split_tp     = split_param['test_part']
+        split_testp  = split_param['test_pert']
         split_trainp = split_param['train_pert']
+        split_tot    = split_param['train_on_test'] 
 
-        splitter = split_class(data_set, split_tp, split_rep, split_trainp, split_testp)
+        splitter = split_class(data_set, split_tp, split_rep, split_trainp, split_testp, split_tot)
         splitter.split_data() 
         
         # Get test index 

@@ -1321,7 +1321,7 @@ class data_set_template():
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
         if memory_used > 0.4 * available_memory or last:
             # Transform data to dataframes
-            self.Input_T          = np.array(self.Input_T_local + [np.random.rand(0)], np.ndarray)[:-1]
+            self.Input_T       = np.array(self.Input_T_local + [np.random.rand(0)], np.ndarray)[:-1]
             
             self.Output_path   = pd.DataFrame(self.Output_path_local)
             self.Output_T      = np.array(self.Output_T_local + [np.random.rand(0)], np.ndarray)[:-1]
@@ -1330,6 +1330,9 @@ class data_set_template():
             self.Output_T_E    = np.array(self.Output_T_E_local, float)
             
             self.num_behaviors = self.num_behaviors_local.copy()
+
+            self.Type     = pd.DataFrame(self.Type_local)
+            self.Recorded = pd.DataFrame(self.Recorded_local)
             
             # Ensure that dataframes with agent columns have the same order
             Agents = self.Input_path.columns.to_list()
