@@ -791,7 +791,7 @@ class trajectron_salzmann_old(model_template):
         self.define_default_kwargs()
 
         names = {'print': 'Trajectron ++ (Old_version)',
-                 'file': 't_pp_old_' + str(self.model_kwargs['seed']),
+                 'file': 't_pp_old_' + str(self.model_kwargs['seed']) + '_' + str(int(self.model_kwargs['predict_ego'])),
                  'latex': r'\emph{T++}'}
         return names
         
