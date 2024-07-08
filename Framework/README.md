@@ -68,9 +68,11 @@ Again, this is passed as a dictionary with three keys:
   - As a tuple (*tuple*), where each entry is either a str or an integer. In this case, one will select the presplit part to the aforementioned method and use their union as the test set.
     
   While it is possible to give simply one entry here, it is also possible to give multiple entries inside a *list* (as in the case of *<Split_method_2>*), if one would like to use the same splitting method repeatedly with varying selected test sets (e. g., for cross-validation, or looping through locations). Consequently, using the code above would result in four different splits, with *<Split_method_1>* being used once and *<Split_method_2>* thrice.
-- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method. For some splitting methods, such as splitting by location, this will however be ignored, if those locations are not balanced, which is most often not the case.
-- 'train_pert': This is a boolean value. If the given dataset contains perturbed trajectories, and *'train_pert': True* is chosen, then in the training set, the perturbed trajectories are kept. If one instead uses *'train_pert': False* (which is the default setting, if this is not set), than the corresponding trajectories are overwritten with their corresponding unperturbed counterparts instead.
-- 'test_pert': Same as above, only for the testing set.
+  The default value is *'repetition': 0*.
+- 'test_part': This is a value (between 0 and 1) that denotes the portion of the whole dataset that is used for the evaluation of the trained method. For some splitting methods, such as splitting by location, this will however be ignored, if those locations are not balanced, which is most often not the case. The default value is *'test_part': 0.2*.
+- 'train_pert': This is a boolean value. If the given dataset contains perturbed trajectories, and *'train_pert': True* is chosen, then in the training set, the perturbed trajectories are kept. If one instead uses *'train_pert': False*, than the corresponding trajectories are overwritten with their corresponding unperturbed counterparts instead. The default value is *'train_pert': False*.
+- 'test_pert': Same as above, only for the testing set. The default value is *'train_pert': False*.
+- 'train_on_test': This is a boolean value. If it is set to true, then the testing set will also be included in the training set, even if the underlying perturbation maethod would normally be splitting them. The default value is *'train_on_test': False*.
 
 ### Models
 Next, one has to select the models (list of currently available choices can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/README.md#existing-models)) that are to be evaluated in this experiment.
