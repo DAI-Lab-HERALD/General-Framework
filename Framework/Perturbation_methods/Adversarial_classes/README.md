@@ -96,7 +96,7 @@ self.log_value_future = 1.5
 
 **_NOTE:_**  Regularization for observed states $`{t}_{0} = -H + 1`$, $`{t}_{1} = 0`$, and $`{t}_{critical} = 0`$. Regularization for future states $`{t}_{0} = 1`$, $`{t}_{1} = T`$, and $`{t}_{critical} = T`$
 
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Regularization_with_third_term-1.png)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Regularization_with_third_term-1.png)
 ## Gaussian smoothing
 
 ### Settings
@@ -151,10 +151,10 @@ self.control_action_graph = True
 
 ## Adversarial attack paper settings
 ### Nominal setting
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_basic.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_basic.gif)
 
 ### ADE/FDE attack
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_ADE.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_ADE.gif)
 To create this attack set:
 ```
 self.loss_function_1 = 'ADE_Y_GT_Y_Pred_Max' or 'FDE_Y_GT_Y_Pred_Max'
@@ -165,7 +165,7 @@ self.loss_function_2 = None
  self.barrier_function_future = None
 ```
 ### Collision attack
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Collision.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Collision.gif)
 To create this attack set:
 ```
 self.loss_function_1 = 'Collision_Y_pred_tar_Y_GT_ego'
@@ -176,7 +176,7 @@ self.loss_function_2 = None
  self.barrier_function_future = None
 ```
 ### Max ADE/FDE attack
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_max_ADE.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_max_ADE.gif)
 To create this attack set:
 ```
 self.loss_function_1 = 'ADE_Y_Perturb_Y_Pred_Max' or 'FDE_Y_Perturb_Y_Pred_Max'
@@ -187,7 +187,7 @@ self.loss_function_2 = None
  self.barrier_function_future = 'Time_specific', 'Trajectory_specific' or 'Time_Trajectory_specific'
 ```
 ### Fake Collision attack
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Fake_collision.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Fake_collision.gif)
 To create this attack set:
 ```
 self.loss_function_1 = 'Collision_Y_pred_tar_Y_GT_ego'
@@ -198,7 +198,7 @@ self.loss_function_2 = None
  self.barrier_function_future = 'Time_specific', 'Trajectory_specific' or 'Time_Trajectory_specific'
 ```
 ### Hide Collision attack
-![image](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Hide_collision.gif)
+![image](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/animated_gif/Animation_Hide_collision.gif)
 To create this attack set:
 ```
 self.loss_function_1 = 'Collision_Y_Perturb_tar_Y_GT_ego'
@@ -210,7 +210,7 @@ self.loss_function_2 = 'ADE_Y_pred_and_Y_pred_iteration_1_Min'
 ```
 
 ## How to add new attack or regularization function
-[Modify here](https://github.com/jhagenus/General-Framework-update-adversarial-Jeroen/blob/main/Framework/Perturbation_methods/Adversarial_classes/loss.py)
+[Modify here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Perturbation_methods/Adversarial_classes/loss.py)
 ### Attack
 1.  In the Loss class, create a new function using the following structure. Use the inputs: X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, barrier_data, tar_agent, and ego_agent. Note that tar_agent and ego_agent are the indices of the target and ego agents, respectively.
 ```
