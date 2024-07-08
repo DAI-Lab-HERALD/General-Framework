@@ -2,10 +2,16 @@ import pandas as pd
 import numpy as np
 import importlib
 from Data_sets.data_interface import data_interface
+import random
+
+from Adversarial_classes.search import Search
+from Adversarial_classes.helper import Helper
 
 class perturbation_template():
     def __init__(self, kwargs):
         self.check_and_extract_kwargs(kwargs)
+
+        self.kwargs = kwargs   
 
         # Get the attack type
         self.attack = self.__class__.__name__
@@ -16,8 +22,8 @@ class perturbation_template():
 
 
     def perturb(self, data):
-        self.data   = data
-        
+        self.data = data
+
         Input_path  = data.Input_path
         Input_T     = data.Input_T
 
@@ -26,8 +32,6 @@ class perturbation_template():
 
         Type        = data.Type
         Domain      = data.Domain
-
-
 
         # Check the requirements for the data, create error if not fulfilled
         requirements = self.requirerments()
@@ -47,7 +51,7 @@ class perturbation_template():
 
         # Transform the data into numpy arrays
         Agents = np.array(Input_path.columns)
-        
+
         X = np.ones(list(Input_path.shape) + [data.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
         Y = np.ones(list(Output_path.shape) + [N_O.max(), 2], dtype = np.float32) * np.nan
         
@@ -75,9 +79,26 @@ class perturbation_template():
         assert hasattr(self, 'batch_size'), "The batch size is not defined."
         assert isinstance(self.batch_size, int), "The given batch size must be an integer."
 
+        sorted_indices = np.argsort(-N_O)
+
+        # Reorder both X_pert and Y_pert arrays based on sorted indices
+        X_sort = X[sorted_indices]
+        Y_sort = Y[sorted_indices]
+        T_sort = T[sorted_indices]
+        N_O_sort = N_O[sorted_indices]
+        Domain_sort = Domain.iloc[sorted_indices]
+
         # Run perturbation
-        X_pert = np.copy(X)
-        Y_pert = np.copy(Y)
+        X_pert_sort = np.copy(X_sort)
+        Y_pert_sort = np.copy(Y_sort)
+
+        dt = self.kwargs['data_param']['dt']
+
+        # Get constraints of datasets
+        contstraints = self.get_constraints()
+
+        if contstraints is not None:
+            self.contstraints = contstraints(X_pert_sort, Y_pert_sort, dt)
 
         # Go through the data 
         num_batches = int(np.ceil(X.shape[0] / self.batch_size))
@@ -86,9 +107,13 @@ class perturbation_template():
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
             samples = np.arange(i_start, i_end)
+            
+            X_pert_sort[samples], Y_pert_sort[samples] = self.perturb_batch(X_sort[samples], Y_sort[samples], T_sort[samples], Agents, Domain_sort.iloc[samples])
 
-            X_pert[samples], Y_pert[samples] = self.perturb_batch(X[samples], Y[samples], T[samples], Agents[samples], Domain.iloc[samples])
 
+        sort_indices_inverse = np.argsort(sorted_indices)
+        X_pert = X_pert_sort[sort_indices_inverse]
+        Y_pert = Y_pert_sort[sort_indices_inverse]
 
         # Add unperturberd input and output columns to Domain
         Domain['Unperturbed_input'] = None
@@ -97,8 +122,11 @@ class perturbation_template():
         # Write the unperturbed data into new columns in domain and overwrite Input_path and Output_path with the perturbed data
         for i_sample, i_index in enumerate(Input_path.index):
             # Save the unperturbed data
-            Domain.loc[i_index, 'Unperturbed_input']  = Input_path.loc[i_index].copy()
-            Domain.loc[i_index, 'Unperturbed_output'] = Output_path.loc[i_index].copy()
+            input_i = Input_path.loc[i_index].copy()
+            output_i = Output_path.loc[i_index].copy()
+
+            Domain.Unperturbed_input.loc[i_index] = [input_i]
+            Domain.Unperturbed_output.loc[i_index] = [output_i]
 
             # Overwrite data with
             for i_agent, agent in enumerate(Agents):
@@ -199,6 +227,18 @@ class perturbation_template():
 
         '''
         raise AttributeError('This function has to be implemented in the actual perturbation method.')
+    
+    def get_constraints(self):
+        '''
+        This function returns the constraints for the data to be perturbed.
+
+        Returns
+        -------
+        def
+            A function used to calculate constraints.
+
+        '''
+        return AttributeError('This function has to be implemented in the actual perturbation method.')
     
 
     def set_batch_size(self):
