@@ -286,7 +286,10 @@ For a given sample, the extracted images are centered around the last observed p
     -------
     X_train : np.ndarray
       This is the past observed data of the agents, in the form of a
-      :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+      :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
+      values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
+      *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
+      the position data (*self.input_data_type = ['x', 'y', ...]*). 
       If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
     Y_train : np.ndarray, optional
       This is the future observed data of the agents, in the form of a
@@ -373,7 +376,10 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   -------
   X : np.ndarray
     This is the past observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
+    values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
+    *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
+    the position data (*self.input_data_type = ['x', 'y', ...]*). 
     If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
   Y : np.ndarray, optional
     This is the future observed data of the agents, in the form of a
@@ -472,9 +478,11 @@ def get_classification_data(self, train = True):
   -------
   X : np.ndarray
     This is the past observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with 
-    float values. If an agent is fully or for some timesteps partially not observed, then this can 
-    include np.nan values.
+    :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
+    values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
+    *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
+    the position data (*self.input_data_type = ['x', 'y', ...]*).  If an agent is fully or for some timesteps 
+    partially not observed, then this can include np.nan values.
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 

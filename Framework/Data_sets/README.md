@@ -102,6 +102,43 @@ clues about the actual future events about to happen.
 ```
 The second function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
 
+Lastly, one also has to define what kind of information is available in the dataset. I. e., is it only positional data, or does it also include recorded velocities, 
+acceleration, or other information. For this one has to define the function *path_data_info()*:
+
+```
+  def path_data_info(self = None):
+    r'''
+    This returns the datatype that is saved in the **self.Path** attribute.
+
+    Returns
+    -------
+    path_data_type : list
+      This is a list of strings, with each string indicating what type of data 
+      is saved along the last dimension of the numpy arrays in **self.Path**.
+      The following strings are right now admissible:
+      - 'x':        The :math:`x`-coordinate of the agent's position.
+      - 'y':        The :math:`y`-coordinate of the agent's position.
+      - 'v_x':      The :math:`x`-component of the agent's velocity, 
+                    i.e., :math:`v_x`.
+      - 'v_y':      The :math:`y`-component of the agent's velocity, 
+                    i.e., :math:`v_y`.
+      - 'a_x':      The :math:`x`-component of the agent's acceleration, 
+                    i.e., :math:`a_x`.
+      - 'a_y':      The :math:`y`-component of the agent's acceleration, 
+                    i.e., :math:`a_y`.
+      - 'v':        The magnitude of the agent's velocity. It is calculated 
+                    as :math:`\sqrt{v_x^2 + v_y^2}`. 
+      - 'theta':    The angle of the agent's orientation. It is calculated as 
+                    :math:`\arctan2(v_y / v_x)`.
+      - 'a':        The magnitude of the agent's acceleration. It is calculated 
+                    as :math:`\sqrt{a_x^2 + a_y^2}`.
+      - 'd_theta':  The angle of the agent's acceleration. It is calculated as
+                    :math:`(a_x v_y - a_y v_x) / (v_x^2 + v_y^2)`. 
+    '''
+    return path_data_type
+```
+It must be noted that the dataset requires at least the existence of the positional data $x$ and $y$, so the strings *'x'* and *'y'* need to be included as the first and second element in the list returned by this function, i.e., *path_data_type = ['x', 'y', ...]*.
+
 
 ## Setting the scenario
 Next, the scenario <scenario_class> that the dataset covers has to be set:
@@ -146,7 +183,8 @@ The most important part of the dataset module is to provide access to training a
     **self.Path** : pandas.DataFrame          
       A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
       Here, each row :math:`i` represents one recorded sample, while each column includes the 
-      trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
+      trajectory of an agent as a numpy array of shape :math:`\{\vert T_i \vert{\times} N_{data}\}`. 
+      Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*. 
       It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
       sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
       the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
@@ -304,7 +342,7 @@ While not necessary in all datasets, in some, being able to classify the interac
     path : pandas.Series
       A pandas series with :math:`(N_{agents})` entries,
       where each entry is itself a numpy array of shape :math:`\{N_{preds} \times |t| \times 2 \}`.
-      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
       and should include at least the relevant agents described in self.create_sample_paths.
     t : numpy.ndarray
       A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -343,7 +381,7 @@ The second function then is needed for cases, where some classifications are onl
     path : pandas.Series
       A pandas series with :math:`(N_{agents})` entries,
       where each entry is itself a numpy array of lenght :math:`\{|t| \times 2 \}`.
-      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
       and should include at least the relevant agents described in self.create_sample_paths.
     D_class : pandas.Series
       This is a series with :math:`N_{classes}` entries.
@@ -382,7 +420,7 @@ Finally, one has to consider the possibilities that there are classification mod
     path : pandas.Series
       A pandas series with :math:`(N_{agents})` entries,
       where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
       and should include at least the relevant agents described in self.create_sample_paths.
     t : numpy.ndarray
       A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -435,7 +473,7 @@ Besides filling in missing positions in provided trajectories, it might also be 
     path : pandas.Series
       A pandas series with :math:`(N_{agents})` entries,
       where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-      The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+      The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
       and should include at least the relevant agents described in self.create_sample_paths.
     t : numpy.ndarray
       A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -445,7 +483,7 @@ Besides filling in missing positions in provided trajectories, it might also be 
       sample. Its entries contain at least all the columns of **self.Domain_old**. 
     agent_types : pandas.Series 
       A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for
-      the considered sample. The columns should correspond to the columns in **self.Type_old** created
+      the considered sample. The indices should correspond to the columns in **self.Type_old** created
       in self.create_path_samples() and should include at least the relevant agents described in
       self.create_sample_paths. Consequently, the column names are identical to those of **path**.
 
@@ -458,7 +496,7 @@ Besides filling in missing positions in provided trajectories, it might also be 
       trajectories should also no longer contain np.nan as a position value.
     agent_types_full : pandas.Series 
       A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the
-      considered sample. The columns should correspond to the columns in **path_full** and include all columns
+      considered sample. The indices should correspond to the columns in **path_full** and include all columns
       of **agent_types**.
     '''
 

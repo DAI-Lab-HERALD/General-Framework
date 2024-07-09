@@ -25,6 +25,9 @@ class HighD_lane_change(data_set_template):
     '''
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
         
     def _create_path_sample(self, data_i, tar_track, ego_track, pre_event_frame):
         # Find overlapping frames

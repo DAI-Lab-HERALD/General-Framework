@@ -161,6 +161,9 @@ class InD_direction(data_set_template):
     def set_scenario(self):
         self.scenario = scenario_direction()
         self.analyze_maps()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
         
    
     def create_path_samples(self): 

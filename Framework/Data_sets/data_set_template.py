@@ -95,7 +95,22 @@ class data_set_template():
         
         
     def check_path_samples(self, Path, Type_old, T, Domain_old, num_samples):
-            # check some of the aspect to see if pre_process worked
+        # Check if the rigth path information if provided
+        path_info = self.path_data_info()
+        if not isinstance(path_info, list):
+            raise TypeError("self.path_data_info() should return a list.")
+        else:
+            for info in path_info:
+                if not isinstance(info, str):
+                    raise TypeError("Elements of self.path_data_info() should be strings.")
+        
+        # Check if x and y are included
+        if path_info[0] != 'x':
+            raise AttributeError("'x' should be included as the first element self.path_data_info().")
+        if path_info[1] != 'y': 
+            raise AttributeError("'y' should be included as the second element self.path_data_info().")
+
+        # check some of the aspect to see if pre_process worked
         if not isinstance(Path, pd.core.frame.DataFrame):
             raise TypeError("Paths should be saved in a pandas data frame")
         if len(Path) != num_samples:
@@ -123,7 +138,6 @@ class data_set_template():
                 raise AttributeError('Image identification is missing')
         
         # Check final paths
-        
         path_names = Path.columns
         
         if (path_names != Type_old.columns).any():
@@ -160,8 +174,8 @@ class data_set_template():
                 if isinstance(agent_path, np.ndarray):
                     if not len(agent_path.shape) == 2:
                         raise TypeError("Path is expected to be consisting of np.ndarrays with two dimension.")
-                    if not agent_path.shape[1] == 2:
-                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x 2).")
+                    if not agent_path.shape[1] == len(path_info):
+                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x len(self.path_data_info())).")
                         
                     # test if input tuples have right length
                     if test_length != len(agent_path):
@@ -264,7 +278,7 @@ class data_set_template():
         num_agents = (~Path_check.isnull()).sum(axis=1)
         
         # Get the needed memory per timestep
-        memory_per_timestep = 2 * 8 + 1
+        memory_per_timestep = 1 + 8 * len(self.path_data_info())
         memory_used = (num_timesteps * num_agents).sum() * memory_per_timestep
         
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
@@ -432,10 +446,13 @@ class data_set_template():
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
+            A pandas series with :math:`(N_{agents})` entries, where each entry is itself a numpy array of 
+            shape :math:`\{N_{preds} \times |t| \times N_{data} \}` or :math:`|t| \times N_{data}\}`. 
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
-            A numpy array of lenght :math:`|T|`, recording the corresponding timesteps.
+            A numpy array of lenght :math:`|t|`, recording the corresponding timesteps.
 
         Returns
         -------
@@ -444,7 +461,7 @@ class data_set_template():
 
         T_Delta : pandas.Series
             This is a :math:`N_{classes}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|T|` with the predicted time 
+            For each column, it returns an array of lenght :math:`|t|` with the predicted time 
             until the classification criteria will be met.
 
         T : pandas.Series
@@ -535,16 +552,19 @@ class data_set_template():
         Parameters
         ----------
         path : pandas.Series
-            A pandas series of :math:`(2 N_{agents})` dimensions,
-            where each entry is itself a numpy array of lenght :math:`|T|`, the number of recorded timesteps.
+            A pandas series with :math:`(N_{agents})` entries, where each entry is itself a numpy array of 
+            shape :math:`\{N_{preds} \times |t| \times N_{data} \}` or :math:`|t| \times N_{data}\}`. 
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
+            and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
-            A numpy array of lenght :math:`|T|`, recording the corresponding timesteps.
+            A numpy array of lenght :math:`|t|`, recording the corresponding timesteps.
 
         Returns
         -------
         Pred : pandas.Series
             This is a :math:`N_{classes} + N_{other dist}` dimensional Series.
-            For each column, it returns an array of lenght :math:`|T|`.
+            For each column, it returns an array of lenght :math:`|t|`.
 
         '''
         if self.general_input_available:
@@ -1158,23 +1178,25 @@ class data_set_template():
                 correct_path = True
                 for agent in path.index:
                     if not isinstance(path[agent], float):
-                        pos_x = path[agent][:,0]
-                        pos_y = path[agent][:,1]
-                        helper_path[agent] = np.stack([np.interp(helper_T_appr, t, pos_x, left=np.nan, right=np.nan),
-                                                    np.interp(helper_T_appr, t, pos_y, left=np.nan, right=np.nan)], 
-                                                    axis = -1).astype(np.float32)
+                        # interpolate each dimension of the path along time axis
+                        path_agent_new = []
+                        for i_dim in range(path[agent].shape[-1]):
+                            path_agent_new.append(np.interp(helper_T_appr, t, path[agent][:, i_dim], left=np.nan, right=np.nan))
+                        helper_path[agent] = np.stack(path_agent_new, axis=-1).astype(np.float32)
                         
-                        if np.sum(np.isfinite(helper_path[agent][:self.num_timesteps_in_real]).all(-1)) <= 1:
-                            helper_path[agent]  = np.nan
+                        # Check if positional data is avialable after interpolatiion at at least two time steps
+                        available_pos = np.isfinite(helper_path[agent][:self.num_timesteps_in_real, :2]).all(-1)
+                        if np.sum(available_pos) <= 1:
+                            helper_path[agent] = np.nan
                             agent_types[agent] = float('nan')
                             
                     else:
-                        helper_path[agent]  = np.nan
+                        helper_path[agent] = np.nan
                         agent_types[agent] = float('nan')
                         
                     # check if needed agents have reuqired input and output
                     if agent in self.needed_agents:
-                        if np.isnan(helper_path[agent]).any():
+                        if np.isnan(helper_path[agent][:,:2]).any():
                             correct_path = False
                             
                 if not correct_path:
@@ -1201,12 +1223,12 @@ class data_set_template():
                 
                 for agent in helper_path.index:
                     if not isinstance(helper_path[agent], float):
-                        available_pos = np.isfinite(helper_path[agent]).all(-1)
+                        available_pos = np.isfinite(helper_path[agent][:,:2]).all(-1)
                         assert available_pos.sum() > 1 
                         
                         # If an agent does not move at all, then mark the first timestep as unrecorded
                         if available_pos.all():
-                            distances = np.linalg.norm(helper_path[agent][1:] - helper_path[agent][:-1], axis=-1)
+                            distances = np.linalg.norm(helper_path[agent][1:,:2] - helper_path[agent][:-1,:2], axis=-1)
                             if np.all(distances < 1e-2):
                                 available_pos[0] = False
                             
@@ -1251,8 +1273,9 @@ class data_set_template():
                                 ind_start = 0
                                 ind_last = len(helper_T)
                         
+                        # Split by input and output, however, only include positions in the output
                         input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
-                        output_path[agent] = helper_path[agent][self.num_timesteps_in_real:len(helper_T), :].astype(np.float32)
+                        output_path[agent] = helper_path[agent][self.num_timesteps_in_real:, :2].astype(np.float32)
 
                         # Guarantee that the input path does contain only nan value
                         if not (ind_start < self.num_timesteps_in_real - 1 and self.num_timesteps_in_real <= ind_last):
@@ -1308,10 +1331,11 @@ class data_set_template():
         num_agents = (~self.Input_path.isnull()).sum(axis=1)
         
         # Get the needed memory per timestep
-        memory_per_timestep = 2 * 8 + 2 # one extra for timestep and recorded
+        memory_per_timestep_in  = 1 + 8 * len(self.Input_prediction.columns) # one extra for timestep
+        memory_per_timestep_out = 2 + 8 * 2 # one extra for timestep and recorded
         
-        memory_used_path_in  = (num_timesteps_in * num_agents).sum() * memory_per_timestep
-        memory_used_path_out = (num_timesteps_out * num_agents).sum() * (memory_per_timestep + 1)
+        memory_used_path_in  = (num_timesteps_in * num_agents).sum() * memory_per_timestep_in
+        memory_used_path_out = (num_timesteps_out * num_agents).sum() * (memory_per_timestep_out)
         
         # Get memory for prediction data
         memory_used_pred = num_timesteps_in.sum() * len(self.Input_prediction.columns) * 8
@@ -2474,7 +2498,8 @@ class data_set_template():
         **self.Path** : pandas.DataFrame          
               A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} N_{agents}\}`. 
               Here, each row :math:`i` represents one recorded sample, while each column includes the 
-              trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`. 
+              trajectory of an agent as a numpy array of shape :math:`\{\vert T_i \vert{\times} N_{data}\}`. 
+              Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*. 
               It has to be noted that :math:`N_{agents}` is the maximum number of agents considered in one
               sample over all recorded samples. If the number of agents in a sample is lower than :math:`N_{agents}`
               the subsequent corresponding fields of the missing agents are filled with np.nan instead of the
@@ -2554,6 +2579,37 @@ class data_set_template():
     
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
+    
+    def path_data_info(self = None):
+        r'''
+        This returns the datatype that is saved in the **self.Path** attribute.
+
+        Returns
+        -------
+        path_data_type : list
+            This is a list of strings, with each string indicating what type of data 
+            is saved along the last dimension of the numpy arrays in **self.Path**.
+            The following strings are right now admissible:
+            - 'x':          The :math:`x`-coordinate of the agent's position.
+            - 'y':          The :math:`y`-coordinate of the agent's position.
+            - 'v_x':        The :math:`x`-component of the agent's velocity, 
+                            i.e., :math:`v_x`.
+            - 'v_y':        The :math:`y`-component of the agent's velocity, 
+                            i.e., :math:`v_y`.
+            - 'a_x':        The :math:`x`-component of the agent's acceleration, 
+                            i.e., :math:`a_x`.
+            - 'a_y':        The :math:`y`-component of the agent's acceleration, 
+                            i.e., :math:`a_y`.
+            - 'v':          The magnitude of the agent's velocity. It is calculated 
+                            as :math:`\sqrt{v_x^2 + v_y^2}`. 
+            - 'theta':      The angle of the agent's orientation. It is calculated as 
+                            :math:`\arctan2(v_y / v_x)`.
+            - 'a':          The magnitude of the agent's acceleration. It is calculated 
+                            as :math:`\sqrt{a_x^2 + a_y^2}`.
+            - 'd_theta':    The angle of the agent's acceleration. It is calculated as
+                            :math:`(a_x v_y - a_y v_x) / (v_x^2 + v_y^2)`. 
+        '''
+        raise AttributeError('Has to be overridden in actual data-set class.')
 
     def calculate_distance(self, path, t, domain):
         r'''
@@ -2569,8 +2625,10 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of shape :math:`\{N_{preds} \times |t| \times 2 \}`.
-            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            where each entry is itself a numpy array of shape :math:`\{N_{preds} \times |t| \times N_{data}\}`.
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*, or 2, if only
+            predicted trajectories are evaluated.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
             A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -2600,8 +2658,9 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of lenght :math:`\{|t| \times 2 \}`.
-            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            where each entry is itself a numpy array of lenght :math:`\{|t| \times N_{data}\}`.
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         D_class : pandas.Series
             This is a series with :math:`N_{classes}` entries.
@@ -2633,8 +2692,9 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            where each entry is itself a numpy array of shape :math:`\{|t| \times N_{data}\}`.
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
             A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -2672,8 +2732,9 @@ class data_set_template():
         ----------
         path : pandas.Series
             A pandas series with :math:`(N_{agents})` entries,
-            where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-            The columns should correspond to the columns in **self.Path** created in self.create_path_samples()
+            where each entry is itself a numpy array of shape :math:`\{|t| \times N_{data}\}`.
+            Here, :math:`N_{data}` is the length of the list returned by *self.path_data_info()*.
+            The indices should correspond to the columns in **self.Path** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths.
         t : numpy.ndarray
             A one-dimensionl numpy array (len(t)  :math:`= |t|`). It contains the corresponding timesteps 
@@ -2683,7 +2744,7 @@ class data_set_template():
             sample. Its entries contain at least all the columns of **self.Domain_old**. 
         agent_types : pandas.Series 
             A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
-            sample. The columns should correspond to the columns in **self.Type_old** created in self.create_path_samples()
+            sample. The indices should correspond to the columns in **self.Type_old** created in self.create_path_samples()
             and should include at least the relevant agents described in self.create_sample_paths. Consequently, the 
             column names are identical to those of **path**.
 
@@ -2696,7 +2757,7 @@ class data_set_template():
             can also no longer contain np.nan as a position value.
         agent_types_full : pandas.Series 
             A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
-            sample. The columns should correspond to the columns in **path_full** and include all columns of **agent_types**.
+            sample. The indices should correspond to the columns in **path_full** and include all columns of **agent_types**.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 

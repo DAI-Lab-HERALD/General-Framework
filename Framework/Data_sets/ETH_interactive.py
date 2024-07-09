@@ -45,6 +45,9 @@ class ETH_interactive(data_set_template):
             return []
         
         self.scenario.classifying_agents = eth_classifying_agents
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
         
         
     def create_path_samples(self): 

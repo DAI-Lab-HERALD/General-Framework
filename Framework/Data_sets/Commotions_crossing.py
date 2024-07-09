@@ -32,6 +32,9 @@ class Commotions_crossing(data_set_template):
     
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
         
         
     def create_path_samples(self): 

@@ -33,6 +33,9 @@ class perturbation_template():
         Type        = data.Type
         Domain      = data.Domain
 
+        # Get input data type
+        self.input_path_data_type = self.data.path_data_info()
+
         # Check the requirements for the data, create error if not fulfilled
         requirements = self.requirerments()
 
@@ -149,7 +152,10 @@ class perturbation_template():
         ----------
         X : np.ndarray
             This is the past observed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float values. 
+            Here, :math:`N_{data}` are the number of information available. This information can be found in 
+            *self.input_path_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
+            the position data (*self.input_path_data_type = ['x', 'y', ...]*).
             If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
         Y : np.ndarray, optional
             This is the future observed data of the agents, in the form of a
@@ -170,7 +176,7 @@ class perturbation_template():
         -------
         X_pert : np.ndarray
             This is the past perturbed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
+            :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float values. 
             If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
         Y_pert : np.ndarray, optional
             This is the future perturbed data of the agents, in the form of a

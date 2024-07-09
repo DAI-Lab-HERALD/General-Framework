@@ -222,6 +222,9 @@ class Adversarial_Search(perturbation_template):
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
             If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
         '''
+        # Only use input positions
+        X_rest = X[..., 2:]
+        X = X[..., :2]
 
         # Prepare the data (ordering/spline/edge_cases)
         X, Y = self._prepare_data(X, Y, T, agent, Domain)
@@ -310,6 +313,8 @@ class Adversarial_Search(perturbation_template):
         X_new_pert, Y_new_pert = Helper.flip_dimensions_2(
             X_new, Y_new, self.agent_order)
 
+        # Add back additional data
+        X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
         return X_new_pert, Y_new_pert
 
     def _ploting_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, loss_store):

@@ -36,6 +36,9 @@ class Forking_Paths_augmented(data_set_template):
     '''
     def set_scenario(self):
         self.scenario = scenario_none()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
         
         
     def create_path_samples(self): 

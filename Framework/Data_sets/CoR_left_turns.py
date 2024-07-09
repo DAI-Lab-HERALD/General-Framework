@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 from data_set_template import data_set_template
 from scenario_gap_acceptance import scenario_gap_acceptance
+from scipy.signal import savgol_filter
 import os
+from PIL import Image
 
 class CoR_left_turns(data_set_template):
     '''
@@ -21,11 +23,14 @@ class CoR_left_turns(data_set_template):
     '''
     def set_scenario(self):
         self.scenario = scenario_gap_acceptance()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
    
     def create_path_samples(self): 
         # Load raw data
-        self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'CoR_left_turns' + os.sep + 'CoR_processed.pkl')
+        self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 'CoR_left_turns' + os.sep + 'CoR_processed.pkl')
+
         # analize raw dara 
         self.num_samples = len(self.Data)
         self.Path = []
@@ -33,6 +38,22 @@ class CoR_left_turns(data_set_template):
         self.T = []
         self.Domain_old = []
         agents = ['ego', 'tar']
+
+        x_center = 163.6666
+        y_center = -23.6666
+        rot_angle = 0
+        px_per_meter = 6
+
+        self.Images = pd.DataFrame(np.zeros((1, 2), object), columns = ['Image', 'Target_MeterPerPx'])
+
+        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'CoR_left_turns' + os.sep + 'Image' + os.sep + 'New_figure_6_px_per_meter.png'
+        image = Image.open(image_path)
+        rgb_image = image.convert('RGB')
+        img = np.array(rgb_image, dtype=np.uint8)
+
+        self.Images.loc[0].Image = img
+        self.Images.loc[0].Target_MeterPerPx = 1/px_per_meter
+
         # extract raw samples
         for i in range(self.num_samples):
             path = pd.Series(np.empty(len(agents), np.ndarray), index = agents)
@@ -40,19 +61,27 @@ class CoR_left_turns(data_set_template):
             
             t_index = self.Data.bot_track.iloc[i].index
             t = np.array(self.Data.bot_track.iloc[i].t[t_index])
-            ego = np.stack([self.Data.bot_track.iloc[i].x[t_index], self.Data.bot_track.iloc[i].y[t_index]], -1)
-            tar = np.stack([self.Data.ego_track.iloc[i].x[t_index], self.Data.ego_track.iloc[i].y[t_index]], -1)
-            
+            ego = np.stack([savgol_filter(self.Data.bot_track.iloc[i].x[t_index],150,3), np.ones_like(self.Data.bot_track.iloc[i].y[t_index]) * -1.75], -1)
+            tar = np.stack([savgol_filter(self.Data.ego_track.iloc[i].x[t_index],50,3), savgol_filter(self.Data.ego_track.iloc[i].y[t_index],50,3)], -1)
+   
             path.ego = ego
             path.tar = tar
             
-            domain = pd.Series(np.ones(1, int) * self.Data.subj_id.iloc[i], index = ['Subj_ID'])
+            domain = pd.Series([int(self.Data.subj_id.iloc[i]),
+                                x_center,
+                                y_center,
+                                rot_angle,
+                                self.Images.index[0]
+                                ], index = ['Subj_ID','x_center','y_center','rot_angle', 'image_id'])
+            
+            # domain = pd.Series(np.ones(1, int) * self.Data.subj_id.iloc[i], index = ['Subj_ID'])
             
             self.Path.append(path)
             self.Type_old.append(agent_type)
             self.T.append(t)
             self.Domain_old.append(domain)
         
+        # print(self.Path)
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]

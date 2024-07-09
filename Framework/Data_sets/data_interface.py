@@ -174,9 +174,29 @@ class data_interface(object):
         else:        
             max_num_agents = max_num_agents[max_num_agents != None]
             self.max_num_agents = max_num_agents.min()
-        
+
         self.data_loaded = False
-        
+
+    # Get the path_data_info function in position
+    def unique_data_paths(self):
+        path_data_type = ['x', 'y']
+
+        # Look through other datasets for other information
+        Other_type = []
+        Other_type_combined = []
+        for data_set in self.Datasets.values():
+            data_set_type = np.array(data_set.path_data_info())
+            assert list(data_set_type[:2]) == path_data_type, 'Path data information is not consistent.'
+            other_type = list(data_set_type[2:])
+            Other_type.append(other_type)
+            Other_type_combined.append(''.join(other_type))
+
+        _, index, indices = np.unique(Other_type_combined, return_index = True, return_inverse = True)
+
+        # Get unique types
+        Unique_types = [path_data_type + Other_type[i] for i in index]
+        return Unique_types, indices
+
     
     def reset(self):
         for data_set in self.Datasets.values():
@@ -210,6 +230,7 @@ class data_interface(object):
             del self.Log_prob_true_indep
             del self.KDE_indep
     
+
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
         return list(self.Datasets.values())[0].change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
     
@@ -339,6 +360,8 @@ class data_interface(object):
         
         self.Files = []
         self.Agents = []
+
+        self.Input_data_type, Data_set_inverse = self.unique_data_paths()
         
         # If possible, also load other data into one piece
         if self.data_in_one_piece:
@@ -355,20 +378,38 @@ class data_interface(object):
 
             self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
             self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
+
+            # Pregenerate the combined path_data_type, and overwrite self.Input_data_type
+            input_data_type = ['x', 'y']
+            needed_data_type = []
+            for data_set in self.Datasets.values():
+                data_set_type = np.array(data_set.path_data_info())
+                assert list(data_set_type[:2]) == input_data_type, 'Path data information is not consistent.'
+                other_type = list(data_set_type[2:])
+                needed_data_type += other_type
+            
+            self.Input_data_type = [input_data_type + list(np.unqiue(needed_data_type))]
+
         
         
-        for data_set in self.Datasets.values():
+        for i_data_set, data_set in enumerate(self.Datasets.values()):
             # Save file indices
             data_set_files, file_index_local = self._extract_save_files_from_data_set(data_set)
             
             # Remove the addition from the domai
             Domain_local = data_set.Domain.drop(['path_addition', 'data_addition'], axis = 1)
             Domain_local['file_index'] = file_index_local + len(self.Files)
+
+            if self.data_in_one_piece:
+                Domain_local['data_type_index'] = 0
+            else:
+                # Save the data type index
+                Domain_local['data_type_index'] = Data_set_inverse[i_data_set]
             
             # Add the new files 
             self.Files += data_set_files
             assert len(self.Files) == (max(Domain_local['file_index']) + 1), 'File index is not correctly assigned.'
-            
+
             # Adjust the file Index
             self.Domain = pd.concat((self.Domain, Domain_local))
             
@@ -388,7 +429,25 @@ class data_interface(object):
                     IP = pd.DataFrame(np.ones((len(data_set.Output_T), 1), float) * np.nan, columns = ['empty'])
                     self.Input_prediction = pd.concat((self.Input_prediction, IP))
                 
-                self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
+                Input_path_local = data_set.Input_path
+                # Check if path types overlap
+                if self.Input_path_types[0] != data_set.path_data_info():
+                    # Find indices of data_set path types in self.Input_data_type
+                    type_index = []
+                    for type in data_set.path_data_info():
+                        assert type in self.Input_data_type, 'Path data information is not consistent.'
+                        type_index.append(self.Input_data_type.index(type))
+                    
+                    # Overwrite the input data
+                    for i_sample in range(Input_path_local.shape[0]):
+                        for i_agent in range(Input_path_local.shape[1]):
+                            if isinstance(Input_path_local.iloc[i_sample, i_agent], np.ndarray):
+                                old_path = Input_path_local.iloc[i_sample, i_agent]
+                                new_path = np.full((old_path.shape[0], len(self.Input_path_types[0])), np.nan, dtype = np.float32)
+                                new_path[:, type_index] = old_path
+                                Input_path_local.iloc[i_sample, i_agent] = new_path
+
+                self.Input_path       = pd.concat((self.Input_path, Input_path_local))
                 self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
                 
                 self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
@@ -622,8 +681,9 @@ class data_interface(object):
             Output_path   = self.Output_path
             Output_T      = self.Output_T
             Output_T_pred = self.Output_T_pred
-            
             assert file_index == 0, 'Only one file index is available.'
+
+            input_path_type = self.Input_data_type[0]
         else:
             file = self.Files[file_index] + '_data.npy'
             [_, Input_path, _, Output_path, Output_T, Output_T_pred, _, _, _] = np.load(file, allow_pickle=True)
@@ -635,6 +695,10 @@ class data_interface(object):
             
             Output_T      = Output_T[ind]
             Output_T_pred = Output_T_pred[ind]
+
+            input_path_type_index = self.Domain[self.Domain.file_index == file_index].data_type_index
+            assert len(np.unique(input_path_type_index)) == 1, 'Different data types should not occur in a single file.'
+            input_path_type = self.Input_data_type[input_path_type_index.iloc[0]]
             
             
         
@@ -648,9 +712,12 @@ class data_interface(object):
         X_help = Input_path.to_numpy()
         Y_help = Output_path.to_numpy()
             
-        self.X_orig = np.ones([len(X_help), len(self.Agents), self.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
+        self.X_orig = np.ones([len(X_help), len(self.Agents), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
         self.Y_orig = np.ones([len(X_help), len(self.Agents), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
         
+        # Get the current data_type
+        self.input_type_orig = input_path_type
+
         # Extract data from original number a samples
         for i_sample in range(self.X_orig.shape[0]):
             for i_agent, agent in enumerate(self.Agents):
@@ -807,7 +874,7 @@ class data_interface(object):
                 used_parts = self.Domain.file_index == file_index
                 
                 # Check if everything needed is there
-                assert not np.isnan(self.X_orig[self.Pred_agents_pred_all[used_parts]]).all((1,2)).any(), 'A needed agent is not given.'
+                assert not np.isnan(self.X_orig[self.Pred_agents_pred_all[used_parts]][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
                 assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all[used_parts]]).all((1,2)).any(), 'A needed agent is not given.'
             
             self._checked_pred_agents = True
@@ -865,7 +932,7 @@ class data_interface(object):
                     useful_agents = np.where(T_div != 'nan')[0]
                     
                     # Get corresponding input path
-                    X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+                    X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]][...,:2]
                     # X.shape: len(index) x len(useful_agents) x nI x 2
                     
                     # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
@@ -943,7 +1010,7 @@ class data_interface(object):
                         useful_agents = np.where(T_div != 'nan')[0]
                         
                         # Get corresponding input path
-                        X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]]
+                        X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]][...,:2]
                         # X.shape: len(index) x len(useful_agents) x nI x 2
                         
                         # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
@@ -985,6 +1052,13 @@ class data_interface(object):
         # check if all samples are accounted for
         assert self.Subgroups.min() > 0
     
+    #############################################################################################################################
+    #############################################################################################################################
+    ####                                                                                                                     ####
+    ####                           Not adjusted for large datasets yet                                                       ####
+    ####                                                                                                                     ####
+    #############################################################################################################################
+    #############################################################################################################################
         
     def _extract_identical_inputs(self, eval_pov = True):
         if hasattr(self, 'Path_true_all'):

@@ -46,6 +46,9 @@ class NuScenes_interactive(data_set_template):
     
     def set_scenario(self):
         self.scenario = scenario_none()
+    
+    def path_data_info(self = None):
+        return ['x', 'y']
 
     def create_path_samples(self):
         # from nuscenes.map_expansion.map_api import NuScenesMap, locations
@@ -67,7 +70,7 @@ class NuScenes_interactive(data_set_template):
 
         map_files = os.listdir(image_path_full)
         map_files.reverse()
-        px_per_meter = 10
+        px_per_meter = 6
         
         for map_file in map_files:
             if map_file.endswith('.json'):

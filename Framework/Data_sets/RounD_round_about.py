@@ -64,6 +64,9 @@ class RounD_round_about(data_set_template):
             self.Loc_scale[locId] = Meta_data['orthoPxToMeter'][0] * 10
             self.Loc_data.iloc[locId] = Loc_data_pix.iloc[locId] * self.Loc_scale[locId] 
     
+    def path_data_info(self = None):
+        return ['x', 'y']
+    
     def _create_path_sample(self, tar_track, ego_track, other_agents, frame_min, frame_max, 
                             v_1_id, v_2_id, v_3_id, v_4_id,
                             original_angle, Rot_center, data_i):
