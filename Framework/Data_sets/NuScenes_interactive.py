@@ -6,7 +6,6 @@ import os
 import json
 from scipy import interpolate as interp
 from pyquaternion import Quaternion
-from NuScenes.data.train_val_split import train, val
 
 
 
@@ -51,6 +50,7 @@ class NuScenes_interactive(data_set_template):
     def create_path_samples(self):
         # from nuscenes.map_expansion.map_api import NuScenesMap, locations
         from nuscenes.nuscenes import NuScenes
+        from NuScenes.data.train_val_split import train, val
         
         self.num_samples = 0 
         self.Path = []

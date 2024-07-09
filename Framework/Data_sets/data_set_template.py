@@ -1333,6 +1333,7 @@ class data_set_template():
 
             self.Type     = pd.DataFrame(self.Type_local)
             self.Recorded = pd.DataFrame(self.Recorded_local)
+            self.Domain   = pd.DataFrame(self.Domain_local)
             
             # Ensure that dataframes with agent columns have the same order
             Agents = self.Input_path.columns.to_list()

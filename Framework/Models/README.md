@@ -243,7 +243,8 @@ If [adversarial attacks](https://github.com/DAI-Lab-HERALD/General-Framework/tre
     num_steps: int
       This specifies the number of timesteps the prediction model needs to predict.
     num_samples: int
-      This specifies how many predictions the prediction model needs to make.
+      This specifies how many predictions :math:`N_{predictions}` the prediction model needs to make per sample 
+      in the batch
 
     Returns
     -------

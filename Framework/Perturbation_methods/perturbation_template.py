@@ -85,7 +85,6 @@ class perturbation_template():
         X_sort = X[sorted_indices]
         Y_sort = Y[sorted_indices]
         T_sort = T[sorted_indices]
-        N_O_sort = N_O[sorted_indices]
         Domain_sort = Domain.iloc[sorted_indices]
 
         # Run perturbation

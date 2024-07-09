@@ -781,11 +781,14 @@ class trajectron_salzmann_old(model_template):
     
     def get_output_type(self = None):
         # get default kwargs
-        self.define_default_kwargs()
-        if self.model_kwargs['predict_ego']:
-            return 'path_all_wi_pov'
+        if hasattr(self, 'model_kwargs'):
+            self.define_default_kwargs()
+            if self.model_kwargs['predict_ego']:
+                return 'path_all_wi_pov'
+            else:
+                return 'path_all_wo_pov'
         else:
-            return 'path_all_wo_pov'
+            return 'path_all_wi_pov'
     
     def get_name(self = None):
         self.define_default_kwargs()
