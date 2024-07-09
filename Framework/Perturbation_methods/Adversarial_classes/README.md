@@ -82,17 +82,17 @@ For the barrier function a distance threshold can be selected ($D_{\text{Adversa
  self.distance_threshold_future = 1
 ```
 
-For the barrier function the weight of the penalty can be changed:
+For the barrier function the weight of the penalty can be changed ($\epsilon$):
 ```
 self.log_value_past = 1.5
 self.log_value_future = 1.5
 ```
 
-| Type Regularization (Reference figure)  | Clean data   | Preturbed data | Edges clean data | First timestep |  Last timestep | Critical timestep | Formula       | Name framework (str)  | 
-| ------------- | ------------- | ------------- | ------------- | ------------- |   ------------- | ------------- | ------------- | ------------- | 
-| Time specific (A) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ |  |  ${t}_{0}$ | ${t}_{1}$  |   | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{{t}_{1}} \log_{e} (D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t} -  S_{\text{tar}}^{t} \right\|_2)`$ | 'Time_specific'|
-| Trajectory specific (B) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ |  ${t}_{0}$ | ${t}_{1}$   |   | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{e} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))`$ | 'Trajectory_specific' |
-| Time and Trajectory specific (C) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ | ${t}_{0}$  |  ${t}_{1}$  |  ${t}_{critical}$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{e} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))  - \log_{e} ( D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t_{critical}} -  S_{\text{tar}}^{t_{critical}} \right\|_2)`$ | 'Time_Trajectory_specific' |
+| Type Regularization (Reference figure)  | Clean data   | Preturbed data | Edges clean data | First timestep |  Last timestep | Critical timestep | Deviation penalty | Formula       | Name framework (str)  | 
+| ------------- | ------------- | ------------- | ------------- | ------------- |   ------------- | ------------- | ------------- | ------------- | ------------- | 
+| Time specific (A) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ |  |  ${t}_{0}$ | ${t}_{1}$  |   | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{{t}_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t} -  S_{\text{tar}}^{t} \right\|_2)`$ | 'Time_specific'|
+| Trajectory specific (B) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ |  ${t}_{0}$ | ${t}_{1}$   |   | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))`$ | 'Trajectory_specific' |
+| Time and Trajectory specific (C) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ | ${t}_{0}$  |  ${t}_{1}$  |  ${t}_{critical}$ | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))  - \log_{\epsilon} ( D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t_{critical}} -  S_{\text{tar}}^{t_{critical}} \right\|_2)`$ | 'Time_Trajectory_specific' |
 
 **_NOTE:_**  Regularization for observed states $`{t}_{0} = -H + 1`$, $`{t}_{1} = 0`$, and $`{t}_{critical} = 0`$. Regularization for future states $`{t}_{0} = 1`$, $`{t}_{1} = T`$, and $`{t}_{critical} = T`$
 
