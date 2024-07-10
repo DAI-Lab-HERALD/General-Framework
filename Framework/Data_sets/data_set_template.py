@@ -267,8 +267,6 @@ class data_set_template():
         if os.path.isfile(final_test_name):
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
             
-        # Get the currently available RAM space
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
         
         # Get the memory needed to save data right now
         # Count the number of timesteps in each sample
@@ -281,8 +279,11 @@ class data_set_template():
         memory_per_timestep = 1 + 8 * len(self.path_data_info())
         memory_used = (num_timesteps * num_agents).sum() * memory_per_timestep
         
+        # Get the currently available RAM space
+        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
-        if memory_used > 0.25 * available_memory or last:
+        if last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
             # Check if some saved original data is allready available
             file_path_test = self.file_path + '--all_orig_paths'
             file_path_test_name = os.path.basename(file_path_test)
@@ -366,6 +367,10 @@ class data_set_template():
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
+                
+                # Get the currently available RAM space
+                self.available_memory_creation = psutil.virtual_memory().total - psutil.virtual_memory().used
+
                 self.create_path_samples()
                 # Check if the las file allready exists
                 if os.path.isfile(test_file):
@@ -1067,6 +1072,9 @@ class data_set_template():
 
         # Go through samples
         local_num_samples = len(local_id)
+
+        predicted_saving_length = 0
+
         for i in range(local_num_samples):
             # print progress
             if np.mod(i, 1) == 0:
@@ -1306,7 +1314,13 @@ class data_set_template():
                 self.Domain_local.append(domain)
                 
                 # Check if saving is needed
-                self.check_extracted_data_for_saving(path_file_adjust)
+                current_length = len(self.Input_T_local)
+                if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
+                    memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
+                    predicted_saving_length = int(1 + current_length / memory_perc)
+                    print(' ')
+                    print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
+                    print(' ')
                 
         # Save the data with last = True
         self.check_extracted_data_for_saving(path_file_adjust, True)
@@ -1315,9 +1329,6 @@ class data_set_template():
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
         # Get the dataset file
         data_file = self.data_file[:-4] + path_file_adjust
-        
-        # Get the currently available RAM space
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
         
         # Get the memory needed to save data right now
         # Count the number of timesteps in each sample
@@ -1342,8 +1353,12 @@ class data_set_template():
         
         memory_used = memory_used_path_in + memory_used_path_out + memory_used_pred
         
-        # As data needs to be manipulated after loading, check if more than 25% of the memory is used
-        if memory_used > 0.4 * available_memory or last:
+        # Get the currently available RAM space
+        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        
+        # As data needs to be manipulated after loading, check if more than 40% of the memory is used
+        # Alternatively, if less than 100 MB are available, save the data
+        if last or (memory_used > 0.4 * self.available_memory_data_extraction) or (available_memory < 100 * 2**20):
             # Transform data to dataframes
             self.Input_T       = np.array(self.Input_T_local + [np.random.rand(0)], np.ndarray)[:-1]
             
@@ -1509,7 +1524,9 @@ class data_set_template():
             
             self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
             
-        
+        if not last:
+            # return the currently used memory percentage
+            return memory_used / (0.4 * available_memory)
         
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):
@@ -1573,6 +1590,26 @@ class data_set_template():
                     Domain_old_loaded,
                     num_samples_loaded] = np.load(path_file, allow_pickle=True)
                 
+                # Delete previous iterations
+                if i_orig_path > 0:
+                    # Delete the extracted data
+                    del self.Input_prediction
+                    del self.Input_path
+                    del self.Input_T
+
+                    del self.Output_path
+                    del self.Output_T
+                    del self.Output_T_pred
+                    del self.Output_A
+                    del self.Output_T_E
+
+                    del self.Type
+                    del self.Recorded
+                    del self.Domain
+
+                # Get the currently available RAM space
+                self.available_memory_data_extraction = psutil.virtual_memory().total - psutil.virtual_memory().used
+
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
                 
