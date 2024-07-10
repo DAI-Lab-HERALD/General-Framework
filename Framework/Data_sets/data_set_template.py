@@ -943,13 +943,6 @@ class data_set_template():
             num = 0 
         else:
             num = self.max_num_agents
-        
-        if self.agents_to_predict == 'predefined':
-            pat = '0'
-        elif self.agents_to_predict == 'all':
-            pat = 'A'
-        else:
-            pat = self.agents_to_predict[0]
 
 
         # Check if extrapolation is not allowed
@@ -972,7 +965,7 @@ class data_set_template():
                           '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                           'm' + str(self.num_timesteps_out_need).zfill(2) +
                           '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                          '--max_' + str(num).zfill(3) + '_agents_' + pat + '--Perturbations.xlsx')
+                          '--max_' + str(num).zfill(3) + '--Perturbations.xlsx')
             
             if os.path.isfile(Pert_save_doc):
                 Pert_df = pd.read_excel(Pert_save_doc, index_col=0)
@@ -1006,8 +999,7 @@ class data_set_template():
                      '_nO=' + str(self.num_timesteps_out_real).zfill(2) + 
                      'm' + str(self.num_timesteps_out_need).zfill(2) +
                      '_EC' * self.exclude_post_crit + '_IC' * (1 - self.exclude_post_crit) +
-                     '--max_' + str(num).zfill(3) + '_agents_' + pat +
-                     extra_string + pert_string + '.npy')
+                     '--max_' + str(num).zfill(3) + extra_string + pert_string + '.npy')
         
         return data_file
 
@@ -1373,6 +1365,23 @@ class data_set_template():
             self.Type     = pd.DataFrame(self.Type_local)
             self.Recorded = pd.DataFrame(self.Recorded_local)
             self.Domain   = pd.DataFrame(self.Domain_local)
+
+            # Clear up memory by emptying local data files
+            self.Input_prediction_local = []
+            self.Input_path_local       = []
+            self.Input_T_local          = []
+            
+            self.Output_path_local   = []
+            self.Output_T_local      = []
+            self.Output_T_pred_local = []
+            self.Output_A_local      = []
+            self.Output_T_E_local    = []
+            
+            self.Type_local     = []
+            self.Recorded_local = []
+            self.Domain_local   = []
+
+            self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
             
             # Ensure that dataframes with agent columns have the same order
             Agents = self.Input_path.columns.to_list()
@@ -1506,27 +1515,28 @@ class data_set_template():
             np.save(data_file_save, save_data)
             np.save(domain_file_save, save_domain)
             np.save(agent_file_save, save_agent)
+
+            # Clear up memory by deleting the self attributes just saved
+            del self.Input_prediction
+            del self.Input_path
+            del self.Input_T
+
+            del self.Output_path
+            del self.Output_T
+            del self.Output_T_pred
+            del self.Output_A
+            del self.Output_T_E
+
+            del self.Type
+            del self.Recorded
+            del self.Domain
             
-            # Empty local data files
-            self.Input_prediction_local = []
-            self.Input_path_local       = []
-            self.Input_T_local          = []
-            
-            self.Output_path_local   = []
-            self.Output_T_local      = []
-            self.Output_T_pred_local = []
-            self.Output_A_local      = []
-            self.Output_T_E_local    = []
-            
-            self.Type_local     = []
-            self.Recorded_local = []
-            self.Domain_local   = []
-            
-            self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
+
+
             
         if not last:
             # return the currently used memory percentage
-            return memory_used / (0.4 * available_memory)
+            return memory_used / (0.4 * self.available_memory_data_extraction)
         
     
     def get_data(self, dt, num_timesteps_in, num_timesteps_out):

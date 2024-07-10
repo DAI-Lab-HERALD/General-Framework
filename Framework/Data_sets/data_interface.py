@@ -245,7 +245,10 @@ class data_interface(object):
         (self.num_timesteps_out_real, 
         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
         if self.single_dataset:
-            self.data_file = list(self.Datasets.values())[0].data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
+            data_file = list(self.Datasets.values())[0].data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
+
+            self.data_file = data_file[:-4]
+
         else:
             # Get data_file from every constituent dataset
             self.data_file = (list(self.Datasets.values())[0].path + os.sep + 
@@ -286,6 +289,14 @@ class data_interface(object):
             assert len(dt_parts) == 1
             self.data_file += '--' + dt_parts[0]
 
+            # Add the maximum number of agents
+            if self.max_num_agents is None:
+                num = 0 
+            else:
+                num = self.max_num_agents
+            self.data_file += '--max_' + str(num).zfill(3)
+
+
             if 'No_extrap' in unique_parts:
                 self.data_file += '--No_Extrap'
 
@@ -314,7 +325,18 @@ class data_interface(object):
                 elif len(useful_pert_parts) == 1:
                     self.data_file += '--' + useful_pert_parts[0]
             
-            self.data_file += '.npy'
+
+        # Add the prediction type            
+        if self.agents_to_predict == 'predefined':
+            pat = '0'
+        elif self.agents_to_predict == 'all':
+            pat = 'A'
+        else:
+            pat = self.agents_to_predict[0]
+
+        self.data_file = self.data_file + '--agents_' + pat
+
+        self.data_file += '.npy'
     
 
     def _extract_save_files_from_data_set(self, data_set):
@@ -388,7 +410,7 @@ class data_interface(object):
                 other_type = list(data_set_type[2:])
                 needed_data_type += other_type
             
-            self.Input_data_type = [input_data_type + list(np.unqiue(needed_data_type))]
+            self.Input_data_type = [input_data_type + list(np.unique(needed_data_type))]
 
         
         
@@ -431,7 +453,7 @@ class data_interface(object):
                 
                 Input_path_local = data_set.Input_path
                 # Check if path types overlap
-                if self.Input_path_types[0] != data_set.path_data_info():
+                if self.Input_data_type[0] != data_set.path_data_info():
                     # Find indices of data_set path types in self.Input_data_type
                     type_index = []
                     for type in data_set.path_data_info():
@@ -443,7 +465,7 @@ class data_interface(object):
                         for i_agent in range(Input_path_local.shape[1]):
                             if isinstance(Input_path_local.iloc[i_sample, i_agent], np.ndarray):
                                 old_path = Input_path_local.iloc[i_sample, i_agent]
-                                new_path = np.full((old_path.shape[0], len(self.Input_path_types[0])), np.nan, dtype = np.float32)
+                                new_path = np.full((old_path.shape[0], len(self.Input_data_type[0])), np.nan, dtype = np.float32)
                                 new_path[:, type_index] = old_path
                                 Input_path_local.iloc[i_sample, i_agent] = new_path
 
@@ -756,11 +778,20 @@ class data_interface(object):
             else:
                 if self.data_in_one_piece:
                     Recorded_agents = np.zeros(Needed_agents.shape, bool)
-                    for i_sample in range(len(self.Recorded)):
-                        R = self.Recorded.iloc[i_sample]
-                        for i_agent, agent in enumerate(self.Agents):
-                            if isinstance(R[agent], np.ndarray):
-                                Recorded_agents[i_sample, i_agent] = np.all(R[agent])
+                    # Get the number of timesteps in each sample
+                    N_O_data = np.array([len(output_T) for output_T in self.Output_T])
+                    
+                    # Go through unique number of output timesteps
+                    for n_o in np.unique(N_O_data):
+                        use_samples = np.where(N_O_data == n_o)[0]
+                        use_recorded = self.Recorded.iloc[use_samples]
+
+                        # Get the non nan cells
+                        use_rec_index, use_rec_agent = np.where(use_recorded.notna())
+
+                        # Get agent that are fully observed
+                        Allowable = np.stack(use_recorded.to_numpy()[use_rec_index, use_rec_agent], 0).all(-1)
+                        Recorded_agents[use_samples[use_rec_index], use_rec_agent] = Allowable
                     
                     # Get correct type 
                     if self.agents_to_predict != 'all':
@@ -777,22 +808,37 @@ class data_interface(object):
                         
                         # Get corresponding agent files
                         agent_file = self.Files[file_index] + '_AM.npy'
+                        data_file = self.Files[file_index] + '_data.npy'
                         
                         # Load the agent files
                         [Type_local, Recorded_local, _] = np.load(agent_file, allow_pickle=True)
+
+                        # Load Output_T
+                        [_, _, _, _, Output_T, _, _, _, _] = np.load(data_file, allow_pickle=True)
+
                         
                         # Get the corresponding indices
                         Type_local     = Type_local.loc[self.Domain[used].Index_saved]
                         Recorded_local = Recorded_local.loc[self.Domain[used].Index_saved]
-                        
+                        Output_T       = Output_T[self.Domain[used].Index_saved]
+
                         # Get the agent indices
                         agent_index = (Type_local.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis]).argmax(1)
+
+                        # Get the number of timesteps in each sample
+                        N_O_data = np.array([len(output_T) for output_T in Output_T])
                         
-                        for i_local, i_global in enumerate(used_index):
-                            R = Recorded_local.iloc[i_local]
-                            for i_agent, agent in enumerate(self.Agents):
-                                if (agent in Recorded_local.columns) and isinstance(R[agent], np.ndarray):
-                                    Recorded_agents[i_global, i_agent] = np.all(R[agent])
+                        # Go through unique number of output timesteps
+                        for n_o in np.unique(N_O_data):
+                            use_samples = np.where(N_O_data == n_o)[0]
+                            use_recorded = Recorded_local.iloc[use_samples]
+
+                            # Get the non nan cells
+                            use_rec_index, use_rec_agent = np.where(use_recorded.notna())
+
+                            # Get agent that are fully observed
+                            Allowable = np.stack(use_recorded.to_numpy()[use_rec_index, use_rec_agent], 0).all(-1)
+                            Recorded_agents[used_index[use_samples[use_rec_index]], agent_index[use_rec_agent]] = Allowable
                         
                         # Get correct type 
                         if self.agents_to_predict != 'all':
@@ -832,17 +878,15 @@ class data_interface(object):
                 self.Pred_agents_pred_all = Pred_agents_N | Needed_agents
             
             
-                
-                
-        
         if not hasattr(self, 'Not_pov_agent'):
             # Get unique boolean pov agents
             pov_agents_bool = []
+            Agents_array = np.array(self.Agents)
             for pov_agent in self.scenario_pov_agents:
                 if pov_agent is None:
-                    pov_agents_bool.append(np.zeros(len(self.Agents), bool))
+                    pov_agents_bool.append(np.zeros(len(Agents_array), bool))
                 else:
-                    pov_agents_bool.append(self.Agents == pov_agent)
+                    pov_agents_bool.append(Agents_array == pov_agent)
                     
             pov_agents_bool = np.stack(pov_agents_bool, axis = 0)
             
@@ -858,8 +902,9 @@ class data_interface(object):
         
                     
     def _determine_pred_agents(self, pred_pov = True, eval_pov = True):
+        assert self.data_loaded, 'Data has not been loaded.'
         ## NOTE: Method has been adjusted for large datasets
-        self._determine_pred_agents_unchecked(pred_pov = pred_pov, eval_pov = eval_pov)
+        self._determine_pred_agents_unchecked()
         
         # Check the all trajectories
         if not hasattr(self, '_checked_pred_agents'):
