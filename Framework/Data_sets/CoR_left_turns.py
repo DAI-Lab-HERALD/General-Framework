@@ -245,5 +245,5 @@ class CoR_left_turns(data_set_template):
             return True
     
     def includes_images(self = None):
-        return False
+        return True
 

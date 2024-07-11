@@ -817,12 +817,20 @@ class data_set_template():
         
         
         elif t0_type[:3] == 'all':
+            # Get n
+            if t0_type == 'all':
+                n = 1
+            else:
+                assert t0_type[:4] == 'all_', 'Type is not admissable'
+                n = max(1, min(99, int(t0_type[4:])))
+
+
             min_t0 = max(t_start, t.min() + self.dt * (self.num_timesteps_in_need - 1))
             if self.enforce_prediction_time or not self.classification_useful:
                 max_t0 = min(t_decision, t.max() - self.dt * self.num_timesteps_out_need) + 1e-6
             else:
                 max_t0 = t_decision + 1e-6
-            T0 = np.arange(min_t0, max_t0, self.dt)
+            T0 = np.arange(min_t0, max_t0, n * self.dt)
 
         elif t0_type[:3] == 'col':
             if self.classification_useful:
@@ -922,12 +930,21 @@ class data_set_template():
          self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
         
         # create possible file name
-        t0_type_file_name = {'start':            'start',
-                             'all':              'all_p',
-                             'col_equal':        'fix_e',
-                             'col_set':          'fix_s',
-                             'crit':             'crit_'}
-        t0_type_name = t0_type_file_name[self.t0_type] + '_'
+        t0_type_file_name = {'start':     'start',
+                            'col_equal': 'fix_e',
+                            'col_set':   'fix_s',
+                            'crit':      'crit_'}
+        
+        if self.t0_type[:3] != 'all':
+            t0_type_name = t0_type_file_name[self.t0_type]
+        else:
+            if self.t0_type == 'all':
+                n = 1
+            else:
+                assert self.t0_type[:4] == 'all_', 'Type is not admissable'
+                n = max(1, min(99, int(self.t0_type[4:])))
+            t0_type_name = 'all' + str(n).zfill(2)
+        t0_type_name += '_'
         
         if self.enforce_prediction_time:
             t0_type_name += 's' # s for severe
@@ -1747,10 +1764,11 @@ class data_set_template():
     
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, grayscale,
-                            Imgs_rot, Imgs_index):
+                            Imgs_rot, Imgs_index, print_progress = False):
         if self.includes_images():
-            print('')
-            print('Load needed images:', flush = True)
+            if print_progress:
+                print('')
+                print('Load needed images:', flush = True)
             
             self.load_raw_images()
             
@@ -1767,11 +1785,13 @@ class data_set_template():
             
                 device = torch.device(device)
             
-            print('')
-            print('Get locations:', flush = True)
+            if print_progress:
+                print('')
+                print('Get locations:', flush = True)
             Locations = domain.image_id.to_numpy()
             
-            print('Extract rotation matrix', flush = True)
+            if print_progress:
+                print('Extract rotation matrix', flush = True)
             max_size = 2 * max(self.Images.Image.iloc[0].shape[:2]) + 1
             
             # check if images are float
@@ -1794,7 +1814,8 @@ class data_set_template():
             
             if hasattr(domain, 'rot_angle'):
                 second_stage = True
-                print('Second rotation state is available.', flush = True)
+                if print_progress:
+                    print('Second rotation state is available.', flush = True)
             else: 
                 second_stage = False
             
@@ -1827,23 +1848,25 @@ class data_set_template():
             # Pos_old: Position in goal coordinate system in Px.
                 
             # CPU
-            print('Reserved memory for rotated images.', flush = True)
-            CPU_mem = psutil.virtual_memory()
-            cpu_total = CPU_mem.total / 2 ** 30
-            cpu_used  = CPU_mem.used / 2 ** 30
-            print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total), flush = True)
+            if print_progress:
+                print('Reserved memory for rotated images.', flush = True)
+                CPU_mem = psutil.virtual_memory()
+                cpu_total = CPU_mem.total / 2 ** 30
+                cpu_used  = CPU_mem.used / 2 ** 30
 
-            torch.cuda.empty_cache()
-            gpu_total         = torch.cuda.get_device_properties(device = device).total_memory  / 2 ** 30
-            gpu_reserved      = torch.cuda.memory_reserved(device = device) / 2 ** 30
-            gpu_max_reserved  = torch.cuda.max_memory_reserved(device = device) / 2 ** 30
-            torch.cuda.reset_peak_memory_stats()
-            print('GPU: {:5.2f}/{:5.2f} GB are available'.format(gpu_total - gpu_reserved, gpu_total), flush = True)
-            print('GPU previous min available: {:0.2f}'.format(gpu_total - gpu_max_reserved), flush = True)
-            print('', flush = True)
-            print('start rotating', flush = True)
+                print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total), flush = True)
+
+                torch.cuda.empty_cache()
+                gpu_total         = torch.cuda.get_device_properties(device = device).total_memory  / 2 ** 30
+                gpu_reserved      = torch.cuda.memory_reserved(device = device) / 2 ** 30
+                gpu_max_reserved  = torch.cuda.max_memory_reserved(device = device) / 2 ** 30
+                torch.cuda.reset_peak_memory_stats()
+                print('GPU: {:5.2f}/{:5.2f} GB are available'.format(gpu_total - gpu_reserved, gpu_total), flush = True)
+                print('GPU previous min available: {:0.2f}'.format(gpu_total - gpu_max_reserved), flush = True)
+                print('', flush = True)
+                print('start rotating', flush = True)
+
             n = 250
-            
             image_num = 0
             for location in np.unique(Locations):
                 loc_indices = np.where(Locations == location)[0]
@@ -1855,8 +1878,9 @@ class data_set_template():
                     Index_local = np.arange(i, min(i + n, len(loc_indices)))
                     Index = loc_indices[Index_local]
                     
-                    print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
-                          ' of ' + str(len(domain)) + ' total', flush = True)
+                    if print_progress:
+                        print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
+                            ' of ' + str(len(domain)) + ' total', flush = True)
                     image_num = image_num + len(Index)
                     Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
                     

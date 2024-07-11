@@ -5,6 +5,7 @@ import psutil
 import os
 import warnings
 import networkx as nx
+import scipy as sp
 
 from rome.ROME import ROME
 
@@ -153,17 +154,9 @@ class data_interface(object):
         
         # Get a needed name:
         if len(np.unique([data_set.t0_type for data_set in self.Datasets.values()])) == 1:
-            t0_type_file_name = {'start':     'start',
-                                 'all':       'all_p',
-                                 'col_equal': 'fix_e',
-                                 'col_set':   'fix_s',
-                                 'crit':      'crit_'}
-            
             self.t0_type = list(self.Datasets.values())[0].t0_type
-            self.t0_type_name = t0_type_file_name[self.t0_type]
         else:
             self.t0_type = 'mixed'
-            self.t0_type_name = 'mixed'
             
         self.p_quantile = list(self.Datasets.values())[0].p_quantile
         
@@ -282,7 +275,11 @@ class data_interface(object):
                 # Assert that last two letters are the same
                 assert np.all([s[-2:] == t0_parts[0][-2:] for s in t0_parts[1:]])
 
-                self.data_file += '--mixed_' + t0_parts[0][-2:]
+                # Check if all t0_parts start with 'all
+                if np.all([s[:3] == 'all' for s in t0_parts]):
+                    self.data_file += '--all_m_' + t0_parts[0][-2:]
+                else:
+                    self.data_file += '--mixed_' + t0_parts[0][-2:]
 
             # Find the parts with 'dt'
             dt_parts = unique_parts[np.array(['dt' == s[:2] for s in unique_parts])]
@@ -539,7 +536,7 @@ class data_interface(object):
     
     
     def return_batch_images(self, domain, center, rot_angle, target_width, target_height, 
-                            grayscale = False, return_resolution = False):
+                            grayscale = False, return_resolution = False, print_progress = False):
         
         if target_height is None:
             target_height = 1250
@@ -558,11 +555,17 @@ class data_interface(object):
         
         for data_set in self.Datasets.values():
             if data_set.includes_images():
-                print('')
-                print('Rotate images from dataset ' + data_set.get_name()['print'])
                 
                 Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
                 
+                # Ignore if no images from dataset are used
+                if Use.sum() == 0:
+                    continue
+                
+                if print_progress:
+                    print('')
+                    print('Rotate images from dataset ' + data_set.get_name()['print'])
+
                 if center is None:
                     center_use = None
                 else:
@@ -576,7 +579,7 @@ class data_interface(object):
                 Index_use = np.where(Use)[0]
                 Imgs = data_set.return_batch_images(domain.iloc[Use], center_use, rot_angle_use, 
                                                     target_width, target_height, grayscale, 
-                                                    Imgs, Index_use)
+                                                    Imgs, Index_use, print_progress)
                 if return_resolution:
                     Imgs_m_per_px[Use] = data_set.Images.Target_MeterPerPx.loc[domain.image_id.iloc[Use]]
         if return_resolution:
@@ -729,26 +732,41 @@ class data_interface(object):
         for i_sample in range(Output_T.shape[0]):
             self.N_O_data_orig[i_sample] = len(Output_T[i_sample])
             self.N_O_pred_orig[i_sample] = len(Output_T_pred[i_sample])
-        
-        
-        X_help = Input_path.to_numpy()
-        Y_help = Output_path.to_numpy()
-            
-        self.X_orig = np.ones([len(X_help), len(self.Agents), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
-        self.Y_orig = np.ones([len(X_help), len(self.Agents), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
+
+        # Useful agents
+        Used_agents = Input_path.notna()
+
+        self.Used_samples, self.Used_agents = np.where(Used_agents)
+
+        # Transform the agent indices to correspond with self.Agents
+        Agent_index = (Input_path.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis])
+        assert np.all(Agent_index.sum(0) == 1), 'Agents are not unique.'
+        self.Used_agents = Agent_index.argmax(0)[self.Used_agents]
+
+        # Transform paths into numpy
+        self.X_orig = np.ones([len(self.Used_samples), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
+        self.Y_orig = np.ones([len(self.Used_samples), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
         
         # Get the current data_type
         self.input_type_orig = input_path_type
 
         # Extract data from original number a samples
-        for i_sample in range(self.X_orig.shape[0]):
-            for i_agent, agent in enumerate(self.Agents):
-                if agent in Input_path.columns:
-                    i_agent_data = np.where(Input_path.columns == agent)[0][0]
-                    if not isinstance(X_help[i_sample, i_agent_data], float):    
-                        n_time = self.N_O_data_orig[i_sample]
-                        self.X_orig[i_sample, i_agent] = X_help[i_sample, i_agent_data].astype(np.float32)
-                        self.Y_orig[i_sample, i_agent, :n_time] = Y_help[i_sample, i_agent_data][:n_time].astype(np.float32)
+        for i in range(len(self.Used_samples)):
+            # get specific indices
+            i_sample = self.Used_samples[i]
+            i_agent  = self.Used_agents[i]
+
+            # Get corresponding agent name
+            agent = self.Agents[i_agent]
+
+            # Check for accurate performance
+            assert agent in Input_path.columns, 'Transform of agent indices failed.'
+            assert isinstance(Input_path[agent].iloc[i_sample], np.ndarray), 'Input path is not a numpy array, nonna() failed' 
+
+            # Transfare the data to numpy array
+            n_time = self.N_O_data_orig[i_sample]
+            self.X_orig[i] = Input_path[agent].iloc[i_sample].astype(np.float32)
+            self.Y_orig[i, :n_time] = Output_path[agent].iloc[i_sample][:n_time].astype(np.float32)
             
             
     
@@ -856,7 +874,7 @@ class data_interface(object):
                 (self.num_timesteps_in_real == 4) and 
                 (self.num_timesteps_out_real == 12) and
                 (self.dt == 0.5) and 
-                (self.t0_type == 'all')):
+                (self.t0_type in ['all', 'all_1'])):
                 
                 # Get predefined predicted agents for NuScenes
                 Pred_agents_N = np.zeros(Needed_agents.shape, bool)
@@ -911,16 +929,26 @@ class data_interface(object):
             self._checked_pred_agents = False
             
         if not self._checked_pred_agents:
-            # Go through all file indicies
-            for file_index in range(len(self.Files)):            
-                # Get path data
-                self._extract_original_trajectories(file_index)
-                
-                used_parts = self.Domain.file_index == file_index
+            if self.data_in_one_piece:
+                self._extract_original_trajectories()
                 
                 # Check if everything needed is there
-                assert not np.isnan(self.X_orig[self.Pred_agents_pred_all[used_parts]][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
-                assert not np.isnan(self.Y_orig[self.Pred_agents_pred_all[used_parts]]).all((1,2)).any(), 'A needed agent is not given.'
+                Pred_agents_sparse = self.Pred_agents_pred_all[self.Used_samples, self.Used_agents]
+                assert not np.isnan(self.X_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
+                assert not np.isnan(self.Y_orig[Pred_agents_sparse]).all((1,2)).any(), 'A needed agent is not given.'
+            
+            else:
+                # Go through all file indicies
+                for file_index in range(len(self.Files)):            
+                    # Get path data
+                    self._extract_original_trajectories(file_index)
+                    
+                    used_parts = self.Domain.file_index == file_index
+                     
+                    # Check if everything needed is there
+                    Pred_agents_sparse = self.Pred_agents_pred_all[used_parts][self.Used_samples, self.Used_agents]
+                    assert not np.isnan(self.X_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
+                    assert not np.isnan(self.Y_orig[Pred_agents_sparse]).all((1,2)).any(), 'A needed agent is not given.'
             
             self._checked_pred_agents = True
             
@@ -975,10 +1003,23 @@ class data_interface(object):
                     # Get agents that are there
                     T_div = Div_unique[div_inverse,:,0]
                     useful_agents = np.where(T_div != 'nan')[0]
-                    
-                    # Get corresponding input path
-                    X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]][...,:2]
+
                     # X.shape: len(index) x len(useful_agents) x nI x 2
+                    X = np.zeros((len(index), len(useful_agents), self.X_orig.shape[-2], 2), np.float32)
+
+                    use_X_orig = np.in1d(self.Used_samples, index) & np.in1d(self.Used_agents, useful_agents)
+                    used_orig_samples = self.Used_samples[use_X_orig]
+                    used_orig_agents  = self.Used_agents[use_X_orig]
+
+                    # Get inverse of index 
+                    index_inverse = np.zeros(index.max() + 1, int)
+                    index_inverse[index] = np.arange(len(index), dtype = int)
+
+                    # Get inverse of useful_agents
+                    useful_agents_inverse = np.zeros(useful_agents.max() + 1, int)
+                    useful_agents_inverse[useful_agents] = np.arange(len(useful_agents), dtype = int)
+
+                    X[index_inverse[used_orig_samples], useful_agents_inverse[used_orig_agents]] = self.X_orig[use_X_orig,...,:2]
                     
                     # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
                     max_num = np.floor(2 ** 29 / np.prod(X.shape))
@@ -1054,9 +1095,24 @@ class data_interface(object):
                         T_div = Div_unique[div_inverse,:,0]
                         useful_agents = np.where(T_div != 'nan')[0]
                         
-                        # Get corresponding input path
-                        X = self.X_orig[index[:,np.newaxis], useful_agents[np.newaxis]][...,:2]
+                        # Get corresponding input path                        
                         # X.shape: len(index) x len(useful_agents) x nI x 2
+                        X = np.zeros((len(index), len(useful_agents), self.X_orig.shape[-2], 2), np.float32)
+
+                        use_X_orig = np.in1d(self.Used_samples, index) & np.in1d(self.Used_agents, useful_agents)
+                        used_orig_samples = self.Used_samples[use_X_orig]
+                        used_orig_agents  = self.Used_agents[use_X_orig]
+
+                        # Get inverse of index 
+                        index_inverse = np.zeros(index.max() + 1, int)
+                        index_inverse[index] = np.arange(len(index), dtype = int)
+
+                        # Get inverse of useful_agents
+                        useful_agents_inverse = np.zeros(useful_agents.max() + 1, int)
+                        useful_agents_inverse[useful_agents] = np.arange(len(useful_agents), dtype = int)
+
+                        X[index_inverse[used_orig_samples], useful_agents_inverse[used_orig_agents]] = self.X_orig[use_X_orig,...,:2]
+
                         
                         # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
                         max_num = np.floor(2 ** 29 / np.prod(X.shape))
@@ -1117,17 +1173,26 @@ class data_interface(object):
         
         num_samples = len(self.Pred_agents_eval)
         max_num_pred_agents = self.Pred_agents_eval.sum(1).max()
-        
+
+        # Get indices of agents that are pred indices
+        Use_indices = self.Pred_agents_eval[self.Used_samples, self.Used_agents]
+        Used_pred_samples = self.Used_samples[Use_indices]
+        Used_pred_agents  = self.Used_agents[Use_indices]
+
         # Find agents to be predicted first
-        i_agent_sort = np.argsort(-self.Pred_agents_eval.astype(float))
-        i_agent_sort = i_agent_sort[:,:max_num_pred_agents]
-        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
+        i_agent_sort_inverse = sp.stats.rankdata(-self.Pred_agents_eval.astype(float), axis = 1, method='ordinal').astype(int) - 1
+        # Apply i_agent_sort_inverse to self.Orig_agents
+        Orig_pred_agents_sort = i_agent_sort_inverse[Used_pred_samples, Used_pred_agents]
+
+        # Check if max_num_pred_agents is correct
+        assert (Orig_pred_agents_sort.max() + 1) == max_num_pred_agents, 'max_num_pred_agents is not correct.'
         
         # reset prediction agents
-        self.Pred_agents_eval_sorted = self.Pred_agents_eval[i_sampl_sort, i_agent_sort]
+        self.Pred_agents_eval_sorted = - np.sort(-self.Pred_agents_eval.astype(float), axis = 1).astype(bool)[:,:max_num_pred_agents]
         
         # Sort future trajectories
-        Path_true = self.Y_orig[i_sampl_sort, i_agent_sort, :nto]
+        Path_true = np.full((self.Pred_agents_eval.shape[0], max_num_pred_agents, nto, 2), np.nan, dtype = np.float32)
+        Path_true[Used_pred_samples, Orig_pred_agents_sort] = self.Y_orig[Use_indices, :nto, :]
         
         # Prepare saving of observerd futures
         max_len = np.unique(self.Subgroups, return_counts = True)[1].max()

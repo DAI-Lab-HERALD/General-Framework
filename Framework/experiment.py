@@ -424,40 +424,10 @@ class Experiment():
                         # Train the model on the given training set
                         model.train()
                         
-                        # Make predictions on the given testing set
-                        output = model.predict()
-                        
-                        # Get the type of prediction in this output
-                        model_type = model.get_output_type()
-                        
-                        # Go through each metric used on the current prediction time
-                        for m, metric_name in enumerate(self.Metrics):
-                            # Get metric class
-                            metric_module = importlib.import_module(metric_name)
-                            metric_class = getattr(metric_module, metric_name)  
-                            
-                            # Initialize the metric
-                            metric = metric_class(data_set, splitter, model)
-                            
-                            # Test if metric is applicable
-                            metric_failure = metric.check_applicability()
-                            
-                            # print metric status to output
-                            self.print_metric_status(metric, metric_failure)
-                            
-                            # Do not use metric if it cannot be applied
-                            if metric_failure is not None:
-                                continue
-                            
-                            # Get the output type the metric works on:
-                            metric_type = metric.get_output_type()
-                            
-                            # Allow for possible transformation of prediction
-                            output_trans = data_set.transform_outputs(output, model_type, 
-                                                                      metric_type, model.pred_file)
-                            
-                            # Evaluate transformed output
-                            metric.evaluate_prediction(output_trans)
+                        # For large dataset, the separate calculation of the predictions and metrics is not
+                        # possible due to memory constraints. Therefore, the predictions and evaluations are calculated
+                        # at the same time. For this, we have to create a new function called predict_and_evaluate()
+                        model.predict_and_evaluate(self.Metrics, self.print_metric_status)
     
     #%% Loading results
     def load_results(self, plot_if_possible = True, return_train_results = False, return_train_loss = False):
@@ -735,7 +705,6 @@ class Experiment():
         assert self.results_loaded, "No results are loaded yet. Use self.load_results()."
         
         T0_names = {'start':     r'Earliest',
-                    'all':       r'All',
                     'col_equal': r'Fixed-time (equal)',
                     'col_set':   r'Fixed-time',
                     'crit':      r'Last useful',
@@ -868,9 +837,13 @@ class Experiment():
                 
                 Plot_string = ''
                 
+                if data_set.t0_type[:3] == 'all':
+                    t0_name = 'A' + data_set.t0_type[1:] 
+                else:
+                    t0_name = T0_names[data_set.t0_type]
+
                 Plot_string += (' \n' + r'    % Draw the metric ' + metric_class.get_name()['print'] + 
-                                ' for ' + T0_names[data_set.t0_type] + 
-                                ' on dataset ' + data_set.get_name()['print'] +  ' \n')
+                                ' for ' + t0_name + ' on dataset ' + data_set.get_name()['print'] +  ' \n')
                 
                 
                 Results_jk = Metric_results[k]

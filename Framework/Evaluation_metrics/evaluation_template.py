@@ -483,70 +483,19 @@ class evaluation_template():
         return True
         
         
-    def _evaluate_on_subset(self, Output_pred, create_plot):
+    def _evaluate_on_subset(self, Output_pred, evaluation_index):
+        self.Index_curr = evaluation_index
+        
         if len(self.Index_curr) == 0:
             return None
         
         available = self._set_current_data(Output_pred)
         if available:
             results = self.evaluate_prediction_method()
-        
-            if create_plot:
-                self.create_plot(results, self.metric_file)
         else:
             results = None
         
         return results
-    
-        
-    def evaluate_prediction(self, Output_pred, create_plot_if_possible = False):
-        if self.depict_results:
-            raise AttributeError("This loaded version only allows for plotting results.")
-        
-        self.metric_file = self.data_set.change_result_directory(self.model.model_file,
-                                                                 'Metrics', self.get_name()['file'])
-        
-        if os.path.isfile(self.metric_file) and not self.metric_override:
-            Results = list(np.load(self.metric_file, allow_pickle = True)[:-1])
-            
-            if (Results[0] is None) and self.model.evaluate_on_train_set:
-                # Get train results
-                self.Index_curr = (self.splitter.Train_index)
-                Results[0] = self._evaluate_on_subset(Output_pred, create_plot_if_possible)
-     
-            return Results
-        else:
-            
-            Results = []
-            # Evaluate the model both on the training set and the testing set
-            if not np.array_equal(np.unique(self.splitter.Train_index), 
-                                  np.unique(self.splitter.Test_index)):
-                
-                # check what predictions are available
-                if self.model.evaluate_on_train_set:
-                    Indices = [self.splitter.Train_index, self.splitter.Test_index]
-                else:
-                    Indices = [np.array([]), self.splitter.Test_index]
-                    
-                    
-                for self.Index_curr in Indices:
-                    Results.append(self._evaluate_on_subset(Output_pred, create_plot_if_possible)) # output needs to be a list of components
-            else:
-                self.Index_curr = self.splitter.Test_index
-                
-                results = self._evaluate_on_subset(Output_pred, create_plot_if_possible)
-                Results.append(results)
-                Results.append(results)
-            
-            save_data = np.array(Results + [0], object) #0 is there to avoid some numpy load and save errros
-            
-            os.makedirs(os.path.dirname(self.metric_file), exist_ok=True)
-            np.save(self.metric_file, save_data)
-        
-        if create_plot_if_possible:
-            self.create_plot(Results[1], self.metric_file)
- 
-        return Results
     
 
     def _check_collisions(self, Path_A, Path_B, Type_A, Type_B):
