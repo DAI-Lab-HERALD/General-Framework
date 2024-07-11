@@ -848,6 +848,11 @@ class model_template():
         during prediction and training. It returns the whole training set (including validation set)
         in one go
 
+        Parameters
+        ----------
+        return_categories : bool, optional
+            This indicates if the categories (**C**, see below) of the samples should be returned. 
+            The default is *False*.
 
         Returns
         -------
@@ -867,6 +872,8 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
+        C : np.ndarray
+            TODO: Say that this is optional
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -876,7 +883,6 @@ class model_template():
         img_m_per_px : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
-            Both for **Y**, **img** and 
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1027,9 +1033,16 @@ class model_template():
         val_split_size : float, optional
             The part of the overall training set that is set aside for model validation during the
             training process. The default is *0.0*.
-        ignore_map : ignore_map, optional
+        ignore_map : bool, optional
             This indicates if image data is not needed, even if available in the dataset 
             and processable by the model. The default is *False*.
+        ignore_graph : bool, optional
+            This indicates if scene graph data is not needed, even if available in the dataset
+            and processable by the model. The default is *False*.
+        return_categories : bool, optional
+            This indicates if the categories (**C**, see below) of the samples should be returned. 
+            The default is *False*.
+
 
         Returns
         -------
@@ -1050,7 +1063,7 @@ class model_template():
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
         C : np.ndarray
-            TODO
+            TODO: Say that this is optional
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -1060,8 +1073,8 @@ class model_template():
         img_m_per_px : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
-            Both for **Y**, **img** and 
-        graph : TODO
+        graph : np.ndarray
+            TODO: This is not optional
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1128,12 +1141,6 @@ class model_template():
 
             # Check for file index and image id
             Use_candidate &= Image_id_advance == Image_id_advance[0]
-        
-        if not ignore_graph and self.has_graph:
-            Graph_id_advance = self.data_set.Domain.graph_id.iloc[Sample_id_advance].to_numpy()
-
-            # Check for file index and graph id
-            Use_candidate &= Graph_id_advance == Graph_id_advance[0]
 
         # For large dataset, check for file index as well
         if not self.data_set.data_in_one_piece:
@@ -1304,7 +1311,7 @@ class model_template():
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
                 Agent_id = self.ID[ind_advance,:,1]
-                
+
                 C = self.data_set.Domain.category.iloc[Sample_id]
                 C = pd.DataFrame(C.to_list())
 
@@ -1394,9 +1401,9 @@ class model_template():
         ----------
         train : bool, optional
             This discribes whether one wants to generate training or testing data. The default is True.
-
         return_categories : bool, optional
-            This discribes whether one wants to return the categories of the samples. The default is False.
+            This indicates if the categories (**C**, see below) of the samples should be returned. 
+            The default is *False*.
 
         Returns
         -------
@@ -1411,6 +1418,8 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
+        C : np.ndarray
+            TODO: Say that this is optional
         agent_names : list
             This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
             agent.
