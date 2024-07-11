@@ -883,6 +883,8 @@ class model_template():
         img_m_per_px : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+        graph : np.ndarray
+            TODO: This is not optional
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
