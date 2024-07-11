@@ -980,4 +980,7 @@ class RounD_round_about(data_set_template):
         return False
     
     def includes_images(self = None):
-        return True
+        return True 
+    
+    def includes_sceneGraphs(self = None):
+        return False

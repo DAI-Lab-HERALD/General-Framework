@@ -17,6 +17,10 @@ class DBN(model_template):
     based on deep learning. Transportation research part C: emerging technologies, 106, 41-60.
     '''
     def setup_method(self, l2_regulization = 0.1):
+        self.min_t_O_train = 2
+        self.max_t_O_train = 200
+        self.can_use_map   = False
+        self.can_use_graph = False
         pass
     
     def get_data(self, train = True):

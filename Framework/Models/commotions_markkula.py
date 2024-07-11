@@ -29,6 +29,11 @@ class commotions_markkula(model_template, commotions_template):
 
     def setup_method(self):
         self.define_default_kwargs()
+        # Required attributes of the model
+        self.min_t_O_train = 2
+        self.max_t_O_train = 200
+        self.can_use_map = False
+        self.can_use_graph = False
 
         # set model settings
         self.adjust_free_speeds = False

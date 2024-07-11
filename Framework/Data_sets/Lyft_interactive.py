@@ -36,7 +36,10 @@ class Lyft_interactive(data_set_template):
         return False
     
     def includes_images(self = None):
-        return True
+        return True 
+    
+    def includes_sceneGraphs(self = None):
+        return False
     
     def set_scenario(self):
         self.scenario = scenario_none()

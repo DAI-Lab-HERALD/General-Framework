@@ -102,6 +102,7 @@ class flomo_schoeller(model_template):
         self.max_t_O_train = self.num_timesteps_out
         self.predict_single_agent = True
         self.can_use_map = True
+        self.can_use_graph = False
         # If self.can_use_map, the following is also required
         self.target_width = 257
         self.target_height = 156
