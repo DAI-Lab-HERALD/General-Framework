@@ -37,6 +37,7 @@ class model_template():
             
             self.dt = data_set.dt
             self.has_map = self.data_set.includes_images()
+            self.has_graph = self.data_set.includes_sceneGraphs() 
             
             self.num_timesteps_in = data_set.num_timesteps_in_real
             self.num_timesteps_out = data_set.num_timesteps_out_real
@@ -465,6 +466,17 @@ class model_template():
         
         return img_needed, img_m_per_px_needed, use_batch_extraction
 
+
+    def extract_sceneGraphs(self, domain_needed):
+        '''
+        Returns scene graph data 
+        '''
+        # TODO: Implement pre-estimation of needed memory
+        graph_needed = self.data_set.return_batch_sceneGraphs(domain_needed)
+        use_batch_extraction = False
+        
+        return graph_needed, use_batch_extraction
+
     def _extract_types(self):
         ## NOTE: Method has been adjusted for large datasets
         if not hasattr(self, 'Type'):
@@ -649,6 +661,7 @@ class model_template():
         # self.max_t_O_train: How many timesteps do we allow training for
         # self.predict_single_agent: Are joint predictions not possible
         # self.can_use_map: Can use map or not
+        # self.can_use_graph: Can use scene graph or not 
         # If self.can_use_map, the following is also required
         # self.target_width:
         # self.target_height:
@@ -663,6 +676,9 @@ class model_template():
                 
             # Determine map use
             use_map = self.has_map and self.can_use_map
+
+            # Determine graph use
+            use_graph = self.has_graph and self.can_use_graph 
             
             if self.data_set.data_in_one_piece:
                 # Extract old trajectories
@@ -768,10 +784,26 @@ class model_template():
                     self.img = None
                     self.img_m_per_px = None
 
+
+                # Get graphs
+                if use_graph:
+                    # Get metadata
+                    domain_old = self.data_set.Domain
+                    Graph_needed = np.zeros(self.X.shape[:2], bool)
+                    Graph_needed[:,0] = True
+
+                    domain_needed = domain_old.iloc[self.ID[Graph_needed][:,0]]
+                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed)
+                    self.graph_needed_sample = np.where(Graph_needed)[0]
+                else:
+                    self.graph = None
+
             else:
                 self.use_batch_extraction = True
+                self.use_graph_batch_extraction = True
                 self.img = None
                 self.img_m_per_px = None
+                self.graph = None
         
         self.extracted_data = True
     
@@ -810,7 +842,7 @@ class model_template():
         
         return I_train
     
-    def provide_all_training_trajectories(self):
+    def provide_all_training_trajectories(self, return_categories = False):
         ## NOTE: Method has been adjusted for large datasets
         r'''
         This function provides trajectroy data an associated metadata for the training of model
@@ -911,6 +943,19 @@ class model_template():
                 print('Image data could not be extracted due to memory issues for the whole dataset.')
             img_train = None
             img_m_per_px_train = None
+
+        
+        if self.graph is not None:
+            use_graphs = np.in1d(self.graph_needed_sample, I_train)
+            graph_needed = self.graph[use_graphs]
+            if self.predict_single_agent:
+                Graph_needed = np.zeros(X_train.shape[:2], bool)
+                Graph_needed[:,0] = True
+            else:
+                Graph_needed = T_train != '0'
+            
+            graph_train = np.zeros((*Graph_needed.shape, graph_needed.shape[-1]), np.float32)
+            graph_train[Graph_needed] = graph_needed
         
         Sample_id_train = self.ID[I_train,0,0]
         Agents = np.array(self.input_names_train)
@@ -919,8 +964,31 @@ class model_template():
         # get input data type
         self.input_data_type = self.data_set.Input_data_type[0]
         
-        return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
-                Pred_agents_train, Sample_id_train, Agent_id_train]
+        if return_categories:
+
+            # Get categories
+            Sample_id = self.ID[I_train,0,0]
+
+            # Get agent predictions
+            if 'category' in self.data_set.Domain.columns:
+                # Sample_id = self.ID[ind_advance,0,0]
+                C = self.data_set.Domain.category.iloc[Sample_id]
+                C = pd.DataFrame(C.to_list())
+
+                # Replace missing agents
+                C = C.fillna(4)
+
+                # Get to numpy and apply indices
+                C_train = C.to_numpy().astype(int)
+            else:
+                C_train = None
+
+            return [X_train, Y_train, T_train, C_train, img_train, img_m_per_px_train, graph_train,
+                    Pred_agents_train, Sample_id_train, Agent_id_train]
+        else:
+            return [X_train, Y_train, T_train, img_train, img_m_per_px_train, graph_train,
+                    Pred_agents_train, Sample_id_train, Agent_id_train]
+        
         
     def _update_available_samples(self, Ind_advance, ind_advance):
         ## NOTE: Method has been adjusted for large datasets
@@ -944,7 +1012,7 @@ class model_template():
         return epoch_done, Ind_advance
     
     
-    def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+    def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, ignore_graph = False, return_categories = False):
         ## NOTE: Method has been adjusted for large datasets
         r'''
         This function provides trajectroy data an associated metadata for the training of model
@@ -982,6 +1050,8 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
+        C : np.ndarray
+            TODO
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -992,6 +1062,7 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
             Both for **Y**, **img** and 
+        graph : TODO
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1190,13 +1261,67 @@ class model_template():
             img          = None
             img_m_per_px = None
 
-        # check if epoch is completed, if so, shuffle and reset index
-        if mode == 'pred':
-            Sample_id = self.ID[ind_advance,0,0]
-            Agent_id = np.array(self.input_names_train)[self.ID[ind_advance,:,1]]
-            return X,    T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+
+        # Check if graphs need to be extracted
+        if hasattr(self, 'use_batch_extraction') and (not ignore_graph) and self.has_graph:
+
+            Graph_needed = np.zeros(X.shape[:2], bool)
+            Graph_needed[:,0] = True
+
+            if self.use_batch_extraction:
+                domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Graph_needed]]
+                graph_needed, unsuccesful = self.extract_sceneGraphs(domain_needed)
+                if unsuccesful:
+                    MemoryError('Not enough memory to extract graphs even with batches.' )
+            else:
+                # Find at which places in self.graph_needed_sample one can find ind_advance
+                use_graphs = np.in1d(self.graph_needed_sample, ind_advance)
+
+                graph_needed          = self.graph[use_graphs]
+
+            Graph_needed = Graph_needed[:,:1]
+            
+            # Transfrom graph needed back according to Graph_needed into required format
+            graph          = np.full((Graph_needed.shape), np.nan, dtype=object)
+
+            graph[Graph_needed]          = graph_needed
+
         else:
-            return X, Y, T, img, img_m_per_px, Pred_agents, num_steps,                      epoch_done
+            graph          = None
+
+        # check if epoch is completed, if so, shuffle and reset index
+        Sample_id = self.ID[ind_advance,0,0]
+
+        if return_categories:
+            if 'category' in self.data_set.Domain.columns:
+                sample_id = self.ID[ind_advance,0,0]
+                Agent_id = self.ID[ind_advance,:,1]
+                # Sample_id = self.ID[ind_advance,0,0]
+                C = self.data_set.Domain.category.iloc[sample_id]
+                C = pd.DataFrame(C.to_list())
+
+                # Replace missing agents
+                C = C.fillna(4)
+
+                # Get to numpy and apply indices
+                C = C.to_numpy().astype(int)
+                C = C[:, Agent_id]
+
+            else:
+                C = None
+            if mode == 'pred':
+                Agents = np.array(self.input_names_train)
+                Agent_id = Agents[self.ID[ind_advance,:,1]]
+                return X,    T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+            else:
+                return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
+        else:
+            if mode == 'pred':
+                Agents = np.array(self.input_names_train)
+                Agent_id = Agents[self.ID[ind_advance,:,1]]
+                return X,    T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+            else:
+                return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
     
     
     def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
@@ -1253,7 +1378,7 @@ class model_template():
                 self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
     
     
-    def get_classification_data(self, train = True):
+    def get_classification_data(self, train = True, return_categories = False):
         r'''
         This function retuns inputs and outputs for classification models.
 
@@ -1261,6 +1386,9 @@ class model_template():
         ----------
         train : bool, optional
             This discribes whether one wants to generate training or testing data. The default is True.
+
+        return_categories : bool, optional
+            This discribes whether one wants to return the categories of the samples. The default is False.
 
         Returns
         -------
@@ -1348,10 +1476,29 @@ class model_template():
         agent_names = self.data_set.Input_path.columns
         dist_names = self.data_set.Input_prediction.columns
         
-        if train:
-            return X, T, agent_names, D, dist_names, class_names, P, DT
+
+        if return_categories:
+            if 'category' in self.data_set.Domain.columns:
+                C = self.data_set.Domain.category.iloc[Index]
+                C = pd.DataFrame(C.to_list())
+
+                # Replace missing agents
+                C = C.fillna(4)
+
+                # Get to numpy and apply indices
+                C = C.to_numpy()
+            else:
+                C = None
+            
+            if train:
+                return X, T, C, agent_names, D, dist_names, class_names, P, DT
+            else:
+                return X, T, C, agent_names, D, dist_names, class_names
         else:
-            return X, T, agent_names, D, dist_names, class_names
+            if train:
+                return X, T, agent_names, D, dist_names, class_names, P, DT
+            else:
+                return X, T, agent_names, D, dist_names, class_names
     
     
     def save_predicted_classifications(self, class_names, P, DT = None):
@@ -1529,6 +1676,19 @@ class model_template():
 
         # Set agent types of agents not included in Pred step to '0'
         self.T_pred[~self.Pred_step.any(-1)] = '0'
+
+        # Get agent predictions
+        if 'category' in self.data_set.Domain.columns:
+            # Sample_id = self.ID[ind_advance,0,0]
+            C = self.data_set.Domain.category
+            C = pd.DataFrame(C.to_list())
+
+            # Replace missing agents
+            C = C.fillna(4)
+
+            # Get to numpy and apply indices
+            C = C.to_numpy().astype(int)
+            self.C_pred = C[i_sampl_sort, i_agent_sort]
     
     
     def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):

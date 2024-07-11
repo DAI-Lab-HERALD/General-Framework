@@ -559,7 +559,7 @@ class data_interface(object):
                 Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
                 
                 # Ignore if no images from dataset are used
-                if Use.sum() == 0:
+                if not Use.any():
                     continue
                 
                 if print_progress:
@@ -586,6 +586,30 @@ class data_interface(object):
             return Imgs, Imgs_m_per_px
         else:
             return Imgs
+        
+    
+    
+    def return_batch_sceneGraphs(self, domain, print_progress = False):
+        
+        Graphs = np.full(len(domain), np.nan, dtype = object)
+        
+        for data_set in self.Datasets.values():
+            if data_set.includes_sceneGraphs():
+                if print_progress:
+                    print('')
+                    print('Get scene graphs from dataset ' + data_set.get_name()['print'])
+                
+                Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
+                # Ignore if no scene graphs from dataset are used
+                if not Use.any():
+                    continue
+                                
+                Index_use = np.where(Use)[0]
+                SceneGraphs = data_set.return_batch_sceneGraphs(domain.iloc[Use],
+                                                    Graphs, Index_use, print_progress)
+
+        return SceneGraphs
+    
     
     
     def transform_outputs(self, output, model_pred_type, metric_pred_type, pred_save_file):
@@ -670,6 +694,8 @@ class data_interface(object):
     def includes_images(self):
         return any([data_set.includes_images() for data_set in self.Datasets.values()])
     
+    def includes_sceneGraphs(self):
+        return any([data_set.includes_sceneGraphs() for data_set in self.Datasets.values()])
     
     def get_name(self):
         if self.single_dataset:

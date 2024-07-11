@@ -25,6 +25,7 @@ class data_set_template():
         self.data_loaded = False
         self.raw_data_loaded = False
         self.raw_images_loaded = False
+        self.raw_sceneGraphs_loaded = False
         self.prediction_time_set = False
 
         # Set the model used in transformation functions
@@ -190,6 +191,10 @@ class data_set_template():
                 raise AttributeError('Images without Px to Meter scaling are useless.')
             else:
                 Images['Target_MeterPerPx'] = self.Target_MeterPerPx
+
+    
+    def check_sceneGraph_samples(self, Images):
+        pass
         
         
     def check_created_paths_for_saving(self, last = False):
@@ -344,10 +349,12 @@ class data_set_template():
             # If extraction was successful, this file should exist.
             test_file = self.file_path + '--all_orig_paths_LLL.npy'
             image_file = self.file_path + '--Images.npy'
+            sceneGraph_file = self.file_path + '--SceneGraphs.npy' 
             
             image_creation_unneeded = (not self.includes_images()) or os.path.isfile(image_file)
+            sceneGraph_creation_unneeded = (not self.includes_sceneGraphs()) or os.path.isfile(sceneGraph_file)
 
-            if os.path.isfile(test_file) and image_creation_unneeded:
+            if os.path.isfile(test_file) and image_creation_unneeded and sceneGraph_creation_unneeded:
                 # Get number of files used for saving
                 self.number_original_path_files = self.get_number_of_original_path_files()
                 
@@ -364,6 +371,11 @@ class data_set_template():
                     [self.Images, _] = np.load(image_file, allow_pickle=True)
                 else:
                     self.Images = None
+
+                if self.includes_sceneGraphs():
+                    [self.SceneGraphs, _] = np.load(sceneGraph_file, allow_pickle=True)
+                else:
+                    self.SceneGraphs = None 
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -419,10 +431,23 @@ class data_set_template():
                     np.save(image_file, image_data)
                 else:
                     self.Images = None
+
+                
+                # Save the sceneGraph data
+                if self.includes_sceneGraphs():
+                    if not hasattr(self, 'SceneGraphs'):
+                        raise AttributeError('SceneGraphs are missing.')
+                    
+                    self.check_sceneGraph_samples(self.SceneGraphs)
+                    sceneGraph_data = np.array([self.SceneGraphs, 0], object)
+                    np.save(sceneGraph_file, sceneGraph_data)
+                else:
+                    self.SceneGraphs = None
                     
                 
             self.raw_data_loaded = True
             self.raw_images_loaded = True
+            self.raw_sceneGraphs_loaded = True
             
     def load_raw_images(self):
         if not self.raw_images_loaded and self.includes_images():
@@ -438,6 +463,24 @@ class data_set_template():
                 np.save(image_file, image_data)
 
             self.raw_images_loaded = True
+
+
+    def load_raw_sceneGraphs(self):
+        if not self.raw_sceneGraphs_loaded and self.includes_sceneGraphs():
+            sceneGraph_file = self.file_path + '--SceneGraphs.npy'
+            if os.path.isfile(sceneGraph_file):
+                [self.SceneGraphs, _] = np.load(sceneGraph_file, allow_pickle=True)
+            else:
+                self.load_raw_data()
+                # save the results
+                sceneGraph_data = np.array([self.SceneGraphs, 0], object)
+
+                os.makedirs(os.path.dirname(sceneGraph_file), exist_ok=True)
+                np.save(sceneGraph_file, sceneGraph_data)
+
+            self.raw_sceneGraphs_loaded = True
+
+    
 
     def reset(self):
         self.data_loaded = False
@@ -1925,10 +1968,56 @@ class data_set_template():
         
         
         
+      
+    def return_batch_sceneGraphs(self, domain, SceneGraphs, Graphs_Index, print_progress=False): # TODO
+        if self.includes_sceneGraphs():
+            if print_progress:    
+                print('')
+                print('Load needed scene graphs:', flush = True)
+                
+            self.load_raw_sceneGraphs()
+            
+            # Find the gpu
+            if not torch.cuda.is_available():
+                device = torch.device('cpu')
+                raise TypeError("GPU cannot be detected")
+            else:
+                if torch.cuda.device_count() == 1:
+                    # If you have CUDA_VISIBLE_DEVICES set, which you should,
+                    # then this will prevent leftover flag arguments from
+                    # messing with the device allocation.
+                    device = 'cuda:0'
+            
+                device = torch.device(device)
+            
+            if print_progress:   
+                print('')
+                print('Get locations:', flush = True)
+            Locations = domain.graph_id.to_numpy()
+            
+            n = 250
+            
+            graph_num = 0
+            for location in np.unique(Locations):
+                loc_indices = np.where(Locations == location)[0]
+                
+                loc_Graph = self.SceneGraphs.loc[location]
+                for i in range(0, len(loc_indices), n):
+                    torch.cuda.empty_cache()
+                    Index_local = np.arange(i, min(i + n, len(loc_indices)))
+                    Index = loc_indices[Index_local]
+                    
+                    if print_progress:
+                        print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + len(Index)) + 
+                            ' of ' + str(len(domain)) + ' total', flush = True)
+                    graph_num = graph_num + len(Index)
+                        
+                    torch.cuda.empty_cache()
+                    SceneGraphs[Graphs_Index[Index]] = [loc_Graph]*len(Index)
         
-        
-        
-        
+            return SceneGraphs
+        else:
+            return None
         
         
 
@@ -2544,6 +2633,19 @@ class data_set_template():
         
         '''
         raise AttributeError("Has to be overridden in actual data-set class.")
+
+    def includes_sceneGraphs(self = None):
+        r'''
+        If True, then scene graph data can be returned (if true, .graph_id has to be a column of 
+        **self.Domain_old** to indicate which of the saved graphs is linked to which sample).
+        If False, then no scene graph data is provided, and models have to content without them.
+        
+        Returns
+        -------
+        sceneGraph_decision : bool
+        
+        '''
+        raise AttributeError("Has to be overridden in actual data-set class.")
         
     def set_scenario(self):
         r'''
@@ -2647,6 +2749,14 @@ class data_set_template():
       
             The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
             that gives us the scaling of the images in the unit :math:`m /` Px. 
+
+
+        It might also be possible that the selected dataset can provide scene graphs. In this case, it is
+        paramount that **self.Domain_old** contains a column named 'graph_id', so that scene graphs can
+        be assigned to each sample with only having to save one scene graph for each location instead for
+        each sample:
+    
+        **self.SceneGraphs** : TODO
     
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
