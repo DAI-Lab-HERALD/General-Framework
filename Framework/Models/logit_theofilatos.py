@@ -16,6 +16,11 @@ class logit_theofilatos(model_template):
     decisions at midblock street crossings. Journal of Transport & Health, 22, 101108.
     '''
     def setup_method(self, l2_regulization = 0.1):
+        self.min_t_O_train = 2
+        self.max_t_O_train = 200
+        self.can_use_map   = False
+        self.can_use_graph = False
+        
         self.timesteps = self.dt
     
         self.model = LR(C = 1/(l2_regulization+1e-7), 

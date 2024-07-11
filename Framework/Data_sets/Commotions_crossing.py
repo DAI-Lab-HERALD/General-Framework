@@ -401,4 +401,7 @@ class Commotions_crossing(data_set_template):
         return True
     
     def includes_images(self = None):
+        return False    
+    
+    def includes_sceneGraphs(self = None):
         return False

@@ -543,7 +543,10 @@ class InD_direction(data_set_template):
     
     
     def includes_images(self = None):
-        return True
+        return True 
+    
+    def includes_sceneGraphs(self = None):
+        return False
     
     
 def rotate_track(track, angle, center):

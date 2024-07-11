@@ -155,4 +155,7 @@ class Toy_bi_modal(data_set_template):
     
     
     def includes_images(self = None):
+        return False 
+    
+    def includes_sceneGraphs(self = None):
         return False
