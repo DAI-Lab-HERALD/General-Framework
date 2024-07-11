@@ -244,8 +244,15 @@ class evaluation_template():
         self.data_set._extract_original_trajectories()
         self.data_set._determine_pred_agents(eval_pov = self.get_output_type() != 'path_all_wo_pov')
 
-        Y_orig = self.data_set.Y_orig[self.Index_curr]
         Pred_agents = self.data_set.Pred_agents_eval[self.Index_curr]
+
+        # Get the required dataset for self.Index_curr
+        data_index, data_index_mask = self.model.get_orig_data_index(self.Index_curr)
+
+        # Initialize Y_orig 
+        Y_orig = np.full((*Pred_agents.shape, *self.data_set.Y_orig.shape[-2:]), np.nan, dtype = np.float32)
+        Y_orig[data_index_mask] = self.data_set.Y_orig[data_index]
+        
         Other_agents = (~Pred_agents) & np.isfinite(Y_orig).all(-1).any(-1) # at least one position must be fully known
 
         num_samples = len(self.Index_curr)

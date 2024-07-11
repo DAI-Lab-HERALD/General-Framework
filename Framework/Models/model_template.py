@@ -1290,14 +1290,13 @@ class model_template():
             graph          = None
 
         # check if epoch is completed, if so, shuffle and reset index
-        Sample_id = self.ID[ind_advance,0,0]
+        Sample_id = Sample_id[:,0]
 
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
-                sample_id = self.ID[ind_advance,0,0]
                 Agent_id = self.ID[ind_advance,:,1]
-                # Sample_id = self.ID[ind_advance,0,0]
-                C = self.data_set.Domain.category.iloc[sample_id]
+                
+                C = self.data_set.Domain.category.iloc[Sample_id]
                 C = pd.DataFrame(C.to_list())
 
                 # Replace missing agents
