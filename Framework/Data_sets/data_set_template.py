@@ -400,6 +400,7 @@ class data_set_template():
                     test_file_tester = self.file_path + '--all_orig_paths'
                     test_file_directory = os.path.dirname(test_file)
                     # Find files in same directory that start with file_path_test
+                    os.makedirs(test_file_directory, exist_ok=True)
                     num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(test_file_tester))])
                     if num_files > 0:
                         raise AttributeError("Incomplete use of self.check_created_paths_for_saving.")
