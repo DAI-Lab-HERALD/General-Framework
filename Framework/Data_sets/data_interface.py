@@ -454,17 +454,16 @@ class data_interface(object):
                     # Find indices of data_set path types in self.Input_data_type
                     type_index = []
                     for type in data_set.path_data_info():
-                        assert type in self.Input_data_type, 'Path data information is not consistent.'
-                        type_index.append(self.Input_data_type.index(type))
+                        assert type in self.Input_data_type[0], 'Path data information is not consistent.'
+                        type_index.append(self.Input_data_type[0].index(type))
                     
                     # Overwrite the input data
-                    for i_sample in range(Input_path_local.shape[0]):
-                        for i_agent in range(Input_path_local.shape[1]):
-                            if isinstance(Input_path_local.iloc[i_sample, i_agent], np.ndarray):
-                                old_path = Input_path_local.iloc[i_sample, i_agent]
-                                new_path = np.full((old_path.shape[0], len(self.Input_data_type[0])), np.nan, dtype = np.float32)
-                                new_path[:, type_index] = old_path
-                                Input_path_local.iloc[i_sample, i_agent] = new_path
+                    useful_samples, useful_agents = np.where(Input_path_local.notna())
+                    Input_path_array = np.stack(Input_path_local.to_numpy()[useful_samples, useful_agents], axis = 0)
+                    Input_path_array_new = np.full((*Input_path_array.shape[:2], len(self.Input_data_type[0])), np.nan, dtype = np.float32)
+                    Input_path_array_new[:, :, type_index] = Input_path_array
+                    
+                    Input_path_local.values[useful_samples, useful_agents] = list(Input_path_array_new)
 
                 self.Input_path       = pd.concat((self.Input_path, Input_path_local))
                 self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)

@@ -639,6 +639,7 @@ class model_template():
             
             # Sort by value
             Agent_id = np.argsort(Value, axis = 1)
+            Sample_id = np.repeat(np.arange(Agent_id.shape[0])[:,np.newaxis], Agent_id.shape[1], 1)
 
             # Apply the sorting to the index
             # Agent_id_inverse = sp.stats.rankdata(Value, axis = 1, method='ordinal').astype(int) - 1
@@ -789,12 +790,10 @@ class model_template():
                 if use_graph:
                     # Get metadata
                     domain_old = self.data_set.Domain
-                    Graph_needed = np.zeros(self.X.shape[:2], bool)
-                    Graph_needed[:,0] = True
 
-                    domain_needed = domain_old.iloc[self.ID[Graph_needed][:,0]]
+                    domain_needed = domain_old.iloc[self.ID[:,0,0]]
                     self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed)
-                    self.graph_needed_sample = np.where(Graph_needed)[0]
+                    self.graph_needed_sample = np.arange(len(self.ID))
                 else:
                     self.graph = None
 
@@ -1120,14 +1119,24 @@ class model_template():
         # Get data needed for selecting batch from available
         Sample_id_advance  = self.ID[Ind_advance[0],0,0]
         File_index_advance = self.data_set.Domain.file_index.iloc[Sample_id_advance].to_numpy() # File index
-        Image_id_advance   = self.data_set.Domain.image_id.iloc[Sample_id_advance].to_numpy() # Image id
         N_O_advance = N_O[Ind_advance[0]]   # Number of timesteps
 
-        # Check for file index and image id
-        Use_candidate = Image_id_advance == Image_id_advance[0]
+
+        Use_candidate = np.ones(len(Ind_advance[0]), bool)
+        if not ignore_map and self.has_map:
+            Image_id_advance = self.data_set.Domain.image_id.iloc[Sample_id_advance].to_numpy() # Image id
+
+            # Check for file index and image id
+            Use_candidate &= Image_id_advance == Image_id_advance[0]
+        
+        if not ignore_graph and self.has_graph:
+            Graph_id_advance = self.data_set.Domain.graph_id.iloc[Sample_id_advance].to_numpy()
+
+            # Check for file index and graph id
+            Use_candidate &= Graph_id_advance == Graph_id_advance[0]
 
         # For large dataset, check for file index as well
-        if self.data_set.data_in_one_piece:
+        if not self.data_set.data_in_one_piece:
             Use_candidate &= File_index_advance == File_index_advance[0]
         
         # Check for predicted agent type
