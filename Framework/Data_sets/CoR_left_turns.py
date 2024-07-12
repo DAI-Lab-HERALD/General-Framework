@@ -46,7 +46,7 @@ class CoR_left_turns(data_set_template):
 
         self.Images = pd.DataFrame(np.zeros((1, 2), object), columns = ['Image', 'Target_MeterPerPx'])
 
-        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'CoR_left_turns' + os.sep + 'Image' + os.sep + 'New_figure_6_px_per_meter.png'
+        image_path = self.path + os.sep + 'Data_sets' + os.sep + 'CoR_left_turns' + os.sep + 'image' + os.sep + 'L-GAP_image_6_px_per_meter.png'
         image = Image.open(image_path)
         rgb_image = image.convert('RGB')
         img = np.array(rgb_image, dtype=np.uint8)
