@@ -265,6 +265,7 @@ To use the following helper functions, the following attributes have to be set i
 - **self.min_t_O_train** (int): This is the number of future timesteps that have to be observed so that a sample can be used for training.
 - **self.max_t_O_train** (int): This is the maximum number of future timesteps to be processed during training. While this will not lead to whole samples being discarded, for samples with more recorded future timesteps than **self.max_t_O_train**, these additional timesteps will not be used for training.
 - **self.predict_single_agent** (bool): This is *True* if the model is unable to make joint predictions and is only able to predict the future trajectory of one agent at a time. For joint prediction models, each scene is then given as a single sample, with a potentially unlimited number of agents, of which [multiple have to be predicted](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#set-the-experiment-hyperparameters) by the model. Meanwhile, for a model making single-agent predictions, each scene is split into multiple samples, wherein each sample has a different agent that has to be predicted, and its surrounding agents are given to the model. The number of surrounding agents is identical to the 'max_num_agents' - 1 given to the [Framework](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#select-modules).
+- **self.can_use_graph** (bool):  This is true if the model is able to process graph based environment data (TODO: link to explanaton of the specifc graph setup used).
 - **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
 - **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
 - **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
@@ -275,12 +276,17 @@ For a given sample, the extracted images are centered around the last observed p
 <img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_fully.svg" alt="Extraction of agent centered images." width="100%">
 
 ```
-  def provide_all_training_trajectories(self):
+  def provide_all_training_trajectories(self, return_categories = False):
     r'''
     This function provides trajectroy data an associated metadata for the training of model
     during prediction and training. It returns the whole training set (including validation set)
     in one go
-  
+
+    Parameters
+    ----------
+    return_categories : bool, optional
+      This indicates if the categories (**C_train**, see below) of the samples should be returned. 
+      The default is *False*.
   
     Returns
     -------
@@ -300,6 +306,8 @@ For a given sample, the extracted images are centered around the last observed p
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
       the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
       If an agent is not observed at all, the value will instead be '0'.
+    C_train : np.ndarray
+      TODO: Say that this is optional
     img_train : np.ndarray
       This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
       It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
@@ -310,6 +318,8 @@ For a given sample, the extracted images are centered around the last observed p
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that
       indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
       np.nan.
+    graph : np.ndarray
+      TODO: This is not optional
     Pred_agents_train : np.ndarray
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
       true if it is expected by the framework that a prediction will be made for the specific agent.
@@ -331,6 +341,12 @@ For a given sample, the extracted images are centered around the last observed p
     
     return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
             Pred_agents_train, Sample_id_train, Agent_id_train]
+    if return_categories:
+      return [X_train, Y_train, T_train, C_train, img_train, img_m_per_px_train, graph_train,
+              Pred_agents_train, Sample_id_train, Agent_id_train]
+    else:
+      return [X_train, Y_train, T_train, img_train, img_m_per_px_train, graph_train,
+              Pred_agents_train, Sample_id_train, Agent_id_train]
 ```
 ```
   def provide_all_included_agent_types(self):
@@ -353,7 +369,7 @@ For a given sample, the extracted images are centered around the last observed p
     return T_all
 ```
 ```
-def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, return_categories = False):
   r'''
   This function provides trajectory data and associated metadata for the training of the model
   during prediction and training.
@@ -368,9 +384,15 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   val_split_size : float, optional
     The part of the overall training set that is set aside for model validation during the
     training process. The default is *0.0*.
-  ignore_map : ignore_map, optional
+  ignore_map : bool, optional
     This indicates if image data is not needed, even if available in the dataset 
     and processable by the model. The default is *False*.
+  ignore_graph : bool, optional
+    This indicates if scene graph data is not needed, even if available in the dataset
+    and processable by the model. The default is *False*.
+  return_categories : bool, optional
+    This indicates if the categories (**C**, see below) of the samples should be returned. 
+    The default is *False*.
   
   Returns
   -------
@@ -390,16 +412,19 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
     the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
     If an agent is not observed at all, the value will instead be '0'.
+  C : np.ndarray
+    TODO: Say that this is optional
   img : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
-    It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
-    (:math:`C = 1`) of the map image with height :math:`H` and width :math:`W`. These images are centered around
-    the agent at its current position and are rotated so that the agent is driving to the right. 
+    It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
+    of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
+    at its current position, and are rotated so that the agent is right now driving to the right. 
     If an agent is not observed at prediction time, 0 values are returned.
   img_m_per_px : np.ndarray
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that
-    indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
-    np.nan.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
+    the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+  graph : np.ndarray
+    TODO: This is not optional
   Pred_agents : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
     true if it is expected by the framework that a prediction will be made for the specific agent.
@@ -424,10 +449,16 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   
   ...
   
-  if mode == 'pred':
-    return X, T, img, img_m_per_px, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+  if return_categories:
+    if mode == 'pred':
+      return X, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+    else:
+      return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
   else:
-    return X, Y, T, img, img_m_per_px, Pred_agents, num_steps, epoch_done
+    if mode == 'pred':
+      return X, T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+    else:
+      return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
 
 ```
 ```
@@ -465,7 +496,7 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
 
 ### Classification models
 ```
-def get_classification_data(self, train = True):
+def get_classification_data(self, train = True, return_categories = False):
   r'''
   This function retuns inputs and outputs for classification models.
 
@@ -473,6 +504,9 @@ def get_classification_data(self, train = True):
   ----------
   train : bool, optional
     This describes whether one wants to generate training or testing data. The default is True.
+  return_categories : bool, optional
+    This indicates if the categories (**C**, see below) of the samples should be returned. 
+    The default is *False*.
 
   Returns
   -------
@@ -487,6 +521,8 @@ def get_classification_data(self, train = True):
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
+  C : np.ndarray
+    TODO: Say that this is optional
   agent_names : list
     This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
     agent.
@@ -516,10 +552,16 @@ def get_classification_data(self, train = True):
   
   ...
   
-  if train:
-    return X, T, agent_names, D, dist_names, class_names, P, DT
+  if return_categories:
+    if train:
+      return X, T, C, agent_names, D, dist_names, class_names, P, DT
+    else:
+      return X, T, C, agent_names, D, dist_names, class_names
   else:
-    return X, T, agent_names, D, dist_names, class_names
+    if train:
+      return X, T, agent_names, D, dist_names, class_names, P, DT
+    else:
+      return X, T, agent_names, D, dist_names, class_names
 ```
 ```
 def save_predicted_classifications(self, class_names, P, DT = None):

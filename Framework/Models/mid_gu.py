@@ -482,7 +482,7 @@ class mid_gu(model_template):
                 batch_number += 1
 
                 print(f"Epoch {epoch} - Batch {batch_number}", flush = True)
-                X, Y, T, img, _, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
+                X, Y, T, img, _, _, _, num_steps, epoch_done = self.provide_batch_data('train', self.hyperparams['batch_size'], 
                                                                                                val_split_size = 0.1)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
@@ -529,7 +529,7 @@ class mid_gu(model_template):
                 i = 0
                 while not eval_done:
 
-                    X, Y, T, img, _, _, num_steps, eval_done = self.provide_batch_data('val', self.hyperparams['batch_size'], 
+                    X, Y, T, img, _, _, _, num_steps, eval_done = self.provide_batch_data('val', self.hyperparams['batch_size'], 
                                                                                         val_split_size = 0.1)
             
                     S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
@@ -620,7 +620,7 @@ class mid_gu(model_template):
         while not prediction_done:
             batch_number += 1
             print('Predict MID: Batch {}'.format(batch_number))
-            X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            X, T, img, _, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
             S, S_St, first_h, Neighbor, Neighbor_edge, center_pos, img, node_type = self.extract_data_batch(X, T, None, img, num_steps)
                 
             # Move img to device

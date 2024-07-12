@@ -334,14 +334,13 @@ class trajflow_meszaros(model_template):
                     batch = 0
                     while not train_epoch_done:
                         batch += 1
-                        X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                        X, Y, T, _, _, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                             val_split_size = 0.1)
                         X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
                         # X.shape:   bs x num_agents x num_timesteps_is x 2
                         # Y.shape:   bs x 1 x num_timesteps_is x 2
                         # T.shape:   bs x num_agents
-                        # img.shape: bs x 1 x 156 x 257 x 1
                         
                         scaler = torch.tensor(scipy.stats.truncnorm.rvs((self.s_min-1)/self.sigma, (self.s_max-1)/self.sigma, 
                                                                         loc=1, scale=self.sigma, size=X.shape[0])).float()
@@ -405,7 +404,7 @@ class trajflow_meszaros(model_template):
                         Num_steps = []
                         samples = 0
                         while not val_epoch_done:
-                            X, Y, T, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                            X, Y, T, _, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                     val_split_size = 0.1)
                             
                             X, T, Y, _ = self.extract_batch_data(X, T, Y)
@@ -516,7 +515,7 @@ class trajflow_meszaros(model_template):
                     else:
                         sample_past_length = self.num_timesteps_in
                         
-                    X, Y, T, img, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                    X, Y, T, img, _, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
@@ -585,7 +584,7 @@ class trajflow_meszaros(model_template):
                 with torch.no_grad():
                     val_epoch_done = False
                     while not val_epoch_done:
-                        X, Y, T, img, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                        X, Y, T, img, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
                         X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                         
@@ -669,7 +668,7 @@ class trajflow_meszaros(model_template):
     def predict_method(self):
         prediction_done = False
         while not prediction_done:
-            X, T, img, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+            X, T, img, _, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
 
             actual_batch_size = len(X)
             Ped_agent = T == 'P'
