@@ -974,11 +974,15 @@ class model_template():
                 C = self.data_set.Domain.category.iloc[Sample_id]
                 C = pd.DataFrame(C.to_list())
 
+                # Add columns missing from self.data_set.Agents
+                C = C.reindex(columns = self.data_set.Agents, fill_value = np.nan)
+
                 # Replace missing agents
                 C = C.fillna(4)
 
                 # Get to numpy and apply indices
                 C_train = C.to_numpy().astype(int)
+                C_train = np.take_along_axis(C_train, self.ID[I_train,:,1], 1)
             else:
                 C_train = None
 
@@ -1128,12 +1132,6 @@ class model_template():
 
             # Check for file index and image id
             Use_candidate &= Image_id_advance == Image_id_advance[0]
-        
-        if not ignore_graph and self.has_graph:
-            Graph_id_advance = self.data_set.Domain.graph_id.iloc[Sample_id_advance].to_numpy()
-
-            # Check for file index and graph id
-            Use_candidate &= Graph_id_advance == Graph_id_advance[0]
 
         # For large dataset, check for file index as well
         if not self.data_set.data_in_one_piece:
@@ -1172,7 +1170,7 @@ class model_template():
         # Sort ind_advance
         ind_advance = np.sort(ind_advance)
         
-        # Update the used samples in this epoch
+        # check if epoch is completed, if so, shuffle and reset index
         epoch_done, Ind_advance = self._update_available_samples(Ind_advance, ind_advance) 
 
         ## Prepare the data to be returned
@@ -1225,10 +1223,10 @@ class model_template():
             Sample_id_used = np.tile(Sample_id_used.argmax(1)[:,np.newaxis], (1, Sample_id.shape[1]))
 
             # Get original indices
-            Data_index, Data_index_mask = self.get_orig_data_index(Sample_id_used, Agent_id)
+            data_index, data_index_mask = self.get_orig_data_index(Sample_id_used, Agent_id)
 
-            X[Data_index_mask] = self.data_set.X_orig[Data_index].astype(np.float32)
-            Y[Data_index_mask] = self.data_set.Y_orig[Data_index, :num_steps].astype(np.float32)
+            X[data_index_mask] = self.data_set.X_orig[data_index].astype(np.float32)
+            Y[data_index_mask] = self.data_set.Y_orig[data_index, :num_steps].astype(np.float32)
 
         # Get the corresponding input_data_type
         input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
@@ -1272,12 +1270,12 @@ class model_template():
 
 
         # Check if graphs need to be extracted
-        if hasattr(self, 'use_batch_extraction') and (not ignore_graph) and self.has_graph:
+        if hasattr(self, 'use_graph_batch_extraction') and (not ignore_graph) and self.has_graph:
 
             Graph_needed = np.zeros(X.shape[:2], bool)
             Graph_needed[:,0] = True
 
-            if self.use_batch_extraction:
+            if self.use_graph_batch_extraction:
                 domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Graph_needed]]
                 graph_needed, unsuccesful = self.extract_sceneGraphs(domain_needed)
                 if unsuccesful:
@@ -1298,23 +1296,24 @@ class model_template():
         else:
             graph          = None
 
-        # check if epoch is completed, if so, shuffle and reset index
         Sample_id = self.ID[ind_advance,0,0]
 
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
-                sample_id = self.ID[ind_advance,0,0]
                 Agent_id = self.ID[ind_advance,:,1]
                 # Sample_id = self.ID[ind_advance,0,0]
-                C = self.data_set.Domain.category.iloc[sample_id]
+                C = self.data_set.Domain.category.iloc[Sample_id]
                 C = pd.DataFrame(C.to_list())
+
+                # Adjust columns to match self.data_set.Agents
+                C = C.reindex(columns = self.data_set.Agents, fill_value = np.nan)
 
                 # Replace missing agents
                 C = C.fillna(4)
 
                 # Get to numpy and apply indices
                 C = C.to_numpy().astype(int)
-                C = C[:, Agent_id]
+                C = np.take_along_axis(C, Agent_id, 1)
 
             else:
                 C = None
@@ -1490,6 +1489,9 @@ class model_template():
             if 'category' in self.data_set.Domain.columns:
                 C = self.data_set.Domain.category.iloc[Index]
                 C = pd.DataFrame(C.to_list())
+
+                # Add columns missing from self.data_set.Agents
+                C = C.reindex(columns = self.data_set.Agents, fill_value = np.nan)
 
                 # Replace missing agents
                 C = C.fillna(4)
@@ -1691,6 +1693,9 @@ class model_template():
             # Sample_id = self.ID[ind_advance,0,0]
             C = self.data_set.Domain.category
             C = pd.DataFrame(C.to_list())
+
+            # Add columns missing from self.data_set.Agents
+            C = C.reindex(columns = self.data_set.Agents, fill_value = np.nan)
 
             # Replace missing agents
             C = C.fillna(4)
