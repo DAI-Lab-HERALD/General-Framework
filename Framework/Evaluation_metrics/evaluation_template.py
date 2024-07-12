@@ -21,7 +21,7 @@ class evaluation_template():
             self.metric_override = self.data_set.overwrite_results in ['model', 'prediction', 'metric']
             
             if self.requires_preprocessing():
-                test_file = self.data_set.change_result_directory(splitter.split_filse,
+                test_file = self.data_set.change_result_directory(splitter.split_file,
                                                                   'Metrics', self.get_name()['file'] + '_weights')
                 if os.path.isfile(test_file):
                     self.weights_saved = list(np.load(test_file, allow_pickle = True)[:-1])  
@@ -657,7 +657,7 @@ class evaluation_template():
 
         # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
         Sign_test = np.sign(Differences_test)
-        Sign_equal = np.all(Sign_test[...,[0],:] == Sign_test) # Shape (..., N_O - 1, 4, 16, 11)
+        Sign_equal = Sign_test[...,[0],:] == Sign_test # Shape (..., N_O - 1, 4, 16, 11)
         Sign_equal = Sign_equal.all(-2) # Shape (..., N_O - 1, 4, 11)
 
         # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs

@@ -75,6 +75,7 @@ class model_template():
                     self.pred_file  = data_set.change_result_directory(self.model_file,
                                                                        'Predictions', pred_string)
                     
+                    self.model_file_metric = self.model_file + ''
                     if '_pert=' in self.model_file:
                         pert_split = self.model_file.split('_pert=')
                         self.model_file = pert_split[0] + '_pert=' + pert_split[1][0] + pert_split[1][2:]
@@ -162,6 +163,8 @@ class model_template():
         if Index is not None:
             self.Index_test = Index
 
+        self.model_mode = 'pred'
+
         # apply model to test samples
         if self.get_output_type()[:4] == 'path':
             self.create_empty_output_path()
@@ -236,7 +239,7 @@ class model_template():
                 continue
 
             # Get metric save file
-            metric_file = metric.data_set.change_result_directory(self.model_file, 'Metrics', metric.get_name()['file'])
+            metric_file = metric.data_set.change_result_directory(self.model_file_metric, 'Metrics', metric.get_name()['file'])
 
             if os.path.isfile(metric_file) and not metric.metric_override:
                 # Load results to check if the train set is allready evaluated
@@ -254,19 +257,56 @@ class model_template():
                 Metric_test_list.append(metric)
 
         Metric_dict = {'Train': Metric_train_list, 'Test': Metric_test_list}
+        Result_dict = {'Train': {}, 'Test': {}}
 
         # Go through needed metrics and sort by metric type
-        for mode, Metric_list in Metric_dict.item():
+        for mode, Metric_list in Metric_dict.items():
             Metric_type_dict = {}
+            Result_mode_dict = {}
             for metric in Metric_list:
                 metric_type = metric.get_output_type()
                 if metric_type not in Metric_type_dict.keys():
                     Metric_type_dict[metric_type] = []
                 Metric_type_dict[metric_type].append(metric)
+                Result_mode_dict[metric] = {'Value': [], 'Weight': []}
             
             Metric_dict[mode] = Metric_type_dict
+            Result_dict[mode] = Result_mode_dict
         
-        return Metric_dict, identical_test_set
+        return Metric_dict, Result_dict, identical_test_set
+    
+    def save_metric_results(self, Result_dict, identical_test_set = False):
+        for mode, Result_mode_dict in Result_dict.items():
+            for metric, Result in Result_mode_dict.items():
+                metric_file = metric.data_set.change_result_directory(self.model_file_metric, 'Metrics', metric.get_name()['file'])
+                
+                if os.path.isfile(metric_file) and not metric.metric_override:
+                    Results = list(np.load(metric_file, allow_pickle = True)[:-1])
+                else:
+                    Results = [None, None]
+
+
+                values  = np.array(Result['Value'])
+                weights = np.array(Result['Weight'])    
+
+                # Get average value
+                result = np.average(values, weights = weights)
+
+                # Overwrite Results
+                if not identical_test_set:
+                    if mode == 'Train':
+                        result_index = 0
+                    else:
+                        result_index = 1
+                    Results[result_index] = result
+                else:
+                    Results = [result, result]
+
+                # Save results
+                save_data = np.array(Results + [0], object) # 0 is there to avoid some numpy load and save errros
+                os.makedirs(os.path.dirname(metric_file), exist_ok=True)
+                np.save(metric_file, save_data)
+
 
 
     def get_index_df(self, Index_all):
@@ -275,16 +315,17 @@ class model_template():
         if self.data_set.data_in_one_piece:
             # get the curent train/test index
             num_samples_file = len(self.data_set.Domain)
-            useful = np.in1d(np.arange(num_samples_file), Index_all)
-            Index_file = np.where(useful)[0]
+            Index_file = Index_all
 
             # Get the N_data from the current file
             data_type_index = np.unique(self.data_set.Domain.iloc[Index_file].data_type_index)
             assert len(data_type_index) == 1, 'There should only be one data type index per file.'
+
+            num_input_data = len(self.data_set.Input_data_type[data_type_index[0]])
             
             # Predict the number of origdata size needed for output
             parts_needed_rel = ((2 * self.num_timesteps_out * self.num_samples_path_pred) / 
-                                (2 * self.num_timesteps_out + self.num_timesteps_in * len(data_type_index[0])))
+                                (2 * self.num_timesteps_out + self.num_timesteps_in * num_input_data))
             
             parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
 
@@ -295,7 +336,7 @@ class model_template():
                 Index = Index_file[i_part * Index_length : min((i_part + 1) * Index_length, len(Index_file))]
 
                 Index_series = pd.Series({'Index': Index, 'file_index': 0})
-                Index_df = Index_df.append(Index_series, ignore_index = True)
+                Index_df.loc[len(Index_df)] = Index_series
 
         else:
             # Go through all the files corresponding to Index_all
@@ -314,9 +355,11 @@ class model_template():
                 data_type_index = np.unique(self.data_set.Domain.iloc[Index_file].data_type_index)
                 assert len(data_type_index) == 1, 'There should only be one data type index per file.'
                 
+                num_input_data = len(self.data_set.Input_data_type[data_type_index[0]])
+                
                 # Predict the number of origdata size needed for output
                 parts_needed_rel = ((2 * self.num_timesteps_out * self.num_samples_path_pred) / 
-                                    (2 * self.num_timesteps_out + self.num_timesteps_in * len(data_type_index[0])))
+                                    (2 * self.num_timesteps_out + self.num_timesteps_in * num_input_data))
                 
                 parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
 
@@ -337,26 +380,22 @@ class model_template():
         assert self.data_set is not None, 'This model instance is only for loading results.'
 
         # Preselct the metrics based on their existence and other requirements
-        Metric_dict, identical_test_set = self.Sort_Metrics(Metric_name_list, print_status_function)
+        Metric_dict, Result_dict, identical_test_set = self.Sort_Metrics(Metric_name_list, print_status_function)
 
         # Get the type of prediction in this output
         model_type = self.get_output_type()
 
         # Go through needed metrics and sort by metric type
-        for mode, Metric_type_dict in Metric_dict.item():
+        for mode, Metric_type_dict in Metric_dict.items():
             if mode == 'Train':
-                Index_all = metric.splitter.Train_index
-                result_index = 0
+                Index_all = self.splitter.Train_index
             else:
-                Index_all = metric.splitter.Test_index
-                result_index = 1
-
+                Index_all = self.splitter.Test_index
+            
+            if len(Metric_type_dict) == 0:
+                continue
             # Get the index dataframe
             Index_df = self.get_index_df(Index_all)
-
-            # Get the memory saving mode of the metrics
-
-            # TODO: Metrics that cannot be split require that len(Index_df) == 1
             
             for i_index in range(len(Index_df)):
                 Index = Index_df.iloc[i_index].Index
@@ -374,7 +413,10 @@ class model_template():
                 for metric_type, Metric_list in Metric_type_dict.items():
                         
                     # Allow for possible transformation of prediction
-                    Output_pred_trans = self.data_set.transform_outputs(output, model_type, metric_type, self.pred_file)
+                    output_trans = self.data_set.transform_outputs(output, model_type, metric_type)
+
+                    # Check if index worked
+                    assert (Index == output_trans[0]).all(), 'Wrong samples were predicted.'
                 
 
                     # TODO:
@@ -383,33 +425,25 @@ class model_template():
                     # TODO:
                     # Potentially, allow for the saving of the KDE models 
 
-                    # TODO:
-                    # Adjust the collection of the output metric accordingly
-
                     for metric in Metric_list:
-                        # Get the metric file name
-                        metric_file = metric.data_set.change_result_directory(self.model_file, 'Metrics', metric.get_name()['file'])
-
-                        if os.path.isfile(metric_file) and not metric.metric_override:
-                            Results = list(np.load(metric_file, allow_pickle = True)[:-1])
-                        else:
-                            Results = [None, None]
-
                         # Evaluate metric
-                        results = metric._evaluate_on_subset(Output_pred_trans, Index)
+                        result = metric._evaluate_on_subset(output_trans, Index)
 
-                        # Overwrite Results
-                        if not identical_test_set:
-                            Results[result_index] = results
+                        # Get weights
+                        metric_combination = metric.partial_calculation()
+                        if metric_combination == 'Sample':
+                            weight = len(Index)
+                        elif metric_combination == 'Pred_agents':
+                            weight = self.data_set.Pred_agents_eval[Index].sum()
                         else:
-                            Results = [results, results]
-
-                        # Save results
-                        save_data = np.array(Results + [0], object) # 0 is there to avoid some numpy load and save errros
-                        os.makedirs(os.path.dirname(metric_file), exist_ok=True)
-                        np.save(metric_file, save_data)
+                            weight = 1
+                            assert len(Index_df) == 1, 'Partial evaluation is not possible for metric ' + metric.get_name()['print'] + '.'
 
 
+                        Result_dict[mode][metric]['Value'].append(result[0])
+                        Result_dict[mode][metric]['Weight'].append(weight)
+
+        self.save_metric_results(Result_dict, identical_test_set)
 
     #################################################################################################
     #################################################################################################
@@ -527,8 +561,13 @@ class model_template():
             mask[index_inverse[used_samples], used_agents] = True
 
             # Get the original data index
-            result = result[Sample_ind_inverse]
-            mask   = mask[Sample_ind_inverse]
+            # Transform result to array
+            result_array = np.full(mask.shape, -1, int)
+            result_array[mask] = result
+
+            result_array = result_array[Sample_ind_inverse]
+            mask         = mask[Sample_ind_inverse]
+            result = result_array[mask]
 
         else:
             assert Sample_ind.shape == Agent_ind.shape, 'Sample and Agent index should have the same shape.'
@@ -1137,20 +1176,24 @@ class model_template():
         
         # Get data needed for selecting batch from available
         Sample_id_advance  = self.ID[Ind_advance[0],0,0]
-        File_index_advance = self.data_set.Domain.file_index.iloc[Sample_id_advance].to_numpy() # File index
         N_O_advance = N_O[Ind_advance[0]]   # Number of timesteps
 
 
         Use_candidate = np.ones(len(Ind_advance[0]), bool)
         if not ignore_map and self.has_map:
-            Image_id_advance = self.data_set.Domain.image_id.iloc[Sample_id_advance].to_numpy() # Image id
-
             # Check for file index and image id
+            Image_id_advance = self.data_set.Domain.image_id.iloc[Sample_id_advance].to_numpy() # Image id
             Use_candidate &= Image_id_advance == Image_id_advance[0]
 
         # For large dataset, check for file index as well
         if not self.data_set.data_in_one_piece:
+            File_index_advance = self.data_set.Domain.file_index.iloc[Sample_id_advance].to_numpy() # File index
             Use_candidate &= File_index_advance == File_index_advance[0]
+        else:
+            # sort by dataset
+            Scenario_advance = self.data_set.Domain.Scenario.iloc[Sample_id_advance].to_numpy() # Scenario
+            Use_candidate &= Scenario_advance == Scenario_advance[0]
+
         
         # Check for predicted agent type
         if self.predict_single_agent:
@@ -1243,11 +1286,6 @@ class model_template():
             X[data_index_mask] = self.data_set.X_orig[data_index].astype(np.float32)
             Y[data_index_mask] = self.data_set.Y_orig[data_index, :num_steps].astype(np.float32)
 
-        # Get the corresponding input_data_type
-        input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
-        assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
-        self.input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
-
         # Check if images need to be extracted
         if hasattr(self, 'use_batch_extraction') and (not ignore_map):
             if self.predict_single_agent:
@@ -1299,21 +1337,48 @@ class model_template():
                 # Find at which places in self.graph_needed_sample one can find ind_advance
                 use_graphs = np.in1d(self.graph_needed_sample, ind_advance)
 
-                graph_needed          = self.graph[use_graphs]
+                graph_needed = self.graph[use_graphs]
 
             Graph_needed = Graph_needed[:,:1]
             
             # Transfrom graph needed back according to Graph_needed into required format
-            graph          = np.full((Graph_needed.shape), np.nan, dtype=object)
+            graph = np.full((Graph_needed.shape), np.nan, dtype=object)
 
-            graph[Graph_needed]          = graph_needed
+            graph[Graph_needed] = graph_needed
 
         else:
-            graph          = None
+            graph = None
 
-        # check if epoch is completed, if so, shuffle and reset index
+
+        # Get the corresponding input_data_type
+        input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
+        assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
+        input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
+
+        # Transfrom this back into the corresponding dataset
+        current_dataset_name = self.data_set.Domain.Scenario.iloc[Sample_id[:,0]].iloc[0]
+        if ' (Pertubation_' in current_dataset_name:
+            current_dataset_name = current_dataset_name.split(' (Pertubation_')[0]
+
+        # Circle through potential datasets
+        done = False
+        for data_set in self.data_set.Datasets.values():
+            data_set_name = data_set.get_name()['print']
+            if data_set_name == current_dataset_name:
+                done = True
+                self.input_data_type = data_set.path_data_info()
+                break
+
+        assert done, 'Dataset not found. This should not have happened.'
+        
+        index_data_type = np.array(self.input_data_type)[:,np.newaxis] == np.array(input_data_type)[np.newaxis,:]
+        assert index_data_type.sum(1).all(), 'The input data type should be found in combined input data types.'
+        index_data_type = index_data_type.argmax(1)
+
+        # Adjust X to the input data type
+        X = X[..., index_data_type]
+
         Sample_id = Sample_id[:,0]
-
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
                 Agent_id = self.ID[ind_advance,:,1]
@@ -1647,8 +1712,8 @@ class model_template():
         Nto_i = np.minimum(nto_max, self.data_set.N_O_data_orig[Pred_index])
 
         # Get pred agents
-        max_num_pred_agents = self.data_set.Pred_agents_eval.sum(1).max()
         Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
+        max_num_pred_agents = Pred_agents.sum(1).max()
         
         
         i_agent_sort = np.argsort(-Pred_agents.astype(float))
@@ -1656,12 +1721,9 @@ class model_template():
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
         # Get true predictions
-        data_index, data_mask = self.get_orig_data_index(Pred_index)
-        self.Path_true = np.full((*Pred_agents.shape, *self.data_set.Y_orig.shape[-2:]), np.nan, np.float32)
-        self.Path_true[data_mask] = self.data_set.Y_orig[data_index]
-
-        # Apply sorting index
-        self.Path_true = self.Path_true[i_sampl_sort, i_agent_sort, :nto_max]
+        self.Path_true = np.full((*i_sampl_sort.shape, nto_max, self.data_set.Y_orig.shape[-1]), np.nan, np.float32)
+        data_index, data_mask = self.get_orig_data_index(Pred_index[i_sampl_sort], i_agent_sort)
+        self.Path_true[data_mask] = self.data_set.Y_orig[data_index, :nto_max]
 
         # Get predicted timesteps
         self.Pred_step = Nto_i[:,np.newaxis] > np.arange(nto_max)[np.newaxis]
@@ -1683,8 +1745,8 @@ class model_template():
             if len(pred_agents) == 0:
                 continue
 
-            pred_agents_id = i_agent_sort[i, pred_agents]
-            path_pred_orig = Output_path_pred.iloc[i, pred_agents_id]
+            pred_agents_id = np.array(self.data_set.Agents)[i_agent_sort[i, pred_agents]]
+            path_pred_orig = Output_path_pred.loc[Pred_index[i], pred_agents_id]
             path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
         
             nto_i = min(Nto_i[i], path_pred.shape[2])

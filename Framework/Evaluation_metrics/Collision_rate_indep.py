@@ -13,7 +13,7 @@ class Collision_rate_indep(evaluation_template):
      
     def evaluate_prediction_method(self):
         Path_true, Path_pred, Pred_steps, Type_pred = self.get_true_and_predicted_paths(return_types = True)
-        Path_other, Type_other = self.get_other_agents_paths()
+        Path_other, Type_other = self.get_other_agents_paths(return_types = True)
 
         num_pred_agents = Path_true.shape[2]
         # Information
@@ -44,7 +44,7 @@ class Collision_rate_indep(evaluation_template):
         Path_pred_other = Path_pred_other[Idx_sample, Idx_agents] # Shape: (N, num_pred_agents - 1, n_O, 2)
         Type_pred_other = Type_pred[pred_sample][Idx_sample, Idx_agents] # Shape: (N, num_pred_agents - 1)
 
-        Path_other = Path_other.squeeze(1)[pred_sample] # Shape: (N, num_other_agents, n_O, 2)
+        Path_other = Path_other.squeeze(1)[pred_sample, :, :Path_pred_other.shape[-2]] # Shape: (N, num_other_agents, n_O, 2)
         Type_other = Type_other[pred_agent] # Shape: (N, num_other_agents)
 
         # Concatenate the ground truth of other agents

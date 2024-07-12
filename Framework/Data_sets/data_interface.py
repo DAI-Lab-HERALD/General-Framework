@@ -429,6 +429,9 @@ class data_interface(object):
             self.Files += data_set_files
             assert len(self.Files) == (max(Domain_local['file_index']) + 1), 'File index is not correctly assigned.'
 
+            # Add the old index of the local domain
+            Domain_local['Index_intern'] = np.arange(len(Domain_local))
+
             # Adjust the file Index
             self.Domain = pd.concat((self.Domain, Domain_local))
             
@@ -611,73 +614,95 @@ class data_interface(object):
     
     
     
-    def transform_outputs(self, output, model_pred_type, metric_pred_type, pred_save_file):
+    def transform_outputs(self, output, model_pred_type, metric_pred_type):
+        if model_pred_type == metric_pred_type:
+            return output
+
         if not self.data_loaded:
             raise AttributeError("Input and Output data has not yet been specified.")
-            
+        
+        # Check if this can be handled for a single dataset
         if self.single_dataset:
             data_set = list(self.Datasets.values())[0]
-            output_trans_all = data_set.transform_outputs(output, model_pred_type, metric_pred_type, pred_save_file)
+            output_trans_all = data_set.transform_outputs(output, model_pred_type, metric_pred_type)
             
         else:
             # Set up empty splitting parts
-            output_trans = []
-            Uses = []
+            output_trans = {}
+            output_index_rel = {}
             
             # Get parts of output
             output_data  = output[1:]
             output_index = output[0]
+
+            output_data_set_name = self.Domain['Scenario'].iloc[output_index]
             
             # Go through part datasets
             for i, data_set in enumerate(self.Datasets.values()):
                 # Get predictions from this dataset
-                use = self.Domain['Scenario'].iloc[output_index] == data_set.get_name()['print']
-                use = np.where(use.to_numpy())[0]
-                Uses.append(use)
+                use = output_data_set_name == data_set.get_name()['print']
+
+                if not use.any():
+                    continue
                 
+                # Get the relative position of the index
+                use = np.where(use.to_numpy())[0]
+                output_index_rel[data_set] = use
+
+                # Get the index of the current samples in the data_set internal indexing
+                output_index_dataset = np.array(self.Domain.Index_intern.iloc[output_index[use]])
+
                 # Get output_data for the specific dataset
-                output_d_data = []
+                output_data_dataset = []
                 for out in output_data:
                     assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
                     out_data = out.iloc[use]
                     # check if this is a class thing
                     if np.in1d(np.array(out_data.columns), self.Behaviors).all():
                         out_data = out_data[data_set.Behaviors]
+
+                    # Apply output_index_dataset as index to out_data
+                    out_data.index = pd.Index(output_index_dataset)
                 
-                    output_d_data.append(out_data)
-                # Get output_d_index
-                dataset_index = np.where((self.Domain['Scenario'] == data_set.get_name()['print']).to_numpy())[0]
-                if np.all(dataset_index == output_index[use]):
-                    output_d_index = np.arange(len(dataset_index))
-                else:
-                    match = dataset_index[np.newaxis] == output_index[use, np.newaxis]
-                    assert np.all(match.sum(axis = 1) == 1)
-                    output_d_index = match.argmax(axis = 1)
-                
+                    output_data_dataset.append(out_data)
+
                 # assemble output for dataset
-                output_d = [output_d_index] + output_d_data            
-                
-                ds_save_file = pred_save_file.replace(os.sep + self.get_name()['file'], os.sep + data_set.get_name()['file'])
-                output_trans.append(data_set.transform_outputs(output_d, model_pred_type, metric_pred_type, ds_save_file))
+                output_dataset = [output_index_dataset] + output_data_dataset            
+
+                # Get transfromed outputs for the datasset
+                output_trans_dataset = data_set.transform_outputs(output_dataset, model_pred_type, metric_pred_type)
+                output_trans[data_set] = output_trans_dataset
             
-            output_trans_all = [output_index]
-            # Go through all parts of the transformed prediction
-            for j in range(1, len(output_trans[0])):
-                assert isinstance(output_trans[0][j], pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-                # Collect columns
-                columns = []
-                for out in output_trans:
-                    columns.append(out[j].columns)
-                columns = np.unique(np.concatenate(columns))
-                
-                array_type = output_trans[0][j].to_numpy().dtype
-                
-                output_trans_all.append(pd.DataFrame(np.zeros((len(output_index), len(columns)), array_type),
-                                                     columns = list(columns), index = output_index))
-                
-                for i, out in enumerate(output_trans):
-                    c_index = (out[j].columns.to_numpy()[:,np.newaxis] == columns[np.newaxis]).argmax(axis = - 1)
-                    output_trans_all[j].iloc[Uses[i], c_index] = out[j]
+            ## Reassemble the output
+            example_output = list(output_trans.values())[0]
+            if len(output_trans) == 1:
+                output_trans_all = example_output
+            else:
+                output_trans_all = [output_index]
+
+                # Go through all parts of the transformed prediction
+                for j in range(1, len(example_output)):
+                    output_trans_j = []
+                    for data_set in output_trans.keys():
+                        output_trans_dataset_j = output_trans[data_set][j]
+                        use = output_index_rel[data_set]
+
+                        # set index of output_trans_dataset_j to be use
+                        assert isinstance(output_trans_dataset_j, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                        output_trans_dataset_j.index = pd.Index(use)
+
+                        output_trans_j.append(output_trans_dataset_j)
+                    
+                    # Combine the output
+                    output_trans_j = pd.concat(output_trans_j)
+
+                    # Sort the dataframe by the index
+                    output_trans_j = output_trans_j.sort_index()
+
+                    # Overwrite the index with original index
+                    output_trans_j.index = output_data[0].index
+
+                    output_trans_all.append(output_trans_j)
                 
         return output_trans_all
         
@@ -771,9 +796,6 @@ class data_interface(object):
         # Transform paths into numpy
         self.X_orig = np.ones([len(self.Used_samples), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
         self.Y_orig = np.ones([len(self.Used_samples), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
-        
-        # Get the current data_type
-        self.input_type_orig = input_path_type
 
         # Extract data from original number a samples
         for i in range(len(self.Used_samples)):

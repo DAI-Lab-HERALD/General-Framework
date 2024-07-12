@@ -688,8 +688,6 @@ class trajectron_salzmann_old(model_template):
             ii = 0
             for i, weights in enumerate(self.weights_saved):
                 weights_torch = torch.from_numpy(weights)
-                assert False
-                # TODO: Check if the shape is the same
                 if Weights[ii].shape == weights_torch.shape:
                     Weights[ii][:] = weights_torch[:]
                     ii += 1

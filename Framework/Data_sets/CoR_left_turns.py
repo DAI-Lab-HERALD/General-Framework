@@ -246,4 +246,7 @@ class CoR_left_turns(data_set_template):
     
     def includes_images(self = None):
         return True
+    
+    def includes_sceneGraphs(self = None):
+        return False
 

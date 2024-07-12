@@ -543,10 +543,10 @@ class Experiment():
                                     if return_train_results:
                                         train_results = metric_result[0]
                                         if train_results is not None:
-                                            self.Train_results[i,j,k,l,m] = train_results[0]
+                                            self.Train_results[i,j,k,l,m] = train_results
                                     
                                     test_results = metric_result[1]    
-                                    self.Results[i,j,k,l,m] = test_results[0]
+                                    self.Results[i,j,k,l,m] = test_results
 
                                     
                                     if create_plot:
@@ -566,9 +566,15 @@ class Experiment():
                                 
                             if m == 0 and return_train_loss:
                                 if model.provides_epoch_loss():
+                                    # Adjust splitter_str
+                                    splitter_str_new = splitter_str + ''
+                                    if '_pert=' in splitter_str_new:
+                                        pert_split = splitter_str_new.split('_pert=')
+                                        splitter_str_new = pert_split[0] + '_pert=' + pert_split[1][0] + pert_split[1][2:]
+
                                     train_loss_file_name = (data_set.data_file[:-4] + '--' + 
                                                             # Add splitting method
-                                                            splitter_str + '--' +  
+                                                            splitter_str_new + '--' +  
                                                             # Add model name
                                                             model.get_name()['file']  + '--train_loss.npy')
                                     
