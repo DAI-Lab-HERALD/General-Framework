@@ -1096,8 +1096,9 @@ class model_template():
             :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
             values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
             *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-            the position data (*self.input_data_type = ['x', 'y', ...]*).  
-            If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
+            the position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
+            will always correspond to the output of the *path_data_info()* of the data_set from which this batch data
+            was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
         Y : np.ndarray, optional
             This is the future observed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
