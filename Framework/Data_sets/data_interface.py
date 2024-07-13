@@ -955,7 +955,7 @@ class data_interface(object):
                 # Check if everything needed is there
                 Pred_agents_sparse = self.Pred_agents_pred_all[self.Used_samples, self.Used_agents]
                 assert not np.isnan(self.X_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
-                assert not np.isnan(self.Y_orig[Pred_agents_sparse]).all((1,2)).any(), 'A needed agent is not given.'
+                assert not np.isnan(self.Y_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
             
             else:
                 # Go through all file indicies
@@ -968,7 +968,7 @@ class data_interface(object):
                     # Check if everything needed is there
                     Pred_agents_sparse = self.Pred_agents_pred_all[used_parts][self.Used_samples, self.Used_agents]
                     assert not np.isnan(self.X_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
-                    assert not np.isnan(self.Y_orig[Pred_agents_sparse]).all((1,2)).any(), 'A needed agent is not given.'
+                    assert not np.isnan(self.Y_orig[Pred_agents_sparse][...,:2]).all((1,2)).any(), 'A needed agent is not given.'
             
             self._checked_pred_agents = True
             

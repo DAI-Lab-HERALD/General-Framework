@@ -1352,24 +1352,7 @@ class model_template():
         # Get the corresponding input_data_type
         input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
         assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
-        input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
-
-        # Transfrom this back into the corresponding dataset
-        current_dataset_name = self.data_set.Domain.Scenario.iloc[Sample_id[:,0]].iloc[0]
-        if ' (Pertubation_' in current_dataset_name:
-            current_dataset_name = current_dataset_name.split(' (Pertubation_')[0]
-
-        # Circle through potential datasets
-        done = False
-        for data_set in self.data_set.Datasets.values():
-            data_set_name = data_set.get_name()['print']
-            if data_set_name == current_dataset_name:
-                done = True
-                self.input_data_type = data_set.path_data_info()
-                break
-
-        assert done, 'Dataset not found. This should not have happened.'
-        assert np.array_equal(np.array(self.input_data_type), np.array(input_data_type)), 'The input data type should be the same as in the dataset.'
+        self.input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
 
         Sample_id = Sample_id[:,0]
         if return_categories:
