@@ -314,16 +314,9 @@ class model_template():
             # get the curent train/test index
             num_samples_file = len(self.data_set.Domain)
             Index_file = Index_all
-
-            # Get the N_data from the current file
-            data_type_index = np.unique(self.data_set.Domain.iloc[Index_file].data_type_index)
-            assert len(data_type_index) == 1, 'There should only be one data type index per file.'
-
-            num_input_data = len(self.data_set.Input_data_type[data_type_index[0]])
             
             # Predict the number of origdata size needed for output
-            parts_needed_rel = ((2 * self.num_timesteps_out * self.num_samples_path_pred) / 
-                                (2 * self.num_timesteps_out + self.num_timesteps_in * num_input_data))
+            parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
             
             parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
 
@@ -348,16 +341,9 @@ class model_template():
                 # get the curent train/test index
                 useful &= np.in1d(np.arange(len(self.data_set.Domain)), Index_all)
                 Index_file = np.where(useful)[0]
-
-                # Get the N_data from the current file
-                data_type_index = np.unique(self.data_set.Domain.iloc[Index_file].data_type_index)
-                assert len(data_type_index) == 1, 'There should only be one data type index per file.'
-                
-                num_input_data = len(self.data_set.Input_data_type[data_type_index[0]])
                 
                 # Predict the number of origdata size needed for output
-                parts_needed_rel = ((2 * self.num_timesteps_out * self.num_samples_path_pred) / 
-                                    (2 * self.num_timesteps_out + self.num_timesteps_in * num_input_data))
+                parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
                 
                 parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
 
