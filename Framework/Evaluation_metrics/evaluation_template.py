@@ -519,7 +519,7 @@ class evaluation_template():
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_other_agents))
 
         # Load the required data
-        Path_other = np.full((*i_sampl_sort.shape, *self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
+        Path_other = np.full((*i_sampl_sort.shape, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
         data_index, data_index_mask = self.model.get_orig_data_index(Index_curr_data[i_sampl_sort], i_agent_sort)
         Path_other[data_index_mask] = self.data_set.Y_orig[data_index, ..., :2]
         
