@@ -45,8 +45,6 @@ class model_template():
             self.agents_to_predict = data_set.agents_to_predict
             self.general_input_available = self.data_set.general_input_available
             
-            self.input_names_train = np.array(data_set.Agents)
-            
             self.t_e_quantile = self.data_set.p_quantile
                 
             
@@ -904,7 +902,7 @@ class model_template():
             If an agent is fully or or some timesteps partially not observed, then this can include np.nan values.
         Y : np.ndarray, optional
             This is the future observed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times N_{data}\}` dimensional numpy array with float values. 
             If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
             This value is not returned for **mode** = *'pred'*.
         T : np.ndarray
@@ -1004,7 +1002,7 @@ class model_template():
             graph_train[Graph_needed] = graph_needed
         
         Sample_id_train = self.ID[I_train,0,0]
-        Agents = np.array(self.input_names_train)
+        Agents = np.array(self.data_set.Agents)
         Agent_id_train = Agents[self.ID[I_train,:,1]]
         
         # get input data type
@@ -1101,7 +1099,7 @@ class model_template():
             was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
         Y : np.ndarray, optional
             This is the future observed data of the agents, in the form of a
-            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            :math:`\{N_{samples} \times N_{agents} \times N_{O} \times N_{data}\}` dimensional numpy array with float values. 
             If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
             This value is not returned for **mode** = *'pred'*.
         T : np.ndarray
@@ -1279,7 +1277,7 @@ class model_template():
             Sample_id_used = Sample_id[:,[0]] == used_index[np.newaxis, :]
 
             assert (Sample_id_used.sum(1) == 1).all(), "Something went wrong with finding samples"
-            Sample_id_used = np.tile(Sample_id_used.argmax(1)[:,np.newaxis], (1, Sample_id.shape[1]))
+            Sample_id_used = np.tile(Sample_id_used.argmax(1, keepdims = True), (1, Sample_id.shape[1]))
 
             # Get original indices
             data_index, data_index_mask = self.get_orig_data_index(Sample_id_used, Agent_id)
@@ -1371,13 +1369,7 @@ class model_template():
                 break
 
         assert done, 'Dataset not found. This should not have happened.'
-        
-        index_data_type = np.array(self.input_data_type)[:,np.newaxis] == np.array(input_data_type)[np.newaxis,:]
-        assert index_data_type.sum(1).all(), 'The input data type should be found in combined input data types.'
-        index_data_type = index_data_type.argmax(1)
-
-        # Adjust X to the input data type
-        X = X[..., index_data_type]
+        assert np.array_equal(np.array(self.input_data_type), np.array(input_data_type)), 'The input data type should be the same as in the dataset.'
 
         Sample_id = Sample_id[:,0]
         if return_categories:
@@ -1399,15 +1391,13 @@ class model_template():
             else:
                 C = None
             if mode == 'pred':
-                Agents = np.array(self.input_names_train)
-                Agent_id = Agents[self.ID[ind_advance,:,1]]
+                Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
         else:
             if mode == 'pred':
-                Agents = np.array(self.input_names_train)
-                Agent_id = Agents[self.ID[ind_advance,:,1]]
+                Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
@@ -1457,14 +1447,20 @@ class model_template():
         
         assert Sample_id.shape == Agent_id.shape[:1]
         assert Pred.shape[2] == self.num_samples_path_pred
-        assert Pred.shape[4] == 2
+        assert Pred.shape[4] >= 2
+        # Only use position
+        Pred = Pred[..., :2]
         
+        # Get agent string names
+        Agents = np.array(self.data_set.Agents)
+
         for i, i_sample in enumerate(Sample_id):
-            for j, agent in enumerate(Agent_id[i]):
+            for j, agent_id in enumerate(Agent_id[i]):
                 if not Pred_agents[i,j]:
                     continue
-                self.Output_path_pred.loc[i_sample][agent] = None
-                self.Output_path_pred.loc[i_sample][agent] = Pred[i, j,:, :, :].astype('float32')
+                agent = Agents[agent_id]
+                self.Output_path_pred.loc[i_sample, agent] = None
+                self.Output_path_pred.loc[i_sample, agent] = Pred[i, j,:, :, :].astype('float32')
     
     
     def get_classification_data(self, train = True, return_categories = False):
@@ -1563,8 +1559,8 @@ class model_template():
 
         self.input_data_type = self.data_set.Input_data_type[0]
         
-        class_names = self.data_set.Output_A.columns
-        agent_names = self.data_set.Input_path.columns
+        class_names = self.data_set.Behaviors
+        agent_names = self.data_set.Agents
         dist_names = self.data_set.Input_prediction.columns
         
 
@@ -1594,6 +1590,47 @@ class model_template():
             else:
                 return X, T, agent_names, D, dist_names, class_names
     
+
+    def create_empty_output_path(self):
+        Agents = np.array(self.data_set.Agents)
+        num_rows = len(self.Index_test)
+        
+        self.Output_path_pred = pd.DataFrame(np.empty((num_rows, len(Agents)), np.ndarray), 
+                                             columns = Agents, index = self.Index_test)
+        
+    
+    
+    def create_empty_output_A(self):
+        Behaviors = np.array(self.data_set.Behaviors)
+        num_rows = len(self.Index_test)
+            
+        self.Output_A_pred = pd.DataFrame(np.zeros((num_rows, len(Behaviors)), float), 
+                                          columns = Behaviors, index = self.Index_test)
+        
+    
+    def create_empty_output_T(self):
+        Behaviors = np.array(self.data_set.Behaviors)
+        num_rows = len(self.Index_test)
+            
+        self.Output_T_E_pred = pd.DataFrame(np.empty((num_rows, len(Behaviors)), np.ndarray), 
+                                            columns = Behaviors, index = self.Index_test)
+        for i in range(num_rows):
+            for j in range(self.Output_T_E_pred.shape[1]):
+                self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
+        
+        
+    def check_trainability(self):
+        # Get predicted agents
+        if self.get_output_type()[:4] == 'path':
+            self.data_set._determine_pred_agents(eval_pov = self.get_output_type() == 'path_all_wi_pov')
+            if self.data_set.Pred_agents_eval.sum() == 0:
+                return 'there is no agent of which a trajectory can be predicted.'
+            
+        if self.get_output_type() in ['class', 'class_and_time']:
+            if not self.data_set.classification_useful:
+                return 'a classification model cannot be trained on a classless dataset.'
+              
+        return self.check_trainability_method()
     
     def save_predicted_classifications(self, class_names, P, DT = None):
         r'''
@@ -1636,82 +1673,51 @@ class model_template():
             for i in range(len(DT)):
                 for j, name in enumerate(class_names):
                     self.Output_T_E_pred.iloc[i][name] = DT[i,j]
-        
-    
-    
-    def create_empty_output_path(self):
-        Agents = np.array(self.data_set.Output_path.columns)
-        
-        Index_test = self.Index_test
-        num_rows = len(Index_test)
-        
-        self.Output_path_pred = pd.DataFrame(np.empty((num_rows, len(Agents)), np.ndarray), 
-                                             columns = Agents, index = Index_test)
-        
-    
-    
-    def create_empty_output_A(self):
-        Behaviors = np.array(self.data_set.Behaviors)
-        
-        Index_test = self.Index_test
-        num_rows = len(Index_test)
-            
-        self.Output_A_pred = pd.DataFrame(np.zeros((num_rows, len(Behaviors)), float), 
-                                          columns = Behaviors, index = Index_test)
-        
-    
-    def create_empty_output_T(self):
-        Behaviors = np.array(self.data_set.Behaviors)
-        
-        Index_test = self.Index_test
-        num_rows = len(Index_test)
-            
-        self.Output_T_E_pred = pd.DataFrame(np.empty((num_rows, len(Behaviors)), np.ndarray), 
-                                            columns = Behaviors, index = Index_test)
-        for i in range(num_rows):
-            for j in range(self.Output_T_E_pred.shape[1]):
-                self.Output_T_E_pred.iloc[i,j] = np.ones(len(self.t_e_quantile), float) * np.nan
-        
-        
-    def check_trainability(self):
-        # Get predicted agents
-        if self.get_output_type()[:4] == 'path':
-            self.data_set._determine_pred_agents(eval_pov = self.get_output_type() == 'path_all_wi_pov')
-            if self.data_set.Pred_agents_eval.sum() == 0:
-                return 'there is no agent of which a trajectory can be predicted.'
-            
-        if self.get_output_type() in ['class', 'class_and_time']:
-            if not self.data_set.classification_useful:
-                return 'a classification model cannot be trained on a classless dataset.'
-              
-        return self.check_trainability_method()
     
     # %% Method needed for evaluation_template
     def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, 
                                         exclude_ego = False, exclude_late_timesteps = True):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
             if self.excluded_ego == exclude_ego:
-                return
+                if np.array_equal(self.extracted_pred_index, Pred_index):
+                    return
         
         # Save last setting 
         self.excluded_ego = exclude_ego
-        
+        self.extracted_pred_index = Pred_index
+
+        # Get the file index
+        if not self.data_set.data_in_one_piece:
+            file_indices = self.data_set.Domain.file_index.iloc[Pred_index].to_numpy()
+            assert len(np.unique(file_indices)) == 1, 'This method is only useful for datasets that are in one piece.'
+            file_index = file_indices[0]
+
+            used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
+
+            Pred_index_data = Pred_index[:,np.newaxis] == used_index[np.newaxis]
+            assert (Pred_index_data.sum(1) == 1).all(), "Something went wrong with finding samples"
+            Pred_index_data = Pred_index_data.argmax(1)
+
+        else:
+            file_index = 0
+
+            Pred_index_data = Pred_index
+
         # Check if data is there
-        self.data_set._extract_original_trajectories()
+        self.data_set._extract_original_trajectories(file_index)
         self.data_set._determine_pred_agents(eval_pov = ~exclude_ego)
+        self._extract_types()
         
         # Initialize output
         num_samples = len(Output_path_pred)
         
         # Get predicted timesteps
-        nto = self.num_timesteps_out
+        Nto_i = self.data_set.N_O_data_orig[Pred_index_data]
         if exclude_late_timesteps:
-            nto_max = nto
-        else:
-            nto_max = self.data_set.N_O_data_orig[Pred_index].max()
-        
-        Nto_i = np.minimum(nto_max, self.data_set.N_O_data_orig[Pred_index])
+            Nto_i = np.minimum(self.num_timesteps_out, Nto_i)
 
+        nto_max = Nto_i.max()
+        
         # Get pred agents
         Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
         max_num_pred_agents = Pred_agents.sum(1).max()
@@ -1722,9 +1728,9 @@ class model_template():
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_pred_agents))
         
         # Get true predictions
-        self.Path_true = np.full((*i_sampl_sort.shape, nto_max, self.data_set.Y_orig.shape[-1]), np.nan, np.float32)
-        data_index, data_mask = self.get_orig_data_index(Pred_index[i_sampl_sort], i_agent_sort)
-        self.Path_true[data_mask] = self.data_set.Y_orig[data_index, :nto_max]
+        self.Path_true = np.full((*i_sampl_sort.shape, nto_max, 2), np.nan, np.float32)
+        data_index, data_mask = self.get_orig_data_index(Pred_index_data[i_sampl_sort], i_agent_sort)
+        self.Path_true[data_mask] = self.data_set.Y_orig[data_index, :nto_max, :2]
 
         # Get predicted timesteps
         self.Pred_step = Nto_i[:,np.newaxis] > np.arange(nto_max)[np.newaxis]
@@ -1739,6 +1745,7 @@ class model_template():
         self.Path_pred = np.zeros((self.num_samples_path_pred, num_samples,
                                    max_num_pred_agents, nto_max, 2), dtype = np.float32)
         
+        Agents = np.array(self.data_set.Agents)
         for i in range(num_samples):
             pred_agents = np.where(self.Pred_step[i].any(-1))[0]
             
@@ -1746,7 +1753,7 @@ class model_template():
             if len(pred_agents) == 0:
                 continue
 
-            pred_agents_id = np.array(self.data_set.Agents)[i_agent_sort[i, pred_agents]]
+            pred_agents_id = Agents[i_agent_sort[i, pred_agents]]
             path_pred_orig = Output_path_pred.loc[Pred_index[i], pred_agents_id]
             path_pred = np.stack(path_pred_orig.to_numpy(), axis = 1)
         
@@ -1760,10 +1767,7 @@ class model_template():
         self.Path_pred = self.Path_pred.transpose(1,0,2,3,4)
         
         # Get agent predictions
-        self.T_pred = self.data_set.Type.iloc[Pred_index].to_numpy()
-        self.T_pred = self.T_pred.astype(str)
-        self.T_pred[self.T_pred == 'nan'] = '0'
-        self.T_pred = self.T_pred[i_sampl_sort, i_agent_sort]
+        self.T_pred = self.Type[Pred_index[i_sampl_sort], i_agent_sort]
 
         # Set agent types of agents not included in Pred step to '0'
         self.T_pred[~self.Pred_step.any(-1)] = '0'
@@ -1771,11 +1775,11 @@ class model_template():
         # Get agent predictions
         if 'category' in self.data_set.Domain.columns:
             # Sample_id = self.ID[ind_advance,0,0]
-            C = self.data_set.Domain.category
+            C = self.data_set.Domain.category.iloc[Pred_index]
             C = pd.DataFrame(C.to_list())
 
             # Add columns missing from self.data_set.Agents
-            C = C.reindex(columns = self.data_set.Agents, fill_value = np.nan)
+            C = C.reindex(columns = self.data_set.Agents, fill_value = 4)
 
             # Replace missing agents
             C = C.fillna(4)
@@ -1785,13 +1789,24 @@ class model_template():
             self.C_pred = C[i_sampl_sort, i_agent_sort]
     
     
+    #############################################################################################################################
+    #############################################################################################################################
+    ####                                                                                                                     ####
+    ####                           Not adjusted for large datasets yet                                                       ####
+    ####                                                                                                                     ####
+    #############################################################################################################################
+    #############################################################################################################################
+
+    
     def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
             if self.excluded_ego_joint == exclude_ego:
-                return
+                if np.array_equal(self.extracted_pred_index_joint, Pred_index):
+                    return
         
         # Save last setting 
         self.excluded_ego_joint = exclude_ego
+        self.extracted_pred_index_joint = Pred_index
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
@@ -1894,10 +1909,12 @@ class model_template():
     def _get_indep_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_indep_pred') and hasattr(self, 'Log_prob_indep_true'):
             if self.excluded_ego_indep == exclude_ego:
-                return
+                if np.array_equal(self.extracted_pred_index_indep, Pred_index):
+                    return
         
         # Save last setting 
         self.excluded_ego_indep = exclude_ego
+        self.extracted_pred_index_indep = Pred_index
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
@@ -2015,13 +2032,15 @@ class model_template():
     def _get_joint_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_true_joint_pred'):
             if self.excluded_ego_true_joint == exclude_ego:
-                return
+                if np.array_equal(self.extracted_pred_index_true_joint, Pred_index):
+                    return
         
         # Have the dataset load
         self.data_set._get_joint_KDE_probabilities(exclude_ego)
         
         # Save last setting 
         self.excluded_ego_true_joint = exclude_ego
+        self.extracted_pred_index_true_joint = Pred_index
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
@@ -2071,13 +2090,15 @@ class model_template():
     def _get_indep_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_true_indep_pred'):
             if self.excluded_ego_true_indep == exclude_ego:
-                return
+                if np.array_equal(self.extracted_pred_index_true_indep, Pred_index):
+                    return
         
         # Have the dataset load
         self.data_set._get_indep_KDE_probabilities(exclude_ego)
         
         # Save last setting 
         self.excluded_ego_true_indep = exclude_ego
+        self.extracted_pred_index_true_indep = Pred_index
         
         # Check if dataset has all valuable stuff
         self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
@@ -2093,6 +2114,7 @@ class model_template():
         # Get identical input samples
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
+        Agents = np.array(self.data_set.Agents)
         
         for subgroup in np.unique(Subgroups):
             subgroup_index = np.where(Subgroups == subgroup)[0]
@@ -2117,7 +2139,7 @@ class model_template():
                 num_features = nto * 2
                 
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                    agent = self.input_names_train[i_agent_orig]
+                    agent = Agents[i_agent_orig]
                     
                     # Get agent
                     paths_pred_agent = paths_pred[:,:,i_agent]

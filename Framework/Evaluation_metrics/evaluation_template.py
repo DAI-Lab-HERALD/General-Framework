@@ -12,8 +12,6 @@ class evaluation_template():
             
             self.depict_results = False
             
-            self.Output_A_full   = self.data_set.Output_A
-            self.Output_T_E_full = self.data_set.Output_T_E
             self.Scenario_full   = self.data_set.Domain.Scenario_type
             
             self.t_e_quantile = self.data_set.p_quantile
@@ -34,12 +32,257 @@ class evaluation_template():
                     np.save(test_file, save_data)
         else:
             self.depict_results = True
+
+
+    def _evaluate_on_subset(self, Output_pred, evaluation_index):
+        self.Index_curr = evaluation_index
+        
+        if len(self.Index_curr) == 0:
+            return None
+        
+        available = self._set_current_data(Output_pred)
+        if available:
+            results = self.evaluate_prediction_method()
+        else:
+            results = None
+        
+        return results
     
 
-    
-    #%% Helper functions
+    #%% Actual evaluation functions
+    def _set_current_data(self, Output_pred):
+        assert np.array_equal(self.Index_curr, Output_pred[0]) # Index of evaluation samples does not overlapwith predicted samples
+
+        if self.data_set.data_in_one_piece:
+            Output_A_full   = self.data_set.Output_A.iloc[self.Index_curr]
+            Output_T_E_full = self.data_set.Output_T_E[self.Index_curr]
+        
+        else:
+            file_indeces_curr = self.data_set.Domain.file_index.iloc[self.Index_curr]
+
+            assert len(np.unique(file_indeces_curr)) == 1, 'This metric does not support multiple files in one evaluation.'
+            file_index = file_indeces_curr.iloc[0]
+
+            # Load Output_A and Output_T_E
+            data_file = self.data_set.Files[file_index] + '_data.npy'
+            [_, _, _, _, _, _, Output_A_local, Output_T_E_local, _] = np.load(data_file, allow_pickle = True)
+
+            ind_used = self.data_set.Domain.Index_saved.iloc[self.Index_curr]
+            Output_A_local = Output_A_local.iloc[ind_used]
+            Output_T_E_local = Output_T_E_local[ind_used]
+
+            # Find the respective index
+            index_given = np.where(self.data_set.Domain.file_index == file_index)[0]
             
+            index_transfer = self.Index_curr[:,np.newaxis] == index_given[np.newaxis]
+            assert (index_transfer.sum(1) == 1).all(), 'There is a problem with the index transfer.'
+            index_transfer = np.argmax(index_transfer, 1)
+
+            Output_A_full   = Output_A_local.iloc[index_transfer]
+            Output_T_E_full = Output_T_E_local[index_transfer]
+        
+        if self.get_output_type()[:5] == 'class':
+            # Get label predictions
+            Output_A_pred = Output_pred[1]
+            columns = Output_A_pred.columns
+            self.Output_A_pred = Output_A_pred[columns]
+            self.Output_A      = Output_A_full[columns]
+            self.Scenario      = np.unique(self.Scenario_full.iloc[self.Index_curr])
+            
+            if self.get_output_type() == 'class_and_time':
+                Output_T_E_pred = Output_pred[2]
+                
+                # reorder columns if needed
+                self.Output_T_E      = Output_T_E_full
+                self.Output_T_E_pred = Output_T_E_pred[columns]
+        
+        else:
+            Agents = np.array(self.data_set.Agents)
+            self.Output_path_pred = Output_pred[1][Agents]
+        
+        return True
     
+
+
+    ##############################################################################################
+    #                Helper functions for the evaluation of the metric                           #
+    ##############################################################################################
+
+    def _check_collisions(self, Path_A, Path_B, Type_A, Type_B):
+        r'''
+        This function checks if two agents collide with each other.
+
+        Parameters
+        ----------
+        Path_A : np.ndarray
+            The path of the first agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional 
+            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
+        Path_B : np.ndarray
+            The path of the second agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional
+            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
+        Type_A : np.ndarray
+            The type of the first agent, in the form of a :math:`\{...\}` dimensional numpy array, with 
+            string values.
+        Type_B : np.ndarray
+            The type of the second agent, in the form of a :math:`\{...\}` dimensional numpy array, with
+            string values.
+        
+        Returns
+        -------
+        Collided : np.ndarray
+            This is a :math:`\{...\}` dimensional numpy array with boolean values. It indicates if a 
+            collision was detected for the corresponding pair of agents.
+        '''
+        # Extract distance over timesteps
+        V_A = Path_A[...,1:,:] - Path_A[...,:-1,:]
+        V_B = Path_B[...,1:,:] - Path_B[...,:-1,:]
+
+        # Get the corresponding angles
+        Theta_A = np.arctan2(V_A[...,1], V_A[...,0])
+        Theta_B = np.arctan2(V_B[...,1], V_B[...,0])
+        
+        # Elongate the theta values to original length, assuming that the
+        # Calculated angels correspond to the recorded angles at the middle of each timestep
+        Theta_A_middle = np.nanmean(np.stack((Theta_A[...,1:], Theta_A[...,:-1]), -1), -1)
+        Theta_B_middle = np.nanmean(np.stack((Theta_B[...,1:], Theta_B[...,:-1]), -1), -1)
+
+        Theta_A_start = Theta_A[...,0] - 0.5 * (Theta_A[...,1] - Theta_A[...,0])
+        Theta_B_start = Theta_B[...,0] - 0.5 * (Theta_B[...,1] - Theta_B[...,0])
+
+        Theta_A_end = Theta_A[...,-1] + 0.5 * (Theta_A[...,-1] - Theta_A[...,-2])
+        Theta_B_end = Theta_B[...,-1] + 0.5 * (Theta_B[...,-1] - Theta_B[...,-2])
+
+        Theta_A = np.concatenate((Theta_A_start[...,np.newaxis], Theta_A_middle, Theta_A_end[...,np.newaxis]), axis=-1)
+        Theta_B = np.concatenate((Theta_B_start[...,np.newaxis], Theta_B_middle, Theta_B_end[...,np.newaxis]), axis=-1)
+
+        # Get the relative positions
+        Path_B_adj = Path_B - Path_A
+
+        # Turn the relative positions so that the ego vehicle is aligned with the x-axis
+        Path_B_adj = np.stack((Path_B_adj[...,0] * np.cos(-Theta_A) - Path_B_adj[...,1] * np.sin(-Theta_A),
+                               Path_B_adj[...,0] * np.sin(-Theta_A) + Path_B_adj[...,1] * np.cos(-Theta_A)), axis=-1)
+
+        # Get the relative angles
+        Theta_B_adj = Theta_B - Theta_A # Shape (..., N_O)
+
+        # Get widths (y-axis) and lengths (x-axis) of the vihicles
+        W = {'V': 2, 
+             'B': 0.5,
+             'M': 0.5,
+             'P': 0.5}
+        
+        L = {'V': 5,
+             'B': 2,
+             'M': 2,
+             'P': 0.5}
+        
+        # Tranform the Type arrays to interger ones 
+        Type_A_int = np.zeros_like(Type_A, int)
+        Type_B_int = np.zeros_like(Type_B, int)
+
+        Type_A_int[Type_A == 'V'] = 0
+        Type_A_int[Type_A == 'B'] = 1
+        Type_A_int[Type_A == 'M'] = 2
+        Type_A_int[Type_A == 'P'] = 3
+
+        Type_B_int[Type_B == 'V'] = 0
+        Type_B_int[Type_B == 'B'] = 1
+        Type_B_int[Type_B == 'M'] = 2
+        Type_B_int[Type_B == 'P'] = 3
+
+        W_int = np.array([W['V'], W['B'], W['M'], W['P']])
+        L_int = np.array([L['V'], L['B'], L['M'], L['P']])
+
+        # Extract the agents width and length
+        W_A = W_int[Type_A_int]
+        W_B = W_int[Type_B_int]
+
+        L_A = L_int[Type_A_int]
+        L_B = L_int[Type_B_int]
+
+        # Get initial corner positions
+        Corner_A = np.stack([np.stack([-L_A/2, -W_A/2], -1),
+                             np.stack([ L_A/2, -W_A/2], -1),
+                             np.stack([ L_A/2,  W_A/2], -1),
+                             np.stack([-L_A/2,  W_A/2], -1)], -2) # Shape (..., 4, 2)
+        
+        Corner_B = np.stack([np.stack([-L_B/2, -W_B/2], -1),
+                             np.stack([ L_B/2, -W_B/2], -1),
+                             np.stack([ L_B/2,  W_B/2], -1),
+                             np.stack([-L_B/2,  W_B/2], -1)], -2) # Shape (..., 4, 2)
+
+        # Rotate the Corner B with the relative angles
+        Corner_A = Corner_A[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
+        Corner_B = Corner_B[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
+        Theta_B_adj = Theta_B_adj[...,np.newaxis] # Shape (..., N_O, 1)
+
+        Corner_B = np.stack((Corner_B[...,0] * np.cos(Theta_B_adj) - Corner_B[...,1] * np.sin(Theta_B_adj),
+                             Corner_B[...,0] * np.sin(Theta_B_adj) + Corner_B[...,1] * np.cos(Theta_B_adj)), axis=-1) # Shape (..., N_O, 4, 2)
+        
+        # Translate the corners to the center
+        Corner_B += Path_B_adj[...,np.newaxis, :] # Shape (..., N_O, 4, 2)
+
+        # Use the separating axis theorem to check for collisions
+        # Get the 2 normals of rectangle A
+        Norm_A_1 = np.array([1, 0])
+        Norm_A_2 = np.array([0, 1])
+
+        # Get the 2 normals of rectangle B
+        Norm_B_1 = np.concatenate([np.cos(Theta_B_adj), np.sin(Theta_B_adj)], -1) # Shape (..., N_O, 2)
+        Norm_B_2 = np.concatenate([-np.sin(Theta_B_adj), np.cos(Theta_B_adj)], -1) # Shape (..., N_O, 2)
+
+        # Combine the normals
+        for size in Norm_B_1.shape[:-1]:
+            Norm_A_1 = np.repeat(Norm_A_1[...,np.newaxis, :], size, axis = -2)
+            Norm_A_2 = np.repeat(Norm_A_2[...,np.newaxis, :], size, axis = -2)
+
+        Normals = np.stack((Norm_A_1, Norm_A_2, Norm_B_1, Norm_B_2), -2) # Shape (..., N_O, 4, 2)
+        
+        # Switch last two dimensions for the corners A and B
+        Corner_A = np.moveaxis(Corner_A, -1, -2) # Shape (..., 1, 2, 4)
+        Corner_B = np.moveaxis(Corner_B, -1, -2) # Shape (..., N_O, 2, 4)
+
+        # Project the corners of rectangle A onto Normals
+        Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4, 4)
+        Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4, 4)
+
+        # Get the diffrences between the points
+        Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4, 4, 4)
+        Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4, 16)
+
+        Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4, 16)
+        Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4, 16)
+
+        # Analytical solution is to complicate din vectorform, cheat by doing linear interpolations
+        Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
+
+        # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
+        Sign_test = np.sign(Differences_test)
+        Sign_equal = Sign_test[...,[0],:] == Sign_test # Shape (..., N_O - 1, 4, 16, 11)
+        Sign_equal = Sign_equal.all(-2) # Shape (..., N_O - 1, 4, 11)
+
+        # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs
+        No_collision = np.any(Sign_equal, -2) # Shape (..., N_O - 1, 11)
+
+        # For there to be no collision in the current timesteps, there must be no collision at all interpolated timesteps
+        No_collision = No_collision.all(-1) # Shape (..., N_O - 1)
+
+        # Check if any of the Paths had nan values here
+        Path_A_nan = np.isnan(Path_A).any(-1) # Shape (..., N_O)
+        Path_B_nan = np.isnan(Path_B).any(-1) # Shape (..., N_O)
+
+        # For a collision to be possible, both ends need to be observed
+        Missing_agent = ~Path_A_nan[...,1:] & ~Path_B_nan[...,1:] & ~Path_A_nan[...,:-1] & ~Path_B_nan[...,:-1] # Shape (..., N_O - 1)
+        No_collision |= Missing_agent
+
+        # For no collision to be observed, this must be the case for all original timesteps
+        No_collision = No_collision.all(-1) # Shape (...,)
+
+        Collided = ~No_collision
+        return Collided
+    
+
+
     def get_true_and_predicted_class_probabilities(self):
         '''
         This returns the true and predicted classification probabilities.
@@ -192,13 +435,13 @@ class evaluation_template():
             else:
                 idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
         
-        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov',
                                                    exclude_late_timesteps)
         
-        Path_true = self.model.Path_true[self.Index_curr_pred]
-        Path_pred = self.model.Path_pred[self.Index_curr_pred][:, idx]
-        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+        Path_true = self.model.Path_true
+        Path_pred = self.model.Path_pred[:, idx]
+        Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
         Use_samples = Pred_step.any(-1).any(-1)
@@ -208,7 +451,7 @@ class evaluation_template():
         Pred_step = Pred_step[Use_samples]
 
         if return_types:
-            Types = self.model.T_pred[self.Index_curr_pred]
+            Types = self.model.T_pred
             Types = Types[Use_samples]
             return Path_true, Path_pred, Pred_step, Types     
         else:
@@ -241,20 +484,33 @@ class evaluation_template():
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
         
-        self.data_set._extract_original_trajectories()
         self.data_set._determine_pred_agents(eval_pov = self.get_output_type() != 'path_all_wo_pov')
 
         Pred_agents = self.data_set.Pred_agents_eval[self.Index_curr]
 
-        # Get the required dataset for self.Index_curr
-        data_index, data_index_mask = self.model.get_orig_data_index(self.Index_curr)
+        if self.data_set.data_in_one_piece:
+            file_index = 0
+            Index_curr_data = self.Index_curr
+        else:
+            file_indices = self.data_set.Domain.file_index.iloc[self.Index_curr]
+            assert len(np.unique(file_indices)) == 1, 'This metric does not support multiple files in one evaluation.'
+            file_index = file_indices.iloc[0]
 
-        # Initialize Y_orig 
-        Y_orig = np.full((*Pred_agents.shape, *self.data_set.Y_orig.shape[-2:]), np.nan, dtype = np.float32)
-        Y_orig[data_index_mask] = self.data_set.Y_orig[data_index]
+            used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
+
+            Index_curr_data = self.Index_curr[:,np.newaxis] == used_index[np.newaxis]
+            assert (Index_curr_data.sum(1) == 1).all(), 'There is a problem with the index transfer.'
+            Index_curr_data = np.argmax(Index_curr_data, 1)
+
+        self.data_set._extract_original_trajectories(file_index)
+
+        # Get information on available data
+        _, data_index_mask = self.model.get_orig_data_index(Index_curr_data)
         
-        Other_agents = (~Pred_agents) & np.isfinite(Y_orig).all(-1).any(-1) # at least one position must be fully known
+        # Get other interesting agents
+        Other_agents = (~Pred_agents) & data_index_mask # at least one position must be fully known
 
+        # Order to reduce unnecessary data loading and memory usage
         num_samples = len(self.Index_curr)
         max_num_other_agents = Other_agents.sum(1).max()
 
@@ -262,21 +518,22 @@ class evaluation_template():
         i_agent_sort = i_agent_sort[:,:max_num_other_agents]
         i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_other_agents))
 
-        Path_other = Y_orig[i_sampl_sort, i_agent_sort][:,np.newaxis]
+        # Load the required data
+        Path_other = np.full((*i_sampl_sort.shape, *self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
+        data_index, data_index_mask = self.model.get_orig_data_index(Index_curr_data[i_sampl_sort], i_agent_sort)
+        Path_other[data_index_mask] = self.data_set.Y_orig[data_index, ..., :2]
+        
+        # Add the num_samples_path_pred dimension
+        Path_other = Path_other[:,np.newaxis]
 
         # Adjust to used samples
-        Pred_step = self.model.Pred_step[self.Index_curr_pred]
-        Use_samples = Pred_step.any(-1).any(-1)
+        Use_samples = Pred_agents.any(-1)
 
         # Apply the same adjustemnt as to predicted agents
         Path_other = Path_other[Use_samples]
 
         if return_types:
-            Types = self.data_set.Type.iloc[self.Index_curr].to_numpy()
-            Types = Types.astype(str)
-            Types[Types == 'nan'] = '0'
-
-            Types = Types[i_sampl_sort, i_agent_sort]
+            Types = self.model.Type.iloc[self.Index_curr[i_sampl_sort], i_agent_sort]
 
             # Apply the same adjustemnt as to predicted agents
             Types = Types[Use_samples]
@@ -292,6 +549,15 @@ class evaluation_template():
         
         else:
             return Path_other
+    
+
+    #############################################################################################################################
+    #############################################################################################################################
+    ####                                                                                                                     ####
+    ####                           Not adjusted for large datasets yet                                                       ####
+    ####                                                                                                                     ####
+    #############################################################################################################################
+    #############################################################################################################################
         
         
     def get_KDE_probabilities(self, joint_agents = True):
@@ -321,26 +587,26 @@ class evaluation_template():
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
         
         if joint_agents:
-            self.model._get_joint_KDE_pred_probabilities(self.Pred_index, self.Output_path_pred, 
+            self.model._get_joint_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_pred_log_prob_true = self.model.Log_prob_joint_true[:,:,np.newaxis]
             KDE_pred_log_prob_pred = self.model.Log_prob_joint_pred[:,:,np.newaxis]
             
         else:
-            self.model._get_indep_KDE_pred_probabilities(self.Pred_index, self.Output_path_pred, 
+            self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_pred_log_prob_true = self.model.Log_prob_indep_true
             KDE_pred_log_prob_pred = self.model.Log_prob_indep_pred
         
-        KDE_pred_log_prob_true = KDE_pred_log_prob_true[self.Index_curr_pred]
-        KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[self.Index_curr_pred]
+        KDE_pred_log_prob_true = KDE_pred_log_prob_true
+        KDE_pred_log_prob_pred = KDE_pred_log_prob_pred
         
         # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+        Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
         Use_samples = Pred_step.any(-1).any(-1)
@@ -380,14 +646,14 @@ class evaluation_template():
         self.data_set._extract_identical_inputs(eval_pov = self.get_output_type() == 'path_all_wi_pov')
 
         # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+        Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
         Use_samples = Pred_step.any(-1).any(-1)
 
-        Use_subgroups = self.data_set.Subgroups[self.Index_curr_pred][Use_samples]
+        Use_subgroups = self.data_set.Subgroups[Use_samples]
 
         Subgroup_unique, Subgroup = np.unique(Use_subgroups, return_inverse = True)
         Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
@@ -426,7 +692,7 @@ class evaluation_template():
         
         if joint_agents:
             self.data_set._get_joint_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
-            self.model._get_joint_KDE_true_probabilities(self.Pred_index, self.Output_path_pred, 
+            self.model._get_joint_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_true_log_prob_true = self.data_set.Log_prob_true_joint[:,np.newaxis,np.newaxis]
@@ -434,19 +700,19 @@ class evaluation_template():
             
         else:
             self.data_set._get_indep_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
-            self.model._get_indep_KDE_true_probabilities(self.Pred_index, self.Output_path_pred, 
+            self.model._get_indep_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_true_log_prob_true = self.data_set.Log_prob_true_indep[:,np.newaxis,:]
             KDE_true_log_prob_pred = self.model.Log_prob_true_indep_pred
         
         KDE_true_log_prob_true = KDE_true_log_prob_true[self.Index_curr]
-        KDE_true_log_prob_pred = KDE_true_log_prob_pred[self.Index_curr_pred]
+        KDE_true_log_prob_pred = KDE_true_log_prob_pred
         
         # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Pred_index, self.Output_path_pred, 
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step[self.Index_curr_pred]
+        Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
         Use_samples = Pred_step.any(-1).any(-1)
@@ -455,230 +721,6 @@ class evaluation_template():
         KDE_true_log_prob_pred = KDE_true_log_prob_pred[Use_samples]
 
         return KDE_true_log_prob_true, KDE_true_log_prob_pred
-    
-    #%% Actual evaluation functions
-    def _set_current_data(self, Output_pred):
-        self.Pred_index = Output_pred[0]
-        
-        match = self.Pred_index[np.newaxis,:] == self.Index_curr[:,np.newaxis]
-        
-        if not (match.sum(1) == 1).all():
-            return False
-        
-        self.Index_curr_pred = match.argmax(1)
-        
-        if self.get_output_type()[:5] == 'class':
-            # Get label predictions
-            Output_A_pred = Output_pred[1]
-            columns = Output_A_pred.columns
-            
-            self.Output_A_pred = Output_A_pred[columns].iloc[self.Index_curr_pred]
-            self.Output_A      = self.Output_A_full[columns].iloc[self.Index_curr]
-            self.Scenario      = np.unique(self.Scenario_full.iloc[self.Index_curr])
-            
-            if self.get_output_type() == 'class_and_time':
-                Output_T_E_pred = Output_pred[2]
-                
-                # reorder columns if needed
-                self.Output_T_E      = self.Output_T_E_full[self.Index_curr]
-                self.Output_T_E_pred = Output_T_E_pred[columns].iloc[self.Index_curr_pred]
-        
-        else:
-            Agents = np.array(self.data_set.Output_path.columns)
-            self.Output_path_pred = Output_pred[1][Agents]
-        
-        return True
-        
-        
-    def _evaluate_on_subset(self, Output_pred, evaluation_index):
-        self.Index_curr = evaluation_index
-        
-        if len(self.Index_curr) == 0:
-            return None
-        
-        available = self._set_current_data(Output_pred)
-        if available:
-            results = self.evaluate_prediction_method()
-        else:
-            results = None
-        
-        return results
-    
-
-    def _check_collisions(self, Path_A, Path_B, Type_A, Type_B):
-        r'''
-        This function checks if two agents collide with each other.
-
-        Parameters
-        ----------
-        Path_A : np.ndarray
-            The path of the first agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional 
-            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
-        Path_B : np.ndarray
-            The path of the second agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional
-            numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
-        Type_A : np.ndarray
-            The type of the first agent, in the form of a :math:`\{...\}` dimensional numpy array, with 
-            string values.
-        Type_B : np.ndarray
-            The type of the second agent, in the form of a :math:`\{...\}` dimensional numpy array, with
-            string values.
-        
-        Returns
-        -------
-        Collided : np.ndarray
-            This is a :math:`\{...\}` dimensional numpy array with boolean values. It indicates if a 
-            collision was detected for the corresponding pair of agents.
-        '''
-        # Extract distance over timesteps
-        V_A = Path_A[...,1:,:] - Path_A[...,:-1,:]
-        V_B = Path_B[...,1:,:] - Path_B[...,:-1,:]
-
-        # Get the corresponding angles
-        Theta_A = np.arctan2(V_A[...,1], V_A[...,0])
-        Theta_B = np.arctan2(V_B[...,1], V_B[...,0])
-        
-        # Elongate the theta values to original length, assuming that the
-        # Calculated angels correspond to the recorded angles at the middle of each timestep
-        Theta_A_middle = np.nanmean(np.stack((Theta_A[...,1:], Theta_A[...,:-1]), -1), -1)
-        Theta_B_middle = np.nanmean(np.stack((Theta_B[...,1:], Theta_B[...,:-1]), -1), -1)
-
-        Theta_A_start = Theta_A[...,0] - 0.5 * (Theta_A[...,1] - Theta_A[...,0])
-        Theta_B_start = Theta_B[...,0] - 0.5 * (Theta_B[...,1] - Theta_B[...,0])
-
-        Theta_A_end = Theta_A[...,-1] + 0.5 * (Theta_A[...,-1] - Theta_A[...,-2])
-        Theta_B_end = Theta_B[...,-1] + 0.5 * (Theta_B[...,-1] - Theta_B[...,-2])
-
-        Theta_A = np.concatenate((Theta_A_start[...,np.newaxis], Theta_A_middle, Theta_A_end[...,np.newaxis]), axis=-1)
-        Theta_B = np.concatenate((Theta_B_start[...,np.newaxis], Theta_B_middle, Theta_B_end[...,np.newaxis]), axis=-1)
-
-        # Get the relative positions
-        Path_B_adj = Path_B - Path_A
-
-        # Turn the relative positions so that the ego vehicle is aligned with the x-axis
-        Path_B_adj = np.stack((Path_B_adj[...,0] * np.cos(-Theta_A) - Path_B_adj[...,1] * np.sin(-Theta_A),
-                               Path_B_adj[...,0] * np.sin(-Theta_A) + Path_B_adj[...,1] * np.cos(-Theta_A)), axis=-1)
-
-        # Get the relative angles
-        Theta_B_adj = Theta_B - Theta_A # Shape (..., N_O)
-
-        # Get widths (y-axis) and lengths (x-axis) of the vihicles
-        W = {'V': 2, 
-             'B': 0.5,
-             'M': 0.5,
-             'P': 0.5}
-        
-        L = {'V': 5,
-             'B': 2,
-             'M': 2,
-             'P': 0.5}
-        
-        # Tranform the Type arrays to interger ones 
-        Type_A_int = np.zeros_like(Type_A, int)
-        Type_B_int = np.zeros_like(Type_B, int)
-
-        Type_A_int[Type_A == 'V'] = 0
-        Type_A_int[Type_A == 'B'] = 1
-        Type_A_int[Type_A == 'M'] = 2
-        Type_A_int[Type_A == 'P'] = 3
-
-        Type_B_int[Type_B == 'V'] = 0
-        Type_B_int[Type_B == 'B'] = 1
-        Type_B_int[Type_B == 'M'] = 2
-        Type_B_int[Type_B == 'P'] = 3
-
-        W_int = np.array([W['V'], W['B'], W['M'], W['P']])
-        L_int = np.array([L['V'], L['B'], L['M'], L['P']])
-
-        # Extract the agents width and length
-        W_A = W_int[Type_A_int]
-        W_B = W_int[Type_B_int]
-
-        L_A = L_int[Type_A_int]
-        L_B = L_int[Type_B_int]
-
-        # Get initial corner positions
-        Corner_A = np.stack([np.stack([-L_A/2, -W_A/2], -1),
-                             np.stack([ L_A/2, -W_A/2], -1),
-                             np.stack([ L_A/2,  W_A/2], -1),
-                             np.stack([-L_A/2,  W_A/2], -1)], -2) # Shape (..., 4, 2)
-        
-        Corner_B = np.stack([np.stack([-L_B/2, -W_B/2], -1),
-                             np.stack([ L_B/2, -W_B/2], -1),
-                             np.stack([ L_B/2,  W_B/2], -1),
-                             np.stack([-L_B/2,  W_B/2], -1)], -2) # Shape (..., 4, 2)
-
-        # Rotate the Corner B with the relative angles
-        Corner_A = Corner_A[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
-        Corner_B = Corner_B[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
-        Theta_B_adj = Theta_B_adj[...,np.newaxis] # Shape (..., N_O, 1)
-
-        Corner_B = np.stack((Corner_B[...,0] * np.cos(Theta_B_adj) - Corner_B[...,1] * np.sin(Theta_B_adj),
-                             Corner_B[...,0] * np.sin(Theta_B_adj) + Corner_B[...,1] * np.cos(Theta_B_adj)), axis=-1) # Shape (..., N_O, 4, 2)
-        
-        # Translate the corners to the center
-        Corner_B += Path_B_adj[...,np.newaxis, :] # Shape (..., N_O, 4, 2)
-
-        # Use the separating axis theorem to check for collisions
-        # Get the 2 normals of rectangle A
-        Norm_A_1 = np.array([1, 0])
-        Norm_A_2 = np.array([0, 1])
-
-        # Get the 2 normals of rectangle B
-        Norm_B_1 = np.concatenate([np.cos(Theta_B_adj), np.sin(Theta_B_adj)], -1) # Shape (..., N_O, 2)
-        Norm_B_2 = np.concatenate([-np.sin(Theta_B_adj), np.cos(Theta_B_adj)], -1) # Shape (..., N_O, 2)
-
-        # Combine the normals
-        for size in Norm_B_1.shape[:-1]:
-            Norm_A_1 = np.repeat(Norm_A_1[...,np.newaxis, :], size, axis = -2)
-            Norm_A_2 = np.repeat(Norm_A_2[...,np.newaxis, :], size, axis = -2)
-
-        Normals = np.stack((Norm_A_1, Norm_A_2, Norm_B_1, Norm_B_2), -2) # Shape (..., N_O, 4, 2)
-        
-        # Switch last two dimensions for the corners A and B
-        Corner_A = np.moveaxis(Corner_A, -1, -2) # Shape (..., 1, 2, 4)
-        Corner_B = np.moveaxis(Corner_B, -1, -2) # Shape (..., N_O, 2, 4)
-
-        # Project the corners of rectangle A onto Normals
-        Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4, 4)
-        Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4, 4)
-
-        # Get the diffrences between the points
-        Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4, 4, 4)
-        Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4, 16)
-
-        Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4, 16)
-        Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4, 16)
-
-        shape = Differences_0.shape
-
-        # Analytical solution is to complicate din vectorform, cheat by doing linear interpolations
-        Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
-
-        # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
-        Sign_test = np.sign(Differences_test)
-        Sign_equal = Sign_test[...,[0],:] == Sign_test # Shape (..., N_O - 1, 4, 16, 11)
-        Sign_equal = Sign_equal.all(-2) # Shape (..., N_O - 1, 4, 11)
-
-        # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs
-        No_collision = np.any(Sign_equal, -2) # Shape (..., N_O - 1, 11)
-
-        # For there to be no collision in the current timesteps, there must be no collision at all interpolated timesteps
-        No_collision = No_collision.all(-1) # Shape (..., N_O - 1)
-
-        # Check if any of the Paths had nan values here
-        Path_A_nan = np.isnan(Path_A).any(-1) # Shape (..., N_O)
-        Path_B_nan = np.isnan(Path_B).any(-1) # Shape (..., N_O)
-
-        # For a collision to be possible, both ends need to be observed
-        Missing_agent = ~Path_A_nan[...,1:] & ~Path_B_nan[...,1:] & ~Path_A_nan[...,:-1] & ~Path_B_nan[...,:-1] # Shape (..., N_O - 1)
-        No_collision |= Missing_agent
-
-        # For no collision to be observed, this must be the case for all original timesteps
-        No_collision = No_collision.all(-1) # Shape (...,)
-
-        Collided = ~No_collision
-        return Collided
 
         
     #########################################################################################

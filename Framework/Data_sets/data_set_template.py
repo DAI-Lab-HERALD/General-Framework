@@ -1335,8 +1335,8 @@ class data_set_template():
                                 ind_last = len(helper_T)
                         
                         # Split by input and output, however, only include positions in the output
-                        input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real, :].astype(np.float32)
-                        output_path[agent] = helper_path[agent][self.num_timesteps_in_real:, :2].astype(np.float32)
+                        input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real].astype(np.float32)
+                        output_path[agent] = helper_path[agent][self.num_timesteps_in_real:].astype(np.float32)
 
                         # Guarantee that the input path does contain only nan value
                         if not (ind_start < self.num_timesteps_in_real - 1 and self.num_timesteps_in_real <= ind_last):
@@ -2215,12 +2215,13 @@ class data_set_template():
             # interpolate the values at the new set of points using numpy.interp()
             path_old = Output_path.loc[i_full,self.pov_agent]
             if np.array_equal(t, t_true):
-                path_new = path_old
+                # Ensure to use only x and y
+                path_new = path_old[...,:2]
             else:
-                path_new = np.stack([np.interp(t, t_true, path_old[:,i]) for i in range(path_old.shape[-1])], axis = -1)
+                path_new = np.stack([np.interp(t, t_true, path_old[:,i]) for i in range(2)], axis = -1)
 
                 # use the gradient to estimate values outside the bounds of xp
-                dx = np.stack([np.gradient(path_old[:,i], t_true) for i in range(path_old.shape[-1])], axis = -1)
+                dx = np.stack([np.gradient(path_old[:,i], t_true) for i in range(2)], axis = -1)
 
                 # Extraplate the values
                 later_time = t > t_true[-1]

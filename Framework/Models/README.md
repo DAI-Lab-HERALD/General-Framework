@@ -299,7 +299,7 @@ For a given sample, the extracted images are centered around the last observed p
       If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
     Y_train : np.ndarray, optional
       This is the future observed data of the agents, in the form of a
-      :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+      :math:`\{N_{samples} \times N_{agents} \times N_{O} \times N_{data}\}` dimensional numpy array with float values. 
       If an agent is fully or for some timesteps partially not observed, then this can include np.nan values. 
       This value is not returned for **mode** = *'pred'*.
     T_train : np.ndarray
@@ -406,7 +406,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
   Y : np.ndarray, optional
     This is the future observed data of the agents, in the form of a
-    :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+    :math:`\{N_{samples} \times N_{agents} \times N_{O} \times N_{data}\}` dimensional numpy array with float values. 
     If an agent is fully or for some timesteps partially not observed, then this can include np.nan values. 
     This value is not returned for **mode** = *'pred'*.
   T : np.ndarray
@@ -617,8 +617,8 @@ Meanwhile, the following model attributes set by the framework are useful or giv
   The number of output timesteps desired. It must be however noted, that depending on other
   framework settings, fewer or more timesteps can appear in the dataset.
 
-**self.input_names_train** : np.ndarray
-  This is a :math:`N_{agents}` dimensional array with the names of all the agents.
+**self.data_set.Agents** : list
+  This is a list of length :math:`N_{agents}` with the names of all the agents.
 
 **self.has_map** : bool
   True if the chosen dataset can provide map images, False if not.

@@ -360,6 +360,20 @@ class data_interface(object):
             # Check the number of save parts in the dataset
             if data_set.number_data_files > 1:
                 self.data_in_one_piece = False
+        
+        # Prepare the information needed here
+        self.Domain = pd.DataFrame(np.zeros((0,0), np.ndarray))
+        self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        self.num_behaviors_out = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
+        
+        self.Files = []
+        self.Agents = []
+
+        self.Input_data_type, Data_set_inverse = self.unique_data_paths()
+
+        # Data_set can only be in one piece if all the path data is of the same type
+        if len(self.Input_data_type) > 1:
+            self.data_in_one_piece = False
                 
         # Check for memory
         if self.data_in_one_piece:
@@ -371,16 +385,6 @@ class data_interface(object):
 
             if needed_memory > available_memory * 0.6:
                 self.data_in_one_piece = False
-        
-        # Prepare the information needed here
-        self.Domain = pd.DataFrame(np.zeros((0,0), np.ndarray))
-        self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
-        self.num_behaviors_out = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
-        
-        self.Files = []
-        self.Agents = []
-
-        self.Input_data_type, Data_set_inverse = self.unique_data_paths()
         
         # If possible, also load other data into one piece
         if self.data_in_one_piece:
@@ -398,17 +402,6 @@ class data_interface(object):
             self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
             self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
 
-            # Pregenerate the combined path_data_type, and overwrite self.Input_data_type
-            input_data_type = ['x', 'y']
-            needed_data_type = []
-            for data_set in self.Datasets.values():
-                data_set_type = np.array(data_set.path_data_info())
-                assert list(data_set_type[:2]) == input_data_type, 'Path data information is not consistent.'
-                other_type = list(data_set_type[2:])
-                needed_data_type += other_type
-            
-            self.Input_data_type = [input_data_type + list(np.unique(needed_data_type))]
-
         
         
         for i_data_set, data_set in enumerate(self.Datasets.values()):
@@ -419,11 +412,8 @@ class data_interface(object):
             Domain_local = data_set.Domain.drop(['path_addition', 'data_addition'], axis = 1)
             Domain_local['file_index'] = file_index_local + len(self.Files)
 
-            if self.data_in_one_piece:
-                Domain_local['data_type_index'] = 0
-            else:
-                # Save the data type index
-                Domain_local['data_type_index'] = Data_set_inverse[i_data_set]
+            # Save the data type index
+            Domain_local['data_type_index'] = Data_set_inverse[i_data_set]
             
             # Add the new files 
             self.Files += data_set_files
@@ -450,25 +440,8 @@ class data_interface(object):
                 else:
                     IP = pd.DataFrame(np.ones((len(data_set.Output_T), 1), float) * np.nan, columns = ['empty'])
                     self.Input_prediction = pd.concat((self.Input_prediction, IP))
-                
-                Input_path_local = data_set.Input_path
-                # Check if path types overlap
-                if self.Input_data_type[0] != data_set.path_data_info():
-                    # Find indices of data_set path types in self.Input_data_type
-                    type_index = []
-                    for type in data_set.path_data_info():
-                        assert type in self.Input_data_type[0], 'Path data information is not consistent.'
-                        type_index.append(self.Input_data_type[0].index(type))
-                    
-                    # Overwrite the input data
-                    useful_samples, useful_agents = np.where(Input_path_local.notna())
-                    Input_path_array = np.stack(Input_path_local.to_numpy()[useful_samples, useful_agents], axis = 0)
-                    Input_path_array_new = np.full((*Input_path_array.shape[:2], len(self.Input_data_type[0])), np.nan, dtype = np.float32)
-                    Input_path_array_new[:, :, type_index] = Input_path_array
-                    
-                    Input_path_local.values[useful_samples, useful_agents] = list(Input_path_array_new)
 
-                self.Input_path       = pd.concat((self.Input_path, Input_path_local))
+                self.Input_path       = pd.concat((self.Input_path, data_set.Input_path))
                 self.Input_T          = np.concatenate((self.Input_T, data_set.Input_T), axis = 0)
                 
                 self.Output_path      = pd.concat((self.Output_path, data_set.Output_path))
@@ -638,7 +611,7 @@ class data_interface(object):
             output_data_set_name = self.Domain['Scenario'].iloc[output_index]
             
             # Go through part datasets
-            for i, data_set in enumerate(self.Datasets.values()):
+            for data_set in self.Datasets.values():
                 # Get predictions from this dataset
                 use = output_data_set_name == data_set.get_name()['print']
 
@@ -795,7 +768,7 @@ class data_interface(object):
 
         # Transform paths into numpy
         self.X_orig = np.ones([len(self.Used_samples), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
-        self.Y_orig = np.ones([len(self.Used_samples), self.N_O_data_orig.max(), 2], dtype = np.float32) * np.nan
+        self.Y_orig = np.ones([len(self.Used_samples), self.N_O_data_orig.max(), len(input_path_type)], dtype = np.float32) * np.nan
 
         # Extract data from original number a samples
         for i in range(len(self.Used_samples)):

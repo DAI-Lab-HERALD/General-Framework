@@ -116,7 +116,7 @@ class JSD_traj_indep(evaluation_template):
             input_path = self.data_set.Input_path.iloc[self.splitter.Test_index[0]]
             useful_agents = [isinstance(p, np.ndarray) for p in input_path]
             
-            input_path = np.stack(input_path[useful_agents].to_numpy(), axis = 0)[0]
+            input_path = np.stack(input_path[useful_agents].to_numpy(), axis = 0)[0,...,:2]
             
             return [JSD, Path_true, KDE_true_log_prob_true, Path_pred, KDE_pred_log_prob_pred, Pred_steps, input_path]
         else:

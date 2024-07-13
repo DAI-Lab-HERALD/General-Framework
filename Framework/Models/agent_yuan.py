@@ -48,7 +48,7 @@ class agent_yuan(model_template):
         self.grayscale = False
         
         total_memory = torch.cuda.get_device_properties(0).total_memory / 2 ** 20
-        self.batch_size = 2 * total_memory / (len(self.input_names_train) ** 1.5 * (self.num_timesteps_out + self.num_timesteps_in))
+        self.batch_size = 2 * total_memory / (len(self.data_set.Agents) ** 1.5 * (self.num_timesteps_out + self.num_timesteps_in))
         self.batch_size = max(1, int(np.floor(self.batch_size)))
         
         # Note: int eh original published version of the model, a batch size of 1 seems to have been used.
