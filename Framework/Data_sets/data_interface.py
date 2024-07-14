@@ -710,6 +710,17 @@ class data_interface(object):
     #############################################################################################################################
     #############################################################################################################################
     #############################################################################################################################
+
+    def get_indices_1D(self, A, B):
+        # Gives the indices of A in B
+        assert len(A.shape) == 1, 'A should be a 1D array.'
+        assert len(B.shape) == 1, 'B should be a 1D array.'
+
+        index = (A[:, np.newaxis] == B[np.newaxis])
+        assert np.all(index.sum(1) == 1), 'Agents are not unique.'
+        
+        return index.argmax(1)
+
     
     #%% Useful function for later modules
     def _extract_original_trajectories(self, file_index = 0):
@@ -762,9 +773,18 @@ class data_interface(object):
         self.Used_samples, self.Used_agents = np.where(Used_agents)
 
         # Transform the agent indices to correspond with self.Agents
-        Agent_index = (Input_path.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis])
-        assert np.all(Agent_index.sum(0) == 1), 'Agents are not unique.'
-        self.Used_agents = Agent_index.argmax(0)[self.Used_agents]
+        Agent_index = self.get_indices_1D(Input_path.columns.to_numpy(), np.array(self.Agents))
+        self.Used_agents = Agent_index[self.Used_agents]
+
+        # Get corresponding sparse matrix
+        sparse_matrix_shape = (len(Input_path), len(self.Agents))
+        sparse_matrix_data = np.arange(len(self.data_set.Used_samples), dtype=int)
+                
+        sparse_matrix = sp.sparse.coo_matrix((sparse_matrix_data, (self.data_set.Used_samples, self.data_set.Used_agents)),
+                                             shape = sparse_matrix_shape)
+        
+        # Convert to csr for more efficient lookup
+        self.sparse_matrix_orig = sparse_matrix.tocsr()
 
         # Transform paths into numpy
         self.X_orig = np.ones([len(self.Used_samples), self.num_timesteps_in_real, len(input_path_type)], dtype = np.float32) * np.nan
@@ -802,9 +822,7 @@ class data_interface(object):
             
             # Get the unique scenario id for every sample
             Scenario = self.Domain.Scenario_type.to_numpy()
-            Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
-            assert np.all(Scenario_id.sum(1) == 1)
-            Scenario_id = Scenario_id.argmax(1)
+            Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
             
             # Get needed agents for all cases
             Needed_agents = needed_agents_bool[Scenario_id]
@@ -861,7 +879,7 @@ class data_interface(object):
                         Output_T       = Output_T[self.Domain[used].Index_saved]
 
                         # Get the agent indices
-                        agent_index = (Type_local.columns.to_numpy()[:, np.newaxis] == np.array(self.Agents)[np.newaxis]).argmax(1)
+                        agent_index = self.get_indices_1D(Type_local.columns.to_numpy(), np.array(self.Agents))
 
                         # Get the number of timesteps in each sample
                         N_O_data = np.array([len(output_T) for output_T in Output_T])
@@ -907,9 +925,10 @@ class data_interface(object):
                     i_time = np.argmin(np.abs(t0 - pt))
                     
                     pas = PA.iloc[i_sample]
-                    i_agents = (np.array(self.Agents)[np.newaxis] == np.array(pas.index)[:,np.newaxis]).argmax(1)
                     pa = np.stack(pas.to_numpy().tolist(), 1)[i_time]
-                    
+
+                    i_agents = self.get_indices_1D(pas.index.to_numpy(), np.array(self.Agents))
+
                     Pred_agents_N[i_sample, i_agents] = pa
                 
                 self.Pred_agents_eval_all = Pred_agents_N
@@ -930,9 +949,7 @@ class data_interface(object):
             
             # Get the unique scenario id for every sample
             Scenario = self.Domain.Scenario_type.to_numpy()
-            Scenario_id = (Scenario[:,np.newaxis] == self.unique_scenarios[np.newaxis])
-            assert np.all(Scenario_id.sum(1) == 1)
-            Scenario_id = Scenario_id.argmax(1)
+            Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
             
             # Get pov boolean for each agent
             Pov_agent = pov_agents_bool[Scenario_id]

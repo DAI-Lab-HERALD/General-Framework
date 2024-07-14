@@ -72,11 +72,9 @@ class evaluation_template():
             Output_T_E_local = Output_T_E_local[ind_used]
 
             # Find the respective index
-            index_given = np.where(self.data_set.Domain.file_index == file_index)[0]
+            used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
             
-            index_transfer = self.Index_curr[:,np.newaxis] == index_given[np.newaxis]
-            assert (index_transfer.sum(1) == 1).all(), 'There is a problem with the index transfer.'
-            index_transfer = np.argmax(index_transfer, 1)
+            index_transfer = self.data_set.get_indices_1D(self.Index_curr, used_index)
 
             Output_A_full   = Output_A_local.iloc[index_transfer]
             Output_T_E_full = Output_T_E_local[index_transfer]
@@ -498,9 +496,7 @@ class evaluation_template():
 
             used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
 
-            Index_curr_data = self.Index_curr[:,np.newaxis] == used_index[np.newaxis]
-            assert (Index_curr_data.sum(1) == 1).all(), 'There is a problem with the index transfer.'
-            Index_curr_data = np.argmax(Index_curr_data, 1)
+            Index_curr_data = self.data_set.get_indices_1D(self.Index_curr, used_index)
 
         self.data_set._extract_original_trajectories(file_index)
 
@@ -510,21 +506,38 @@ class evaluation_template():
         # Get other interesting agents
         Other_agents = (~Pred_agents) & data_index_mask # at least one position must be fully known
 
-        # Order to reduce unnecessary data loading and memory usage
-        num_samples = len(self.Index_curr)
-        max_num_other_agents = Other_agents.sum(1).max()
+        if Other_agents.any():
 
-        i_agent_sort = np.argsort(-Other_agents.astype(float))
-        i_agent_sort = i_agent_sort[:,:max_num_other_agents]
-        i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_other_agents))
+            # Order to reduce unnecessary data loading and memory usage
+            num_samples = len(self.Index_curr)
+            max_num_other_agents = Other_agents.sum(1).max()
 
-        # Load the required data
-        Path_other = np.full((*i_sampl_sort.shape, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
-        data_index, data_index_mask = self.model.get_orig_data_index(Index_curr_data[i_sampl_sort], i_agent_sort)
-        Path_other[data_index_mask] = self.data_set.Y_orig[data_index, ..., :2]
+            i_agent_sort = np.argsort(-Other_agents.astype(float))
+            i_agent_sort = i_agent_sort[:,:max_num_other_agents]
+            i_sampl_sort = np.tile(np.arange(num_samples)[:,np.newaxis], (1, max_num_other_agents))
+
+            # Load the required data
+            Path_other = np.full((*i_sampl_sort.shape, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
+            data_index, data_index_mask = self.model.get_orig_data_index(Index_curr_data[i_sampl_sort], i_agent_sort)
+            Path_other[data_index_mask] = self.data_set.Y_orig[data_index, ..., :2]
+            
+            # Add the num_samples_path_pred dimension
+            Path_other = Path_other[:,np.newaxis]
+
+            if return_types:
+                Types = self.model.Type.iloc[self.Index_curr[i_sampl_sort], i_agent_sort]
+
+                # Find positions where Path_other is nan
+                nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
+                
+                # Test if all nonexisting paths have type zero
+                assert (Types[nan_pos] == '0').all(), 'There are types for nonexisting paths.'
+                assert (Types[~nan_pos] != '0').all(), 'There are no types for existing paths.'
         
-        # Add the num_samples_path_pred dimension
-        Path_other = Path_other[:,np.newaxis]
+        else:
+            Path_other = np.full((len(Other_agents), 1, 0, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
+            if return_types:
+                Types = np.full((len(Other_agents), 0), '0', dtype = str)
 
         # Adjust to used samples
         Use_samples = Pred_agents.any(-1)
@@ -533,17 +546,8 @@ class evaluation_template():
         Path_other = Path_other[Use_samples]
 
         if return_types:
-            Types = self.model.Type.iloc[self.Index_curr[i_sampl_sort], i_agent_sort]
-
             # Apply the same adjustemnt as to predicted agents
             Types = Types[Use_samples]
-
-            # Find positions where Path_other is nan
-            nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
-            
-            # Test if all nonexisting paths have type zero
-            assert (Types[nan_pos] == '0').all(), 'There are types for nonexisting paths.'
-            assert (Types[~nan_pos] != '0').all(), 'There are no types for existing paths.'
 
             return Path_other, Types
         

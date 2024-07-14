@@ -519,7 +519,7 @@ class model_template():
             self.Type = T.astype(str)
     
 
-    def get_orig_data_index(self, Sample_ind, Agent_ind = None, mode = 'scipy'):
+    def get_orig_data_index(self, Sample_ind, Agent_ind = None):
         # assert that sample_ind includes only integers
         assert Sample_ind.dtype == np.array([1]).dtype, 'Sample index should be integers.'
 
@@ -534,8 +534,8 @@ class model_template():
             samples_included = np.in1d(self.data_set.Used_samples, Sample_ind_unique)
 
             result = np.where(samples_included)[0]
-            used_samples = self.data_set.Used_samples[samples_included]
-            used_agents  = self.data_set.Used_agents[samples_included]
+            used_samples = self.data_set.Used_samples[result]
+            used_agents  = self.data_set.Used_agents[result]
 
             # Get inverse of used samples
             index_inverse = np.zeros(Sample_ind_unique.max() + 1, int)
@@ -559,37 +559,20 @@ class model_template():
             # Flatten the data
             Sample_ind = Sample_ind.flatten()
             Agent_ind  = Agent_ind.flatten()
+            
+            # Use sparse matrix for lookups
+            result = self.data_set.sparse_matrix_orig[Sample_ind, Agent_ind].A1
 
-            if mode == 'pandas':
-                # Create orginal multiindex pandas dataframe
-                Used_df = pd.DataFrame({'row': self.data_set.Used_samples,
-                                        'col': self.data_set.Used_agents,
-                                        'data': np.arange(len(self.data_set.Used_samples), dtype=int)})['data']
-                
-                # Create multiindex for the desired data
-                lookup_df = pd.DataFrame({'row': Sample_ind, 'col': Agent_ind}).set_index(['row', 'col']).index
+            # Get 1D mask
+            mask = result != 0
 
-                # Perform the lookup
-                result = lookup_df.map(Used_df).values.to_numpy().astype(float)
-                mask = np.isfinite(result)
-                result = result.astype(int)
-            elif mode == 'scipy':
-                sparse_matrix = sp.sparse.coo_matrix((np.arange(len(self.data_set.Used_samples), dtype=int) + 1, 
-                                                    (self.data_set.Used_samples, self.data_set.Used_agents)),
-                                                    shape = (max(self.data_set.Used_samples.max(), Sample_ind.max()) + 1,
-                                                            max(self.data_set.Used_agents.max(), Agent_ind.max()) + 1))
-                
-                # Convert to csr for more efficient lookup
-                sparse_matrix = sparse_matrix.tocsr()
+            # Reset the original increase in index needed for mask identification
+            result -= 1
 
-                result = sparse_matrix[Sample_ind, Agent_ind].A1
-                mask = result != 0
-                result -= 1
-            else:
-                raise AttributeError('Mode ' + mode + ' not implemented.')
-
-            # Transfrom result to original shape
+            # Get only relevant data
             result = result[mask]
+
+            # Transform mask to original input shape
             mask = mask.reshape(Out_shape)
         return result, mask
 
@@ -1260,10 +1243,8 @@ class model_template():
             used_index = np.where(self.data_set.Domain.file_index == domain_file)[0]
 
             # Det the position of Sample_id in used_index
-            Sample_id_used = Sample_id[:,[0]] == used_index[np.newaxis, :]
-
-            assert (Sample_id_used.sum(1) == 1).all(), "Something went wrong with finding samples"
-            Sample_id_used = np.tile(Sample_id_used.argmax(1, keepdims = True), (1, Sample_id.shape[1]))
+            Sample_id_used = self.data_set.get_indices_1D(Sample_id[:,0], used_index)
+            Sample_id_used = np.tile(Sample_id_used[:,np.newaxis], (1, Sample_id.shape[1]))
 
             # Get original indices
             data_index, data_index_mask = self.get_orig_data_index(Sample_id_used, Agent_id)
@@ -1663,9 +1644,7 @@ class model_template():
 
             used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
 
-            Pred_index_data = Pred_index[:,np.newaxis] == used_index[np.newaxis]
-            assert (Pred_index_data.sum(1) == 1).all(), "Something went wrong with finding samples"
-            Pred_index_data = Pred_index_data.argmax(1)
+            Pred_index_data = self.data_set.get_indices_1D(Pred_index, used_index)
 
         else:
             file_index = 0
