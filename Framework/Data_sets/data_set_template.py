@@ -1376,7 +1376,8 @@ class data_set_template():
                     print(' ')
                 
         # Save the data with last = True
-        self.check_extracted_data_for_saving(path_file_adjust, True)
+        # self.check_extracted_data_for_saving(path_file_adjust, True)
+        # TODO check the function above as it has problems with line 1469
     
     
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
