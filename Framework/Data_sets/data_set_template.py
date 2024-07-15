@@ -855,7 +855,7 @@ class data_set_template():
               ' at gaps with fixed sizes, a size of {:0.3f} s was chosen'.format(self.dtc_boundary))
 
 
-    def extract_t0(self, t0_type, t, t_start, t_decision, t_crit, i_sample, behavior):
+    def extract_t0(self, t0_type, t, t_start, t_decision, t_crit, local_T_D_class, i_sample, behavior):
         if t0_type[:5] == 'start':
             T0 = [t_start]
         
@@ -878,7 +878,7 @@ class data_set_template():
 
         elif t0_type[:3] == 'col':
             if self.classification_useful:
-                t_D_default = self.T_D_class.iloc[i_sample][self.behavior_default]
+                t_D_default = local_T_D_class.iloc[i_sample][self.behavior_default]
                 if t0_type[:9] == 'col_equal':
                     t_D_value = self.dtc_boundary
                 elif t0_type[:7] == 'col_set':
@@ -1148,7 +1148,7 @@ class data_set_template():
             self.num_behaviors_local[self.Behaviors == behavior] += 1
 
             # Get the time of prediction
-            T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, i, behavior)
+            T0 = self.extract_t0(self.t0_type, t, t_start, t_decision, t_crit, local_T_D_class, i, behavior)
             
             # Extract comparable T0 types
             T0_compare = []
@@ -1157,7 +1157,7 @@ class data_set_template():
                     if extra_t0_type[:3] == 'all':
                         raise TypeError("Comparing against the all method is not possible")
                     else:
-                        T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, i, behavior)) 
+                        T0_compare.append(self.extract_t0(extra_t0_type, t, t_start, t_decision, t_crit, local_T_D_class, i, behavior)) 
             
             for ind_t0, t0 in enumerate(T0):
                 if len(T0) > 50:

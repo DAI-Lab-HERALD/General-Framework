@@ -778,9 +778,9 @@ class data_interface(object):
 
         # Get corresponding sparse matrix
         sparse_matrix_shape = (len(Input_path), len(self.Agents))
-        sparse_matrix_data = np.arange(len(self.data_set.Used_samples), dtype=int)
+        sparse_matrix_data = np.arange(len(self.Used_samples), dtype=int)
                 
-        sparse_matrix = sp.sparse.coo_matrix((sparse_matrix_data, (self.data_set.Used_samples, self.data_set.Used_agents)),
+        sparse_matrix = sp.sparse.coo_matrix((sparse_matrix_data, (self.Used_samples, self.Used_agents)),
                                              shape = sparse_matrix_shape)
         
         # Convert to csr for more efficient lookup
