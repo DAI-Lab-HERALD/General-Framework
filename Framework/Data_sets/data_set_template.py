@@ -1366,18 +1366,20 @@ class data_set_template():
                 self.Recorded_local.append(recorded_positions)
                 self.Domain_local.append(domain)
                 
-                # Check if saving is needed
-                current_length = len(self.Input_T_local)
-                if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
-                    memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
-                    predicted_saving_length = int(1 + current_length / memory_perc)
-                    print(' ')
-                    print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
-                    print(' ')
+                if (i == local_num_samples - 1) and (ind_t0 == len(T0) - 1):
+                    # Save the data with last = True
+                    self.check_extracted_data_for_saving(path_file_adjust, True)
                 
-        # Save the data with last = True
-        # self.check_extracted_data_for_saving(path_file_adjust, True)
-        # TODO check the function above as it has problems with line 1469
+                else:
+                    # Check if saving is needed
+                    current_length = len(self.Input_T_local)
+                    if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
+                        memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
+                        predicted_saving_length = int(1 + current_length / memory_perc)
+                        print(' ')
+                        print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
+                        print(' ')
+
     
     
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
