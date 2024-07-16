@@ -135,6 +135,10 @@ class Adversarial_Control_Action(perturbation_template):
         # Learning decay
         self.gamma = 1
         self.alpha = 0.001  
+        
+        # relative clamping values
+        self.epsilon_acc_relative = 2
+        self.epsilon_curv_relative = 0.05
 
         # Learning rate adjusted
         self.alpha_acc = (self.epsilon_acc_relative /
@@ -160,10 +164,6 @@ class Adversarial_Control_Action(perturbation_template):
 
         # absolute clamping values
         self.epsilon_curv_absolute = 0.2
-
-        # relative clamping values
-        self.epsilon_acc_relative = 2
-        self.epsilon_curv_relative = 0.05
 
         # Barrier function parameters
         self.distance_threshold_past = 1
