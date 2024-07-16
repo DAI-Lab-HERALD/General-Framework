@@ -525,7 +525,7 @@ class evaluation_template():
             Path_other = Path_other[:,np.newaxis]
 
             if return_types:
-                Types = self.model.Type.iloc[self.Index_curr[i_sampl_sort], i_agent_sort]
+                Types = self.model.Type[self.Index_curr[i_sampl_sort], i_agent_sort]
 
                 # Find positions where Path_other is nan
                 nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
