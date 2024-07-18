@@ -4,7 +4,8 @@ import os
 import torch
 import psutil
 from data_interface import data_interface
-
+import glob
+import re
 
 class data_set_template():
     # %% Implement the provision of data
@@ -1079,7 +1080,31 @@ class data_set_template():
         num_files = len(domain_files)
         return domain_files, num_files
     
-    
+    def find_highest_number(self, files, pattern):
+        '''
+        This function finds the highest number in a list of files that matches a given pattern.
+
+        Parameters
+        ----------
+        files : list
+            A list of file names.
+        pattern : str
+            A regular expression pattern that should match the number in the file name.
+        
+        Returns
+        -------
+        max_num : int
+            The highest number found in the files.
+        '''
+        max_num = 0
+        compiled_pattern = re.compile(pattern)
+        for file in files:
+            match = compiled_pattern.search(file)
+            if match:
+                num = int(match.group(1))
+                if num > max_num:
+                    max_num = num
+        return max_num
     
     def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, path_file_adjust):
         # Extract time points from raw data
@@ -1366,19 +1391,55 @@ class data_set_template():
                 self.Recorded_local.append(recorded_positions)
                 self.Domain_local.append(domain)
                 
-                if (i == local_num_samples - 1) and (ind_t0 == len(T0) - 1):
-                    # Save the data with last = True
-                    self.check_extracted_data_for_saving(path_file_adjust, True)
-                
-                else:
-                    # Check if saving is needed
-                    current_length = len(self.Input_T_local)
-                    if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
-                        memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
-                        predicted_saving_length = int(1 + current_length / memory_perc)
-                        print(' ')
-                        print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
-                        print(' ')
+                current_length = len(self.Input_T_local)
+                if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
+                    memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
+                    predicted_saving_length = int(1 + current_length / memory_perc)
+                    print(' ')
+                    print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
+                    print(' ')
+
+        if (len(self.Input_path_local) > 0): 
+            # last = true
+            self.check_extracted_data_for_saving(path_file_adjust, True)   
+        else:
+            # check npy files in data directory
+            directory = os.path.dirname(path_file)
+            npy_files = glob.glob(os.path.join(directory, "*.npy"))
+
+            # check if it does not include specific files
+            excluded_files = {'orig_path', 'extracted_time', 'Images'}
+            other_files = []
+            for file in npy_files:
+                if os.path.basename(file) not in excluded_files:
+                    other_files.append(file)
+
+            # Check if there are no other files available
+            if not other_files:
+                raise RuntimeError("No samples have been extracted at all, as no other .npy files were found.")
+            
+            # Patterns for different file types
+            patterns = {
+                'data': r'_LLL_(\d{3})_data.npy',
+                'AM': r'_LLL_(\d{3})_AM.npy',
+                'Domain': r'_LLL_(\d{3})_Domain.npy'
+            }
+
+            # Find the highest numbers
+            highest_numbers = {key: self.find_highest_number(other_files, pattern) for key, pattern in patterns.items()}
+            highest_numbers_str = {key: f"{num:03d}" for key, num in highest_numbers.items()}
+            
+            # Rename one selection (data, AM, Domain) to _LLL_LLL
+            for file in other_files:
+                if '_data.npy' in file:
+                    new_file_name = file.replace(f'_LLL_{highest_numbers_str["data"]}_data.npy', '_LLL_LLL_data.npy')
+                    os.rename(file, new_file_name)
+                elif '_AM.npy' in file:
+                    new_file_name = file.replace(f'_LLL_{highest_numbers_str["AM"]}_AM.npy', '_LLL_LLL_AM.npy')
+                    os.rename(file, new_file_name)
+                elif '_Domain.npy' in file:
+                    new_file_name = file.replace(f'_LLL_{highest_numbers_str["Domain"]}_Domain.npy', '_LLL_LLL_Domain.npy')
+                    os.rename(file, new_file_name)
 
     
     
