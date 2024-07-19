@@ -326,6 +326,9 @@ class model_template():
             for i_part in range(parts_needed):
                 Index = Index_file[i_part * Index_length : min((i_part + 1) * Index_length, len(Index_file))]
 
+                if len(Index) == 0:
+                        continue
+
                 Index_series = pd.Series({'Index': Index, 'file_index': 0})
                 Index_df.loc[len(Index_df)] = Index_series
 
@@ -352,6 +355,9 @@ class model_template():
 
                 for i_part in range(parts_needed):
                     Index = Index_file[i_part * Index_length : min((i_part + 1) * Index_length, len(Index_file))]
+
+                    if len(Index) == 0:
+                        continue
 
                     Index_series = pd.Series({'Index': Index, 'file_index': file_index})
                     Index_df = Index_df.append(Index_series, ignore_index = True)
