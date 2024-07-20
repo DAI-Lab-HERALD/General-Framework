@@ -398,6 +398,8 @@ class get_name:
             return Collision_Y_pred_tar_Y_GT_ego_Loss()
         elif loss_function == 'Collision_Y_Perturb_tar_Y_GT_ego':
             return Collision_Y_Perturb_tar_Y_GT_ego_Loss()
+        elif loss_function == 'Y_Perturb':
+            return Y_Perturb_Loss()
         else:
             raise ValueError(f"Unknown loss function: {loss_function}")
 
@@ -539,6 +541,11 @@ class Collision_Y_pred_tar_Y_GT_ego_Loss(LossFunction):
 class Collision_Y_Perturb_tar_Y_GT_ego_Loss(LossFunction):
     def calculate_loss(self, X, X_new, Y, Y_new, Pred_t, Pred_iter_1, tar_agent, ego_agent):
         return Loss.collision_loss_Y_ego_GT_and_Y_perturb_tar(Y_new, Y, tar_agent, ego_agent)
+
+
+class Y_Perturb_Loss(LossFunction):
+    def calculate_loss(self, X, X_new, Y, Y_new, Pred_t, Pred_iter_1, tar_agent, ego_agent):
+        return 0
 
 # Specific barrier function implementations
 
