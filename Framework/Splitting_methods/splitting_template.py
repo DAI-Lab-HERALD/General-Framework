@@ -91,7 +91,7 @@ class splitting_template():
                     index_local = index_overwrite[index_overwrite_local]
                     
                     # Get the current file name
-                    file = self.Files[file_index]
+                    file = self.data_set.Files[file_index]
                     
                     # Check that this is indeed a perturbed file
                     assert '--Pertubation' in file, 'This file is not a perturbed file.'
@@ -100,12 +100,12 @@ class splitting_template():
                     file_unperturbed = pre_perturbation + post_perturbation[4:]
                     
                     # Check if unperturbed file is in file list
-                    if file_unperturbed in self.Domain.Files:
+                    if file_unperturbed in self.data_set.Files:
                         file_index_unperturbed = self.Domain.Files.index(file_unperturbed)
                         self.Domain.file_index.iloc[index_local] = file_index_unperturbed
                     else:
-                        self.Domain.Files.append(file_unperturbed)
-                        self.Domain.file_index.iloc[index_local] = len(self.Domain.Files) - 1
+                        self.data_set.Files.append(file_unperturbed)
+                        self.Domain.file_index.iloc[index_local] = len(self.data_set.Files) - 1
                     
                     # TODO: Check if self.data_set.Domain was also overwritten
                         
