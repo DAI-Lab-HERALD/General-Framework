@@ -1572,7 +1572,7 @@ class data_set_template():
                     assert (self.Output_A.sum(1) == 1).all(), "Behavior extraction of perturbed data failed."
                     
                     # Set Output_T_E from dataframe to corresponding value
-                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A], 0).mean(1)
+                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A.to_numpy().astype(bool)], 0).mean(1)
                     assert np.isfinite(self.Output_T_E).all(), "Behavior time extraction of perturbed data failed."
                 
                 # Remove unperturbed columns from domain
@@ -2239,6 +2239,7 @@ class data_set_template():
             t_true = self.Output_T[i_full]
             # interpolate the values at the new set of points using numpy.interp()
             path_old = Output_path.loc[i_full,self.pov_agent]
+            path_old = path_old[:len(t_true)]
             if np.array_equal(t, t_true):
                 # Ensure to use only x and y
                 path_new = path_old[...,:2]
