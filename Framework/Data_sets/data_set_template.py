@@ -1413,7 +1413,6 @@ class data_set_template():
         num_timesteps_in  = np.array([len(t) for t in self.Input_T_local])
         num_timesteps_out = np.array([len(t) for t in self.Output_T_local])
         
-        # TODO: Check if this also works for manually assinged np.nan values
         # Get the number of saved agents for each sample
         self.Input_path = pd.DataFrame(self.Input_path_local)
         self.Input_prediction = pd.DataFrame(self.Input_prediction_local)
