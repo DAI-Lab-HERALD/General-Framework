@@ -1914,21 +1914,13 @@ class model_template():
                     log_prob_pred_agent = self.data_set.KDE_indep[subgroup][nto][agent].score_samples(paths_pred_agent_comp)
 
                     self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
-    
-    
-    #############################################################################################################################
-    #############################################################################################################################
-    ####                                                                                                                     ####
-    ####                           Not adjusted for large datasets yet                                                       ####
-    ####                                                                                                                     ####
-    #############################################################################################################################
-    #############################################################################################################################
 
-    
+                    
     
     #####################################################################################################
     #                           Get KDE_pred(x) and KDE_pred(x_pred)                                    #
     #####################################################################################################
+
     def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
             if self.excluded_ego_joint == exclude_ego:
@@ -1946,8 +1938,8 @@ class model_template():
         Pred_agents = self.Pred_step.any(-1)
         
         # Shape: Num_samples x num_preds
-        self.Log_prob_joint_true = np.zeros(self.Path_true.shape[:-3], dtype = np.float32)
-        self.Log_prob_joint_pred = np.zeros(self.Path_pred.shape[:-3], dtype = np.float32)
+        self.Log_prob_joint_true = np.zeros(self.Path_true.shape[:2], dtype = np.float32)
+        self.Log_prob_joint_pred = np.zeros(self.Path_pred.shape[:2], dtype = np.float32)
         
         Num_steps = self.Pred_step.sum(-1).max(-1)
         
@@ -1990,49 +1982,54 @@ class model_template():
                 use_preds = np.arange(len(paths_pred_comp))
                 np.random.seed(0)
                 np.random.shuffle(use_preds)
-                max_preds = min(max(1 * len(paths_true_comp), 5 * self.num_samples_path_pred, 2500), len(use_preds))
+                max_preds = min(3000, len(use_preds))
                 
                 # Get approximated probability distribution
-                log_probs_true = []
-                log_probs_pred = []
                 log_pred_satisfied = False
                 i = 0
-                while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
-                    test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
-                    path_pred_train = paths_pred_comp[test_ind]
 
-                    kde = ROME().fit(path_pred_train)
+                while not log_pred_satisfied and i * max_preds < len(use_preds):
+                    test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
+
+                    kde = ROME().fit(paths_pred_comp[test_ind])
+                    if i == 0:
+                        kde_all = kde
+                        test_ind_all = test_ind
+                    else:
+                        labels_all = kde_all.labels_
+                        max_label = labels_all.max() + 1
+
+                        # Get new labels and adjust labels
+                        labels_new = kde.labels_
+                        labels_new[labels_new != -1] += max_label
+
+                        labels_all = np.concatenate([labels_all, labels_new])
+                        test_ind_all = use_preds[:max_preds * (i + 1)]
+
+                        # Refit kde_all
+                        kde_all = ROME().fit(paths_pred_comp[test_ind_all], clusters = labels_all)
 
                     # Score samples
-                    log_probs_true.append(kde.score_samples(paths_true_comp))
-                    log_probs_pred.append(kde.score_samples(paths_pred_comp))
+                    log_prob_true = kde_all.score_samples(paths_true_comp)
+                    log_prob_pred = kde_all.score_samples(paths_pred_comp)
                     
-                    weights = np.ones((i + 1, 1)) / (i + 1)
                     # Check if we sufficiently represent predicted distribution
                     print('            ' + str(i))
                     i += 1
 
+                    # Check if further training is needed
+                    not_test_ind_all = use_preds[max_preds * (i + 1):]
+                    if len(test_ind) == 0:
+                        log_pred_satisfied = True
+                    else:
+                        included_quant = np.quantile(log_prob_pred[test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
+                        unincluded_quant = np.quantile(log_prob_pred[not_test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
 
-                log_prob_pred = sp.special.logsumexp(np.stack(log_probs_pred, axis = 0), 
-                                                                b = weights, axis = 0)
-                    # unincluded = use_preds[max_preds * (i + 1):]
-                    # if len(unincluded) == 0:
-                    #     log_pred_satisfied = True
-                    # else:
-                    #     included = use_preds[:max_preds * (i + 1)]
+                        diff = np.abs(included_quant - unincluded_quant)
 
-                    #     included_quant = np.quantile(log_prob_pred[included], [0.1, 0.3, 0.5, 0.7, 0.9])
-                    #     unincluded_quant = np.quantile(log_prob_pred[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+                        log_pred_satisfied = np.max(diff) < 0.5
+                        print('            Diff train/val: ' + str(np.max(diff)))
 
-                    #     diff = np.abs(included_quant - unincluded_quant)
-
-                    #     log_pred_satisfied = np.max(diff) < 0.5
-                    #     print(np.max(diff))
-
-                
-                log_prob_true = sp.special.logsumexp(np.stack(log_probs_true, axis = 0), 
-                                                            b = weights, axis = 0)
-            
                 self.Log_prob_joint_true[nto_index] = log_prob_true.reshape(*paths_true.shape[:2])
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
             
@@ -2106,56 +2103,54 @@ class model_template():
                     use_preds = np.arange(len(paths_pred_agent_comp))
                     np.random.seed(0)
                     np.random.shuffle(use_preds)
-                    max_preds = min(max(1 * len(paths_true_agent_comp), 5 * self.num_samples_path_pred, 2500), len(use_preds))
-                    
+                    max_preds = min(3000, len(use_preds))
+                
                     # Get approximated probability distribution
-                    log_probs_true_agent = []
-                    log_probs_pred_agent = []
-
                     log_pred_satisfied = False
                     i = 0
-                    while not log_pred_satisfied and (i + 1) * max_preds <= len(use_preds):
+
+                    while not log_pred_satisfied and i * max_preds < len(use_preds):
                         test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
-                        path_pred_train = paths_pred_agent_comp[test_ind]
-                        kde = ROME().fit(path_pred_train)
-                        
+
+                        kde = ROME().fit(paths_pred_agent_comp[test_ind])
+                        if i == 0:
+                            kde_all = kde
+                            test_ind_all = test_ind
+                        else:
+                            labels_all = kde_all.labels_
+                            max_label = labels_all.max() + 1
+
+                            # Get new labels and adjust labels
+                            labels_new = kde.labels_
+                            labels_new[labels_new != -1] += max_label
+
+                            labels_all = np.concatenate([labels_all, labels_new])
+                            test_ind_all = use_preds[:max_preds * (i + 1)]
+
+                            # Refit kde_all
+                            kde_all = ROME().fit(paths_pred_agent_comp[test_ind_all], clusters = labels_all)
+
                         # Score samples
-                        log_probs_true_agent.append(kde.score_samples(paths_true_agent_comp))
-                        log_probs_pred_agent.append(kde.score_samples(paths_pred_agent_comp))
+                        log_prob_true_agent = kde_all.score_samples(paths_true_agent_comp)
+                        log_prob_pred_agent = kde_all.score_samples(paths_pred_agent_comp)
                         
-                        weights = np.ones((i + 1, 1)) / (i + 1)
                         # Check if we sufficiently represent predicted distribution
                         print('            ' + str(i))
                         i += 1
 
+                        # Check if further training is needed
+                        not_test_ind_all = use_preds[max_preds * (i + 1):]
+                        if len(test_ind) == 0:
+                            log_pred_satisfied = True
+                        else:
+                            included_quant = np.quantile(log_prob_pred_agent[test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
+                            unincluded_quant = np.quantile(log_prob_pred_agent[not_test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
 
-                    log_prob_pred_agent = sp.special.logsumexp(np.stack(log_probs_pred_agent, axis = 0), 
-                                                                   b = weights, axis = 0)
-                        
-                        
-                        # unincluded = use_preds[max_preds * (i + 1):]
-                        # if len(unincluded) == 0:
-                        #     log_pred_satisfied = True
-                        # else:
-                        #     included = use_preds[:max_preds * (i + 1)]
+                            diff = np.abs(included_quant - unincluded_quant)
 
-                        #     included_quant = np.quantile(log_prob_pred_agent[included], [0.1, 0.3, 0.5, 0.7, 0.9])
-                        #     unincluded_quant = np.quantile(log_prob_pred_agent[unincluded], [0.1, 0.3, 0.5, 0.7, 0.9])
+                            log_pred_satisfied = np.max(diff) < 0.5
+                            print('            Diff train/val: ' + str(np.max(diff)))
 
-                        #     diff = np.abs(included_quant - unincluded_quant)
-
-                        #     # We reject distribution as unequal with 99.9% confidence
-                        #     t_value = 3.09 * log_prob_pred_agent.std() / np.sqrt(len(use_preds))
-
-                        #     log_pred_satisfied = np.max(diff) < t_value
-                        #     print(i, np.max(diff), t_value)
-                        
-
-                    
-                    log_prob_true_agent = sp.special.logsumexp(np.stack(log_probs_true_agent, axis = 0), 
-                                                               b = weights, axis = 0)
-
-                    
                     self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
                 
