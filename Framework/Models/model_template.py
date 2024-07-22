@@ -306,6 +306,51 @@ class model_template():
                 np.save(metric_file, save_data)
 
 
+    def add_to_index_df(self, Index_df, Index_file, num_samples_file, file_index = 0):
+        # get subgroups of Index file
+        Subgroups = self.data_set.Subgroups[Index_file]
+
+        # Sort Index file by subgroups
+        subgroup_sort_ind = np.argsort(Subgroups)
+
+        Subgroups  = Subgroups[subgroup_sort_ind]
+        Index_file = Index_file[np.argsort(Subgroups)]
+
+        # Get locations at which the subgroup changes
+        subgroup_change = np.where(Subgroups[:-1] != Subgroups[1:])[0] + 1
+            
+        # Predict the number of origdata size needed for output
+        parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
+        
+        parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
+
+        # Get number of samples that can actually be predicted
+        index_length = int(np.ceil(len(Index_file) / parts_needed))
+
+        i_min = 0
+
+        while i_min < len(Index_file):
+            # Get upper bound for index
+            i_max_low = i_min + index_length
+            i_max = subgroup_change[subgroup_change >= i_max_low][0] # Due to sorting, [0] should be equal to .min()
+            i_max = min(i_max, len(Index_file))
+
+            # Get the current indices
+            Index = Index_file[i_min:i_max]
+
+            if len(Index) == 0:
+                    continue
+            
+            # Add to dataframe
+            Index_series = pd.Series({'Index': Index, 'file_index': file_index})
+            Index_df.loc[len(Index_df)] = Index_series
+
+            # reset i_min
+            i_min = i_max + 0
+    
+        return Index_df
+
+
 
     def get_index_df(self, Index_all):
         Index_df = pd.DataFrame(np.zeros((0,2), object), columns = ['Index', 'file_index'])
@@ -315,22 +360,7 @@ class model_template():
             num_samples_file = len(self.data_set.Domain)
             Index_file = Index_all
             
-            # Predict the number of origdata size needed for output
-            parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
-            
-            parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
-
-            # Get number of samples that can actually be predicted
-            Index_length = int(np.ceil(len(Index_file) / parts_needed))
-
-            for i_part in range(parts_needed):
-                Index = Index_file[i_part * Index_length : min((i_part + 1) * Index_length, len(Index_file))]
-
-                if len(Index) == 0:
-                        continue
-
-                Index_series = pd.Series({'Index': Index, 'file_index': 0})
-                Index_df.loc[len(Index_df)] = Index_series
+            Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file)
 
         else:
             # Go through all the files corresponding to Index_all
@@ -344,23 +374,8 @@ class model_template():
                 # get the curent train/test index
                 useful &= np.in1d(np.arange(len(self.data_set.Domain)), Index_all)
                 Index_file = np.where(useful)[0]
-                
-                # Predict the number of origdata size needed for output
-                parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
-                
-                parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
 
-                # Get number of samples that can actually be predicted
-                Index_length = int(np.ceil(len(Index_file) / parts_needed))
-
-                for i_part in range(parts_needed):
-                    Index = Index_file[i_part * Index_length : min((i_part + 1) * Index_length, len(Index_file))]
-
-                    if len(Index) == 0:
-                        continue
-
-                    Index_series = pd.Series({'Index': Index, 'file_index': file_index})
-                    Index_df = Index_df.append(Index_series, ignore_index = True)
+                Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file, file_index)
 
         return Index_df
 
@@ -423,8 +438,15 @@ class model_template():
                         metric_combination = metric.partial_calculation()
                         if metric_combination == 'Sample':
                             weight = len(Index)
+                        elif metric_combination == 'Subgroups':
+                            Subgroups = self.data_set.Subgroups[Index]
+                            weight = len(np.unique(Subgroups))
                         elif metric_combination == 'Pred_agents':
                             weight = self.data_set.Pred_agents_eval[Index].sum()
+                        elif metric_combination == 'Subgroup_pred_agents':
+                            Subgroups = self.data_set.Subgroups[Index]
+                            Subgroup_unique_index = np.unique(Subgroups, return_index = True)[1]
+                            weight = self.data_set.Pred_agents_eval[Index[Subgroup_unique_index]].sum()
                         else:
                             weight = 1
                             assert len(Index_df) == 1, 'Partial evaluation is not possible for metric ' + metric.get_name()['print'] + '.'
@@ -513,7 +535,6 @@ class model_template():
                 T = np.zeros(self.data_set.Pred_agents_pred.shape, str)
                 for file_index in range(len(self.data_set.Files)):
                     used = self.data_set.Domain.file_index == file_index
-                    used_index = np.where(used)[0]
                     
                     agent_file = self.data_set.Files[file_index] + '_AM.npy'
                     T_local, _, _ = np.load(agent_file, allow_pickle = True)
@@ -1726,6 +1747,9 @@ class model_template():
         # Set agent types of agents not included in Pred step to '0'
         self.T_pred[~self.Pred_step.any(-1)] = '0'
 
+        # Save the id of the agents used here
+        self.Pred_agent_id = i_agent_sort
+
         # Get agent predictions
         if 'category' in self.data_set.Domain.columns:
             # Sample_id = self.ID[ind_advance,0,0]
@@ -1741,6 +1765,155 @@ class model_template():
             # Get to numpy and apply indices
             C = C.to_numpy().astype(int)
             self.C_pred = C[i_sampl_sort, i_agent_sort]
+                
+    
+    #####################################################################################################
+    #                                   Get KDE_true(x_pred)                                            #
+    #####################################################################################################
+
+
+    def _get_joint_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_joint_pred'):
+            if self.excluded_ego_true_joint == exclude_ego:
+                if np.array_equal(self.extracted_pred_index_true_joint, Pred_index):
+                    return
+                
+        # Get the current file_index
+        if self.data_set.data_in_one_piece:
+            file_index = 0
+        else:
+            file_indices = self.data_set.Domain.file_index.iloc[Pred_index].to_numpy()
+            assert len(np.unique(file_indices)) == 1, 'This method is only useful for datasets that are in one piece.'
+            file_index = file_indices[0]
+        
+        # Have the dataset load
+        self.data_set._get_joint_KDE_probabilities(exclude_ego, file_index)
+        
+        # Save last setting 
+        self.excluded_ego_true_joint = exclude_ego
+        self.extracted_pred_index_true_joint = Pred_index
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds
+        self.Log_prob_true_joint_pred = np.zeros(self.Path_pred.shape[:2], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+        
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        
+        for subgroup in np.unique(Subgroups):
+            s_ind = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
+            nto_subgroup = Num_steps[s_ind]
+            
+            for nto in np.unique(nto_subgroup):
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                        
+                # Collapse agents
+                num_features = pred_agents.sum() * nto * 2
+                paths_pred_comp = paths_pred.reshape(*paths_pred.shape[:2], num_features)
+                
+                # Collapse agents further
+                paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
+                
+                # Evaluate trejatories
+                log_prob_pred = self.data_set.KDE_joint[subgroup][nto].score_samples(paths_pred_comp)
+                self.Log_prob_true_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
+            
+            
+    def _get_indep_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_indep_pred'):
+            if self.excluded_ego_true_indep == exclude_ego:
+                if np.array_equal(self.extracted_pred_index_true_indep, Pred_index):
+                    return
+                
+        # Get the current file_index
+        if self.data_set.data_in_one_piece:
+            file_index = 0
+        else:
+            file_indices = self.data_set.Domain.file_index.iloc[Pred_index].to_numpy()
+            assert len(np.unique(file_indices)) == 1, 'This method is only useful for datasets that are in one piece.'
+            file_index = file_indices[0]
+        
+        # Have the dataset load
+        self.data_set._get_indep_KDE_probabilities(exclude_ego, file_index)
+        
+        # Save last setting 
+        self.excluded_ego_true_indep = exclude_ego
+        self.extracted_pred_index_true_indep = Pred_index
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds x num agents
+        self.Log_prob_true_indep_pred = np.zeros(self.Path_pred.shape[:3], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+       
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        Agents = np.array(self.data_set.Agents)[self.Pred_agent_id]
+        
+        for subgroup in np.unique(Subgroups):
+            s_ind = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+            
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            nto_subgroup = Num_steps[s_ind]
+            
+            for nto in np.unique(nto_subgroup):
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                num_features = nto * 2
+                
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    agent = Agents[nto_index, i_agent_orig]
+                    assert len(np.unique(agent)) == 1
+                    agent = agent[0]
+                    
+                    # Get agent
+                    paths_pred_agent = paths_pred[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:2], num_features)
+                    
+                    # Collapse agents further
+                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+                    
+                    log_prob_pred_agent = self.data_set.KDE_indep[subgroup][nto][agent].score_samples(paths_pred_agent_comp)
+
+                    self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
     
     
     #############################################################################################################################
@@ -1752,6 +1925,10 @@ class model_template():
     #############################################################################################################################
 
     
+    
+    #####################################################################################################
+    #                           Get KDE_pred(x) and KDE_pred(x_pred)                                    #
+    #####################################################################################################
     def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
             if self.excluded_ego_joint == exclude_ego:
@@ -1781,20 +1958,20 @@ class model_template():
         print('Calculate joint PDF on predicted probabilities.', flush = True)
         for i, subgroup in enumerate(np.unique(Subgroups)):
             print('    Subgroup {:5.0f}/{:5.0f}'.format(i + 1, len(np.unique(Subgroups))), flush = True)
-            subgroup_index = np.where(Subgroups == subgroup)[0]
+            s_ind = np.where(Subgroups == subgroup)[0]
             
-            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
-            pred_agents = Pred_agents[subgroup_index[0]]
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
             
             # Avoid useless samples
             if not pred_agents.any():
                 continue
 
-            nto_subgroup = Num_steps[subgroup_index]
+            nto_subgroup = Num_steps[s_ind]
             
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
-                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
@@ -1889,10 +2066,10 @@ class model_template():
         print('Calculate indep PDF on predicted probabilities.', flush = True)
         for i, subgroup in enumerate(np.unique(Subgroups)):
             print('    Subgroup {:5.0f}/{:5.0f}'.format(i + 1, len(np.unique(Subgroups))), flush = True)
-            subgroup_index = np.where(Subgroups == subgroup)[0]
+            s_ind = np.where(Subgroups == subgroup)[0]
             
-            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
-            pred_agents = Pred_agents[subgroup_index[0]]
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
             
             # Avoid useless samples
             if not pred_agents.any():
@@ -1900,11 +2077,11 @@ class model_template():
 
             pred_agents_id = np.where(pred_agents)[0]
             
-            nto_subgroup = Num_steps[subgroup_index]
+            nto_subgroup = Num_steps[s_ind]
             
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
-                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
                 
                 # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
                 paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
@@ -1981,132 +2158,6 @@ class model_template():
                     
                     self.Log_prob_indep_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
-                
-                
-    def _get_joint_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
-        if hasattr(self, 'Log_prob_true_joint_pred'):
-            if self.excluded_ego_true_joint == exclude_ego:
-                if np.array_equal(self.extracted_pred_index_true_joint, Pred_index):
-                    return
-        
-        # Have the dataset load
-        self.data_set._get_joint_KDE_probabilities(exclude_ego)
-        
-        # Save last setting 
-        self.excluded_ego_true_joint = exclude_ego
-        self.extracted_pred_index_true_joint = Pred_index
-        
-        # Check if dataset has all valuable stuff
-        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
-        
-        # get predicted agents
-        Pred_agents = self.Pred_step.any(-1)
-        
-        # Shape: Num_samples x num_preds
-        self.Log_prob_true_joint_pred = np.zeros(self.Path_pred.shape[:-3], dtype = np.float32)
-        
-        Num_steps = self.Pred_step.sum(-1).max(-1)
-        
-        # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
-        Subgroups = self.data_set.Subgroups[Pred_index]
-        
-        for subgroup in np.unique(Subgroups):
-            subgroup_index = np.where(Subgroups == subgroup)[0]
-            
-            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
-            pred_agents = Pred_agents[subgroup_index[0]]
-            
-            # Avoid useless samples
-            if not pred_agents.any():
-                continue
-
-            nto_subgroup = Num_steps[subgroup_index]
-            
-            for nto in np.unique(nto_subgroup):
-                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
-                
-                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
-                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                        
-                # Collapse agents
-                num_features = pred_agents.sum() * nto * 2
-                paths_pred_comp = paths_pred.reshape(*paths_pred.shape[:2], num_features)
-                
-                # Collapse agents further
-                paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
-                
-                # Evaluate trejatories
-                log_prob_pred = self.data_set.KDE_joint[subgroup][nto].score_samples(paths_pred_comp)
-                self.Log_prob_true_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
-            
-            
-    def _get_indep_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
-        if hasattr(self, 'Log_prob_true_indep_pred'):
-            if self.excluded_ego_true_indep == exclude_ego:
-                if np.array_equal(self.extracted_pred_index_true_indep, Pred_index):
-                    return
-        
-        # Have the dataset load
-        self.data_set._get_indep_KDE_probabilities(exclude_ego)
-        
-        # Save last setting 
-        self.excluded_ego_true_indep = exclude_ego
-        self.extracted_pred_index_true_indep = Pred_index
-        
-        # Check if dataset has all valuable stuff
-        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
-        
-        # get predicted agents
-        Pred_agents = self.Pred_step.any(-1)
-        
-        # Shape: Num_samples x num_preds x num agents
-        self.Log_prob_true_indep_pred = np.zeros(self.Path_pred.shape[:-2], dtype = np.float32)
-        
-        Num_steps = self.Pred_step.sum(-1).max(-1)
-       
-        # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
-        Subgroups = self.data_set.Subgroups[Pred_index]
-        Agents = np.array(self.data_set.Agents)
-        
-        for subgroup in np.unique(Subgroups):
-            subgroup_index = np.where(Subgroups == subgroup)[0]
-            
-            assert len(np.unique(Pred_agents[subgroup_index], axis = 0)) == 1
-            pred_agents = Pred_agents[subgroup_index[0]]
-            
-            # Avoid useless samples
-            if not pred_agents.any():
-                continue
-            
-            pred_agents_id = np.where(pred_agents)[0]
-            
-            nto_subgroup = Num_steps[subgroup_index]
-            
-            for nto in np.unique(nto_subgroup):
-                nto_index = subgroup_index[np.where(nto == nto_subgroup)[0]]
-                
-                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
-                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
-                
-                num_features = nto * 2
-                
-                for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                    agent = Agents[i_agent_orig]
-                    
-                    # Get agent
-                    paths_pred_agent = paths_pred[:,:,i_agent]
-                
-                    # Collapse agents
-                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:2], num_features)
-                    
-                    # Collapse agents further
-                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
-                    
-                    log_prob_pred_agent = self.data_set.KDE_indep[subgroup][nto][agent].score_samples(paths_pred_agent_comp)
-
-                    self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
                 
     #%% 
     #########################################################################################

@@ -211,13 +211,16 @@ Lastly, when dealing with large datasets, it might not be possible to calculate 
   caluculation_form : str
     This string returns the form of combining metrics calculated over subsets of the test set.
     There are three options, 'No' (The metric can only be calculated on the complete dataset,
-    weighted average contains an error), 'Sample' (The metric is calcualted by averaging over
-    samples), and 'Pred_agents' (The metric is calcualted by averaging over values calculated
-    for the varying number of predicted agents in each sample).
+    weighted average contains an error), 'Subgroup', (The metric is calculated by averaging 
+    over subgroups of samples with identical inputs), 'Sample' (The metric is calcualted by 
+    averaging over samples), 'Subgroup_pred_agents' (The metric is calculated by averaging
+    over subgroups of samples with identical inputs, selecting each agent separately), and 
+    'Pred_agents' (The metric is calcualted by averaging over values calculated for the varying 
+    number of predicted agents in each sample).
 
   '''
 
-  options = ['No', 'Sample', 'Pred_agents']
+  options = ['No', 'Subgroups', 'Sample', 'Subgroup_pred_agents', 'Pred_agents']
   i_option = ...
 
   return options[i_option] 

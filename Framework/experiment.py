@@ -225,6 +225,7 @@ class Experiment():
                        allow_extrapolation = True,
                        dynamic_prediction_agents = False,
                        overwrite_results = False,
+                       save_predictions = True,
                        evaluate_on_train_set = True):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
@@ -260,11 +261,15 @@ class Experiment():
         
         assert isinstance(evaluate_on_train_set, bool), "evaluate_on_train_set should be a boolean."
         
+
+        # Save parameters needed in actual data_set_template
         self.parameters = [model_class_to_path, num_samples_path_pred, 
                            enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
-                           dynamic_prediction_agents, overwrite_results]
+                           dynamic_prediction_agents, overwrite_results, 
+                           save_predictions]
         
+        # Save the remaining parameters
         self.evaluate_on_train_set = evaluate_on_train_set
         
         self.provided_setting = True
@@ -1430,7 +1435,7 @@ class Experiment():
         
         # Prevent model retraining
         parameters = [param for param in self.parameters]
-        parameters[-1] = 'no'
+        parameters[-2] = 'no'
         
         data_set = data_interface(data_set_dict, parameters)
         

@@ -182,8 +182,8 @@ class JSD_traj_indep(evaluation_template):
     
     
     def partial_calculation(self = None):
-        options = ['No', 'Sample', 'Pred_agents']
-        return options[2]      
+        options = ['No', 'Subgroups', 'Sample', 'Subgroup_pred_agents', 'Pred_agents']
+        return options[3]      
     
     def plot_results(self, Path_in, Path_out, Log, Pred_step, ax, x_lim, y_lim, max_samples):
         # Combine samples and predictions

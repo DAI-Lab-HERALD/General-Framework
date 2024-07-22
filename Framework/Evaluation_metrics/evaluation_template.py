@@ -36,6 +36,14 @@ class evaluation_template():
 
     def _evaluate_on_subset(self, Output_pred, evaluation_index):
         self.Index_curr = evaluation_index
+
+        # Get the correspoding file index
+        if self.data_set.data_in_one_piece:
+            self.file_index = 0
+        else:
+            file_indices = self.data_set.Domain.file_index.iloc[self.Index_curr].to_numpy()
+            assert len(np.unique(file_indices)) == 1, 'This metric does not support multiple files in one evaluation.'
+            self.file_index = file_indices[0]
         
         if len(self.Index_curr) == 0:
             return None
@@ -486,19 +494,12 @@ class evaluation_template():
 
         Pred_agents = self.data_set.Pred_agents_eval[self.Index_curr]
 
-        if self.data_set.data_in_one_piece:
-            file_index = 0
-            Index_curr_data = self.Index_curr
-        else:
-            file_indices = self.data_set.Domain.file_index.iloc[self.Index_curr]
-            assert len(np.unique(file_indices)) == 1, 'This metric does not support multiple files in one evaluation.'
-            file_index = file_indices.iloc[0]
+        Index_curr_data = self.Index_curr
+        if not self.data_set.data_in_one_piece:
+            used_index = np.where(self.data_set.Domain.file_index == self.file_index)[0]
+            Index_curr_data = self.data_set.get_indices_1D(Index_curr_data, used_index)
 
-            used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
-
-            Index_curr_data = self.data_set.get_indices_1D(self.Index_curr, used_index)
-
-        self.data_set._extract_original_trajectories(file_index)
+        self.data_set._extract_original_trajectories(self.file_index)
 
         # Get information on available data
         _, data_index_mask = self.model.get_orig_data_index(Index_curr_data)
@@ -553,6 +554,130 @@ class evaluation_template():
         
         else:
             return Path_other
+    
+    
+    def get_true_prediction_with_same_input(self):
+        '''
+        This returns the true trajectories from the current sample as well as all
+        other samples which had the same past trajectories. It should be used only
+        in conjunction with *get_true_and_predicted_paths()*.
+
+        Returns
+        -------
+        Path_true_all : np.ndarray
+            This is the true observed trajectory of the agents, in the form of a
+            :math:`\{N_{subgroups} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
+            dimensional numpy array with float values. If an agent is fully or on some 
+            timesteps partially not observed, then this can include np.nan values. It
+            must be noted that :math:`N_{same}` is the maximum number of similar samples,
+            so for a smaller number, there will also be np.nan values.
+        Subgroup_ind : np.ndarray
+            This is a :math:`N_{samples}` dimensional numpy array with int values. 
+            All samples with the same value belong to a group with the same corresponding
+            input. This can be used to avoid having to evaluate the same metric values
+            for identical samples. It must however be noted, that due to randomness in 
+            the model, the predictions made for these samples might differ.
+            
+            The value in this array will indicate which of the entries of **Path_true_all**
+            should be chosen.
+
+        '''
+        # Get the indentical input data
+        self.data_set._extract_identical_inputs(eval_pov = self.get_output_type() == 'path_all_wi_pov', file_index = self.file_index)
+        available_subgroup = self.data_set.unique_subgroups
+
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        # Get the used subgroups
+        Use_subgroups = self.data_set.Subgroups[self.Index_curr[Use_samples]]
+        Subgroup_unique, Subgroup = np.unique(Use_subgroups, return_inverse = True)
+        
+        # Get the index of Subgroup_unique in available_subgroup
+        subgroup_ind = self.data_set.get_indices_1D(Subgroup_unique, available_subgroup)
+
+        Path_true_all = self.data_set.Path_true_all[subgroup_ind]
+        
+        return Path_true_all, Subgroup
+    
+    
+    def get_true_likelihood(self, joint_agents = True):
+        '''
+        This return the probabilities asigned to ground truth trajectories 
+        according to a Gaussian KDE method fitted to the ground truth samples
+        with an identical inputs.
+        
+
+        Parameters
+        ----------
+        joint_agents : bool, optional
+            This says if the probabilities for the predicted trajectories
+            are to be calcualted for all agents jointly. If this is the case,
+            then, :math:`N_{agents}` in the output is 1. The default is True.
+
+        Returns
+        -------
+        KDE_true_log_prob_true : np.ndarray
+            This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
+            array that includes the probabilites for the true observations according 
+            to the KDE model trained on the grouped true trajectories.
+            
+        KDE_true_log_prob_pred : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
+            array that includes the probabilities for the predicted trajectories
+            according to the KDE model trained on the grouped true trajectories.
+
+        '''
+        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
+
+        if joint_agents:
+            self.data_set._get_joint_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov', self.file_index)
+            self.model._get_joint_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
+                                                         self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_true_log_prob_true = self.data_set.Log_prob_true_joint[:,np.newaxis,np.newaxis]
+            KDE_true_log_prob_pred = self.model.Log_prob_true_joint_pred[:,:,np.newaxis]
+            
+        else:
+            self.data_set._get_indep_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov', self.file_index)
+            self.model._get_indep_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
+                                                         self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_true_log_prob_true = self.data_set.Log_prob_true_indep[:,np.newaxis,:]
+            KDE_true_log_prob_pred = self.model.Log_prob_true_indep_pred
+
+        # Get the actual data based on the evaluated file
+        Index_curr_data = self.Index_curr
+        if not self.data_set.data_in_one_piece:
+            used_index = np.where(self.data_set.Domain.file_index == self.file_index)[0]
+            Index_curr_data = self.data_set.get_indices_1D(Index_curr_data, used_index)
+
+        num_agents_pred = KDE_true_log_prob_pred.shape[-1]
+        
+
+        # KDE_true_log_prob_true is calculated for all samples is file
+        # It therefore must be reduced to Pred_index, and the number of agents
+        # might need to be reduced to the one in KDE_true_log_prob_pred
+        KDE_true_log_prob_true = KDE_true_log_prob_true[Index_curr_data, :, :num_agents_pred]
+        KDE_true_log_prob_pred = KDE_true_log_prob_pred
+        
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step
+
+        # Get samples where a prediction is actually useful
+        Use_samples = Pred_step.any(-1).any(-1)
+
+        KDE_true_log_prob_true = KDE_true_log_prob_true[Use_samples]
+        KDE_true_log_prob_pred = KDE_true_log_prob_pred[Use_samples]
+
+        return KDE_true_log_prob_true, KDE_true_log_prob_pred
     
 
     #############################################################################################################################
@@ -619,112 +744,6 @@ class evaluation_template():
         KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[Use_samples]
 
         return KDE_pred_log_prob_true, KDE_pred_log_prob_pred
-    
-    
-    def get_true_prediction_with_same_input(self):
-        '''
-        This returns the true trajectories from the current sample as well as all
-        other samples which had the same past trajectories. It should be used only
-        in conjunction with *get_true_and_predicted_paths()*.
-
-        Returns
-        -------
-        Path_true_all : np.ndarray
-            This is the true observed trajectory of the agents, in the form of a
-            :math:`\{N_{subgroups} \times N_{same} \times N_{agents} \times N_{O} \times 2\}` 
-            dimensional numpy array with float values. If an agent is fully or on some 
-            timesteps partially not observed, then this can include np.nan values. It
-            must be noted that :math:`N_{same}` is the maximum number of similar samples,
-            so for a smaller number, there will also be np.nan values.
-        Subgroup_ind : np.ndarray
-            This is a :math:`N_{samples}` dimensional numpy array with int values. 
-            All samples with the same value belong to a group with the same corresponding
-            input. This can be used to avoid having to evaluate the same metric values
-            for identical samples. It must however be noted, that due to randomness in 
-            the model, the predictions made for these samples might differ.
-            
-            The value in this array will indicate which of the entries of **Path_true_all**
-            should be chosen.
-
-        '''
-        self.data_set._extract_identical_inputs(eval_pov = self.get_output_type() == 'path_all_wi_pov')
-
-        # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
-                                                   self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step
-
-        # Get samples where a prediction is actually useful
-        Use_samples = Pred_step.any(-1).any(-1)
-
-        Use_subgroups = self.data_set.Subgroups[Use_samples]
-
-        Subgroup_unique, Subgroup = np.unique(Use_subgroups, return_inverse = True)
-        Path_true_all = self.data_set.Path_true_all[Subgroup_unique]
-        
-        return Path_true_all, Subgroup
-    
-    
-    def get_true_likelihood(self, joint_agents = True):
-        '''
-        This return the probabilities asigned to ground truth trajectories 
-        according to a Gaussian KDE method fitted to the ground truth samples
-        with an identical inputs.
-        
-
-        Parameters
-        ----------
-        joint_agents : bool, optional
-            This says if the probabilities for the predicted trajectories
-            are to be calcualted for all agents jointly. If this is the case,
-            then, :math:`N_{agents}` in the output is 1. The default is True.
-
-        Returns
-        -------
-        KDE_true_log_prob_true : np.ndarray
-            This is a :math:`\{N_{samples} \times 1 \times N_{agents}\}`
-            array that includes the probabilites for the true observations according 
-            to the KDE model trained on the grouped true trajectories.
-            
-        KDE_true_log_prob_pred : np.ndarray
-            This is a :math:`\{N_{samples} \times N_{preds} \times N_{agents}\}`
-            array that includes the probabilities for the predicted trajectories
-            according to the KDE model trained on the grouped true trajectories.
-
-        '''
-        assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
-        
-        if joint_agents:
-            self.data_set._get_joint_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
-            self.model._get_joint_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
-                                                         self.get_output_type() == 'path_all_wo_pov')
-            
-            KDE_true_log_prob_true = self.data_set.Log_prob_true_joint[:,np.newaxis,np.newaxis]
-            KDE_true_log_prob_pred = self.model.Log_prob_true_joint_pred[:,:,np.newaxis]
-            
-        else:
-            self.data_set._get_indep_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov')
-            self.model._get_indep_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
-                                                         self.get_output_type() == 'path_all_wo_pov')
-            
-            KDE_true_log_prob_true = self.data_set.Log_prob_true_indep[:,np.newaxis,:]
-            KDE_true_log_prob_pred = self.model.Log_prob_true_indep_pred
-        
-        KDE_true_log_prob_true = KDE_true_log_prob_true[self.Index_curr]
-        KDE_true_log_prob_pred = KDE_true_log_prob_pred
-        
-        # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
-                                                   self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step
-
-        # Get samples where a prediction is actually useful
-        Use_samples = Pred_step.any(-1).any(-1)
-
-        KDE_true_log_prob_true = KDE_true_log_prob_true[Use_samples]
-        KDE_true_log_prob_pred = KDE_true_log_prob_pred[Use_samples]
-
-        return KDE_true_log_prob_true, KDE_true_log_prob_pred
 
         
     #########################################################################################
@@ -795,7 +814,7 @@ class evaluation_template():
 
     def partial_calculation(self = None):
         # This function returns the way that the metric work over subparts of the dataset.
-        options = ['No', 'Sample', 'Pred_agents']
+        options = ['No', 'Subgroups', 'Sample', 'Subgroup_pred_agents', 'Pred_agents']
         raise AttributeError('Has to be overridden in actual metric class')
         
         
