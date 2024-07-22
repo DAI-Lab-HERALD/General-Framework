@@ -814,6 +814,33 @@ class evaluation_template():
         # metric to evaluate a model
         raise AttributeError('Has to be overridden in actual metric class.')
         # return results # results is a list
+
+    def combine_results(self, result_lists, weights):
+        r'''
+        This function combines partial results.
+
+        Parameters
+        ----------
+        result_lists : list
+            A list of lists, which correpond to multiple outputs of *evaluate_prediction_method()*.
+
+        weights : list
+            A list of the same length as result_lists, which contains the weights based on the method in
+            *self.partial_calculation()*, which might be useful.
+
+
+        Returns
+        -------
+        results : list
+            This is a list with more than one entry. The first entry must be a scalar, which allows the comparison
+            of different models according to that metric. Afterwards, any information can be saved which might
+            be useful for later visualization of the results, if this is so desired.
+        
+
+        '''
+
+        raise AttributeError('Has to be overridden in actual metric class.')
+        #  return results
     
     
     def is_log_scale(self = None):

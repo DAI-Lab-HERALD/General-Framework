@@ -98,15 +98,64 @@ class JSD_traj_joint(evaluation_template):
         
         
         # prepare to save data
-        if len(unique_subgroups) == 1 and Path_true.shape[2] == 1:
-            input_path = self.data_set.Input_path.iloc[self.splitter.Test_index[0]]
-            useful_agents = [isinstance(p, np.ndarray) for p in input_path]
-            
-            input_path = np.stack(input_path[useful_agents].to_numpy(), axis = 0)[0,...,:2]
-            
+        if len(np.unqiue(self.data_set.Subgroups)) == 1:
+            input_path = self.data_set.Input_path.iloc[self.Index_curr[0]]
+
+            # get agent id
+            Agent_id = self.data_set.get_indices_1D(np.array(input_path.index), np.array(self.data_set.Agents))
+
+            # Get used agents
+            pred_agent_id = self.model.Pred_agent_id[0, Pred_steps.any(-1)[0]]
+
+            # get id
+            used_agents = np.in1d(Agent_id, pred_agent_id)
+            # get path
+            input_path = np.stack(input_path[used_agents], axis = 0)[...,:2]
+
+            # shape of the different results
+            # results[1].shape = (num_samples, 1, num_agents, num_timesteps_out, 2)
+            # results[2].shape = (num_samples, 1, 1)
+            # results[3].shape = (num_samples, num_preds, num_agents, num_timesteps_out, 2)
+            # results[4].shape = (num_samples, num_preds, 1)
+            # results[5].shape = (num_samples, num_agents, num_timesteps_out)
+            # results[6].shape = (num_agents, num_timesteps_in, 2)
             return [JSD, Path_true, KDE_true_log_prob_true, Path_pred, KDE_pred_log_prob_pred, Pred_steps, input_path]
         else:
             return [JSD]
+        
+
+    def combine_results(self, result_lists, weights):
+        # input_path is only needed once
+        input_path = result_lists[0][6]
+
+        # other stuff needs to be combined
+        JSD = [] 
+        Path_true = []
+        KDE_true_log_prob_true = []
+        Path_pred = []
+        KDE_pred_log_prob_pred = []
+        Pred_steps = []
+
+        for result in result_lists:
+            JSD.append(result[0])
+            Path_true.append(result[1])
+            KDE_true_log_prob_true.append(result[2])
+            Path_pred.append(result[3])
+            KDE_pred_log_prob_pred.append(result[4])
+            Pred_steps.append(result[5])
+
+        # Combine the stuff
+        JSD = np.average(JSD, weights = weights)
+        Path_true = np.concatenate(Path_true, axis = 0)
+        KDE_true_log_prob_true = np.concatenate(KDE_true_log_prob_true, axis = 0)
+        Path_pred = np.concatenate(Path_pred, axis = 0)
+        KDE_pred_log_prob_pred = np.concatenate(KDE_pred_log_prob_pred, axis = 0)
+        Pred_steps = np.concatenate(Pred_steps, axis = 0)
+
+        return [JSD, Path_true, KDE_true_log_prob_true, Path_pred, KDE_pred_log_prob_pred, Pred_steps, input_path]
+
+
+    
     
     def create_plot(self, results, test_file, fig, ax, save, model):
         if len(results) > 1:
@@ -117,8 +166,7 @@ class JSD_traj_joint(evaluation_template):
             Path_true = results[1]
             Path_in   = results[6]
             
-            Path_combo = np.concatenate((np.tile(Path_in[np.newaxis, np.newaxis], (len(Path_true),1,1,1)), 
-                                         Path_true[:,0]),  axis = -2)
+            Path_combo = np.concatenate((np.tile(Path_in[np.newaxis], (len(Path_true),1,1,1)), Path_true[:,0]),  axis = -2)
             
             min_bound = Path_combo.min(axis = tuple(np.arange(Path_combo.ndim - 1)))
             max_bound = Path_combo.max(axis = tuple(np.arange(Path_combo.ndim - 1)))
@@ -176,16 +224,16 @@ class JSD_traj_joint(evaluation_template):
         Path_out = Path_out.reshape(-1, *Path_out.shape[2:])[:,0]
         Log      = Log.reshape(-1, *Log.shape[2:])[:,0]
         
-        # Path_in.shape  = n_I x 2
-        # Path_out.shape = (n_samples * n_preds) x n_O x 2
+        # Path_in.shape  = num_agents x n_I x 2
+        # Path_out.shape = (n_samples * n_preds) x num_agents x n_O x 2
+        # Log.shape      = (n_samples * n_preds) x 1
         
         # plot input
-        ax.plot(Path_in[:,0], Path_in[:,1], linewidth = 1, c = 'k')
+        for i in range(Path_in.shape[0]):
+            ax.plot(Path_in[i,:,0], Path_in[i,:,1], linewidth = 1, c = 'k')
         
         # concatenate output
-        Path_out = np.concatenate((np.tile(Path_in[np.newaxis,[-1]], (len(Path_out), 1, 1)), 
-                                   Path_out), axis = -2)
-        
+        Path_out = np.concatenate((np.tile(Path_in[np.newaxis,:,[-1]], (len(Path_out), 1, 1, 1)), Path_out), axis = -2)
         
         # Get random order
         np.random.seed(0)
@@ -211,9 +259,10 @@ class JSD_traj_joint(evaluation_template):
         # Prab_adj = Probabil / Probabil.sum()
         # col_val = 10 * Prab_adj / len(Prab_adj) 
         
-        for i, path_out in enumerate(Path_plot):#[:10]:
-            col = np.array(viridis(col_val[i]))
-            ax.plot(path_out[:,0], path_out[:,1], color = col, linewidth = 0.25, alpha = 0.5)
+        for j in range(Path_plot.shape[1]):
+            for i, path_out in enumerate(Path_plot[:,j]):
+                col = np.array(viridis(col_val[i,0]))
+                ax.plot(path_out[:,0], path_out[:,1], color = col, linewidth = 0.25, alpha = 0.5)
         
         ax.set_xlim(x_lim)
         ax.set_ylim(y_lim)

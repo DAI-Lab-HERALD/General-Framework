@@ -43,7 +43,7 @@ class AUC_ROC(evaluation_template):
         It has to be noted here that it would be ideal if one could calcualte the VUS instead of AUC
         However, we instead used this expansion here instead.
         '''
-        P_true, P_pred, _ = self.get_true_and_predicted_class_probabilities()
+        P_true, P_pred, Class_names = self.get_true_and_predicted_class_probabilities()
         
         num_c = P_true.shape[1]
         
@@ -64,9 +64,49 @@ class AUC_ROC(evaluation_template):
         
         # this is the weighted mean of 1 vs rest AUC
         auc = (L / (N.sum() - N)).sum() / N.sum() 
-        assert auc
         
-        return [auc]
+        return [auc, P_true, P_pred, Class_names]
+    
+    def combine_results(self, result_lists, weights):
+        P_true = []
+        P_pred = []
+
+        for result in result_lists:
+            _, p_true, p_pred, class_names = result
+            p_true.append(pd.DataFrame(p_true, columns = class_names))
+            p_pred.append(pd.DataFrame(p_pred, columns = class_names))
+        
+        P_true = pd.concat(P_true)
+        P_pred = pd.concat(P_pred)
+
+        Class_names = P_true.columns.to_numpy()
+
+        P_pred = P_pred[P_true.columns].to_numpy()
+        P_true = P_true.to_numpy()
+
+        # Now do standard AUC calculation
+        num_c = P_true.shape[1]
+
+        # Necessary adjustment to allow auc = 1 as a result, this might have to be reconsidered
+        # Necessary adjustment to allow auc = 1 as a result, this might have to be reconsidered
+        P_pred_adj = np.copy(P_pred)
+        for c in range(num_c):
+            P_pred_adj[:,c] = P_pred[:,c] / (P_pred[:,c] + P_pred[:, np.arange(num_c) != c].max(axis = 1))
+        
+        # rank each sample by likelyhood of this class being chosen
+        R = np.zeros(P_true.shape, float)
+        C_ind = np.tile(np.arange(num_c)[np.newaxis], (len(P_true),1))
+        R[np.argsort(P_pred_adj, axis = 0), C_ind] = np.arange(1, len(P_true) + 1)[:,np.newaxis]
+        
+        N = P_true.sum(axis = 0).astype(float)
+        Ns = 0.5 * N * (N + 1)
+        
+        L = (R * P_true).sum(axis = 0) - Ns
+        
+        # this is the weighted mean of 1 vs rest AUC
+        auc = (L / (N.sum() - N)).sum() / N.sum() 
+        
+        return [auc, P_true, P_pred, Class_names]
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']

@@ -69,6 +69,26 @@ class ECE_traj_indep(evaluation_template):
         
         ece = np.abs(ECE - (1 - T)).mean()
         
+        # shape of the different results
+        # results[1].shape = (201,)
+        # results[2].shape = (201,)
+        return [ece, T, ECE]
+    
+    def combine_results(self, result_lists, weights):
+        # Get combined ECE values
+        ECE = []
+        for i in range(len(result_lists)):
+            ECE.append(result_lists[i][2])
+        
+        ECE = np.stack(ECE, axis = 0)
+
+        ECE = np.average(ECE, axis = 0, weights = np.array(weights))
+
+        # Get combined T values
+        T = result_lists[0][1]
+
+        # ece value
+        ece = np.abs(ECE - (1 - T)).mean()
         return [ece, T, ECE]
    
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
@@ -92,8 +112,7 @@ class ECE_traj_indep(evaluation_template):
             fig.savefig(test_file, bbox_inches='tight')
     
     def partial_calculation(self = None):
-        options = ['No', 'Sample', 'Pred_agents']
-        return options[0]
+        return 'Sample'
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

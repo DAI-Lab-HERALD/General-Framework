@@ -548,10 +548,10 @@ class Experiment():
                                     if return_train_results:
                                         train_results = metric_result[0]
                                         if train_results is not None:
-                                            self.Train_results[i,j,k,l,m] = train_results
+                                            self.Train_results[i,j,k,l,m] = train_results[0]
                                     
                                     test_results = metric_result[1]    
-                                    self.Results[i,j,k,l,m] = test_results
+                                    self.Results[i,j,k,l,m] = test_results[0]
 
                                     
                                     if create_plot:

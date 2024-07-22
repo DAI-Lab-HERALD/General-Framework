@@ -38,11 +38,27 @@ class TNR_PR(evaluation_template):
         
         Threshold = np.min(P_accepted_pred[P_accepted_true])
         Result = np.mean(P_accepted_pred[~P_accepted_true] < Threshold)
-        return [Result]
+        return [Result, P_accepted_true, P_accepted_pred]
+    
+    def combine_results(self, result_lists, weights):
+        P_accepted_true = []
+        P_accepted_pred = []
+
+        for result in result_lists:
+            P_accepted_true.append(result[1])
+            P_accepted_pred.append(result[2])
+        
+        P_accepted_true = np.concatenate(P_accepted_true)
+        P_accepted_pred = np.concatenate(P_accepted_pred)
+
+        Threshold = np.min(P_accepted_pred[P_accepted_true])
+        Result = np.mean(P_accepted_pred[~P_accepted_true] < Threshold)
+
+        return [Result, P_accepted_true, P_accepted_pred]
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']
-        return options[0]  
+        return options[1]  
     
     def get_output_type(self = None):
         return 'class'

@@ -272,38 +272,6 @@ class model_template():
             Result_dict[mode] = Result_mode_dict
         
         return Metric_dict, Result_dict, identical_test_set
-    
-    def save_metric_results(self, Result_dict, identical_test_set = False):
-        for mode, Result_mode_dict in Result_dict.items():
-            for metric, Result in Result_mode_dict.items():
-                metric_file = metric.data_set.change_result_directory(self.model_file_metric, 'Metrics', metric.get_name()['file'])
-                
-                if os.path.isfile(metric_file) and not metric.metric_override:
-                    Results = list(np.load(metric_file, allow_pickle = True)[:-1])
-                else:
-                    Results = [None, None]
-
-
-                values  = np.array(Result['Value'])
-                weights = np.array(Result['Weight'])    
-
-                # Get average value
-                result = np.average(values, weights = weights)
-
-                # Overwrite Results
-                if not identical_test_set:
-                    if mode == 'Train':
-                        result_index = 0
-                    else:
-                        result_index = 1
-                    Results[result_index] = result
-                else:
-                    Results = [result, result]
-
-                # Save results
-                save_data = np.array(Results + [0], object) # 0 is there to avoid some numpy load and save errros
-                os.makedirs(os.path.dirname(metric_file), exist_ok=True)
-                np.save(metric_file, save_data)
 
 
     def add_to_index_df(self, Index_df, Index_file, num_samples_file, file_index = 0):
@@ -378,6 +346,100 @@ class model_template():
                 Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file, file_index)
 
         return Index_df
+    
+
+    def append_result_dict(self, mode, metric, Result_dict, result, Index, Index_df):
+        # Get weights
+        metric_combination = metric.partial_calculation()
+
+        if metric_combination == 'Sample':
+            weight = len(Index)
+
+        elif metric_combination == 'Subgroups':
+            Subgroups = self.data_set.Subgroups[Index]
+            weight = len(np.unique(Subgroups))
+
+        elif metric_combination == 'Pred_agents':
+            weight = self.data_set.Pred_agents_eval[Index].sum()
+
+        elif metric_combination == 'Subgroup_pred_agents':
+            Subgroups = self.data_set.Subgroups[Index]
+            Subgroup_unique_index = np.unique(Subgroups, return_index = True)[1]
+            weight = self.data_set.Pred_agents_eval[Index[Subgroup_unique_index]].sum()
+
+        elif metric_combination == 'Min':
+            if len(Result_dict[mode][metric]['Weight']) > 0:
+                old_value_min = min(Result_dict[mode][metric]['Value'])
+                if result[0] < old_value_min:
+                    weight = 1
+                    Result_dict[mode][metric]['Weight'] = [0] * len(Result_dict[mode][metric]['Weight'])
+                else:
+                    weight = 0
+            else:
+                weight = 1
+
+        elif metric_combination == 'Max':
+            if len(Result_dict[mode][metric]['Weight']) > 0:
+                old_value_max = max(Result_dict[mode][metric]['Value'])
+                if result[0] > old_value_max:
+                    weight = 1
+                    Result_dict[mode][metric]['Weight'] = [0] * len(Result_dict[mode][metric]['Weight'])
+                else:
+                    weight = 0
+            else:
+                weight = 1
+
+        else:
+            weight = 1
+            assert len(Index_df) == 1, 'Partial evaluation is not possible for metric ' + metric.get_name()['print'] + '.'
+
+
+        Result_dict[mode][metric]['Value'].append(result)
+        Result_dict[mode][metric]['Weight'].append(weight)
+
+        return Result_dict
+    
+    def save_metric_results(self, Result_dict, identical_test_set = False):
+        for mode, Result_mode_dict in Result_dict.items():
+            for metric, Result in Result_mode_dict.items():
+                metric_file = metric.data_set.change_result_directory(self.model_file_metric, 'Metrics', metric.get_name()['file'])
+                
+                if os.path.isfile(metric_file) and not metric.metric_override:
+                    Results = list(np.load(metric_file, allow_pickle = True)[:-1])
+                else:
+                    Results = [None, None]
+
+
+                values  = Result['Value']
+                weights = np.array(Result['Weight'])    
+
+                if len(values) == 0:
+                    raise ValueError('No values were calculated for metric ' + metric.get_name()['print'] + '.')
+                elif len(values) == 1:
+                    result = values[0]
+                else:
+                    if len(values[0]) == 1:
+                        values_array = np.array(values)[:,0]
+                        # Get average value
+                        result = [np.average(values_array, weights = weights)]
+                    else:
+                        result = metric.combine_results(values, weights)
+                    
+
+                # Overwrite Results
+                if not identical_test_set:
+                    if mode == 'Train':
+                        result_index = 0
+                    else:
+                        result_index = 1
+                    Results[result_index] = result
+                else:
+                    Results = [result, result]
+
+                # Save results
+                save_data = np.array(Results + [0], object) # 0 is there to avoid some numpy load and save errros
+                os.makedirs(os.path.dirname(metric_file), exist_ok=True)
+                np.save(metric_file, save_data)
 
 
     def predict_and_evaluate(self, Metric_name_list, print_status_function):
@@ -422,8 +484,7 @@ class model_template():
 
                     # Check if index worked
                     assert (Index == output_trans[0]).all(), 'Wrong samples were predicted.'
-                
-
+                    
                     # TODO:
                     # Allow for disableing of the saving of the predictions
 
@@ -434,26 +495,8 @@ class model_template():
                         # Evaluate metric
                         result = metric._evaluate_on_subset(output_trans, Index)
 
-                        # Get weights
-                        metric_combination = metric.partial_calculation()
-                        if metric_combination == 'Sample':
-                            weight = len(Index)
-                        elif metric_combination == 'Subgroups':
-                            Subgroups = self.data_set.Subgroups[Index]
-                            weight = len(np.unique(Subgroups))
-                        elif metric_combination == 'Pred_agents':
-                            weight = self.data_set.Pred_agents_eval[Index].sum()
-                        elif metric_combination == 'Subgroup_pred_agents':
-                            Subgroups = self.data_set.Subgroups[Index]
-                            Subgroup_unique_index = np.unique(Subgroups, return_index = True)[1]
-                            weight = self.data_set.Pred_agents_eval[Index[Subgroup_unique_index]].sum()
-                        else:
-                            weight = 1
-                            assert len(Index_df) == 1, 'Partial evaluation is not possible for metric ' + metric.get_name()['print'] + '.'
-
-
-                        Result_dict[mode][metric]['Value'].append(result[0])
-                        Result_dict[mode][metric]['Weight'].append(weight)
+                        # Append results to result dict
+                        Result_dict = self.append_result_dict(mode, metric, Result_dict, result, Index, Index_df)
 
         self.save_metric_results(Result_dict, identical_test_set)
 
@@ -1915,7 +1958,7 @@ class model_template():
 
                     self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
 
-                    
+
     
     #####################################################################################################
     #                           Get KDE_pred(x) and KDE_pred(x_pred)                                    #
