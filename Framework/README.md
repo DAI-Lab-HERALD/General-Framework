@@ -152,6 +152,13 @@ It might be possible that one wants to retrain or reevaluate models, without hav
 
 It must however be noted, that one cannot redo the extraction of the training and testing set. If this is desired, one would have to delete/move/rename the respective files.
 
+### Determine if predictions should be saved
+```
+save_predictions = True
+```
+Given that many models produce probabalistic predictions, which are commonly expressed predicting multiple sample trajectories for a given scenario, the hard drive space required  for saving predictions could become very large, especially for bigger dataset. Therefore, if hard drive space is to be preserved, one can shut off the saving of those predictions.
+
+
 ### Evaluate overfitting
 ```
 evaluate_on_train_set = True
@@ -175,6 +182,7 @@ new_experiment.set_parameters(model_for_path_transform  = model_for_path_transfo
                               allow_extrapolation       = allow_extrapolation, 
                               agents_to_predict         = agents_to_predict,
                               overwrite_results         = overwrite_results,
+                              save_predictions          = save_predictions,
                               evaluate_on_train_set     = evaluate_on_train_set)
 ```
 
