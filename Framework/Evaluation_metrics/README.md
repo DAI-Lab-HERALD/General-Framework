@@ -249,6 +249,7 @@ The most important part of the evaluation module is the definition of how the me
     
     return results 
 ```
+Here, the [helper functions](#useful-helper-functions) can be used to load the true and predicted data, with the choice depending on the type of metric.
 
 If the return list from **self.evaluate_prediction_method()** has more than one entry, then defining *partial_calculation* is not enough.
 Instead, one also has to define the following function *combine_results*, which will take in multiple such lists of results, as well as the associated weights, and combine
@@ -282,8 +283,7 @@ them into a single list:
     
     return results
 ```
-
-Here, the [helper functions](#useful-helper-functions) can be used to load the true and predicted data, with the choice depending on the type of metric.
+It must be noted that if based only on the partial metric result, one would have *self.partial_calculation() = 'No'*, saving intermediate results as additional ouputs of *self.evaluate_prediction_method()* and then using *combine_results* can allow for accurate calculation of metrics over large datasets without leading to extensive memory issues.
 
 
 ## Metric Visualization
