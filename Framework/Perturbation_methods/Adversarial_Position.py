@@ -66,7 +66,7 @@ class Adversarial_Position(perturbation_template):
 
                 kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
 
-            pert_splitter_rep = [kwargs['splitter_dict']['repetition']]
+            pert_splitter_rep = kwargs['splitter_dict']['repetition']
 
             # Check the value of the repetition key
             assert (isinstance(pert_splitter_rep, int) or
