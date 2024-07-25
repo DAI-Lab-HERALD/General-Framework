@@ -83,7 +83,8 @@ class data_interface(object):
             data_set_module = importlib.import_module(data_set_name)
             data_set_class = getattr(data_set_module, data_set_name)
             
-            data_set = data_set_class(Perturbation, *parameters)
+            parameters_pass = [parameters[i] for i in range(len(parameters) - 1)]
+            data_set = data_set_class(Perturbation, *parameters_pass)
 
             data_set.set_extraction_parameters(t0_type, T0_type_compare, max_num_agents)
             
@@ -94,11 +95,8 @@ class data_interface(object):
             self.Latex_names.append(latex_name) 
 
             data_set_name = data_set.get_name()['print']
-            if data_set.is_perturbed:
-                # Get perturbation index from filename
-                file_name = data_set.data_params_to_string(0.1, 10, 10)
-                pert_index = int(file_name.split('_')[-1].split('.')[0])
-                data_set_name += ' (Perturbed ' + str(pert_index) + ')'
+            if data_set in self.Datasets.keys():
+                data_set_name = data_set_name + ' ' + str(len(self.Datasets.keys()) + 1)
 
             self.Datasets[data_set_name] = data_set
             
@@ -169,6 +167,9 @@ class data_interface(object):
             max_num_agents = max_num_agents[max_num_agents != None]
             self.max_num_agents = max_num_agents.min()
 
+        # Prepare overwrites
+        self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
+        
         self.data_loaded = False
 
     # Get the path_data_info function in position
@@ -192,9 +193,10 @@ class data_interface(object):
         return Unique_types, indices
 
     
-    def reset(self):
-        for data_set in self.Datasets.values():
-            data_set.reset()
+    def reset(self, deep = True):
+        if deep:
+            for data_set in self.Datasets.values():
+                data_set.reset()
         
         self.data_loaded = False
         
@@ -207,6 +209,8 @@ class data_interface(object):
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
             del self.Pred_agents_eval_all
             del self.Pred_agents_pred_all
+            
+        if hasattr(self, '_checked_pred_agents'):
             del self._checked_pred_agents
             
         if hasattr(self, 'Not_pov_agent'):
@@ -349,43 +353,14 @@ class data_interface(object):
         return Files, file_number
     
     
-    def get_data(self, dt, num_timesteps_in, num_timesteps_out):
-        self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
-        complete_failure = None
-        self.data_in_one_piece = True
-        for data_set in self.Datasets.values():
-            data_failure = data_set.get_data(dt, num_timesteps_in, num_timesteps_out)
-            if data_failure is not None:
-                complete_failure = data_failure[:-1] + ' (in ' + data_set.get_name()['print'] + ').'
-            
-            # Check the number of save parts in the dataset
-            if data_set.number_data_files > 1:
-                self.data_in_one_piece = False
+    def assemble_data(self, file_identifier, keep_useless_samples = False):
+        
+        self.assembled_data_file = file_identifier
         
         # Prepare the information needed here
         self.Domain = pd.DataFrame(np.zeros((0,0), np.ndarray))
         self.num_behaviors = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
         self.num_behaviors_out = pd.Series(np.zeros(len(self.Behaviors), int), index = self.Behaviors)
-        
-        self.Files = []
-        self.Agents = []
-
-        self.Input_data_type, Data_set_inverse = self.unique_data_paths()
-
-        # Data_set can only be in one piece if all the path data is of the same type
-        if len(self.Input_data_type) > 1:
-            self.data_in_one_piece = False
-                
-        # Check for memory
-        if self.data_in_one_piece:
-            available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
-            needed_memory = 0
-            for data_set in self.Datasets.values():
-                data_file_final = data_set.data_file[:-4] + '_LLL_LLL_data.npy'
-                needed_memory += os.path.getsize(data_file_final)
-
-            if needed_memory > available_memory * 0.6:
-                self.data_in_one_piece = False
         
         # If possible, also load other data into one piece
         if self.data_in_one_piece:
@@ -414,7 +389,7 @@ class data_interface(object):
             Domain_local['file_index'] = file_index_local + len(self.Files)
 
             # Save the data type index
-            Domain_local['data_type_index'] = Data_set_inverse[i_data_set]
+            Domain_local['data_type_index'] = self.Data_set_inverse[i_data_set]
             
             # Add the new files 
             self.Files += data_set_files
@@ -471,7 +446,6 @@ class data_interface(object):
         
         # Set final values
         self.data_loaded = True
-        self.dt = dt
         
         # Remove useless samples
         self._determine_pred_agents_unchecked()
@@ -482,26 +456,71 @@ class data_interface(object):
         
         if Useful_agents.sum() < 5:
             complete_failure = "not enough prediction problems are avialable."
+        else:
+            complete_failure = None
         
         # Overwrite
-        self.Domain           = self.Domain.iloc[Useful_agents].reset_index(drop = True)
-        self.Pred_agents_eval_all = self.Pred_agents_eval_all[Useful_agents]
-        self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
-        self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
+        if not keep_useless_samples:
+            self.Domain           = self.Domain.iloc[Useful_agents].reset_index(drop = True)
+            self.Pred_agents_eval_all = self.Pred_agents_eval_all[Useful_agents]
+            self.Pred_agents_pred_all = self.Pred_agents_pred_all[Useful_agents]
+            self.Not_pov_agent = self.Not_pov_agent[Useful_agents]
+            
+            if self.data_in_one_piece:
+                self.Input_prediction = self.Input_prediction.iloc[Useful_agents].reset_index(drop = True)
+                self.Input_path       = self.Input_path.iloc[Useful_agents].reset_index(drop = True)
+                self.Input_T          = self.Input_T[Useful_agents]
+
+                self.Output_path      = self.Output_path.iloc[Useful_agents].reset_index(drop = True)
+                self.Output_T         = self.Output_T[Useful_agents]
+                self.Output_T_pred    = self.Output_T_pred[Useful_agents]
+                self.Output_A         = self.Output_A.iloc[Useful_agents].reset_index(drop = True)
+                self.Output_T_E       = self.Output_T_E[Useful_agents]
+
+                self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
+                self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
         
+        return complete_failure
+    
+    
+    def get_data(self, dt, num_timesteps_in, num_timesteps_out, keep_useless_samples = False):
+        # Save dt
+        self.dt = dt
+        
+        self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
+        complete_failure = None
+        self.data_in_one_piece = True
+        for data_set in self.Datasets.values():
+            data_failure = data_set.get_data(dt, num_timesteps_in, num_timesteps_out)
+            if data_failure is not None:
+                complete_failure = data_failure[:-1] + ' (in ' + data_set.get_name()['print'] + ').'
+            
+            # Check the number of save parts in the dataset
+            if data_set.number_data_files > 1:
+                self.data_in_one_piece = False
+        
+        
+        self.Files = []
+        self.Agents = []
+
+        self.Input_data_type, self.Data_set_inverse = self.unique_data_paths()
+
+        # Data_set can only be in one piece if all the path data is of the same type
+        if len(self.Input_data_type) > 1:
+            self.data_in_one_piece = False
+                
+        # Check for memory
         if self.data_in_one_piece:
-            self.Input_prediction = self.Input_prediction.iloc[Useful_agents].reset_index(drop = True)
-            self.Input_path       = self.Input_path.iloc[Useful_agents].reset_index(drop = True)
-            self.Input_T          = self.Input_T[Useful_agents]
+            available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+            needed_memory = 0
+            for data_set in self.Datasets.values():
+                data_file_final = data_set.data_file[:-4] + '_LLL_LLL_data.npy'
+                needed_memory += os.path.getsize(data_file_final)
 
-            self.Output_path      = self.Output_path.iloc[Useful_agents].reset_index(drop = True)
-            self.Output_T         = self.Output_T[Useful_agents]
-            self.Output_T_pred    = self.Output_T_pred[Useful_agents]
-            self.Output_A         = self.Output_A.iloc[Useful_agents].reset_index(drop = True)
-            self.Output_T_E       = self.Output_T_E[Useful_agents]
-
-            self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
-            self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
+            if needed_memory > available_memory * 0.6:
+                self.data_in_one_piece = False
+        
+        complete_failure = self.assemble_data(self.data_file, keep_useless_samples)
         
         return complete_failure
         
@@ -1011,7 +1030,7 @@ class data_interface(object):
         self.eval_pov_old = eval_pov
         
         # Get save file
-        test_file = self.data_file [:-4] + '_subgroups.npy'
+        test_file = self.assembled_data_file[:-4] + '_subgroups.npy'
         if os.path.isfile(test_file):
             self.Subgroups = np.load(test_file)
         else:
@@ -1205,7 +1224,10 @@ class data_interface(object):
         self._group_indentical_inputs(eval_pov = eval_pov)
 
         # get the corresponfing use_indices
-        used = self.Domain.file_index == file_index
+        if self.data_in_one_piece:
+            used = np.ones(len(self.Domain), bool)
+        else:
+            used = self.Domain.file_index == file_index
         used_index = np.where(used)[0]
         
         # Get pred agents
@@ -1224,7 +1246,7 @@ class data_interface(object):
         Used_pred_agents    = self.Used_agents[Use_indices]
 
         # Get unique subgroups
-        self.unique_subgroups, size_unique_subgroups, subgroups_inverse = np.unique(self.Subgroups_file, return_counts = True, return_inverse = True)
+        self.unique_subgroups, subgroups_inverse, size_unique_subgroups = np.unique(self.Subgroups_file, return_inverse = True, return_counts = True)
 
         # Get the corresponding subgroups
         Used_pred_subgroups = subgroups_inverse[Used_pred_samples]
@@ -1260,7 +1282,7 @@ class data_interface(object):
         
     def _get_joint_KDE_probabilities(self, exclude_ego = False, file_index = 0):
         if hasattr(self, 'Log_prob_true_joint'):
-            assert hasattr(self, 'exclude_ego_joint'), 'Excluded ego has not been defined.'
+            assert hasattr(self, 'excluded_ego_joint'), 'Excluded ego has not been defined.'
             assert hasattr(self, 'file_index_joint'), 'File index has not been defined.'
             if (self.excluded_ego_joint == exclude_ego) and (self.file_index_joint == file_index):
                 return
@@ -1276,17 +1298,17 @@ class data_interface(object):
         self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval_sorted.shape[0], dtype = np.float32)
 
         # Get the current file name and replace it to the Predictions folder
-        file_addon = '--joint_KDE_'
+        file_addon = 'joint_gt_KDE_'
         if exclude_ego:
             file_addon += 'wo_pov'
         else:
             file_addon += 'wi_pov'
         file_addon += '_FI_' + str(file_index)
 
-        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+        safe_file = self.change_result_directory(self.assembled_data_file, 'Predictions', file_addon)
 
         # Check if KDE models can be loaded
-        if os.path.isfile(safe_file):
+        if os.path.isfile(safe_file) and not self.prediction_overwrite:
             self.KDE_joint_data = np.load(safe_file, allow_pickle = True)[0]
             clustering_loaded = True
         else:
@@ -1348,14 +1370,14 @@ class data_interface(object):
                 self.Log_prob_true_joint[nto_index] = log_prob_true
 
         # Save the KDE models
-        if not clustering_loaded:
+        if (not clustering_loaded) and self.save_predictions:
             os.makedirs(os.path.dirname(safe_file), exist_ok = True)
             np.save(safe_file, np.array([self.KDE_joint_data, 0], dtype = object))
             
             
     def _get_indep_KDE_probabilities(self, exclude_ego = False, file_index = 0):
         if hasattr(self, 'Log_prob_true_indep'):
-            assert hasattr(self, 'exclude_ego_indep'), 'Excluded ego has not been defined.'
+            assert hasattr(self, 'excluded_ego_indep'), 'Excluded ego has not been defined.'
             assert hasattr(self, 'file_index_indep'), 'File index has not been defined.'
             if (self.excluded_ego_indep == exclude_ego) and (self.file_index_indep == file_index):
                 return
@@ -1373,13 +1395,13 @@ class data_interface(object):
         # Get the current file name and replace it to the Predictions folder
         # Independent KDEs do not need to be saved for different pov settings,
         # as the agents are saved individually
-        file_addon = '--indep_KDE_' 
+        file_addon = 'indep_gt_KDE' 
         file_addon += '_FI_' + str(file_index)
 
-        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+        safe_file = self.change_result_directory(self.assembled_data_file, 'Predictions', file_addon)
 
         # Check if KDE models can be loaded
-        if os.path.isfile(safe_file):
+        if os.path.isfile(safe_file) and not self.prediction_overwrite:
             self.KDE_indep_data = np.load(safe_file, allow_pickle = True)[0]
             clustering_loaded = True
         else:
@@ -1458,5 +1480,6 @@ class data_interface(object):
                     self.Log_prob_true_indep[nto_index,i_agent_orig] = log_prob_true_agent
         
         # Save the KDE models
-        os.makedirs(os.path.dirname(safe_file), exist_ok = True)
-        np.save(safe_file, np.array([self.KDE_indep_data, 0], dtype = object))
+        if self.save_predictions:
+            os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+            np.save(safe_file, np.array([self.KDE_indep_data, 0], dtype = object))

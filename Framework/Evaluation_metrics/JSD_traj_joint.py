@@ -98,7 +98,7 @@ class JSD_traj_joint(evaluation_template):
         
         
         # prepare to save data
-        if len(np.unqiue(self.data_set.Subgroups)) == 1:
+        if len(np.unique(self.data_set.Subgroups)) == 1:
             input_path = self.data_set.Input_path.iloc[self.Index_curr[0]]
 
             # get agent id
