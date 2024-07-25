@@ -140,32 +140,20 @@ class Experiment():
             
             if 'repetition' in split_dict.keys():
                 reps = split_dict['repetition']
-                if isinstance(reps, list):
-                    for i, rep in enumerate(reps):
-                        assert (isinstance(rep, int) or
-                                isinstance(rep, str) or
-                                isinstance(rep, tuple)), "Split repetition has a wrong format."
-                        if isinstance(rep, tuple):
-                            assert len(rep) > 0, "Some repetition information must be given."
-                            for rep_part in rep:
-                                assert (isinstance(rep_part, int) or
-                                        isinstance(rep_part, str)), "Split repetition has a wrong format."
-                        else:
-                            reps[i] = (rep,)
-                            
-                else:
-                    assert (isinstance(reps, int) or
-                            isinstance(reps, str) or
-                            isinstance(reps, tuple)), "Split repetition has a wrong format."
-                    if isinstance(reps, tuple):
-                        assert len(reps) > 0, "Some repetition information must be given."
-                        for rep_part in reps:
+                if not isinstance(reps, list):
+                    reps = [reps]
+
+                for i, rep in enumerate(reps):
+                    assert (isinstance(rep, int) or
+                            isinstance(rep, str) or
+                            isinstance(rep, tuple)), "Split repetition has a wrong format."
+                    if isinstance(rep, tuple):
+                        assert len(rep) > 0, "Some repetition information must be given."
+                        for rep_part in rep:
                             assert (isinstance(rep_part, int) or
                                     isinstance(rep_part, str)), "Split repetition has a wrong format."
                     else:
-                        reps = (reps,)
-                        
-                    reps = [reps]
+                        reps[i] = (rep,)
             else:
                 reps = [(0,)]
             

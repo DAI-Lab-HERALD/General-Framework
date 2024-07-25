@@ -1249,6 +1249,13 @@ class data_interface(object):
         self.Path_true_all = np.full((len(self.unique_subgroups), size_unique_subgroups.max(), max_num_pred_agents, nto, 2), np.nan, dtype = np.float32)
 
         self.Path_true_all[Used_pred_subgroups, Used_pred_subgroups_count, Used_pred_agents_sort] = self.Y_orig[Use_indices, :nto, :2]
+
+        # Get current pov agent
+        Scenario = self.Domain.iloc[used_index].Scenario_type.to_numpy()
+        assert len(np.unique(Scenario)) == 1, 'Scenario should be unique.'
+
+        Scenario_id = self.get_indices_1D(Scenario[[0]], self.unique_scenarios)[0]
+        self.pov_agent = self.scenario_pov_agents[Scenario_id]
             
         
     def _get_joint_KDE_probabilities(self, exclude_ego = False, file_index = 0):
@@ -1261,12 +1268,30 @@ class data_interface(object):
         # Save last setting 
         self.excluded_ego_joint = exclude_ego
         self.file_index_joint   = file_index
-        
+
         # Check if dataset has all valuable stuff
         self._extract_identical_inputs(eval_pov = ~exclude_ego, file_index = file_index)
-        
+
         # Shape: Num_samples
         self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval_sorted.shape[0], dtype = np.float32)
+
+        # Get the current file name and replace it to the Predictions folder
+        file_addon = '--joint_KDE_'
+        if exclude_ego:
+            file_addon += 'wo_pov'
+        else:
+            file_addon += 'wi_pov'
+        file_addon += '_FI_' + str(file_index)
+
+        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+
+        # Check if KDE models can be loaded
+        if os.path.isfile(safe_file):
+            self.KDE_joint_data = np.load(safe_file, allow_pickle = True)[0]
+            clustering_loaded = True
+        else:
+            self.KDE_joint_data = {}
+            clustering_loaded = False
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
@@ -1287,6 +1312,11 @@ class data_interface(object):
             Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
             
             self.KDE_joint[subgroup] = {}
+            if clustering_loaded:
+                assert subgroup in self.KDE_joint_data, 'Subgroup not found in loaded data.'
+            else:
+                self.KDE_joint_data[subgroup] = {}
+
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
@@ -1300,11 +1330,27 @@ class data_interface(object):
                 paths_true_comp = paths_true.reshape(len(n_ind), num_features)
                 
                 # Train model
-                kde = ROME().fit(paths_true_comp)
+                if clustering_loaded:
+                    assert nto in self.KDE_joint_data[subgroup], 'Number of output timesteps not found in loaded data.'
+                    kde_data = self.KDE_joint_data[subgroup][nto]
+
+                    cluster_labels = kde_data['cluster_labels']
+                    assert len(cluster_labels) == len(paths_true_comp), 'Cluster labels do not match the number of samples.'
+                    kde = ROME().fit(paths_true_comp, clusters = cluster_labels)
+                else:
+                    kde = ROME().fit(paths_true_comp)
+                    kde_data = {'cluster_labels': kde.labels_}
+                    self.KDE_joint_data[subgroup][nto] = kde_data
+
                 log_prob_true = kde.score_samples(paths_true_comp)
                 
                 self.KDE_joint[subgroup][nto] = kde
                 self.Log_prob_true_joint[nto_index] = log_prob_true
+
+        # Save the KDE models
+        if not clustering_loaded:
+            os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+            np.save(safe_file, np.array([self.KDE_joint_data, 0], dtype = object))
             
             
     def _get_indep_KDE_probabilities(self, exclude_ego = False, file_index = 0):
@@ -1323,6 +1369,22 @@ class data_interface(object):
         
         # Shape: Num_samples x num agents
         self.Log_prob_true_indep = np.zeros(self.Pred_agents_eval_sorted.shape, dtype = np.float32)
+
+        # Get the current file name and replace it to the Predictions folder
+        # Independent KDEs do not need to be saved for different pov settings,
+        # as the agents are saved individually
+        file_addon = '--indep_KDE_' 
+        file_addon += '_FI_' + str(file_index)
+
+        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+
+        # Check if KDE models can be loaded
+        if os.path.isfile(safe_file):
+            self.KDE_indep_data = np.load(safe_file, allow_pickle = True)[0]
+            clustering_loaded = True
+        else:
+            self.KDE_indep_data = {}
+            clustering_loaded = False
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
@@ -1345,6 +1407,10 @@ class data_interface(object):
             Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
             
             self.KDE_indep[subgroup] = {}
+
+            if not subgroup in self.KDE_indep_data:
+                self.KDE_indep_data[subgroup] = {}
+
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
@@ -1356,6 +1422,9 @@ class data_interface(object):
                 num_features = nto * 2
                 
                 self.KDE_indep[subgroup][nto] = {}
+                if not nto in self.KDE_indep_data[subgroup]:
+                    self.KDE_indep_data[subgroup][nto] = {}
+
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
                     agent = self.Agents_eval_sorted[nto_index, i_agent_orig]
                     assert len(np.unique(agent)) == 1, 'Agent is not unique.'
@@ -1368,9 +1437,26 @@ class data_interface(object):
                     paths_true_agent_comp = paths_true_agent.reshape(len(n_ind), num_features)
                         
                     # Train model
-                    kde = ROME().fit(paths_true_agent_comp)
+                    # Check if current agent is pov agent
+
+                    if clustering_loaded and (agent != self.pov_agent):
+                        assert agent in self.KDE_indep_data[subgroup][nto], 'Agent not found in loaded data.'
+                    
+                    if agent in self.KDE_indep_data[subgroup][nto]:
+                        kde_data = self.KDE_indep_data[subgroup][nto][agent]
+                        cluster_labels = kde_data['cluster_labels']
+                        assert len(cluster_labels) == len(paths_true_agent_comp), 'Cluster labels do not match the number of samples.'
+                        kde = ROME().fit(paths_true_agent_comp, clusters = cluster_labels)
+                    else:
+                        kde = ROME().fit(paths_true_agent_comp)
+                        kde_data = {'cluster_labels': kde.labels_}
+                        self.KDE_indep_data[subgroup][nto][agent] = kde_data
+
                     log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
                     
                     self.KDE_indep[subgroup][nto][agent] = kde
                     self.Log_prob_true_indep[nto_index,i_agent_orig] = log_prob_true_agent
-                    
+        
+        # Save the KDE models
+        os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+        np.save(safe_file, np.array([self.KDE_indep_data, 0], dtype = object))

@@ -1985,6 +1985,14 @@ class model_template():
         self.Log_prob_joint_pred = np.zeros(self.Path_pred.shape[:2], dtype = np.float32)
         
         Num_steps = self.Pred_step.sum(-1).max(-1)
+
+        # Get save file for KDE saving
+        file_addon = '--joint_KDE'
+        if exclude_ego:
+            file_addon += 'wo_pov'
+        else:
+            file_addon += 'wi_pov'
+
         
         # Get identical input samples
         self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
