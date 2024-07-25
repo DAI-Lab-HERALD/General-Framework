@@ -46,16 +46,6 @@ class Adversarial_Search(perturbation_template):
         self.kwargs = kwargs
         self.initialize_settings()
 
-        # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
-        if isinstance(kwargs['splitter_dict']['repetition'], list):
-
-            if len(kwargs['splitter_dict']['repetition']) > 1:
-                raise ValueError("The splitting dictionary neccessary to define the trained model used " +
-                                 "for the adversarial attack can only contain one singel repetition " +
-                                 "(i.e, the value assigned to the key 'repetition' CANNOT be a list with a lenght larger than one).")
-
-            kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
-
         # Load the perturbation model
         pert_data_set = data_interface(
             kwargs['data_set_dict'], kwargs['exp_parameters'])
@@ -67,9 +57,31 @@ class Adversarial_Search(perturbation_template):
         # Exctract splitting method parameters
         pert_splitter_name = kwargs['splitter_dict']['Type']
         if 'repetition' in kwargs['splitter_dict'].keys():
+            # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
+            if isinstance(kwargs['splitter_dict']['repetition'], list):
+
+                if len(kwargs['splitter_dict']['repetition']) > 1:
+                    raise ValueError("The splitting dictionary neccessary to define the trained model used " +
+                                    "for the adversarial attack can only contain one singel repetition " +
+                                    "(i.e, the value assigned to the key 'repetition' CANNOT be a list with a lenght larger than one).")
+
+                kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
+
             pert_splitter_rep = [kwargs['splitter_dict']['repetition']]
+
+            # Check the value of the repetition key
+            assert (isinstance(pert_splitter_rep, int) or
+                    isinstance(pert_splitter_rep, str) or
+                    isinstance(pert_splitter_rep, tuple)), "Split repetition has a wrong format."
+            if isinstance(pert_splitter_rep, tuple):
+                assert len(pert_splitter_rep) > 0, "Some repetition information must be given."
+                for rep_part in pert_splitter_rep:
+                    assert (isinstance(rep_part, int) or
+                            isinstance(rep_part, str)), "Split repetition has a wrong format."
+            else:
+                pert_splitter_rep = (pert_splitter_rep,)
         else:
-            pert_splitter_rep = [(0,)]
+            pert_splitter_rep = (0,)
         if 'test_part' in kwargs['splitter_dict'].keys():
             pert_splitter_tp = kwargs['splitter_dict']['test_part']
         else:
@@ -126,15 +138,31 @@ class Adversarial_Search(perturbation_template):
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
+        self.name += '---' + kwargs['attack']
+        self.name += '---' + str(kwargs['gamma'])
+        self.name += '---' + str(kwargs['alpha'])
+        self.name += '---' + str(kwargs['num_samples_perturb'])
+        self.name += '---' + str(kwargs['max_number_iterations'])
+        self.name += '---' + kwargs['loss_function_1']
+        if 'loss_function_2' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['loss_function_2'])
+        if 'barrier_function_past' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['barrier_function_past'])
+            self.name += '---' + str(kwargs['distance_threshold_past'])
+            self.name += '---' + str(kwargs['log_value_past'])
+        if 'barrier_function_future' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['barrier_function_future'])
+            self.name += '---' + str(kwargs['distance_threshold_future'])
+            self.name += '---' + str(kwargs['log_value_future'])
 
     def initialize_settings(self):
         # Initialize parameters
-        self.num_samples = 20  
-        self.max_number_iterations = 30
+        self.num_samples = self.kwargs['num_samples_perturb']
+        self.max_number_iterations = self.kwargs['max_number_iterations']
 
         # Learning decay
-        self.gamma = 1
-        self.alpha = 0.2
+        self.gamma = self.kwargs['gamma']
+        self.alpha = self.kwargs['alpha']
 
         # Car size
         self.car_length = 4.1
@@ -146,18 +174,21 @@ class Adversarial_Search(perturbation_template):
         # FDE attack select (Maximize distance): 'FDE_Y_GT_Y_Pred_Max', 'FDE_Y_Perturb_Y_Pred_Max', 'FDE_Y_Perturb_Y_GT_Max', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Max', 'FDE_Y_pred_and_Y_pred_iteration_1_Max'
         # FDE attack select (Minimize distance): 'FDE_Y_GT_Y_Pred_Min', 'FDE_Y_Perturb_Y_Pred_Min', 'FDE_Y_Perturb_Y_GT_Min', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Min', 'FDE_Y_pred_and_Y_pred_iteration_1_Min'
         # Collision attack select: 'Collision_Y_pred_tar_Y_GT_ego', 'Collision_Y_Perturb_tar_Y_GT_ego'
-        self.loss_function_1 = 'ADE_Y_pred_and_Y_pred_iteration_1_Min'
-        self.loss_function_2 = 'Collision_Y_Perturb_tar_Y_GT_ego' # If not used set to None
+        self.loss_function_1 = self.kwargs['loss_function_1']
+        self.loss_function_2 = self.kwargs['loss_function_2'] 
 
         # For barrier function past select: 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None
-        self.barrier_function_past = 'Trajectory_specific'
-        self.barrier_function_future = None
+        self.barrier_function_past = self.kwargs['barrier_function_past']
+        self.barrier_function_future = self.kwargs['barrier_function_future']
 
         # Barrier function parameters
-        self.distance_threshold_past = 1
-        self.distance_threshold_future = 1
-        self.log_value_past = 2.5
-        self.log_value_future = 2.5
+        self.distance_threshold_past = self.kwargs['distance_threshold_past']
+        self.distance_threshold_future = self.kwargs['distance_threshold_future']
+        self.log_value_past = self.kwargs['log_value_past']
+        self.log_value_future = self.kwargs['log_value_future']
+
+        # store which data
+        self.store_GT = self.kwargs['store_GT']
 
         # Randomized smoothing
         self.smoothing = False
@@ -308,6 +339,7 @@ class Adversarial_Search(perturbation_template):
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
+        self.copy_Y = Helper.return_to_old_shape(self.copy_Y, self.Y_shape)
 
         # Flip dimensions back
         X_new_pert, Y_new_pert = Helper.flip_dimensions_2(
@@ -315,7 +347,11 @@ class Adversarial_Search(perturbation_template):
 
         # Add back additional data
         X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
-        return X_new_pert, Y_new_pert
+        
+        if self.store_GT:
+            return X_new_pert, self.copy_Y
+        else:
+            return X_new_pert, Y_new_pert
 
     def _ploting_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, loss_store):
         """
@@ -496,6 +532,9 @@ class Adversarial_Search(perturbation_template):
         # Remove nan from input and remember old shape
         self.Y_shape = Y.shape
         Y = Helper.remove_nan_values(data=Y)
+
+        # Copy the original data
+        self.copy_Y = Y.copy()
 
         # Flip dimensions agents
         X, Y, self.agent_order, self.tar_agent_index, self.ego_agent_index = Helper.flip_dimensions(
