@@ -1213,7 +1213,7 @@ class model_template():
 
         # Prepare the output arrays
         X = np.full((len(ind_advance), self.ID.shape[1], self.data_set.X_orig.shape[-2], self.data_set.X_orig.shape[-1]), np.nan, np.float32)
-        Y = np.full((len(ind_advance), self.ID.shape[1], num_steps, 2), np.nan, np.float32)
+        Y = np.full((len(ind_advance), self.ID.shape[1], self.data_set.Y_orig.shape[-2], self.data_set.Y_orig.shape[-1]), np.nan, np.float32)
 
         # Get data that is potentially not available yet
         if self.data_set.data_in_one_piece:
@@ -2170,3 +2170,4 @@ class model_template():
         # takes test input and uses that to predict the output
         raise AttributeError('Has to be overridden in actual model.')
         
+
