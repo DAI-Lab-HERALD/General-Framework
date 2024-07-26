@@ -783,7 +783,7 @@ class model_template():
                 N_O_data = np.zeros(num_data_samples, int)
                 N_O_pred = np.zeros(num_data_samples, int)
                 
-                useful_agents = np.zeros(max_num_agents, bool)
+                useful_agents = np.array([0], int)
 
                 for file_index in range(len(self.Files)):
                     used = self.Domain.file_index == file_index
@@ -1393,13 +1393,14 @@ class model_template():
         else:
             graph = None
 
+        # Ignore identical columns
+        Sample_id = Sample_id[:,0]
 
         # Get the corresponding input_data_type
-        input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
+        input_data_type_indices = self.data_set.Domain.iloc[Sample_id].data_type_index
         assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
         self.input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
 
-        Sample_id = Sample_id[:,0]
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
                 Agent_id = self.ID[ind_advance,:,1]
@@ -1452,7 +1453,7 @@ class model_template():
             if it expected by the framework that a prediction will be made for the specific agent.
             
             This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
-            incaable of joint predictions.
+            incapable of joint predictions.
 
         Returns
         -------
@@ -1488,7 +1489,9 @@ class model_template():
                     continue
                 agent = Agents[agent_id]
                 self.Output_path_pred.loc[i_sample, agent] = None
-                self.Output_path_pred.loc[i_sample, agent] = Pred[i, j,:, :, :].astype('float32')
+                pred_traj = Pred[i, j].astype('float32')
+                assert np.isfinite(pred_traj).all(), 'Predicted trajectory contains non-finite values.'
+                self.Output_path_pred.loc[i_sample, agent] = pred_traj
     
     
     def get_classification_data(self, train = True, return_categories = False):
