@@ -33,7 +33,7 @@ class data_interface(object):
         # Initialize datasets
         self.Datasets = {}
         self.Latex_names = []
-        for data_dict in data_set_dict:
+        for i_data, data_dict in enumerate(data_set_dict):
             assert isinstance(data_dict, dict), "Dataset is not provided as a dictionary."
             assert 'scenario' in data_dict.keys(), "Dataset name is missing  (required key: 'scenario')."
             assert 't0_type' in data_dict.keys(), "Prediction time is missing  (required key: 't0_type')."
@@ -96,11 +96,14 @@ class data_interface(object):
 
             data_set_name = data_set.get_name()['print']
             if data_set in self.Datasets.keys():
-                data_set_name = data_set_name + ' ' + str(len(self.Datasets.keys()) + 1)
+                data_set_name = data_set_name + ' ' + str(self.num_datasets + 1)
 
             self.Datasets[data_set_name] = data_set
-            
-        self.single_dataset = len(self.Datasets.keys()) <= 1    
+            if i_data == 0:
+                self.data_set_under = data_set
+        
+        self.num_datasets   = len(self.Datasets.keys())
+        self.single_dataset = self.num_datasets <= 1    
         
         # Get relevant scenario information
         scenario_names = []
@@ -153,11 +156,11 @@ class data_interface(object):
         
         # Get a needed name:
         if len(np.unique([data_set.t0_type for data_set in self.Datasets.values()])) == 1:
-            self.t0_type = list(self.Datasets.values())[0].t0_type
+            self.t0_type = self.data_set_under.t0_type
         else:
             self.t0_type = 'mixed'
             
-        self.p_quantile = list(self.Datasets.values())[0].p_quantile
+        self.p_quantile = self.data_set_under.p_quantile
         
         
         max_num_agents = np.array([data_set.max_num_agents for data_set in list(self.Datasets.values())])
@@ -227,11 +230,11 @@ class data_interface(object):
     
 
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
-        return list(self.Datasets.values())[0].change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
+        return self.data_set_under.change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
     
     
     def determine_required_timesteps(self, num_timesteps):
-        return list(self.Datasets.values())[0].determine_required_timesteps(num_timesteps)
+        return self.data_set_under.determine_required_timesteps(num_timesteps)
     
     
     def set_data_file(self, dt, num_timesteps_in, num_timesteps_out):
@@ -240,13 +243,13 @@ class data_interface(object):
         (self.num_timesteps_out_real, 
         self.num_timesteps_out_need) = self.determine_required_timesteps(num_timesteps_out)
         if self.single_dataset:
-            data_file = list(self.Datasets.values())[0].data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
+            data_file = self.data_set_under.data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
 
             self.data_file = data_file[:-4]
 
         else:
             # Get data_file from every constituent dataset
-            self.data_file = (list(self.Datasets.values())[0].path + os.sep + 
+            self.data_file = (self.data_set_under.path + os.sep + 
                               'Results' + os.sep +
                               self.get_name()['print'] + os.sep +
                               'Data' + os.sep + self.get_name()['file'])
@@ -613,7 +616,7 @@ class data_interface(object):
         
         # Check if this can be handled for a single dataset
         if self.single_dataset:
-            data_set = list(self.Datasets.values())[0]
+            data_set = self.data_set_under
             output_trans_all = data_set.transform_outputs(output, model_pred_type, metric_pred_type)
             
         else:
@@ -625,12 +628,16 @@ class data_interface(object):
             output_data  = output[1:]
             output_index = output[0]
 
-            output_data_set_name = self.Domain['Scenario'].iloc[output_index]
+            output_data_set_name = self.Domain.Scenario.iloc[output_index]
             
             # Go through part datasets
             for data_set in self.Datasets.values():
+                data_set_name = data_set.Domain.Scenario
+                assert len(np.unique(data_set_name)) == 1, 'Data set should only have one name.'
+                data_set_name = data_set_name.iloc[0]
+
                 # Get predictions from this dataset
-                use = output_data_set_name == data_set.get_name()['print']
+                use = output_data_set_name == data_set_name
 
                 if not use.any():
                     continue
@@ -713,7 +720,7 @@ class data_interface(object):
     
     def get_name(self):
         if self.single_dataset:
-            return list(self.Datasets.values())[0].get_name()
+            return self.data_set_under.get_name()
         else:
             file_name = ('Comb_' + '_'.join([s[0] for s in self.Latex_names]) + '_' * 5)[:10]
             print_name = 'Combined dataset (' + r' & '.join(self.Latex_names) + ')'

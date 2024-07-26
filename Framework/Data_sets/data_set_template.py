@@ -1173,8 +1173,8 @@ class data_set_template():
                 domain['Path_ID'] = i_path
                 if self.is_perturbed:
                     # Get perturbation index from file name
-                    pert_index = int(self.data_file.split('_')[-1].split('.')[0])
-                    domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + str(pert_index).zfill(3) + ')'
+                    pert_index = self.data_file.split('Pertubation_')[1][:3]
+                    domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + pert_index + ')'
                 else:
                     domain['Scenario'] = self.get_name()['print']
                 domain['Scenario_type'] = self.scenario.get_name()
@@ -1786,7 +1786,7 @@ class data_set_template():
 
         self.data_loaded = True
         # check if dataset is useful
-        if len(self.Output_A) < 100:
+        if len(self.Domain) < 100:
             return "there are not enough samples for a reasonable training process."
 
         if self.classification_useful and np.sort(self.num_behaviors_out)[-2] < 10:
