@@ -94,23 +94,21 @@ class data_interface(object):
                 
             self.Latex_names.append(latex_name) 
 
-            data_set_name = data_set.get_name()['print']
-            if data_set in self.Datasets.keys():
-                data_set_name = data_set_name + ' ' + str(self.num_datasets + 1)
+            data_set_name = 'data_set_' + str(i_data)
 
             self.Datasets[data_set_name] = data_set
             if i_data == 0:
                 self.data_set_under = data_set
         
-        self.num_datasets   = len(self.Datasets.keys())
+        self.num_datasets   = len(self.Datasets.values())
         self.single_dataset = self.num_datasets <= 1    
         
         # Get relevant scenario information
         scenario_names = []
         scenario_general_input = []
         
-        scenario_pov_agents = np.empty(len(self.Datasets), object)
-        scenario_needed_agents = np.empty(len(self.Datasets), object)
+        scenario_pov_agents = np.empty(self.num_datasets, object)
+        scenario_needed_agents = np.empty(self.num_datasets, object)
         
         self.classification_possible = False
         self.scenario_behaviors = []
@@ -163,7 +161,7 @@ class data_interface(object):
         self.p_quantile = self.data_set_under.p_quantile
         
         
-        max_num_agents = np.array([data_set.max_num_agents for data_set in list(self.Datasets.values())])
+        max_num_agents = np.array([data_set.max_num_agents for data_set in self.Datasets.values()])
         if np.all(max_num_agents == None):
             self.max_num_agents = None
         else:        
@@ -354,6 +352,8 @@ class data_interface(object):
     
     
     def assemble_data(self, file_identifier, keep_useless_samples = False):
+        self.Files = []
+        self.Agents = []
         
         self.assembled_data_file = file_identifier
         
@@ -490,6 +490,7 @@ class data_interface(object):
         self.set_data_file(dt, num_timesteps_in, num_timesteps_out)
         complete_failure = None
         self.data_in_one_piece = True
+        new_keys = []
         for data_set in self.Datasets.values():
             data_failure = data_set.get_data(dt, num_timesteps_in, num_timesteps_out)
             if data_failure is not None:
@@ -498,11 +499,15 @@ class data_interface(object):
             # Check the number of save parts in the dataset
             if data_set.number_data_files > 1:
                 self.data_in_one_piece = False
-        
-        
-        self.Files = []
-        self.Agents = []
 
+            # get scenario name from the Domain there
+            scenario_name = data_set.Domain.Scenario.iloc[0]
+            new_keys.append(scenario_name)
+
+        # Ocerwrite the keys in self.Datasets with new keys
+        self.Datasets = dict(zip(new_keys, self.Datasets.values()))
+
+        # Get the unique data types included
         self.Input_data_type, self.Data_set_inverse = self.unique_data_paths()
 
         # Data_set can only be in one piece if all the path data is of the same type
@@ -527,6 +532,7 @@ class data_interface(object):
         
     
     def get_Target_MeterPerPx(self, domain): 
+        assert self.data_loaded, 'Data has not been loaded yet.'
         return self.Datasets[domain.Scenario].Images.Target_MeterPerPx.loc[domain.image_id]
     
     
@@ -705,6 +711,7 @@ class data_interface(object):
         
     
     def provide_map_drawing(self, domain):
+        assert self.data_loaded, 'Data has not been loaded yet.'
         return self.Datasets[domain.Scenario].provide_map_drawing(domain)
     
     
