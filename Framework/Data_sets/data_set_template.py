@@ -5,7 +5,6 @@ import torch
 import psutil
 from data_interface import data_interface
 
-
 class data_set_template():
     # %% Implement the provision of data
     def __init__(self, 
@@ -1080,7 +1079,6 @@ class data_set_template():
         return domain_files, num_files
     
     
-    
     def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, path_file_adjust):
         # Extract time points from raw data
         [
@@ -1366,7 +1364,6 @@ class data_set_template():
                 self.Recorded_local.append(recorded_positions)
                 self.Domain_local.append(domain)
                 
-                # Check if saving is needed
                 current_length = len(self.Input_T_local)
                 if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
                     memory_perc = self.check_extracted_data_for_saving(path_file_adjust)
@@ -1374,9 +1371,37 @@ class data_set_template():
                     print(' ')
                     print('Current samples / Max num samples: ' + str(current_length) + ' / ' + str(predicted_saving_length))
                     print(' ')
-                
-        # Save the data with last = True
-        self.check_extracted_data_for_saving(path_file_adjust, True)
+
+        if (len(self.Input_path_local) > 0): 
+            # last = true
+            self.check_extracted_data_for_saving(path_file_adjust, True)   
+        else:
+            # check npy files in data directory
+            directory = os.path.dirname(self.data_file)
+            files = os.path.listdir(directory)
+
+            # Filter files for this specific dataset
+            data_file = self.data_file[:-4] + path_file_adjust
+
+            files = [f for f in files if (f.startswith(data_file) and f.endswith('_data.npy'))]
+
+            # Check if there are no other files available
+            if len(files) == 0:
+                raise RuntimeError("No samples have been extracted at all, as no other .npy files were found.")
+            
+            numbers = [int(f[-12:-9]) for f in files]
+
+            highest_number = str(max(numbers)).zfill(3)
+
+            overwrite_old = data_file + '_' + highest_number + '_'
+            overwrite_new = data_file + '_LLL_'
+            
+            # Rename one selection (data, AM, Domain) to _LLL_LLL
+            for ending in ['data.npy', '_AM.npy', '_Domain.npy']:
+                overwrite_old_ending = overwrite_old + ending
+                overwrite_new_ending = overwrite_new + ending
+                os.rename(overwrite_old_ending, overwrite_new_ending)
+
     
     
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
@@ -1388,7 +1413,6 @@ class data_set_template():
         num_timesteps_in  = np.array([len(t) for t in self.Input_T_local])
         num_timesteps_out = np.array([len(t) for t in self.Output_T_local])
         
-        # TODO: Check if this also works for manually assinged np.nan values
         # Get the number of saved agents for each sample
         self.Input_path = pd.DataFrame(self.Input_path_local)
         self.Input_prediction = pd.DataFrame(self.Input_prediction_local)
@@ -1496,6 +1520,11 @@ class data_set_template():
             self.Domain['perturbation'] = False
             
             if self.is_perturbed:
+                # Check the current data type
+                if len(self.path_data_info()) > 2:
+                    raise AttributeError("Perturbation is currently not possible for data that includes more information than positions.")
+
+
                 # Get unperturbed save file
                 data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
                 data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_data.npy'
@@ -1547,7 +1576,7 @@ class data_set_template():
                     assert (self.Output_A.sum(1) == 1).all(), "Behavior extraction of perturbed data failed."
                     
                     # Set Output_T_E from dataframe to corresponding value
-                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A], 0).mean(1)
+                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A.to_numpy().astype(bool)], 0).mean(1)
                     assert np.isfinite(self.Output_T_E).all(), "Behavior time extraction of perturbed data failed."
                 
                 # Remove unperturbed columns from domain
@@ -2214,6 +2243,7 @@ class data_set_template():
             t_true = self.Output_T[i_full]
             # interpolate the values at the new set of points using numpy.interp()
             path_old = Output_path.loc[i_full,self.pov_agent]
+            path_old = path_old[:len(t_true)]
             if np.array_equal(t, t_true):
                 # Ensure to use only x and y
                 path_new = path_old[...,:2]

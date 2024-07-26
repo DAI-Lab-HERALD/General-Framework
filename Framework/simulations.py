@@ -50,6 +50,9 @@ agents_to_predict = 'predefined'
 # Determine if allready existing results shoul dbe overwritten, or if not, be used instead
 overwrite_results = 'no'
 
+# Determine if predictions should be saved
+save_predictions = True
+
 # Determine if the model should be evaluated on the training set as well
 evaluate_on_train_set = True
 
@@ -59,7 +62,8 @@ model_for_path_transform = 'trajectron_salzmann_old'
 new_experiment.set_parameters(model_for_path_transform, num_samples_path_pred, 
                               enforce_num_timesteps_out, enforce_prediction_times, 
                               exclude_post_crit, allow_extrapolation, 
-                              agents_to_predict, overwrite_results, evaluate_on_train_set)
+                              agents_to_predict, overwrite_results, 
+                              save_predictions, evaluate_on_train_set)
 
 
 #%% Run experiment

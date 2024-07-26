@@ -46,16 +46,6 @@ class Adversarial_Control_Action(perturbation_template):
         self.kwargs = kwargs
         self.initialize_settings()
 
-        # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
-        if isinstance(kwargs['splitter_dict']['repetition'], list):
-
-            if len(kwargs['splitter_dict']['repetition']) > 1:
-                raise ValueError("The splitting dictionary neccessary to define the trained model used " +
-                                 "for the adversarial attack can only contain one singel repetition " +
-                                 "(i.e, the value assigned to the key 'repetition' CANNOT be a list with a lenght larger than one).")
-
-            kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
-
         # Load the perturbation model
         pert_data_set = data_interface(
             kwargs['data_set_dict'], kwargs['exp_parameters'])
@@ -67,9 +57,31 @@ class Adversarial_Control_Action(perturbation_template):
         # Exctract splitting method parameters
         pert_splitter_name = kwargs['splitter_dict']['Type']
         if 'repetition' in kwargs['splitter_dict'].keys():
-            pert_splitter_rep = [kwargs['splitter_dict']['repetition']]
+            # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
+            if isinstance(kwargs['splitter_dict']['repetition'], list):
+
+                if len(kwargs['splitter_dict']['repetition']) > 1:
+                    raise ValueError("The splitting dictionary neccessary to define the trained model used " +
+                                    "for the adversarial attack can only contain one singel repetition " +
+                                    "(i.e, the value assigned to the key 'repetition' CANNOT be a list with a lenght larger than one).")
+
+                kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
+
+            pert_splitter_rep = kwargs['splitter_dict']['repetition']
+
+            # Check the value of the repetition key
+            assert (isinstance(pert_splitter_rep, int) or
+                    isinstance(pert_splitter_rep, str) or
+                    isinstance(pert_splitter_rep, tuple)), "Split repetition has a wrong format."
+            if isinstance(pert_splitter_rep, tuple):
+                assert len(pert_splitter_rep) > 0, "Some repetition information must be given."
+                for rep_part in pert_splitter_rep:
+                    assert (isinstance(rep_part, int) or
+                            isinstance(rep_part, str)), "Split repetition has a wrong format."
+            else:
+                pert_splitter_rep = (pert_splitter_rep,)
         else:
-            pert_splitter_rep = [(0,)]
+            pert_splitter_rep = (0,)
         if 'test_part' in kwargs['splitter_dict'].keys():
             pert_splitter_tp = kwargs['splitter_dict']['test_part']
         else:
@@ -126,15 +138,38 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
+        self.name += '---' + kwargs['attack']
+        self.name += '---' + str(kwargs['gamma'])
+        self.name += '---' + str(kwargs['alpha'])
+        self.name += '---' + str(kwargs['num_samples_perturb'])
+        self.name += '---' + str(kwargs['max_number_iterations'])
+        self.name += '---' + kwargs['loss_function_1']
+        if 'loss_function_2' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['loss_function_2'])
+        if 'barrier_function_past' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['barrier_function_past'])
+            self.name += '---' + str(kwargs['distance_threshold_past'])
+            self.name += '---' + str(kwargs['log_value_past'])
+        if 'barrier_function_future' in kwargs.keys() is not None:
+            self.name += '---' + str(kwargs['barrier_function_future'])
+            self.name += '---' + str(kwargs['distance_threshold_future'])
+            self.name += '---' + str(kwargs['log_value_future'])
 
     def initialize_settings(self):
         # Initialize parameters
-        self.num_samples = 20 
-        self.max_number_iterations = 100
+        self.num_samples = self.kwargs['num_samples_perturb']
+        self.max_number_iterations = self.kwargs['max_number_iterations']
         
         # Learning decay
-        self.gamma = 1
-        self.alpha = 0.001  
+        self.gamma = self.kwargs['gamma']
+        self.alpha = self.kwargs['alpha']
+
+        # absolute clamping values
+        self.epsilon_curv_absolute = 0.2
+
+        # relative clamping values
+        self.epsilon_acc_relative = 2
+        self.epsilon_curv_relative = 0.05
 
         # Learning rate adjusted
         self.alpha_acc = (self.epsilon_acc_relative /
@@ -151,25 +186,22 @@ class Adversarial_Control_Action(perturbation_template):
         # FDE attack select (Maximize distance): 'FDE_Y_GT_Y_Pred_Max', 'FDE_Y_Perturb_Y_Pred_Max', 'FDE_Y_Perturb_Y_GT_Max', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Max', 'FDE_Y_pred_and_Y_pred_iteration_1_Max'
         # FDE attack select (Minimize distance): 'FDE_Y_GT_Y_Pred_Min', 'FDE_Y_Perturb_Y_Pred_Min', 'FDE_Y_Perturb_Y_GT_Min', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Min', 'FDE_Y_pred_and_Y_pred_iteration_1_Min'
         # Collision attack select: 'Collision_Y_pred_tar_Y_GT_ego', 'Collision_Y_Perturb_tar_Y_GT_ego'
-        self.loss_function_1 = 'ADE_Y_GT_Y_Pred_Max'
-        self.loss_function_2 = None # If not used set to None
+        # Other: 'Y_perturb', None
+        self.loss_function_1 = self.kwargs['loss_function_1']
+        self.loss_function_2 = self.kwargs['loss_function_2'] 
 
         # For barrier function past select: 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None
-        self.barrier_function_past = 'Trajectory_specific'
-        self.barrier_function_future = None
-
-        # absolute clamping values
-        self.epsilon_curv_absolute = 0.2
-
-        # relative clamping values
-        self.epsilon_acc_relative = 2
-        self.epsilon_curv_relative = 0.05
+        self.barrier_function_past = self.kwargs['barrier_function_past']
+        self.barrier_function_future = self.kwargs['barrier_function_future']  
 
         # Barrier function parameters
-        self.distance_threshold_past = 1
-        self.distance_threshold_future = 1
-        self.log_value_past = 2.5
-        self.log_value_future = 2.5
+        self.distance_threshold_past = self.kwargs['distance_threshold_past']
+        self.distance_threshold_future = self.kwargs['distance_threshold_future']
+        self.log_value_past = self.kwargs['log_value_past']
+        self.log_value_future = self.kwargs['log_value_future']
+
+        # store which data
+        self.store_GT = self.kwargs['store_GT']
 
         # Randomized smoothing
         self.smoothing = False
@@ -186,7 +218,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Left turn settings!!!
         # Plot input data 
-        self.plot_input = True
+        self.plot_input = False
 
         # Plot the adversarial scene
         self.static_adv_scene = True
@@ -247,7 +279,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Prepare data for adversarial attack (tensor/image prediction model)
         X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(
-            X, Y)
+            X, Y, Domain)
 
         # Calculate initial control actions
         control_action, heading, velocity = Control_action.inverse_Dynamical_Model(
@@ -318,7 +350,8 @@ class Adversarial_Control_Action(perturbation_template):
                 perturbation[:, 1:] = 0.0
 
             # Update the step size
-            self.alpha *= self.gamma
+            self.alpha_acc  *= self.gamma
+            self.alpha_curv *= self.gamma
 
         # Calculate the final adversarial position
         adv_position = Control_action.dynamical_model(
@@ -346,6 +379,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
+        self.copy_Y = Helper.return_to_old_shape(self.copy_Y, self.Y_shape)
 
         # Flip dimensions back
         X_new_pert, Y_new_pert = Helper.flip_dimensions_2(
@@ -353,7 +387,11 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Add back additional data
         X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
-        return X_new_pert, Y_new_pert
+
+        if self.store_GT:
+            return X_new_pert, self.copy_Y
+        else:
+            return X_new_pert, Y_new_pert
 
     def _ploting_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, loss_store, control_action, perturbation):
         """
@@ -524,7 +562,7 @@ class Adversarial_Control_Action(perturbation_template):
         else:
             img = None
             img_m_per_px = None
-
+        
         return img, img_m_per_px
 
     def _prepare_data(self, X, Y, T, agent, Domain):
@@ -549,6 +587,9 @@ class Adversarial_Control_Action(perturbation_template):
         self.Y_shape = Y.shape
         Y = Helper.remove_nan_values(data=Y)
 
+        # Copy the original data
+        self.copy_Y = Y.copy()
+
         # set clamping values for absolute acceleration
         self.epsilon_acc_absolute = self.contstraints
 
@@ -561,7 +602,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         return X, Y
 
-    def _prepare_data_attack(self, X, Y):
+    def _prepare_data_attack(self, X, Y, Domain):
         """
         Prepares data for an adversarial attack by converting inputs to tensors,
         creating data to perturb, and initializing necessary attributes for
@@ -570,6 +611,7 @@ class Adversarial_Control_Action(perturbation_template):
         Parameters:
         X (array-like): The ground truth observed position tensor with array shape (batch size, number agents, number time steps observed, coordinates (x,y)).
         Y (array-like): The ground truth future position tensor with array shape (batch size, number agents, number time steps observed, coordinates (x,y)).
+        Domain (object): A domain object specifying the context of the agents.
 
         Returns:
         X (tensor): Converted observed feature tensor.
@@ -578,6 +620,9 @@ class Adversarial_Control_Action(perturbation_template):
         Y_Pred_iter_1 (tensor): Storage for the adversarial prediction on nominal setting.
         data_barrier (tensor): Concatenated tensor of observed and future positions for barrier function.
         """
+        # Load images for adversarial attack (change when using image)
+        self.img, self.img_m_per_px = self._load_images(X,Domain)
+
         # Convert to tensor
         X, Y = Helper.convert_to_tensor(self.pert_model.device, X, Y)
 
@@ -590,10 +635,6 @@ class Adversarial_Control_Action(perturbation_template):
 
         self.mask_data = Helper.compute_mask_values_tensor(
             torch.cat((X, Y), dim=-2))
-
-        # Load images for adversarial attack (change when using image)
-        # img, img_m_per_px = self._load_images(X,Domain)
-        self.img, self.img_m_per_px = None, None
 
         # Show image
         if self.image_neural_network:
@@ -621,7 +662,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         '''
 
-        self.batch_size = 1
+        self.batch_size = 5
 
     def get_constraints(self):
         '''

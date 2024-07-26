@@ -23,6 +23,7 @@ class data_interface(object):
         self.allow_extrapolation       = parameters[5]
         self.agents_to_predict         = parameters[6]
         self.overwrite_results         = parameters[7]
+        self.save_predictions          = parameters[8]
 
         if isinstance(data_set_dict, dict):
             data_set_dict = [data_set_dict]
@@ -760,12 +761,9 @@ class data_interface(object):
             input_path_type = self.Input_data_type[input_path_type_index.iloc[0]]
             
             
-        
-        self.N_O_data_orig = np.zeros(len(Output_T), int)
-        self.N_O_pred_orig = np.zeros(len(Output_T), int)
-        for i_sample in range(Output_T.shape[0]):
-            self.N_O_data_orig[i_sample] = len(Output_T[i_sample])
-            self.N_O_pred_orig[i_sample] = len(Output_T_pred[i_sample])
+        # Get the number of prediction time steps
+        self.N_O_data_orig = np.array([len(Output_T[i_sample]) for i_sample in range(len(Output_T))], int)
+        self.N_O_pred_orig = np.array([len(Output_T_pred[i_sample]) for i_sample in range(len(Output_T_pred))], int)
 
         # Useful agents
         Used_agents = Input_path.notna()
@@ -1005,7 +1003,12 @@ class data_interface(object):
     def _group_indentical_inputs(self, eval_pov = True):
         ## NOTE: Method has been adjusted for large datasets
         if hasattr(self, 'Subgroups'):
-            return
+            if hasattr(self, 'eval_pov_old'):
+                if self.eval_pov_old == eval_pov:
+                    return
+        
+        # Save the old settings for extraction
+        self.eval_pov_old = eval_pov
         
         # Get save file
         test_file = self.data_file [:-4] + '_subgroups.npy'
@@ -1189,105 +1192,131 @@ class data_interface(object):
         
         # check if all samples are accounted for
         assert self.Subgroups.min() > 0
-    
-    #############################################################################################################################
-    #############################################################################################################################
-    ####                                                                                                                     ####
-    ####                           Not adjusted for large datasets yet                                                       ####
-    ####                                                                                                                     ####
-    #############################################################################################################################
-    #############################################################################################################################
         
-    def _extract_identical_inputs(self, eval_pov = True):
-        if hasattr(self, 'Path_true_all'):
-            return
-        
+    def _extract_identical_inputs(self, eval_pov = True, file_index = 0):
+        ## NOTE: Method has not been adjusted for large datasets
+        # Get the original trajectories
+        self._extract_original_trajectories(file_index)
+
+        # Extract the predicted agents
+        self._determine_pred_agents(eval_pov = eval_pov)
+
         # get input trajectories
         self._group_indentical_inputs(eval_pov = eval_pov)
+
+        # get the corresponfing use_indices
+        used = self.Domain.file_index == file_index
+        used_index = np.where(used)[0]
         
         # Get pred agents
         nto = self.num_timesteps_out_real
-        
-        num_samples = len(self.Pred_agents_eval)
-        max_num_pred_agents = self.Pred_agents_eval.sum(1).max()
+
+        # Get the local Pred_agents_eval
+        Pred_agents_eval    = self.Pred_agents_eval[used_index]
+        self.Subgroups_file = self.Subgroups[used_index]
+
+        # Get the maximum number of pred agents
+        max_num_pred_agents = Pred_agents_eval.sum(1).max()
 
         # Get indices of agents that are pred indices
-        Use_indices = self.Pred_agents_eval[self.Used_samples, self.Used_agents]
-        Used_pred_samples = self.Used_samples[Use_indices]
-        Used_pred_agents  = self.Used_agents[Use_indices]
+        Use_indices = Pred_agents_eval[self.Used_samples, self.Used_agents]
+        Used_pred_samples   = self.Used_samples[Use_indices]
+        Used_pred_agents    = self.Used_agents[Use_indices]
+
+        # Get unique subgroups
+        self.unique_subgroups, size_unique_subgroups, subgroups_inverse = np.unique(self.Subgroups_file, return_counts = True, return_inverse = True)
+
+        # Get the corresponding subgroups
+        Used_pred_subgroups = subgroups_inverse[Used_pred_samples]
+
+        # Get the count of the subgroups, i.e., the number correponding to the n-th occurence of the subgroup
+        Used_pred_subgroups_df = pd.DataFrame(Used_pred_subgroups[:,np.newaxis], columns = ['Subgroups'])
+        Used_pred_subgroups_count = Used_pred_subgroups_df.groupby('Subgroups').cumcount().to_numpy()
 
         # Find agents to be predicted first
-        i_agent_sort_inverse = sp.stats.rankdata(-self.Pred_agents_eval.astype(float), axis = 1, method='ordinal').astype(int) - 1
-        # Apply i_agent_sort_inverse to self.Orig_agents
-        Orig_pred_agents_sort = i_agent_sort_inverse[Used_pred_samples, Used_pred_agents]
+        i_agent_sort = np.argsort(-Pred_agents_eval.astype(float), axis = 1)
+        i_agent_sort_inverse = np.argsort(i_agent_sort, axis = 1)
 
-        # Check if max_num_pred_agents is correct
-        assert (Orig_pred_agents_sort.max() + 1) == max_num_pred_agents, 'max_num_pred_agents is not correct.'
+        # Get the sorted Pred_agents
+        self.Pred_agents_eval_sorted = np.take_along_axis(Pred_agents_eval, i_agent_sort[:,:max_num_pred_agents], axis = 1)
+        self.Agents_eval_sorted      = np.array(self.Agents)[i_agent_sort[:,:max_num_pred_agents]]
         
-        # reset prediction agents
-        self.Pred_agents_eval_sorted = - np.sort(-self.Pred_agents_eval.astype(float), axis = 1).astype(bool)[:,:max_num_pred_agents]
-        
-        # Sort future trajectories
-        Path_true = np.full((self.Pred_agents_eval.shape[0], max_num_pred_agents, nto, 2), np.nan, dtype = np.float32)
-        Path_true[Used_pred_samples, Orig_pred_agents_sort] = self.Y_orig[Use_indices, :nto, :]
+        # Adjust the agent_id_for the pred_agents
+        Used_pred_agents_sort = i_agent_sort_inverse[Used_pred_samples, Used_pred_agents]
+        assert Used_pred_agents_sort.max() < max_num_pred_agents, 'Sorting of agents failed.'
         
         # Prepare saving of observerd futures
-        max_len = np.unique(self.Subgroups, return_counts = True)[1].max()
-        self.Path_true_all = np.ones((self.Subgroups.max() + 1, max_len, max_num_pred_agents, nto, 2)) * np.nan 
+        self.Path_true_all = np.full((len(self.unique_subgroups), size_unique_subgroups.max(), max_num_pred_agents, nto, 2), np.nan, dtype = np.float32)
 
-        # Go throug subgroups for data
-        for subgroup in np.unique(self.Subgroups):
-            # get samples with similar inputs
-            s_ind = np.where(subgroup == self.Subgroups)[0]
-            
-            # Get pred agents
-            pred_agents = self.Pred_agents_eval_sorted[s_ind] # shape: len(s_ind) x num_agents
-            
-            # Get future pbservations for all agents
-            path_true = Path_true[s_ind] # shape: len(s_ind) x max_num_pred_agents x nto x 2
-            
-            # Remove not useful agents
-            path_true[~pred_agents] = np.nan
-            
-            # For some reason using pred_agents here moves the agent dimension to the front
-            self.Path_true_all[subgroup,:len(s_ind)] = path_true
+        self.Path_true_all[Used_pred_subgroups, Used_pred_subgroups_count, Used_pred_agents_sort] = self.Y_orig[Use_indices, :nto, :2]
+
+        # Get current pov agent
+        Scenario = self.Domain.iloc[used_index].Scenario_type.to_numpy()
+        assert len(np.unique(Scenario)) == 1, 'Scenario should be unique.'
+
+        Scenario_id = self.get_indices_1D(Scenario[[0]], self.unique_scenarios)[0]
+        self.pov_agent = self.scenario_pov_agents[Scenario_id]
             
         
-    def _get_joint_KDE_probabilities(self, exclude_ego = False):
+    def _get_joint_KDE_probabilities(self, exclude_ego = False, file_index = 0):
         if hasattr(self, 'Log_prob_true_joint'):
-            if self.excluded_ego_joint == exclude_ego:
+            assert hasattr(self, 'exclude_ego_joint'), 'Excluded ego has not been defined.'
+            assert hasattr(self, 'file_index_joint'), 'File index has not been defined.'
+            if (self.excluded_ego_joint == exclude_ego) and (self.file_index_joint == file_index):
                 return
         
         # Save last setting 
         self.excluded_ego_joint = exclude_ego
-        
+        self.file_index_joint   = file_index
+
         # Check if dataset has all valuable stuff
-        self._determine_pred_agents(eval_pov = ~exclude_ego)
-        self._extract_identical_inputs(eval_pov = ~exclude_ego)
-        Pred_agents = self.Pred_agents_eval_sorted
-        
+        self._extract_identical_inputs(eval_pov = ~exclude_ego, file_index = file_index)
+
         # Shape: Num_samples
-        self.Log_prob_true_joint = np.zeros(Pred_agents.shape[0], dtype = np.float32)
+        self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval_sorted.shape[0], dtype = np.float32)
+
+        # Get the current file name and replace it to the Predictions folder
+        file_addon = '--joint_KDE_'
+        if exclude_ego:
+            file_addon += 'wo_pov'
+        else:
+            file_addon += 'wi_pov'
+        file_addon += '_FI_' + str(file_index)
+
+        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+
+        # Check if KDE models can be loaded
+        if os.path.isfile(safe_file):
+            self.KDE_joint_data = np.load(safe_file, allow_pickle = True)[0]
+            clustering_loaded = True
+        else:
+            self.KDE_joint_data = {}
+            clustering_loaded = False
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
         self.KDE_joint = {}
         print('Calculate joint PDF on ground truth probabilities.', flush = True)
-        for subgroup in np.unique(self.Subgroups):
-            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(self.Subgroups))), flush = True)
-            s_ind = np.where(self.Subgroups == subgroup)[0]
+        for i_subgroup, subgroup in enumerate(self.unique_subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i_subgroup + 1, len(self.unique_subgroups)), flush = True)
+            s_ind = np.where(self.Subgroups_file == subgroup)[0]
             
-            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
-            pred_agents = Pred_agents[s_ind[0]]
+            assert len(np.unique(self.Pred_agents_eval_sorted[s_ind], axis = 0)) == 1
+            pred_agents = self.Pred_agents_eval_sorted[s_ind[0]]
             
             # Avoid useless samples
             if not pred_agents.any():
                 continue
 
             nto_subgroup = Num_steps[s_ind]
-            Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
+            Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
             
             self.KDE_joint[subgroup] = {}
+            if clustering_loaded:
+                assert subgroup in self.KDE_joint_data, 'Subgroup not found in loaded data.'
+            else:
+                self.KDE_joint_data[subgroup] = {}
+
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
@@ -1298,42 +1327,75 @@ class data_interface(object):
                         
                 # Collapse agents
                 num_features = pred_agents.sum() * nto * 2
-                paths_true_comp = paths_true.reshape(-1, num_features)
+                paths_true_comp = paths_true.reshape(len(n_ind), num_features)
                 
                 # Train model
-                kde = ROME().fit(paths_true_comp)
+                if clustering_loaded:
+                    assert nto in self.KDE_joint_data[subgroup], 'Number of output timesteps not found in loaded data.'
+                    kde_data = self.KDE_joint_data[subgroup][nto]
+
+                    cluster_labels = kde_data['cluster_labels']
+                    assert len(cluster_labels) == len(paths_true_comp), 'Cluster labels do not match the number of samples.'
+                    kde = ROME().fit(paths_true_comp, clusters = cluster_labels)
+                else:
+                    kde = ROME().fit(paths_true_comp)
+                    kde_data = {'cluster_labels': kde.labels_}
+                    self.KDE_joint_data[subgroup][nto] = kde_data
+
                 log_prob_true = kde.score_samples(paths_true_comp)
                 
                 self.KDE_joint[subgroup][nto] = kde
                 self.Log_prob_true_joint[nto_index] = log_prob_true
+
+        # Save the KDE models
+        if not clustering_loaded:
+            os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+            np.save(safe_file, np.array([self.KDE_joint_data, 0], dtype = object))
             
             
-    def _get_indep_KDE_probabilities(self, exclude_ego = False):
+    def _get_indep_KDE_probabilities(self, exclude_ego = False, file_index = 0):
         if hasattr(self, 'Log_prob_true_indep'):
-            if self.excluded_ego_indep == exclude_ego:
+            assert hasattr(self, 'exclude_ego_indep'), 'Excluded ego has not been defined.'
+            assert hasattr(self, 'file_index_indep'), 'File index has not been defined.'
+            if (self.excluded_ego_indep == exclude_ego) and (self.file_index_indep == file_index):
                 return
         
         # Save last setting 
         self.excluded_ego_indep = exclude_ego
+        self.file_index_indep   = file_index
         
         # Check if dataset has all valuable stuff
-        self._determine_pred_agents(eval_pov = ~exclude_ego)
-        self._extract_identical_inputs(eval_pov = ~exclude_ego)
-        Pred_agents = self.Pred_agents_eval_sorted
+        self._extract_identical_inputs(eval_pov = ~exclude_ego, file_index = file_index)
         
         # Shape: Num_samples x num agents
-        self.Log_prob_true_indep = np.zeros(Pred_agents.shape, dtype = np.float32)
+        self.Log_prob_true_indep = np.zeros(self.Pred_agents_eval_sorted.shape, dtype = np.float32)
+
+        # Get the current file name and replace it to the Predictions folder
+        # Independent KDEs do not need to be saved for different pov settings,
+        # as the agents are saved individually
+        file_addon = '--indep_KDE_' 
+        file_addon += '_FI_' + str(file_index)
+
+        safe_file = self.change_result_directory(self.data_file, 'Predictions', file_addon)
+
+        # Check if KDE models can be loaded
+        if os.path.isfile(safe_file):
+            self.KDE_indep_data = np.load(safe_file, allow_pickle = True)[0]
+            clustering_loaded = True
+        else:
+            self.KDE_indep_data = {}
+            clustering_loaded = False
         
         Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
         
         self.KDE_indep = {}
         print('Calculate indep PDF on ground truth probabilities.', flush = True)
-        for subgroup in np.unique(self.Subgroups):
-            print('    Subgroup {:5.0f}/{:5.0f}'.format(subgroup, len(np.unique(self.Subgroups))), flush = True)
-            s_ind = np.where(self.Subgroups == subgroup)[0]
+        for i_subgroup, subgroup in enumerate(self.unique_subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i_subgroup + 1, len(self.unique_subgroups)), flush = True)
+            s_ind = np.where(self.Subgroups_file == subgroup)[0]
             
-            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
-            pred_agents = Pred_agents[s_ind[0]]
+            assert len(np.unique(self.Pred_agents_eval_sorted[s_ind], axis = 0)) == 1
+            pred_agents = self.Pred_agents_eval_sorted[s_ind[0]]
             
             # Avoid useless samples
             if not pred_agents.any():
@@ -1342,9 +1404,13 @@ class data_interface(object):
             pred_agents_id = np.where(pred_agents)[0]
             
             nto_subgroup = Num_steps[s_ind]
-            Paths_subgroup = self.Path_true_all[subgroup,:len(s_ind)]
+            Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
             
             self.KDE_indep[subgroup] = {}
+
+            if not subgroup in self.KDE_indep_data:
+                self.KDE_indep_data[subgroup] = {}
+
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
                 n_ind = np.where(nto == nto_subgroup)[0]
@@ -1356,19 +1422,41 @@ class data_interface(object):
                 num_features = nto * 2
                 
                 self.KDE_indep[subgroup][nto] = {}
+                if not nto in self.KDE_indep_data[subgroup]:
+                    self.KDE_indep_data[subgroup][nto] = {}
+
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                    agent = self.Agents[i_agent_orig]
+                    agent = self.Agents_eval_sorted[nto_index, i_agent_orig]
+                    assert len(np.unique(agent)) == 1, 'Agent is not unique.'
+                    agent = agent[0]
                     
                     # Get agent
                     paths_true_agent = paths_true[:,i_agent]
                 
                     # Collapse agents
-                    paths_true_agent_comp = paths_true_agent.reshape(-1, num_features)
+                    paths_true_agent_comp = paths_true_agent.reshape(len(n_ind), num_features)
                         
                     # Train model
-                    kde = ROME().fit(paths_true_agent_comp)
+                    # Check if current agent is pov agent
+
+                    if clustering_loaded and (agent != self.pov_agent):
+                        assert agent in self.KDE_indep_data[subgroup][nto], 'Agent not found in loaded data.'
+                    
+                    if agent in self.KDE_indep_data[subgroup][nto]:
+                        kde_data = self.KDE_indep_data[subgroup][nto][agent]
+                        cluster_labels = kde_data['cluster_labels']
+                        assert len(cluster_labels) == len(paths_true_agent_comp), 'Cluster labels do not match the number of samples.'
+                        kde = ROME().fit(paths_true_agent_comp, clusters = cluster_labels)
+                    else:
+                        kde = ROME().fit(paths_true_agent_comp)
+                        kde_data = {'cluster_labels': kde.labels_}
+                        self.KDE_indep_data[subgroup][nto][agent] = kde_data
+
                     log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
                     
                     self.KDE_indep[subgroup][nto][agent] = kde
                     self.Log_prob_true_indep[nto_index,i_agent_orig] = log_prob_true_agent
-                    
+        
+        # Save the KDE models
+        os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+        np.save(safe_file, np.array([self.KDE_indep_data, 0], dtype = object))

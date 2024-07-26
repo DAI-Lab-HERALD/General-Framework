@@ -2,16 +2,16 @@ import os
 import shutil
 
 # Get the current path
-path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)) + os.sep + 'results' + os.sep 
+path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)) + os.sep + 'Results' + os.sep 
 
 
 # Define replacements to look for
-old = 'trajectron'
-new = 'traject_UC'
+old = 'Pertubation_000'
+new = 'Pertubation_013'
 
 # Add certain parts (to prevent accidental doubbleings)
 prefix = '--'
-suffix = ''
+suffix = '--agents_0--identi_split_0_pert=0--t_pp_old_0_0'
 
 old_term = prefix + old + suffix
 new_term = prefix + new + suffix

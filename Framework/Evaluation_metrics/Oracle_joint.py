@@ -62,7 +62,34 @@ class Oracle_joint(evaluation_template):
         # Mean over samples
         Error = Diff.mean()
         
+        # shape of the different results
+        # results[1].shape = (num_timesteps_out + 1,)
+        # results[2].shape = (num_timesteps_out + 1,)
         return [Error, np.concatenate(([0], Step_error)), np.arange(len(Step_error) + 1) * self.data_set.dt]
+    
+    def combine_results(self, result_lists, weights):
+        num_t_max = 0
+        error = []
+
+        for i in range(len(result_lists)):
+            error.append(result_lists[i][0])
+            num_t_max = max(num_t_max, len(result_lists[i][1]))
+
+        error = np.average(np.array(error), weights = np.array(weights))
+
+        step_error = np.zeros((len(result_lists), num_t_max), float)
+        step_used  = np.zeros((len(result_lists), num_t_max), bool)
+
+        for i in range(len(result_lists)):
+            step_error[i,:len(result_lists[i][1])] = result_lists[i][1]
+            step_used[i,:len(result_lists[i][1])] = True
+
+        weight_array = np.array(weights)[:,np.newaxis]
+        step_error = (step_error * weight_array).sum(0) / (weight_array * step_used.astype(float)).sum(0)
+
+        t = np.arange(num_t_max) * self.data_set.dt
+
+        return [error, step_error, t]
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']

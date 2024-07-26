@@ -140,32 +140,20 @@ class Experiment():
             
             if 'repetition' in split_dict.keys():
                 reps = split_dict['repetition']
-                if isinstance(reps, list):
-                    for i, rep in enumerate(reps):
-                        assert (isinstance(rep, int) or
-                                isinstance(rep, str) or
-                                isinstance(rep, tuple)), "Split repetition has a wrong format."
-                        if isinstance(rep, tuple):
-                            assert len(rep) > 0, "Some repetition information must be given."
-                            for rep_part in rep:
-                                assert (isinstance(rep_part, int) or
-                                        isinstance(rep_part, str)), "Split repetition has a wrong format."
-                        else:
-                            reps[i] = (rep,)
-                            
-                else:
-                    assert (isinstance(reps, int) or
-                            isinstance(reps, str) or
-                            isinstance(reps, tuple)), "Split repetition has a wrong format."
-                    if isinstance(reps, tuple):
-                        assert len(reps) > 0, "Some repetition information must be given."
-                        for rep_part in reps:
+                if not isinstance(reps, list):
+                    reps = [reps]
+
+                for i, rep in enumerate(reps):
+                    assert (isinstance(rep, int) or
+                            isinstance(rep, str) or
+                            isinstance(rep, tuple)), "Split repetition has a wrong format."
+                    if isinstance(rep, tuple):
+                        assert len(rep) > 0, "Some repetition information must be given."
+                        for rep_part in rep:
                             assert (isinstance(rep_part, int) or
                                     isinstance(rep_part, str)), "Split repetition has a wrong format."
                     else:
-                        reps = (reps,)
-                        
-                    reps = [reps]
+                        reps[i] = (rep,)
             else:
                 reps = [(0,)]
             
@@ -225,6 +213,7 @@ class Experiment():
                        allow_extrapolation = True,
                        dynamic_prediction_agents = False,
                        overwrite_results = False,
+                       save_predictions = True,
                        evaluate_on_train_set = True):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
@@ -260,11 +249,15 @@ class Experiment():
         
         assert isinstance(evaluate_on_train_set, bool), "evaluate_on_train_set should be a boolean."
         
+
+        # Save parameters needed in actual data_set_template
         self.parameters = [model_class_to_path, num_samples_path_pred, 
                            enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
-                           dynamic_prediction_agents, overwrite_results]
+                           dynamic_prediction_agents, overwrite_results, 
+                           save_predictions]
         
+        # Save the remaining parameters
         self.evaluate_on_train_set = evaluate_on_train_set
         
         self.provided_setting = True
@@ -543,10 +536,10 @@ class Experiment():
                                     if return_train_results:
                                         train_results = metric_result[0]
                                         if train_results is not None:
-                                            self.Train_results[i,j,k,l,m] = train_results
+                                            self.Train_results[i,j,k,l,m] = train_results[0]
                                     
                                     test_results = metric_result[1]    
-                                    self.Results[i,j,k,l,m] = test_results
+                                    self.Results[i,j,k,l,m] = test_results[0]
 
                                     
                                     if create_plot:
@@ -1430,7 +1423,7 @@ class Experiment():
         
         # Prevent model retraining
         parameters = [param for param in self.parameters]
-        parameters[-1] = 'no'
+        parameters[-2] = 'no'
         
         data_set = data_interface(data_set_dict, parameters)
         

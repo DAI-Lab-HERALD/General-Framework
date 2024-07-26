@@ -66,8 +66,8 @@ class KLD_traj_joint(evaluation_template):
         return [KLD]
     
     def partial_calculation(self = None):
-        options = ['No', 'Sample', 'Pred_agents']
-        return options[1]  
+        options = ['No', 'Subgroups', 'Sample', 'Subgroup_pred_agents', 'Pred_agents']
+        return options[3]  
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'

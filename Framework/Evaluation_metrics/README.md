@@ -211,13 +211,18 @@ Lastly, when dealing with large datasets, it might not be possible to calculate 
   caluculation_form : str
     This string returns the form of combining metrics calculated over subsets of the test set.
     There are three options, 'No' (The metric can only be calculated on the complete dataset,
-    weighted average contains an error), 'Sample' (The metric is calcualted by averaging over
-    samples), and 'Pred_agents' (The metric is calcualted by averaging over values calculated
-    for the varying number of predicted agents in each sample).
+    weighted average contains an error), 'Subgroup', (The metric is calculated by averaging 
+    over subgroups of samples with identical inputs), 'Sample' (The metric is calcualted by 
+    averaging over samples), 'Subgroup_pred_agents' (The metric is calculated by averaging
+    over subgroups of samples with identical inputs, selecting each agent separately) 
+    'Pred_agents' (The metric is calcualted by averaging over values calculated for the varying 
+    number of predicted agents in each sample), 'Min' (The metric is calculated by taking the
+    minimum over a certain set), and 'Max' (The metric is calculated by taking the maximum over
+    a certain set)
 
   '''
 
-  options = ['No', 'Sample', 'Pred_agents']
+  options = ['No', 'Subgroups', 'Sample', 'Subgroup_pred_agents', 'Pred_agents', 'Min', 'Max']
   i_option = ...
 
   return options[i_option] 
@@ -244,8 +249,41 @@ The most important part of the evaluation module is the definition of how the me
     
     return results 
 ```
-
 Here, the [helper functions](#useful-helper-functions) can be used to load the true and predicted data, with the choice depending on the type of metric.
+
+If the return list from **self.evaluate_prediction_method()** has more than one entry, then defining *partial_calculation* is not enough.
+Instead, one also has to define the following function *combine_results*, which will take in multiple such lists of results, as well as the associated weights, and combine
+them into a single list:
+```
+  def combine_results(self, result_lists, weights):
+    r'''
+    This function combines partial results.
+
+    Parameters
+    ----------
+    result_lists : list
+      A list of lists, which correpond to multiple outputs of *evaluate_prediction_method()*.
+
+    weights : list
+      A list of the same length as result_lists, which contains the weights based on the method in
+      *self.partial_calculation()*, which might be useful.
+
+
+    Returns
+    -------
+    results : list
+      This is a list with more than one entry. The first entry must be a scalar, which allows the comparison
+      of different models according to that metric. Afterwards, any information can be saved which might
+      be useful for later visualization of the results, if this is so desired.
+    
+
+    '''
+
+    ...
+    
+    return results
+```
+It must be noted that if based only on the partial metric result, one would have *self.partial_calculation() = 'No'*, saving intermediate results as additional ouputs of *self.evaluate_prediction_method()* and then using *combine_results* can allow for accurate calculation of metrics over large datasets without leading to extensive memory issues.
 
 
 ## Metric Visualization

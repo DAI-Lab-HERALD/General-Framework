@@ -191,7 +191,7 @@ self.loss_function_2 = None
 To create this attack set:
 ```
 self.loss_function_1 = 'Collision_Y_pred_tar_Y_GT_ego'
-self.loss_function_2 = None 
+self.loss_function_2 = 'Y_Perturb' 
 ```
 ```
  self.barrier_function_past = 'Time_specific', 'Trajectory_specific' or 'Time_Trajectory_specific' 

@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from evaluation_template import evaluation_template 
 import matplotlib.pyplot as plt
-from scipy.special import loggamma
+import scipy as sp
 
 plt.rcParams['text.usetex'] = False
 
@@ -115,9 +115,9 @@ class ECE_class(evaluation_template):
                 m_b = len(idx) * bin_p_true
                 n_b = len(idx) * (1 - bin_p_true)
                 
-                L_b = (loggamma(N_hat / B + 1e-6) - loggamma(N_b + N_hat / B + 1e-6) +
-                       loggamma(m_b + alpha_b + 1e-6) - loggamma(alpha_b + 1e-6) +
-                       loggamma(n_b + beta_b + 1e-6)  - loggamma(beta_b + 1e-6))
+                L_b = (sp.special.loggamma(N_hat / B + 1e-6) - sp.special.loggamma(N_b + N_hat / B + 1e-6) +
+                       sp.special.loggamma(m_b + alpha_b + 1e-6) - sp.special.loggamma(alpha_b + 1e-6) +
+                       sp.special.loggamma(n_b + beta_b + 1e-6)  - sp.special.loggamma(beta_b + 1e-6))
                 assert np.isfinite(L_b)
                 
                 model_b_log_likelihood[b_ind] += L_b
@@ -128,11 +128,37 @@ class ECE_class(evaluation_template):
         P_hat = (P_tilde * model_b_likelihood[np.newaxis]).sum(axis = 1)
         ece = np.abs(P_pred - P_hat).mean() 
         assert np.isfinite(ece)
+
+        # shape of the different results
+        # results[1].shape = (num_samples * n_class,)
+        # results[2].shape = (num_samples * n_class,)
         return [ece, P_pred, P_hat]
+    
+    def combine_results(self, result_lists, weights):
+        P_pred = []
+        P_hat = []
+
+        for i in range(len(result_lists)):
+            P_pred += result_lists[i][1]
+            P_hat += result_lists[i][2]
+
+        # Sort by P_pred
+        idx = np.argsort(P_pred)
+        P_pred = np.array(P_pred)[idx]
+        P_hat  = np.array(P_hat)[idx]
+
+        ece = np.abs(P_pred - P_hat).mean()
+
+        # Adjust P_hat to be more visually appealing, using golay filter
+        window_length = min(max(11, int(len(P_hat) / 10)), 101)
+        P_hat = sp.signal.savgol_filter(P_hat, window_length, 3)
+
+        return [ece, P_pred, P_hat]
+
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']
-        return options[0]
+        return options[1]
     
     def create_plot(self, results, test_file, fig, ax, save = False, model_class = None):
         P = np.unique(np.stack((results[1], results[2])), axis = 1)
