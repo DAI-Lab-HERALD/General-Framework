@@ -290,7 +290,7 @@ class model_template():
         subgroup_sort_ind = np.argsort(Subgroups)
 
         Subgroups  = Subgroups[subgroup_sort_ind]
-        Index_file = Index_file[np.argsort(Subgroups)]
+        Index_file = Index_file[subgroup_sort_ind]
 
         # Get locations at which the subgroup changes
         subgroup_change = np.array(list(np.where(Subgroups[:-1] != Subgroups[1:])[0] + 1) + [len(Subgroups)])
@@ -308,8 +308,11 @@ class model_template():
         while i_min < len(Index_file):
             # Get upper bound for index
             i_max_low = i_min + index_length
-            i_max = subgroup_change[subgroup_change >= i_max_low][0] # Due to sorting, [0] should be equal to .min()
-            i_max = min(i_max, len(Index_file))
+            i_max = subgroup_change[subgroup_change >= i_max_low]
+            if len(i_max) == 0:
+                i_max = len(Index_file)
+            else:
+                i_max = min(i_max[0], len(Index_file))
 
             # Get the current indices
             Index = Index_file[i_min:i_max]
