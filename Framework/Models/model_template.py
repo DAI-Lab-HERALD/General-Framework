@@ -2412,3 +2412,4 @@ class model_template():
         # takes test input and uses that to predict the output
         raise AttributeError('Has to be overridden in actual model.')
         
+
