@@ -437,12 +437,11 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is the number of future timesteps provided in the case of training and expected in the case of prediction.
     In the former case, it has the value :math:`N_{O}`.
   Sample_id : np.ndarray, optional
-    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original
-    sample in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+    This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+    in the dataset this sample was extracted.
   Agent_id : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate
-    from which original position in the dataset this agent was extracted. This value is only returned for
-    **mode** = *'pred'*.
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+    original agent in the dataset this agent was extracted (for corresponding string names see self.data_set.Agents).
   epoch_done : bool
     This indicates whether one has just sampled all batches from an epoch and has to go to the next one.
   

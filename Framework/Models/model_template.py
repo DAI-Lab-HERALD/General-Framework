@@ -1174,10 +1174,10 @@ class model_template():
             former case, it has the value :math:`N_{O}`.
         Sample_id : np.ndarray, optional
             This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
-            in the dataset this sample was extracted. This value is only returned for **mode** = *'pred'*.
+            in the dataset this sample was extracted.
         Agent_id : np.ndarray, optional
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
-            original agent in the dataset this agent was extracted.. This value is only returned for **mode** = *'pred'*.
+            original agent in the dataset this agent was extracted (for corresponding string names see self.data_set.Agents).
         epoch_done : bool
             This indicates wether one has just sampled all batches from an epoch and has to go to the next one.
 
