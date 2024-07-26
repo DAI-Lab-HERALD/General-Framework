@@ -155,15 +155,17 @@ class Argoverse_Interactive(data_set_template):
             # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
 
             path = pd.Series(np.empty(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])            
+            agent_types = pd.Series(np.zeros(0, str), index = [])   
+
+            
+            path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
+            agent_types['AV'] = 'V'
 
             path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
             assert 0 not in categories
 
 
-            path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-            agent_types['AV'] = 'V'
             categories.append(1)
             domain.category = pd.Series(categories, index = agent_types.index)
 
