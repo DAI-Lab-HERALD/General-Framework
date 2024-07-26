@@ -1173,6 +1173,7 @@ class data_set_template():
                 domain['Path_ID'] = i_path
                 if self.is_perturbed:
                     # Get perturbation index from file name
+                    assert 'Pertrubation_' in self.data_file, "Pertubation index is missing in file name."
                     pert_index = self.data_file.split('Pertubation_')[1][:3]
                     domain['Scenario'] = self.get_name()['print'] + ' (Pertubation_' + pert_index + ')'
                 else:
