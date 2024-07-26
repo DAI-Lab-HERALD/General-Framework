@@ -2072,7 +2072,7 @@ class data_set_template():
             parameters = [None,  self.num_samples_path_pred,
                           self.enforce_num_timesteps_out, self.enforce_prediction_time,
                           self.exclude_post_crit, self.allow_extrapolation,
-                          self.agents_to_predict, 'no']
+                          self.agents_to_predict, 'no', False]
             
             # Get data set dict
             data_set_dict = {'scenario': self.__class__.__name__,
