@@ -783,7 +783,7 @@ class model_template():
                 N_O_data = np.zeros(num_data_samples, int)
                 N_O_pred = np.zeros(num_data_samples, int)
                 
-                useful_agents = np.array([], int)
+                useful_agents = np.array([0], int)
 
                 for file_index in range(len(self.Files)):
                     used = self.Domain.file_index == file_index
