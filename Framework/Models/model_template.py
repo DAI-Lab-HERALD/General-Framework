@@ -496,9 +496,6 @@ class model_template():
                     # TODO:
                     # Allow for disableing of the saving of the predictions
 
-                    # TODO:
-                    # Potentially, allow for the saving of the KDE models 
-
                     for metric in Metric_list:
                         # Evaluate metric
                         result = metric._evaluate_on_subset(output_trans, Index)

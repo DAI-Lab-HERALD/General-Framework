@@ -166,9 +166,6 @@ class data_interface(object):
         else:        
             max_num_agents = max_num_agents[max_num_agents != None]
             self.max_num_agents = max_num_agents.min()
-
-        # Prepare overwrites
-        self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
         
         self.data_loaded = False
 
@@ -1308,7 +1305,7 @@ class data_interface(object):
         safe_file = self.change_result_directory(self.assembled_data_file, 'Predictions', file_addon)
 
         # Check if KDE models can be loaded
-        if os.path.isfile(safe_file) and not self.prediction_overwrite:
+        if os.path.isfile(safe_file):
             self.KDE_joint_data = np.load(safe_file, allow_pickle = True)[0]
             clustering_loaded = True
         else:
@@ -1401,7 +1398,7 @@ class data_interface(object):
         safe_file = self.change_result_directory(self.assembled_data_file, 'Predictions', file_addon)
 
         # Check if KDE models can be loaded
-        if os.path.isfile(safe_file) and not self.prediction_overwrite:
+        if os.path.isfile(safe_file):
             self.KDE_indep_data = np.load(safe_file, allow_pickle = True)[0]
             clustering_loaded = True
         else:

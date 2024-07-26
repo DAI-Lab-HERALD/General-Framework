@@ -76,8 +76,6 @@ class data_set_template():
 
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
-        
-        self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
 
         # Handle perturbation
         if Perturbation is None:
