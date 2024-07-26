@@ -1772,7 +1772,7 @@ class data_set_template():
                 self.num_behaviors_out += num_behaviors_out
 
                 # load Output_T_pred
-                Output_T_pred = np.load(domain_file_path[:-10] + '_data.npy', allow_pickle=True)[5]
+                Output_T_pred = np.load(domain_file_path[:-11] + '_data.npy', allow_pickle=True)[5]
 
                 # Make sure to use the right index
                 Output_T_pred = Output_T_pred[Domain.Index_saved.to_numpy()]
