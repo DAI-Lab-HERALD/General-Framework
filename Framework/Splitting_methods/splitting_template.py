@@ -225,8 +225,6 @@ class splitting_template():
                 else:
                     self.data_set.Files.append(file_unperturbed)
                     self.Domain.file_index.iloc[index_local] = len(self.data_set.Files) - 1
-                
-                # TODO: Check if self.data_set.Domain was also overwritten
                     
                 # If we can load complete dataset, we will also overwrite this
                 if self.data_set.data_in_one_piece:
