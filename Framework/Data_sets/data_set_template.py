@@ -76,6 +76,8 @@ class data_set_template():
 
         self.p_quantile = np.linspace(0.1, 0.9, 9)
         self.path_models_trained = False
+        
+        self.prediction_overwrite = self.overwrite_results in ['model', 'prediction']
 
         # Handle perturbation
         if Perturbation is None:
@@ -1287,7 +1289,7 @@ class data_set_template():
                         if available_pos.all():
                             distances = np.linalg.norm(helper_path[agent][1:,:2] - helper_path[agent][:-1,:2], axis=-1)
                             if np.all(distances < 1e-2):
-                                available_pos[0] = False
+                                available_pos[self.num_timesteps_in_real - 1] = False
                             
                         recorded_positions[agent] = available_pos
                     else:
@@ -1317,7 +1319,7 @@ class data_set_template():
                             ind_last = len(helper_T)
                         else:
                             if not self.allow_extrapolation:
-                                available_pos = recorded_positions[agent]
+                                available_pos = recorded_positions[agent].copy()
 
                                 # Do not delete interpolated data
                                 ind_start = np.where(available_pos)[0][0]
@@ -2070,7 +2072,7 @@ class data_set_template():
             parameters = [None,  self.num_samples_path_pred,
                           self.enforce_num_timesteps_out, self.enforce_prediction_time,
                           self.exclude_post_crit, self.allow_extrapolation,
-                          self.agents_to_predict, 'no', False]
+                          self.agents_to_predict, 'no']
             
             # Get data set dict
             data_set_dict = {'scenario': self.__class__.__name__,
