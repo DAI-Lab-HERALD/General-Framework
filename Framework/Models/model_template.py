@@ -485,19 +485,22 @@ class model_template():
                 # Get original data
                 self.data_set._extract_original_trajectories(file_index = file_index)
 
+                # Load potential output
+                Index_loaded, Index_missing, output_loaded = self.load_predictions(Index, model_type)
+
                 # Make predictions on the given testing set
-                output = self.predict_actual(Index) 
+                output_missing = self.predict_actual(Index_missing) 
+
+                # Save predictions if allowed
+                if self.data_set.save_predictions:
+                    self.save_made_predictions(Index_missing, output_missing, model_type)
+
+                # Combine loaded and made predictions
+                output = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_loaded, output_missing, model_type)
+
 
                 for metric_type, Metric_list in Metric_type_dict.items():
-                        
-                    # Allow for possible transformation of prediction
-                    output_trans = self.data_set.transform_outputs(output, model_type, metric_type)
-
-                    # Check if index worked
-                    assert (Index == output_trans[0]).all(), 'Wrong samples were predicted.'
-                    
-                    # TODO:
-                    # Allow for disableing of the saving of the predictions
+                    output_trans = self.transform_output(output, Index, model_type, metric_type)
 
                     for metric in Metric_list:
                         # Evaluate metric
@@ -507,6 +510,122 @@ class model_template():
                         Result_dict = self.append_result_dict(mode, metric, Result_dict, result, Index, Index_df)
 
         self.save_metric_results(Result_dict, identical_test_set)
+
+
+    def transform_output(self, output, Index, model_type, metric_type):
+        if metric_type == model_type:
+            output_trans = output
+        else:
+            # Load potential transformed output
+            Index_loaded, Index_missing, output_trans_loaded = self.load_predictions(Index, metric_type)
+
+            # Transform output to only use missing index
+            used_index = self.data_set.get_indices_1D(Index_missing, Index)
+            output_missing = []
+            for out in output:
+                if isinstance(out, np.ndarray):
+                    output_missing.append(out[used_index])
+                elif isinstance(out, pd.DataFrame):
+                    output_missing.append(out.iloc[used_index])
+                else: 
+                    raise TypeError('Output type not implemented.')
+
+            # Allow for possible transformation of prediction
+            output_trans_missing = self.data_set.transform_outputs(output_missing, model_type, metric_type)
+
+            # Save transformed predictions if allowed
+            if self.data_set.save_predictions:
+                self.save_made_predictions(Index_missing, output_trans_missing, metric_type)
+
+            # Combine loaded and made predictions
+            output_trans = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_trans_loaded, output_trans_missing, metric_type) 
+        return output_trans
+
+    def combine_loaded_and_made_predictions(self, Index, Index_loaded, Index_made, output_loaded, output_made, pred_type):
+        # Check if index worked
+        assert (output_loaded[0] == Index_loaded).all(), 'Loaded index is not correct.'
+        assert (output_made[0] == Index_made).all(), 'Made index is not correct.'
+
+        assert np.array_equal(np.unique(Index), np.unique(np.concatenate((Index_loaded, Index_made)))), 'Indices do not overlap.' 
+        # Start assembling output
+        output = [Index]
+
+        # Go through different pred types and check outputs
+        if pred_type[:4] == 'path':
+            assert len(output_loaded) == 2, 'Loaded output is not correct.'
+            assert len(output_made) == 2, 'Made output is not correct.'
+        elif pred_type == 'class':
+            assert len(output_loaded) == 2, 'Loaded output is not correct.'
+            assert len(output_made) == 2, 'Made output is not correct.'
+        elif pred_type == 'class_and_time':
+            assert len(output_loaded) == 3, 'Loaded output is not correct.'
+            assert len(output_made) == 3, 'Made output is not correct.'
+        else:
+            raise TypeError('This type of prediction is not implemented.')
+        
+        for i in range(1, len(output_loaded)):
+            out_loaded = output_loaded[i]
+            out_made = output_made[i]
+
+            # Check if this are pandas dataframes
+            assert isinstance(out_loaded, pd.DataFrame), 'Loaded output is not correct.'
+            assert isinstance(out_made, pd.DataFrame), 'Made output is not correct.'
+
+            # Check if indices work
+            assert np.array_equal(Index_loaded, out_loaded.index.to_numpy()), 'Loaded path is not correct.'
+            assert np.array_equal(Index_made, out_made.index.to_numpy()), 'Made path is not correct.'
+
+            # Check that columns are the same
+            assert np.array_equal(out_loaded.columns, out_made.columns), 'Columns are not the same.'
+
+            # Combine the paths in correct order
+            out = pd.concat([out_loaded, out_made], axis = 0)
+            out = out.loc[Index]
+
+            # Last sanity check
+            assert np.array_equal(Index, out.index.to_numpy()), 'Loaded path is not correct.'
+
+            # Add to output
+            output.append(out)
+
+        return output
+
+
+    #################################################################################################
+    #                                Loading and saving predictions                                 #
+    #################################################################################################
+    def load_predictions(self, Index, pred_type):
+
+        if self.prediction_overwrite or True:
+            Index_missing = Index
+            Index_loaded = np.array([], int)
+
+            output_loaded = [Index_loaded]
+            # Check requirements for output
+            if pred_type[:4] == 'path':
+                columns = self.data_set.Agents 
+                num_outputs = 1
+            elif pred_type == 'class':
+                columns = self.data_set.Behaviors
+                num_outputs = 1
+            elif pred_type == 'class_and_time':
+                columns = self.data_set.Behaviors
+                num_outputs = 2
+
+            # Prepare empty output
+            for i in range(num_outputs):
+                out_loaded = pd.DataFrame(np.zeros((len(Index_loaded), len(columns)), int), columns = columns)
+                output_loaded.append(out_loaded)
+
+        else:
+            pass
+
+        return Index_loaded, Index_missing, output_loaded
+
+    def save_made_predictions(self, Index, output, pred_type):
+        pass
+
+    
 
     #################################################################################################
     #################################################################################################
@@ -576,6 +695,8 @@ class model_template():
 
     def _extract_types(self):
         ## NOTE: Method has been adjusted for large datasets
+        # Get pred agents
+        
         if not hasattr(self, 'Type'):
             if self.data_set.data_in_one_piece:
                 # Get agent types
@@ -583,16 +704,17 @@ class model_template():
                 T = T.astype(str)
                 T[T == 'nan'] = '0'
             else:
-                T = np.zeros(self.data_set.Pred_agents_pred.shape, str)
+                T = np.zeros(self.data_set.Pred_agents_pred_all.shape, str)
                 for file_index in range(len(self.data_set.Files)):
                     used = self.data_set.Domain.file_index == file_index
                     
                     agent_file = self.data_set.Files[file_index] + '_AM.npy'
                     T_local, _, _ = np.load(agent_file, allow_pickle = True)
-                    T_local = T_local.astype(str)
+                    T_local = T_local.to_numpy().astype(str)
                     T_local[T_local == 'nan'] = '0'
                     
-                    T[used] = T_local
+                    ind = self.data_set.Domain[used].Index_saved
+                    T[used] = T_local[ind]
                 
             self.Type = T.astype(str)
     

@@ -1073,8 +1073,9 @@ class data_set_template():
         test_file_directory = os.path.dirname(self.data_file)
         
         # Find files in same directory that start with file_path_test
-        domain_files = [f for f in os.listdir(test_file_directory) if (f.startswith(os.path.basename(self.data_file[:-4]))
-                                                                       and f.endswith('_domain.npy'))]
+        domain_files = [test_file_directory + os.sep + f for f in os.listdir(test_file_directory) 
+                        if (f.startswith(os.path.basename(self.data_file[:-4])) and f.endswith('_domain.npy'))]
+        domain_files = [f for f in domain_files if self.data_file[:-4] == f[:-19]]
         num_files = len(domain_files)
         return domain_files, num_files
     
@@ -1527,7 +1528,8 @@ class data_set_template():
 
 
                 # Get unperturbed save file
-                data_file_unperturbed = '--'.join(data_file.split('--').pop(-1))
+                data_file_perturbde_parts = data_file.split('--Pertubation_')
+                data_file_unperturbed = data_file_perturbde_parts[0] + data_file_perturbde_parts[1][3:]
                 data_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_data.npy'
                 domain_file_unperturbed_save = data_file_unperturbed + data_file_addition + '_domain.npy'
                 agent_file_save = data_file_unperturbed + data_file_addition + '_AM.npy'
@@ -1762,18 +1764,16 @@ class data_set_template():
             
             self.Agents = []
             
-            # Get needed data files
-            domain_directory = os.path.dirname(self.data_file) 
+            # Get needed data files 
             for domain_file in domain_files:
-                domain_file_path = domain_directory + os.sep + domain_file
-                Domain, num_behaviors, num_behaviors_out, Agents, _ = np.load(domain_file_path, allow_pickle=True) 
+                Domain, num_behaviors, num_behaviors_out, Agents, _ = np.load(domain_file, allow_pickle=True) 
                 
                 self.Domain = pd.concat([self.Domain, Domain], axis = 0)
                 self.num_behaviors     += num_behaviors
                 self.num_behaviors_out += num_behaviors_out
 
                 # load Output_T_pred
-                Output_T_pred = np.load(domain_file_path[:-11] + '_data.npy', allow_pickle=True)[5]
+                Output_T_pred = np.load(domain_file[:-11] + '_data.npy', allow_pickle=True)[5]
 
                 # Make sure to use the right index
                 Output_T_pred = Output_T_pred[Domain.Index_saved.to_numpy()]

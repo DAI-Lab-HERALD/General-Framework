@@ -621,92 +621,81 @@ class data_interface(object):
             raise AttributeError("Input and Output data has not yet been specified.")
         
         # Check if this can be handled for a single dataset
-        if self.single_dataset:
-            data_set = self.data_set_under
-            output_trans_all = data_set.transform_outputs(output, model_pred_type, metric_pred_type)
+        output_index = output[0]
+        # Get parts of output
+        output_data  = output[1:]
+
+
+        # Set up empty splitting parts
+        output_trans = {}
+        output_index_rel = {}
+        output_data_set_name = self.Domain.Scenario.iloc[output_index]
+        
+        # Go through part datasets
+        for data_set in self.Datasets.values():
+            data_set_name = data_set.Domain.Scenario
+            assert len(np.unique(data_set_name)) == 1, 'Data set should only have one name.'
+            data_set_name = data_set_name.iloc[0]
+
+            # Get predictions from this dataset
+            use = output_data_set_name == data_set_name
+
+            if not use.any():
+                continue
             
-        else:
-            # Set up empty splitting parts
-            output_trans = {}
-            output_index_rel = {}
+            # Get the relative position of the index
+            use = np.where(use.to_numpy())[0]
+            output_index_rel[data_set] = use
+
+            # Get the index of the current samples in the data_set internal indexing
+            output_index_dataset = np.array(self.Domain.Index_intern.iloc[output_index[use]])
+
+            # Get output_data for the specific dataset
+            output_dataset = [output_index_dataset]
+            for out in output_data:
+                assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                out_data = out.iloc[use]
+                # check if this is a class thing
+                if np.in1d(np.array(out_data.columns), self.Behaviors).all():
+                    out_data = out_data[data_set.Behaviors]
+
+                # Apply output_index_dataset as index to out_data
+                out_data.index = pd.Index(output_index_dataset)
             
-            # Get parts of output
-            output_data  = output[1:]
-            output_index = output[0]
+                output_dataset.append(out_data)
 
-            output_data_set_name = self.Domain.Scenario.iloc[output_index]
+            # Get transfromed outputs for the datasset
+            output_trans_dataset = data_set.transform_outputs(output_dataset, model_pred_type, metric_pred_type)
+            output_trans[data_set] = output_trans_dataset
+        
+        ## Reassemble the output
+        example_output = list(output_trans.values())[0]
+        output_trans_all = [output_index]
+
+        # Go through all parts of the transformed prediction
+        for j in range(1, len(example_output)):
+            output_trans_j = []
+            for data_set in output_trans.keys():
+                output_trans_dataset_j = output_trans[data_set][j]
+                use = output_index_rel[data_set]
+
+                # set index of output_trans_dataset_j to be use
+                assert isinstance(output_trans_dataset_j, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
+                output_trans_dataset_j.index = pd.Index(use)
+
+                output_trans_j.append(output_trans_dataset_j)
             
-            # Go through part datasets
-            for data_set in self.Datasets.values():
-                data_set_name = data_set.Domain.Scenario
-                assert len(np.unique(data_set_name)) == 1, 'Data set should only have one name.'
-                data_set_name = data_set_name.iloc[0]
+            # Combine the output
+            output_trans_j = pd.concat(output_trans_j)
 
-                # Get predictions from this dataset
-                use = output_data_set_name == data_set_name
+            # Sort the dataframe by the index
+            output_trans_j = output_trans_j.sort_index()
 
-                if not use.any():
-                    continue
-                
-                # Get the relative position of the index
-                use = np.where(use.to_numpy())[0]
-                output_index_rel[data_set] = use
+            # Overwrite the index with original index
+            output_trans_j.index = output_data[0].index
 
-                # Get the index of the current samples in the data_set internal indexing
-                output_index_dataset = np.array(self.Domain.Index_intern.iloc[output_index[use]])
-
-                # Get output_data for the specific dataset
-                output_data_dataset = []
-                for out in output_data:
-                    assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-                    out_data = out.iloc[use]
-                    # check if this is a class thing
-                    if np.in1d(np.array(out_data.columns), self.Behaviors).all():
-                        out_data = out_data[data_set.Behaviors]
-
-                    # Apply output_index_dataset as index to out_data
-                    out_data.index = pd.Index(output_index_dataset)
-                
-                    output_data_dataset.append(out_data)
-
-                # assemble output for dataset
-                output_dataset = [output_index_dataset] + output_data_dataset            
-
-                # Get transfromed outputs for the datasset
-                output_trans_dataset = data_set.transform_outputs(output_dataset, model_pred_type, metric_pred_type)
-                output_trans[data_set] = output_trans_dataset
-            
-            ## Reassemble the output
-            example_output = list(output_trans.values())[0]
-            if len(output_trans) == 1:
-                output_trans_all = example_output
-            else:
-                output_trans_all = [output_index]
-
-                # Go through all parts of the transformed prediction
-                for j in range(1, len(example_output)):
-                    output_trans_j = []
-                    for data_set in output_trans.keys():
-                        output_trans_dataset_j = output_trans[data_set][j]
-                        use = output_index_rel[data_set]
-
-                        # set index of output_trans_dataset_j to be use
-                        assert isinstance(output_trans_dataset_j, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
-                        output_trans_dataset_j.index = pd.Index(use)
-
-                        output_trans_j.append(output_trans_dataset_j)
-                    
-                    # Combine the output
-                    output_trans_j = pd.concat(output_trans_j)
-
-                    # Sort the dataframe by the index
-                    output_trans_j = output_trans_j.sort_index()
-
-                    # Overwrite the index with original index
-                    output_trans_j.index = output_data[0].index
-
-                    output_trans_all.append(output_trans_j)
-                
+            output_trans_all.append(output_trans_j)
+        
         return output_trans_all
         
     

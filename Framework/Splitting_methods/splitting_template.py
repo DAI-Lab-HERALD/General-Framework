@@ -249,6 +249,7 @@ class splitting_template():
                     perturbed_dataset = self.data_set.Datasets[scenario]
                     data_set_unperturbed = self.get_new_dataset(perturbed_dataset)
                     self.data_set.Datasets[scenario_unperturbed] = data_set_unperturbed
+                    self.data_set.num_datasets += 1
 
                 # Overwrite the scenario name
                 self.Domain.Scenario.iloc[index_local] = scenario_unperturbed
