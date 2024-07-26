@@ -112,7 +112,7 @@ class pecnet_mangalam(model_template):
             
                 t_loss = 0
                 while not train_epoch_done:
-                    X, Y, _, _, _, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.hyper_params['train_b_size'], 
+                    X, Y, _, _, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.hyper_params['train_b_size'], 
                                                                                             val_split_size = 0.1)
 
                     x = torch.DoubleTensor(X)
@@ -173,7 +173,7 @@ class pecnet_mangalam(model_template):
                 v_loss = 0
                 num_val_samples = 0
                 while not val_epoch_done:
-                    X, Y, _, _, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.hyper_params['train_b_size'], 
+                    X, Y, _, _, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.hyper_params['train_b_size'], 
                                                                                             val_split_size = 0.1)
 
                     x = torch.DoubleTensor(X)

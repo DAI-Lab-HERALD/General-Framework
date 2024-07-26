@@ -334,7 +334,7 @@ class trajflow_meszaros(model_template):
                     batch = 0
                     while not train_epoch_done:
                         batch += 1
-                        X, Y, T, _, _, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                        X, Y, T, _, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                             val_split_size = 0.1)
                         X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
@@ -404,7 +404,7 @@ class trajflow_meszaros(model_template):
                         Num_steps = []
                         samples = 0
                         while not val_epoch_done:
-                            X, Y, T, _, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                            X, Y, T, _, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                     val_split_size = 0.1)
                             
                             X, T, Y, _ = self.extract_batch_data(X, T, Y)
@@ -515,7 +515,7 @@ class trajflow_meszaros(model_template):
                     else:
                         sample_past_length = self.num_timesteps_in
                         
-                    X, Y, T, img, _, _, _, num_steps, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                    X, Y, T, img, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
@@ -584,7 +584,7 @@ class trajflow_meszaros(model_template):
                 with torch.no_grad():
                     val_epoch_done = False
                     while not val_epoch_done:
-                        X, Y, T, img, _, _, _, num_steps, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                        X, Y, T, img, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
                         X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                         

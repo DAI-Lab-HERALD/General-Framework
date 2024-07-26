@@ -214,7 +214,7 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
                     data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations
@@ -371,7 +371,7 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
                     data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations

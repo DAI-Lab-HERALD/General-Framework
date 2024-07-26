@@ -1423,13 +1423,13 @@ class model_template():
                 Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
+                return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
                 Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps,                      epoch_done
+                return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
     
     
     def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):

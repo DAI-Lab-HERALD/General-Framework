@@ -634,7 +634,7 @@ class trajectron_salzmann_old(model_template):
             while not epoch_done:
                 batch_number += 1
                 print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch_number))
-                X, Y, T, img, img_m_per_px, _, _, num_steps, epoch_done = self.provide_batch_data('train', batch_size)
+                X, Y, T, img, img_m_per_px, _, _, num_steps, _, _, epoch_done = self.provide_batch_data('train', batch_size)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
                 
