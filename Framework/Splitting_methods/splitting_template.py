@@ -293,6 +293,10 @@ class splitting_template():
         
         data_set = data_set_class(Perturbation, *parameters)
 
+        data_set.set_extraction_parameters(perturbed_dataset.t0_type, 
+                                           perturbed_dataset.T0_type_compare, 
+                                           perturbed_dataset.max_num_agents)
+
         # Get data for unperturbed dataset
         data_set.get_data(perturbed_dataset.dt,
                           (perturbed_dataset.num_timesteps_in_real, perturbed_dataset.num_timesteps_in_need),
