@@ -136,8 +136,8 @@ class Argoverse_Interactive(data_set_template):
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'Argoverse' + os.sep + 'data'
 
         graph_id = 0
-        for _, name in tqdm(enumerate(os.listdir(file_path + '/train_small'))):
-            data_path = file_path + '/train_small/' + name
+        for _, name in tqdm(enumerate(os.listdir(file_path + '/train'))):
+            data_path = file_path + '/train/' + name
             data_collection = read_argoverse2_data(data_path)
 
             lanegraph = get_lane_graph(data_path)
@@ -187,8 +187,8 @@ class Argoverse_Interactive(data_set_template):
             graph_id += 1
 
         
-        for idx, name in tqdm(enumerate(os.listdir(file_path + '/val_small'))):
-            data_path = file_path + '/val_small/' + name
+        for idx, name in tqdm(enumerate(os.listdir(file_path + '/val'))):
+            data_path = file_path + '/val/' + name
             data_collection = read_argoverse2_data(data_path)
 
             lanegraph = get_lane_graph(data_path)
