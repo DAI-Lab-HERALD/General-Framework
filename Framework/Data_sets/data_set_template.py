@@ -938,13 +938,13 @@ class data_set_template():
     
     def determine_required_timesteps(self, num_timesteps):
         # Determine the number of input timesteps (used and max required)
-        if type((1, 1)) == type(num_timesteps):
+        if isinstance(num_timesteps, tuple):
             # Refers to sctual input data
             num_timesteps_real = min(99, num_timesteps[0])
             num_timesteps_need = max(num_timesteps_real, min(99, num_timesteps[1]))
 
         # If only one value is given, assume that the required number of steps is identical
-        elif type(1) == type(num_timesteps):
+        elif isinstance(num_timesteps, int):
             num_timesteps_real = min(99, num_timesteps)  # Refers to sctual input data
             num_timesteps_need = min(99, num_timesteps)  # Restrictions on t0
             

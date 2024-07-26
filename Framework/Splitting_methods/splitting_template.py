@@ -218,14 +218,41 @@ class splitting_template():
                 pre_perturbation, post_perturbation = file.split('--Pertubation')
                 file_unperturbed = pre_perturbation + post_perturbation[4:]
                 
+
                 # Check if unperturbed file is in file list
                 if file_unperturbed in self.data_set.Files:
                     file_index_unperturbed = self.Domain.Files.index(file_unperturbed)
+
+                    # Overwrite the perturbed file
                     self.Domain.file_index.iloc[index_local] = file_index_unperturbed
+                    
                 else:
+                    # Get new file index
                     self.data_set.Files.append(file_unperturbed)
                     self.Domain.file_index.iloc[index_local] = len(self.data_set.Files) - 1
+
+                
+                # Get perturbed scenario name
+                scenario = self.Domain.iloc[index_local].Scenario
+                assert len(np.unique(scenario)) == 1, 'All scenarios should be the same.'
+                scenario = scenario.iloc[0]
+
+                # Get the unperturbed scenario name
+                assert ' (Pertubation_' in scenario, 'This scenario is not a perturbed scenario.'
+                scenario_unperturbed = scenario.split(' (Pertubation_')[0]
+
+                # Check if unperturbed scenario allready exists
+                if scenario_unperturbed not in self.Domain.Scenario:
+                    assert scenario_unperturbed not in self.data_set.Datasets.keys(), 'This scenario is allready in the dataset.'
                     
+                    # Load the corresponding dataset
+                    perturbed_dataset = self.data_set.Datasets[scenario]
+                    data_set_unperturbed = self.get_new_dataset(perturbed_dataset)
+                    self.data_set.Datasets[scenario_unperturbed] = data_set_unperturbed
+
+                # Overwrite the scenario name
+                self.Domain.Scenario.iloc[index_local] = scenario_unperturbed
+
                 # If we can load complete dataset, we will also overwrite this
                 if self.data_set.data_in_one_piece:
                     # Load the respective input and output data
@@ -248,6 +275,31 @@ class splitting_template():
             
             # Set overwritten files to status unperturbed          
             self.Domain.perturbation.iloc[overwrite_with_unperturbed] = False
+
+    def get_new_dataset(self, perturbed_dataset):
+        # Get the dataset class
+        data_set_class = perturbed_dataset.__class__
+
+        # Initialize unperturbed dataset
+        Perturbation = None
+        parameters = [self.data_set.model_class_to_path,
+                      self.data_set.num_samples_path_pred,
+                      self.data_set.enforce_num_timesteps_out,
+                      self.data_set.enforce_prediction_time,
+                      self.data_set.exclude_post_crit,
+                      self.data_set.allow_extrapolation,
+                      self.data_set.agents_to_predict,
+                      self.data_set.overwrite_results]
+        
+        data_set = data_set_class(Perturbation, *parameters)
+
+        # Get data for unperturbed dataset
+        data_set.get_data(perturbed_dataset.dt,
+                          (perturbed_dataset.num_timesteps_in_real, perturbed_dataset.num_timesteps_in_need),
+                          (perturbed_dataset.num_timesteps_out_real, perturbed_dataset.num_timesteps_out_need))
+
+        return data_set
+
     
     def get_rep_str(self):
         # Save repetition as string
