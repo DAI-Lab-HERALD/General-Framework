@@ -78,6 +78,12 @@ class model_template():
                         pert_split = self.model_file.split('_pert=')
                         self.model_file = pert_split[0] + '_pert=' + pert_split[1][0] + pert_split[1][2:]
                         
+                        # If model is trained on unperturbed data, remove perturbation name from model file
+                        if pert_split[1][0] == '0':
+                            if '--Pertubation_' in self.model_file:
+                                pert_name_split = self.model_file.split('--Pertubation_')
+                                self.model_file = pert_name_split[0] + pert_name_split[1][3:]
+                        
                     self.simply_load_results = False
                 else:
                     self.simply_load_results = True
@@ -274,8 +280,10 @@ class model_template():
         return Metric_dict, Result_dict, identical_test_set
 
 
-    def add_to_index_df(self, Index_df, Index_file, num_samples_file, file_index = 0):
+    def add_to_index_df(self, Index_df, Index_file, num_samples_file, model_type, file_index = 0):
         # get subgroups of Index file
+        eval_pov = model_type != 'path_all_wo_pov'
+        self.data_set._group_indentical_inputs(eval_pov = eval_pov)
         Subgroups = self.data_set.Subgroups[Index_file]
 
         # Sort Index file by subgroups
@@ -285,7 +293,7 @@ class model_template():
         Index_file = Index_file[np.argsort(Subgroups)]
 
         # Get locations at which the subgroup changes
-        subgroup_change = np.where(Subgroups[:-1] != Subgroups[1:])[0] + 1
+        subgroup_change = np.array(list(np.where(Subgroups[:-1] != Subgroups[1:])[0] + 1) + [len(Subgroups)])
             
         # Predict the number of origdata size needed for output
         parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
@@ -320,7 +328,7 @@ class model_template():
 
 
 
-    def get_index_df(self, Index_all):
+    def get_index_df(self, Index_all, model_type):
         Index_df = pd.DataFrame(np.zeros((0,2), object), columns = ['Index', 'file_index'])
 
         if self.data_set.data_in_one_piece:
@@ -328,7 +336,7 @@ class model_template():
             num_samples_file = len(self.data_set.Domain)
             Index_file = Index_all
             
-            Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file)
+            Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file, model_type)
 
         else:
             # Go through all the files corresponding to Index_all
@@ -343,7 +351,7 @@ class model_template():
                 useful &= np.in1d(np.arange(len(self.data_set.Domain)), Index_all)
                 Index_file = np.where(useful)[0]
 
-                Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file, file_index)
+                Index_df = self.add_to_index_df(Index_df, Index_file, num_samples_file, model_type, file_index)
 
         return Index_df
     
@@ -462,7 +470,7 @@ class model_template():
             if len(Metric_type_dict) == 0:
                 continue
             # Get the index dataframe
-            Index_df = self.get_index_df(Index_all)
+            Index_df = self.get_index_df(Index_all, model_type)
             
             for i_index in range(len(Index_df)):
                 Index = Index_df.iloc[i_index].Index
@@ -591,7 +599,7 @@ class model_template():
 
     def get_orig_data_index(self, Sample_ind, Agent_ind = None):
         # assert that sample_ind includes only integers
-        assert Sample_ind.dtype == np.array([1]).dtype, 'Sample index should be integers.'
+        assert isinstance(Sample_ind, np.ndarray), 'Sample index should be integers.'
 
         Out_shape = Sample_ind.shape
         if Agent_ind is None:
@@ -802,7 +810,7 @@ class model_template():
                     Agent_id  = np.concatenate((Agent_id, Agent_id_local), 0)
 
                     # Track useful agents (this are index values)
-                    useful_agents = np.unqiue(np.concatenate((useful_agents, useful_agents_local), 0))
+                    useful_agents = np.unique(np.concatenate((useful_agents, useful_agents_local), 0))
             
             # remove nan columns
             Sample_id = Sample_id[:,useful_agents]
@@ -1970,16 +1978,14 @@ class model_template():
                 if np.array_equal(self.extracted_pred_index_joint, Pred_index):
                     return
         
+        # Get save file for KDE saving
+        file_addon = 'joint_KDE'
+        if exclude_ego:
+            file_addon += 'wo_pov'
+        else:
+            file_addon += 'wi_pov'
+        kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
         if not ((self.excluded_ego_joint == exclude_ego) and hasattr(self, 'KDE_joint_data')):
-            # Get save file for KDE saving
-            file_addon = '--joint_KDE'
-            if exclude_ego:
-                file_addon += 'wo_pov'
-            else:
-                file_addon += 'wi_pov'
-
-            kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
-
             # Load kde data if it exists
             if os.path.exists(kde_file):
                 self.KDE_joint_data = np.load(kde_file, allow_pickle = True)[0]
@@ -2041,7 +2047,7 @@ class model_template():
                 paths_true_comp = paths_true_comp.reshape(-1, num_features)
                 paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
                 
-                if not nto in self.KDE_joint_data[subgroup]:
+                if not nto in self.KDE_joint_data[subgroup] or self.prediction_overwrite:
                     # Only use select number of samples for training kde
                     use_preds = np.arange(len(paths_pred_comp))
                     np.random.seed(0)
@@ -2090,7 +2096,7 @@ class model_template():
 
                         # Check if further training is needed
                         not_test_ind_all = use_preds[max_preds * (i + 1):]
-                        if len(test_ind) == 0:
+                        if len(not_test_ind_all) < 30:
                             log_pred_satisfied = True
                         else:
                             included_quant = np.quantile(log_prob_pred[test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
@@ -2141,8 +2147,9 @@ class model_template():
                 self.Log_prob_joint_pred[nto_index] = log_prob_pred.reshape(*paths_pred.shape[:2])
         
         # Save the KDE data
-        os.makedirs(os.path.dirname(kde_file), exist_ok = True)
-        np.save(kde_file, np.array([self.KDE_joint_data, 0], dtype = object))
+        if self.data_set.save_predictions:
+            os.makedirs(os.path.dirname(kde_file), exist_ok = True)
+            np.save(kde_file, np.array([self.KDE_joint_data, 0], dtype = object))
             
             
     def _get_indep_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
@@ -2151,10 +2158,10 @@ class model_template():
                 if np.array_equal(self.extracted_pred_index_indep, Pred_index):
                     return
                 
+        # Get save file for KDE saving
+        file_addon = 'indep_KDE'
+        kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
         if not hasattr(self, 'KDE_indep_data'):
-            # Get save file for KDE saving
-            file_addon = '--indep_KDE'
-            kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
             # Load kde data if it exists
             if os.path.exists(kde_file):
                 self.KDE_indep_data = np.load(kde_file, allow_pickle = True)[0]
@@ -2232,7 +2239,7 @@ class model_template():
                     paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
                     paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
                     
-                    if not agent in self.KDE_indep_data[subgroup][nto]:
+                    if not agent in self.KDE_indep_data[subgroup][nto] or self.prediction_overwrite:
                         # Only use select number of samples for training kde
                         use_preds = np.arange(len(paths_pred_agent_comp))
                         np.random.seed(0)
@@ -2281,7 +2288,7 @@ class model_template():
 
                             # Check if further training is needed
                             not_test_ind_all = use_preds[max_preds * (i + 1):]
-                            if len(test_ind) == 0:
+                            if len(not_test_ind_all) < 30:
                                 log_pred_satisfied = True
                             else:
                                 included_quant = np.quantile(log_prob_pred_agent[test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
@@ -2333,8 +2340,9 @@ class model_template():
                     self.Log_prob_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
         
         # Save the KDE data
-        os.makedirs(os.path.dirname(kde_file), exist_ok = True)
-        np.save(kde_file, np.array([self.KDE_indep_data, 0], dtype = object))
+        if self.data_set.save_predictions:
+            os.makedirs(os.path.dirname(kde_file), exist_ok = True)
+            np.save(kde_file, np.array([self.KDE_indep_data, 0], dtype = object))
                 
     #%% 
     #########################################################################################

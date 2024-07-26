@@ -94,7 +94,7 @@ class perturbation_template():
         X_pert_sort = np.copy(X_sort)
         Y_pert_sort = np.copy(Y_sort)
 
-        dt = self.kwargs['data_param']['dt']
+        dt = self.data.dt
 
         # Get constraints of datasets
         contstraints = self.get_constraints()

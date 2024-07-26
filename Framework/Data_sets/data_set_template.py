@@ -1232,7 +1232,7 @@ class data_set_template():
                 helper_path   = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
                 helper_T_appr = np.concatenate((input_T + 1e-5, output_T - 1e-5))
                 
-                assert t.dtype == input_T.dtype
+                assert isinstance(t, np.ndarray), "Time has to be a numpy array"
                 
                 correct_path = True
                 for agent in path.index:
@@ -2068,12 +2068,6 @@ class data_set_template():
             self.path_models = pd.Series(np.empty(len(self.Behaviors), object), index=self.Behaviors)
 
             # Create data interface out of self
-            # From experiment.py
-            # self.parameters = [model_class_to_path, num_samples_path_pred, 
-            #                enforce_num_timesteps_out, enforce_prediction_time, 
-            #                exclude_post_crit, allow_extrapolation, 
-            #                dynamic_prediction_agents, overwrite_results]
-
             # Get parameters
             parameters = [None,  self.num_samples_path_pred,
                           self.enforce_num_timesteps_out, self.enforce_prediction_time,
@@ -2090,7 +2084,8 @@ class data_set_template():
             data = data_interface(data_set_dict, parameters)
             data.get_data(self.dt,
                           (self.num_timesteps_in_real, self.num_timesteps_in_need), 
-                          (self.num_timesteps_out_real, self.num_timesteps_out_need))
+                          (self.num_timesteps_out_real, self.num_timesteps_out_need),
+                          keep_useless_samples = True)
 
             # Go through behaviors
             for beh in self.Behaviors:
@@ -2332,7 +2327,20 @@ class data_set_template():
             # Predict paths for all samples
             Paths_beh = {}
             for beh in self.Behaviors:
-                Paths_beh[beh] = self.path_models[beh].predict_actual(Pred_index)
+                # Get file indices
+                file_indices = self.path_models[beh].data_set.Domain.file_index.iloc[Pred_index]
+                
+                # Prepare the output dataframe
+                Agents = np.array(self.path_models[beh].data_set.Agents)
+                Paths_beh[beh] =  pd.DataFrame(np.empty((len(Pred_index), len(Agents)), np.ndarray), columns = Agents, index = Pred_index)
+                for file_index in np.unique(file_indices):
+                    self.path_models[beh].data_set.reset_prediction_analysis()
+                    self.path_models[beh].data_set._extract_original_trajectories(file_index = file_index)
+                    
+                    used_index = np.where(file_indices == file_index)[0]
+                    Pred_index_used = Pred_index[used_index]
+                    
+                    Paths_beh[beh].loc[Pred_index_used] = self.path_models[beh].predict_actual(Pred_index_used)[1]
 
             for i_sample, i_full in enumerate(Pred_index):
                 t = self.Output_T_pred[i_full]
@@ -2374,7 +2382,20 @@ class data_set_template():
         # Get the predicted behavior of transformation model
         Paths_beh = {}
         for beh in self.Behaviors:
-            Paths_beh[beh] = self.path_models[beh].predict_actual(Pred_index)
+            # Get file indices
+            file_indices = self.path_models[beh].data_set.Domain.file_index.iloc[Pred_index]
+            
+            # Prepare the output dataframe
+            Agents = np.array(self.path_models[beh].data_set.Agents)
+            Paths_beh[beh] =  pd.DataFrame(np.empty((len(Pred_index), len(Agents)), np.ndarray), columns = Agents, index = Pred_index)
+            for file_index in np.unique(file_indices):
+                self.path_models[beh].data_set.reset_prediction_analysis()
+                self.path_models[beh].data_set._extract_original_trajectories(file_index = file_index)
+                
+                used_index = np.where(file_indices == file_index)[0]
+                Pred_index_used = Pred_index[used_index]
+                
+                Paths_beh[beh].loc[Pred_index_used] = self.path_models[beh].predict_actual(Pred_index_used)[1]
 
 
         # Go over all samples individually
