@@ -227,7 +227,7 @@ class data_interface(object):
             del self.KDE_indep
     
 
-    def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):
+    def change_result_directory(self, filepath, new_path_addon, new_file_addon = '', file_type = '.npy'):
         return self.data_set_under.change_result_directory(filepath, new_path_addon, new_file_addon, file_type)
     
     

@@ -56,22 +56,9 @@ class model_template():
                 
                 if hasattr(self.splitter, 'Train_index'):
                     self.Index_train = self.splitter.Train_index
-                
-                    if self.get_output_type() == 'path_all_wi_pov':
-                        pred_string = 'pred_tra_wip_'
-                    elif self.get_output_type() == 'path_all_wo_pov':
-                        pred_string = 'pred_tra_wop_'
-                    elif self.get_output_type() == 'class':
-                        pred_string = 'pred_classified'
-                    elif self.get_output_type() == 'class_and_time':
-                        pred_string = 'pred_class_time'
-                    else:
-                        raise AttributeError("This type of prediction is not implemented")
                         
                     self.model_file = data_set.change_result_directory(splitter.split_file,
                                                                        'Models', self.get_name()['file'])
-                    self.pred_file  = data_set.change_result_directory(self.model_file,
-                                                                       'Predictions', pred_string)
                     
                     self.model_file_metric = self.model_file + ''
                     if '_pert=' in self.model_file:
@@ -85,6 +72,8 @@ class model_template():
                                 self.model_file = pert_name_split[0] + pert_name_split[1][3:]
                         
                     self.simply_load_results = False
+                    # Get the prediction location file
+                    self.pred_loc_file = self.data_set.change_result_directory(self.model_file, 'Predictions')
                 else:
                     self.simply_load_results = True
                 
@@ -93,7 +82,6 @@ class model_template():
                 self.simply_load_results = False
                 
                 self.Index_train = np.where(data_set.Output_A[behavior])[0]
-                self.Index_test  = np.arange(len(data_set.Output_A))
                 
                 if len(self.Index_train) == 0:
                     # There are no samples of the required behavior class
@@ -102,8 +90,10 @@ class model_template():
                     self.Index_train = np.argsort(data_set.Output_T_E)[-num_long_index :]
                 
                 self.model_file = data_set.data_file[:-4] + '-transform_path_(' + behavior + ').npy'
-                self.pred_file = self.model_file[:-4] + '-pred_tra_wip_.npy'
-            
+                self.model_file_metric = self.model_file + ''
+                
+                self.pred_loc_file = self.model_file[:-4] + '--Predictions.npy'
+                        
             self.setup_method()
             
             # Set trained to flase, this prevents a prediction on an untrained model
@@ -172,16 +162,19 @@ class model_template():
         # apply model to test samples
         if self.get_output_type()[:4] == 'path':
             self.create_empty_output_path()
-            self.predict_method()
+            if len(self.Index_test) > 0:
+                self.predict_method()
             output = [self.Index_test, self.Output_path_pred]
         elif self.get_output_type() == 'class':
             self.create_empty_output_A()
-            self.predict_method()
+            if len(self.Index_test) > 0:
+                self.predict_method()
             output = [self.Index_test, self.Output_A_pred]
         elif self.get_output_type() == 'class_and_time':
             self.create_empty_output_A()
             self.create_empty_output_T()
-            self.predict_method()
+            if len(self.Index_test) > 0:
+                self.predict_method()
             output = [self.Index_test, self.Output_A_pred, self.Output_T_E_pred]
         else:
             raise TypeError("This output type for models is not implemented.")
@@ -415,7 +408,7 @@ class model_template():
             for metric, Result in Result_mode_dict.items():
                 metric_file = metric.data_set.change_result_directory(self.model_file_metric, 'Metrics', metric.get_name()['file'])
                 
-                if os.path.isfile(metric_file) and not metric.metric_override:
+                if os.path.isfile(metric_file):
                     Results = list(np.load(metric_file, allow_pickle = True)[:-1])
                 else:
                     Results = [None, None]
@@ -547,7 +540,10 @@ class model_template():
         assert (output_made[0] == Index_made).all(), 'Made index is not correct.'
 
         assert np.array_equal(np.unique(Index), np.unique(np.concatenate((Index_loaded, Index_made)))), 'Indices do not overlap.' 
-        # Start assembling output
+        
+        assert not np.in1d(Index_loaded, Index_made).any(), 'Made and loaded samples overlap.'
+        
+        # Start assembling output1
         output = [Index]
 
         # Go through different pred types and check outputs
@@ -595,8 +591,8 @@ class model_template():
     #                                Loading and saving predictions                                 #
     #################################################################################################
     def load_predictions(self, Index, pred_type):
-
-        if self.prediction_overwrite or True:
+        
+        if not os.path.isfile(self.pred_loc_file) or self.prediction_overwrite:
             Index_missing = Index
             Index_loaded = np.array([], int)
 
@@ -613,17 +609,192 @@ class model_template():
                 num_outputs = 2
 
             # Prepare empty output
-            for i in range(num_outputs):
-                out_loaded = pd.DataFrame(np.zeros((len(Index_loaded), len(columns)), int), columns = columns)
+            for _ in range(num_outputs):
+                out_loaded = pd.DataFrame(np.zeros((len(Index_loaded), len(columns)), object), columns = columns)
                 output_loaded.append(out_loaded)
 
         else:
-            pass
+            # Check if the prediction location dataframe is allread loaded or not
+            if not hasattr(self, 'Pred_locator'):
+                if os.path.isfile(self.pred_loc_file):
+                    # Load the prediction location dataframe
+                    self.Pred_locator = np.load(self.pred_loc_file, allow_pickle = True)[0]
+                else:
+                    self.Pred_locator = pd.DataFrame(np.empty((len(self.data_set.Domain), 2), object), 
+                                                     columns = ['class', 'paths'], index = self.data_set.Domain.index)
+            # Pred locator is a dataframe of shape = (len(self.Domain), 2), with columns 'class' and 'paths'
+            if pred_type[:4] == 'path':
+                pred_name = 'paths'
+                columns = self.data_set.Agents 
+                num_outputs = 1
+            elif pred_type[:5] == 'class':
+                pred_name = 'class'
+                columns = self.data_set.Behaviors
+                if pred_type == 'class':
+                    num_outputs = 1
+                else:
+                    num_outputs = 2
+            else:
+                raise TypeError('This type of prediction is not implemented.')
+            
+            # Get the potential file numbers needed
+            pred_file_numbers = self.Pred_locator[pred_name].iloc[Index]
+            
+            # Get the missing indices
+            missing = pred_file_numbers.isna().to_numpy()
+            Index_missing = Index[missing]
+            
+            # Get the loaded files
+            Index_loaded  = Index[~missing]
+            pred_file_numbers = pred_file_numbers[~missing].to_numpy()
+            
+            # Prepare the output
+            output_loaded = [Index_loaded]
+            for _ in range(num_outputs):
+                out_loaded = pd.DataFrame(np.zeros((len(Index_loaded), len(columns)), object), columns = columns, index = Index_loaded)
+                output_loaded.append(out_loaded)
+            
+            # Go through unique pred file numbers
+            for pred_file_number in np.unique(pred_file_numbers):
+                # Get indices saved in current file
+                use_ind = pred_file_numbers == pred_file_number
+                Index_loaded_file = Index_loaded[use_ind]
+                
+                # Get current file
+                pred_file = self.pred_loc_file[:-4] + '--' + pred_name + '_' + str(pred_file_number) + '.npy'
+                
+                # Load the results
+                pred_results = np.load(pred_file, allow_pickle = True)
+                
+                for i in range(num_outputs):
+                    output_loaded[i + 1].loc[Index_loaded_file] = pred_results[i].loc[Index_loaded_file]
 
         return Index_loaded, Index_missing, output_loaded
 
     def save_made_predictions(self, Index, output, pred_type):
-        pass
+        # Check if the Pred loc file exists
+        if not hasattr(self, 'Pred_locator'):
+            if os.path.isfile(self.pred_loc_file):
+                # Load the prediction location dataframe
+                self.Pred_locator = np.load(self.pred_loc_file, allow_pickle = True)[0]
+            else:
+                self.Pred_locator = pd.DataFrame(np.empty((len(self.data_set.Domain), 2), object), 
+                                                 columns = ['class', 'paths'], index = self.data_set.Domain.index)
+                
+        # Do stuff depending on the pred type
+        if pred_type[:4] == 'path':
+            pred_name = 'paths'
+            columns = self.data_set.Agents 
+            num_outputs = 1
+            num_outputs_req = 1
+            
+            # get approximate number of agents
+            num_agents_per_sample = self.data_set.Pred_agents_pred_all.sum(-1)
+            num_agents = 0.8 * num_agents_per_sample.mean() + 0.2 * num_agents_per_sample.max()
+            n_bytes_per_sample = num_agents * (self.num_timesteps_out * 1.25) * 8
+            
+        elif pred_type[:5] == 'class':
+            pred_name = 'class'
+            columns = self.data_set.Behaviors
+            
+            num_outputs_req = 2
+            if pred_type == 'class':
+                num_outputs = 1
+            else:
+                num_outputs = 2
+                
+            # Get available memory 
+            n_bytes_per_sample = len(columns) * 4 * (1 + len(self.t_e_quantile))
+            
+        else:
+            raise TypeError('This type of prediction is not implemented.')
+        
+        # Check if some of the samples are overwrites
+        index_exists = self.Pred_locator.loc[Index, pred_name].notna().to_numpy()
+        Index_overwrite = Index[index_exists]
+        Index_new = Index[~index_exists]
+        
+        pred_file_numbers_exists = self.Pred_locator.loc[Index_overwrite, pred_name].to_numpy()
+        for pred_file_number in np.unique(pred_file_numbers_exists):
+            # Get indices saved in current file
+            use_ind = pred_file_numbers_exists == pred_file_number
+            Index_overwrite_file = Index_overwrite[use_ind]
+            
+            # Get current file
+            pred_file = self.pred_loc_file[:-4] + '--' + pred_name + '_' + str(pred_file_number) + '.npy'
+            
+            # Load the results
+            pred_results = np.load(pred_file, allow_pickle = True)
+            
+            for i in range(num_outputs):
+                pred_results[i].loc[Index_overwrite_file] = output[i + 1].loc[Index_overwrite_file]
+            
+            # Save the results
+            np.save(pred_file, np.array(pred_results, object))
+        
+        
+        # Get the samples that can be saved to one file
+        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        samples_per_file = int(0.5 * available_memory / n_bytes_per_sample)
+        
+        # Start saving
+        completed_saving = False
+        while not completed_saving:
+            # Get current unique file numbers and their count
+            pred_file_numbers, pred_file_counts = np.unique(self.Pred_locator[pred_name][self.Pred_locator[pred_name].notna()], return_counts = True)
+            
+            # Check if we can append to an allready existing file
+            if (len(pred_file_numbers) > 0) and (0.8 * samples_per_file > pred_file_counts.min()):
+                pred_file_number = pred_file_numbers[pred_file_counts.argmin()]
+                
+                # Get the numbers we need right now
+                num_saved = samples_per_file - pred_file_counts.min()
+            
+            else:
+                if len(pred_file_numbers) == 0:
+                    pred_file_number = 0
+                else:
+                    pred_file_number = pred_file_numbers.max() + 1
+                
+                # Get the number of savable stuff
+                num_saved = min(samples_per_file, len(Index_new))
+                
+            # Get the current file
+            pred_file = self.pred_loc_file[:-4] + '--' + pred_name + '_' + str(pred_file_number) + '.npy'
+                
+            # Get the output saved in this iteration  
+            Index_new_saved = Index_new[:num_saved]   
+            
+            # Load the results
+            if os.path.isfile(pred_file):
+                pred_results = np.load(pred_file, allow_pickle = True)
+            else:
+                pred_results = [pd.DataFrame(np.zeros((0, len(columns)), object), columns = columns) for _ in range(num_outputs_req)]
+                pred_results = pred_results + [0]
+                
+                
+            # Go through the outputs
+            for i in range(num_outputs):
+                pred_results[i] = pd.concat([pred_results[i], output[i + 1].loc[Index_new_saved]], axis = 0)
+            
+            # Save the results
+            os.makedirs(os.path.dirname(pred_file), exist_ok=True)
+            np.save(pred_file, np.array(pred_results, object))    
+            
+            # Overwrite Pred_locator
+            self.Pred_locator.loc[Index_new_saved, pred_name] = pred_file_number
+            
+            # Overwrite Index_new
+            Index_new = Index_new[num_saved:]
+            
+            # Check if we are done
+            if len(Index_new) == 0:
+                completed_saving = True
+                
+                
+        # Save pred locator
+        os.makedirs(os.path.dirname(self.pred_loc_file), exist_ok=True)
+        np.save(self.pred_loc_file, np.array([self.Pred_locator, 0], object))
 
     
 

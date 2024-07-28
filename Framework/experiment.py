@@ -1571,8 +1571,7 @@ class Experiment():
         model.train()
         output = model.predict()
         
-        output_trans_path = data_set.transform_outputs(output, model.get_output_type(), 
-                                                       'path_all_wi_pov', model.pred_file)
+        output_trans_path = data_set.transform_outputs(output, model.get_output_type(), 'path_all_wi_pov')
         
         # Get predictions        
         Output_path_pred = output_trans_path[1]

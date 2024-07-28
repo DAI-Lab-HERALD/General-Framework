@@ -2210,9 +2210,11 @@ class data_set_template():
             return Output_path_pred
 
         # Add extrapolated pov agent to data
-        Index_old = Output_path_pred.columns
+        Index_old = list(Output_path_pred.columns)
         if self.pov_agent in Index_old:
             Index_add = Index_old
+            # Remove the pov_agent from Index old
+            Index_old.remove(self.pov_agent)
         else:
             Index_add = [self.pov_agent] + list(Index_old)
 
@@ -2254,7 +2256,7 @@ class data_set_template():
                 path_new[later_time] = path_old[[-1]] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
 
             # Add new results
-            Output_path_pred_add.loc[i_full, Index_old] = Output_path_pred.loc[i_full]
+            Output_path_pred_add.loc[i_full, Index_old] = Output_path_pred.loc[i_full, Index_old]
             Output_path_pred_add.loc[i_full, self.pov_agent] = np.repeat(path_new[np.newaxis], self.num_samples_path_pred, axis = 0)
         
         return Output_path_pred_add
