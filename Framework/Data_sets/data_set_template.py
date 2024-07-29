@@ -1042,6 +1042,7 @@ class data_set_template():
             pert = pd.Series([self.Perturbation.attack, self.Perturbation.name], index=Pert_df.columns, name=pert_index)
             Pert_df.loc[pert_index] = pert
 
+            os.makedirs(os.path.dirname(Pert_save_doc), exist_ok=True)
             Pert_df.to_excel(Pert_save_doc)
 
             pert_string = '--Pertubation_' + str(int(pert_index)).zfill(3)
