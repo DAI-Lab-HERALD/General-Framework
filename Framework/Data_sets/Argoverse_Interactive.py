@@ -155,16 +155,15 @@ class Argoverse_Interactive(data_set_template):
             # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
 
             path = pd.Series(np.empty(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])   
+            agent_types = pd.Series(np.zeros(0, str), index = [])     
 
             
             path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-            agent_types['AV'] = 'V'
+            agent_types['AV'] = 'V'       
 
             path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
             assert 0 not in categories
-
 
             categories.append(1)
             domain.category = pd.Series(categories, index = agent_types.index)
@@ -185,6 +184,8 @@ class Argoverse_Interactive(data_set_template):
             self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
             graph_id += 1
+
+            self.check_created_paths_for_saving() 
 
         
         for idx, name in tqdm(enumerate(os.listdir(file_path + '/val'))):
@@ -207,7 +208,7 @@ class Argoverse_Interactive(data_set_template):
             path = pd.Series(np.empty(0, np.ndarray), index = [])
             agent_types = pd.Series(np.zeros(0, str), index = [])
 
-            
+
             path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
             agent_types['AV'] = 'V'  
 
@@ -238,6 +239,11 @@ class Argoverse_Interactive(data_set_template):
             self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
             graph_id += 1
+
+            self.check_created_paths_for_saving() 
+
+        
+        self.check_created_paths_for_saving(last=True) 
 
         
         self.Path = pd.DataFrame(self.Path)
