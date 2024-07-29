@@ -154,6 +154,9 @@ class model_template():
         return self.model_file
         
     def predict_actual(self, Index = None):
+        # Reset prediction analysis
+        self.reset_prediction_analysis()
+
         if Index is not None:
             self.Index_test = Index
 
@@ -471,9 +474,6 @@ class model_template():
             for i_index in range(len(Index_df)):
                 Index = Index_df.iloc[i_index].Index
                 file_index = Index_df.iloc[i_index].file_index
-
-                # Reset prediction analysis
-                self.reset_prediction_analysis()
 
                 # Get original data
                 self.data_set._extract_original_trajectories(file_index = file_index)

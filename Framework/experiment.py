@@ -1507,19 +1507,10 @@ class Experiment():
         else:
             Index = splitter.Test_index
         
-        # Load needed files
-        Input_path       = data_set.Input_path.iloc[Index]
-        Output_path      = data_set.Output_path.iloc[Index]
-        Output_A         = data_set.Output_A.iloc[Index]
-        Output_T_E       = data_set.Output_T_E[Index]
-        Domain           = data_set.Domain.iloc[Index]
-        
-        return [data_set, data_param, splitter, 
-                Input_path, Output_path, 
-                Output_A, Output_T_E, Domain]
+        return [data_set, data_param, splitter, Index]
     
     
-    def _get_model_selection(self, data_set):
+    def _get_model_selection(self, data_set, splitter):
         if self.num_models > 1:
             print('------------------------------------------------------------------', flush = True)
             sample_string = 'In the current experiment, the following models are available:'
@@ -1553,13 +1544,9 @@ class Experiment():
             model_dict = self.Models[i_d]
         else:
             model_dict = self.Models[0]
-            
-        return model_dict
         
-    
-    
-    def _get_data_pred(self, data_set, splitter, model_dict):
-        # get model subjects
+
+        # get the model
         model_name   = model_dict['model']
         model_kwargs = model_dict['kwargs']
         
@@ -1569,38 +1556,44 @@ class Experiment():
         # Load specific model
         model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
         model.train()
-        output = model.predict()
+
+        return model
         
-        output_trans_path = data_set.transform_outputs(output, model.get_output_type(), 'path_all_wi_pov')
-        
-        # Get predictions        
-        Output_path_pred = output_trans_path[1]
-        Pred_index = output_trans_path[0]
-        
-        # Transform index
-        if self.plot_train:
-            Index = splitter.Train_index
-        else:
-            Index = splitter.Test_index
-            
-        TP_index = Index[:,np.newaxis] == Pred_index[np.newaxis]
-        assert (TP_index.sum(1) == 1).all()
-        TP_index = TP_index.argmax(1)
-        
-        # Load needed files
-        Output_path_pred = Output_path_pred.iloc[TP_index]
-        
-        return model, Output_path_pred
     
-    def _get_data_sample(self, sample_ind, data_set, 
-                         Input_path, Output_path, 
-                         Output_A, Output_T_E, Domain):
+    
+    def _get_data_pred(self, model, Index):
         
-        input_path       = Input_path.iloc[sample_ind]
-        output_path      = Output_path.iloc[sample_ind]
-        output_A         = Output_A.iloc[sample_ind]
-        output_T_E       = Output_T_E[sample_ind]
-        domain           = Domain.iloc[sample_ind]
+        output = model.predict_actual(Index)
+        
+        output_path = model.transform_output(output, Index, model.get_output_type(), 'path_all_wi_pov')
+        
+        return output_path[1] 
+    
+    def _get_data_sample(self, sample_ind, data_set, Output_A, Domain):
+        
+        domain           = Domain.loc[sample_ind]
+        output_A         = Output_A.loc[sample_ind]
+
+        # Go through needed data
+        file_indices = Domain.file_index.loc[sample_ind]
+
+        # get empty inputs
+        input_path  = pd.DataFrame(np.empty((len(sample_ind), len(data_set.Agents)), dtype = object), columns = data_set.Agents, index = sample_ind)
+        output_path = pd.DataFrame(np.empty((len(sample_ind), len(data_set.Agents)), dtype = object), columns = data_set.Agents, index = sample_ind)
+        output_T_E  = np.empty(len(sample_ind), dtype = object)
+
+        for file_index in np.unique(file_indices):
+            use_index = file_indices == file_index
+
+            # Load raw darta
+            file = data_set.Files[file_index] + '_data.npy'
+            [_, Input_path, _, Output_path, _, _, _, Output_T_E, _] = np.load(file, allow_pickle = True)
+
+            ind = Domain[use_index].Index_saved
+
+            input_path[use_index]  = Input_path.iloc[ind]
+            output_path[use_index] = Output_path.iloc[ind]
+            output_T_E[use_index]  = Output_T_E[ind]
         
         # Load raw darta
         ind_p = np.array([name for name in input_path.columns 
@@ -1625,8 +1618,12 @@ class Experiment():
         return [op, ip, ind_p, output_A, output_T_E, img, domain]
     
     
-    def _get_data_sample_pred(self, sample_ind, ip, ind_p, Output_path_pred):
-        output_path_pred = Output_path_pred.iloc[sample_ind]
+    def _get_data_sample_pred(self, model, Index, ip, ind_p):
+
+        
+        output = model.predict_actual(Index)
+        
+        output_path_pred = model.transform_output(output, Index, model.get_output_type(), 'path_all_wi_pov')[1]
         
         
         ind_pp = np.array([name for name in output_path_pred.columns 
@@ -1686,56 +1683,53 @@ class Experiment():
         ax.add_collection(map_solid)
         ax.add_collection(map_dashed)
     
-    def _select_testing_samples(self, data_set, splitter, load_all, Output_A, plot_similar_futures):
+    def _select_testing_samples(self, data_set, load_all, Output_A, plot_similar_futures, Index):
         print('------------------------------------------------------------------', flush = True)
-        if (not load_all) and (len(Output_A.columns) > 1) and (not plot_similar_futures):
-            sample_string = 'In this case '
-            for n_beh, beh in enumerate(Output_A.columns):
-                if beh != Output_A.columns[-1]:
-                    sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
-                    if len(Output_A.columns) > 2:
-                        sample_string += ', '
-                    else:
-                        sample_string += ' '
-                else:                            
-                    sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
-            sample_string += ' samples are available.'
-            print(sample_string, flush = True)  
-            print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
-            print('', flush = True)
-            try:
-                n_beh = int(input('Enter a number: ')) - 1
-            except:
-                n_beh = -1
-            while n_beh not in range(len(Output_A.columns)):
-                print('This answer was not accepted. Please repeat: ', flush = True)
-                print('', flush = True)
-                try:
-                    n_beh = int(input('Enter a number: ')) - 1
-                except:
-                    n_beh = -1 
-            
-            Chosen_index = np.where(Output_A.iloc[:, n_beh].to_numpy())[0]
-        else:
-            Chosen_index = np.arange(len(Output_A))
-        
         # For plot similar futures, transform Chosen_index into list of arrays
         if plot_similar_futures:
             # Get subgroups
             data_set._group_indentical_inputs()
-            if self.plot_train:
-                Index = splitter.Train_index
-            else:
-                Index = splitter.Test_index
             
             subgroup = data_set.Subgroups[Index]
 
             # Assemble sets of similar futures
             Chosen_sets = []
             for s in np.unique(subgroup):
-                Chosen_sets.append(np.where(subgroup == s)[0])
+                Chosen_sets.append(Index[subgroup == s])
         else:
-            Chosen_sets = list(Chosen_index[:,np.newaxis])
+            if (not load_all) and (len(Output_A.columns) > 1) and (not plot_similar_futures):
+                sample_string = 'In this case '
+                for n_beh, beh in enumerate(Output_A.columns):
+                    if beh != Output_A.columns[-1]:
+                        sample_string += '{} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)
+                        if len(Output_A.columns) > 2:
+                            sample_string += ', '
+                        else:
+                            sample_string += ' '
+                    else:                            
+                        sample_string += 'and {} '.format(Output_A[beh].to_numpy().sum()) + beh + ' ({})'.format(n_beh + 1)       
+                sample_string += ' samples are available.'
+                print(sample_string, flush = True)  
+                print('Select behavior, by typing a number between 1 and {} for the specific behavior): '.format(len(Output_A.columns)), flush = True)
+                print('', flush = True)
+                try:
+                    n_beh = int(input('Enter a number: ')) - 1
+                except:
+                    n_beh = -1
+                while n_beh not in range(len(Output_A.columns)):
+                    print('This answer was not accepted. Please repeat: ', flush = True)
+                    print('', flush = True)
+                    try:
+                        n_beh = int(input('Enter a number: ')) - 1
+                    except:
+                        n_beh = -1 
+                
+                Chosen_sets = Index[np.where(Output_A.iloc[:, n_beh].to_numpy())[0]]
+            else:
+                Chosen_sets = Index[np.arange(len(Output_A))]
+            
+            
+            Chosen_sets = list(Chosen_sets[:,np.newaxis])
 
 
         if not load_all:
@@ -1785,22 +1779,11 @@ class Experiment():
         return sample_inds
     
         
-    def _get_path_likelihoods(self, data_set, splitter, model, sample_ind, plot_train, opp, ind_pp):
-        # Manually overwrite saved test_index
-        if self.plot_train:
-            model.Index_test = splitter.Train_index[sample_ind[[0]]]
-        else:
-            model.Index_test = splitter.Test_index[sample_ind[[0]]]
-
-        
+    def _get_path_likelihoods(self, data_set, model, sample_ind, opp, ind_pp):
         # Overwrite number of predictions
         model.num_samples_path_pred = max(1, 3000 - len(opp))
-
-        if hasattr(model, 'Ind_pred'):
-            del model.Ind_pred
-
         # Run the actual prediction
-        Pred_index, Output_path_pred = model.predict_actual()
+        Pred_index, Output_path_pred = model.predict_actual(sample_ind[[0]])
 
         # Concatenate old predictions with new ones
         for i, agent in enumerate(ind_pp):
@@ -1812,12 +1795,10 @@ class Experiment():
         model.num_samples_path_pred = 3000
 
         # Get indpendent likelihoods
-        # Remove previous results
-        if hasattr(model, 'Path_pred'):
-            del model.Path_pred, model.Path_true, model.Pred_step
-            
-        if hasattr (model, 'Log_prob_indep_pred'):
-            del model.Log_prob_indep_pred
+        # Prevent damage to save files
+        data_set.save_predictions  = False
+        model.prediction_overwrite = True
+
         model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
 
         # Only consider the likelihoods of trajectories in opp
@@ -1842,26 +1823,38 @@ class Experiment():
         plt.close('all')
         time.sleep(0.05)
         
-        [data_set, data_param, splitter, 
-         Input_path, Output_path, 
-         Output_A, Output_T_E, Domain] = self._get_data()
-        
-        model_dict = self._get_model_selection(data_set)
-        
+        # Get dataset and splitter
+        [data_set, data_param, splitter, Index] = self._get_data()
+
         # Get model
-        model, Output_path_pred = self._get_data_pred(data_set, splitter, model_dict)
-        
-        sample_inds = self._select_testing_samples(data_set, splitter, load_all, Output_A, plot_similar_futures)
+        model = self._get_model_selection(data_set, splitter)
+
+        # Get possible domains
+        Domain = data_set.Domain.loc[Index]
+
+        # Get Output_A
+        file_indices = np.unique(Domain.file_index)
+        Output_A = pd.DataFrame(np.zeros((len(Index), len(data_set.Behaviors)), int), columns = data_set.Behaviors, index = Index)
+
+        for file_index in file_indices:
+            Index_file = np.where(Domain.file_index == file_index)[0]
+            file = data_set.Files[file_index] + '_data.npy'
+            Output_A_file = np.load(file, allow_pickle = True)[6]
+            ind = Domain.Index_saved.iloc[Index_file]
+
+            Output_A.iloc[Index_file] = Output_A_file.iloc[ind]
+
+        sample_inds = self._select_testing_samples(data_set, load_all, Output_A, plot_similar_futures, Index)
+
         
         ## Get specific case
-        for sample_name, sample_ind in sample_inds:   
+        for sample_name, sample_ind in sample_inds: 
+
             [op, ip, ind_p,  
-             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set,
-                                                                        Input_path, Output_path, 
-                                                                        Output_A, Output_T_E, Domain)
+             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set, Output_A, Domain)
             
                                                                         
-            [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(sample_ind, ip, ind_p, Output_path_pred)
+            [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p)
             
 
 
@@ -1878,7 +1871,7 @@ class Experiment():
             if likelihood_visualization:
                 # Only available for path prediction models
                 if model.get_output_type() == 'path_all_wi_pov':
-                    Lp = self._get_path_likelihoods(data_set, splitter, model, sample_ind, plot_train, opp, ind_pp)
+                    Lp = self._get_path_likelihoods(data_set, model, sample_ind, opp, ind_pp)
             
 
 
