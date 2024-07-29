@@ -2210,7 +2210,7 @@ class data_set_template():
         # Add extrapolated pov agent to data
         Index_old = list(Output_path_pred.columns)
         if self.pov_agent in Index_old:
-            Index_add = Index_old
+            Index_add = Index_old.copy()
             # Remove the pov_agent from Index old
             Index_old.remove(self.pov_agent)
         else:
