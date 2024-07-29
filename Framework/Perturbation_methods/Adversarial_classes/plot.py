@@ -9,8 +9,7 @@ from pathlib import Path
 
 from Adversarial_classes.helper import Helper
 from Adversarial_classes.spline import Spline
-from Adversarial_classes.control_action import Control_action
-
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 class Plot:
     def __init__(self, adversarial):
@@ -83,6 +82,15 @@ class Plot:
                     # Plot the adversarial data
                     self.plot_ego_and_tar_agent(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
                                                 figure_input=ax, index_batch=index_batch, index_agent=index_agent, future_action=self.future_action, style=None)
+
+                    new_ax = self.plot_zoomed_scene(figure_input=ax)
+
+                    self.plot_road_lines(-5, 10, -6, 2.5, new_ax)
+
+                    # Plot the adversarial data for the zoomed area
+                    for index_agent in range(X.shape[1]):
+                        self.plot_ego_and_tar_agent(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
+                                                    figure_input=new_ax, index_batch=index_batch, index_agent=index_agent, future_action=self.future_action, style=None)
 
             # Setup the plot
             if plot_input:
@@ -502,6 +510,19 @@ class Plot:
         else:
             self.draw_arrow(X[index_batch, index_agent, :], Y[index_batch, index_agent, :], figure_input, 'b',
                             3, '-', 'dashed', r'Observed ego agent ($X_{ego}$)', r'Future ego agent ($Y_{ego}$)', 1, 1)
+            
+    def plot_zoomed_scene(self,figure_input):
+
+        # setup zoom window
+        axins = zoomed_inset_axes(figure_input, 2.7, loc='lower center')
+        mark_inset(figure_input, axins, loc1=2, loc2=4, fc="none", ec="0.5")
+
+        # set the limits of the zoomed window
+        axins.set_xlim([-5,10])
+        axins.set_ylim([-6,2.5])
+
+        return axins
+
 
     def plot_smoothed_data(self, X_smoothed, X_smoothed_adv, Y_pred_smoothed, Y_pred_smoothed_adv, index_sigma, index_batch, style, figure_input):
         if style == 'unperturbed' or style == 'adv_smoothing':
