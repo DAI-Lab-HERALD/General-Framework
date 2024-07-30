@@ -375,6 +375,8 @@ class data_set_template():
         
         test_file_directory = os.path.dirname(test_file)
         test_file_name = os.path.basename(test_file)
+
+        os.makedirs(test_file_directory, exist_ok = True)
         
         # Find files in same directory that start with file_path_test
         files = [f for f in os.listdir(test_file_directory) if f.startswith(test_file_name)]
