@@ -53,7 +53,7 @@ class data_interface(object):
                 assert 'attack' in perturbation.keys(), "Perturbation attack type is missing (required key: 'attack')."
 
                 # Pass the experiment parameters to perturbation method
-                perturbation['exp_parameters'] = parameters
+                perturbation['exp_parameters'] = parameters + [self.total_memory]
                 
                 # Get perturbation type
                 pert_name = perturbation['attack']
