@@ -269,7 +269,17 @@ The most important part of the dataset module is to provide access to training a
     ...
 ```
 
-It must be noted, that for **large datasets**, this approach might not work if the RAM of the computer is limited. In this case, there is an option that allows for the splitting into multiple datasets. Namely, as long as one tends to run a for loop during the extraction of the data, one should run the command self.check_created_paths_for_saving() at the end of each instance of this loop. This command checks the size if the currently extracted data, and if necessary, trasnferes this data to be saved on a harddrive.
+
+For **self.Images**, if one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value in meters from **self.Domain_old.x_center**, $\Delta y$ from **self.Domain_old.y_center**, and $\theta$ (in radians) from **self.Domain_old.rot_angle**.
+
+<img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_small.svg" alt="Image alinged coordinate system" width="75%">
+
+While the format of the original raw dataset might vary widely, the unified format required by the framework is clearly defined. Consequently, there are likely a wide array of possible solution to achieve this transformation function, which might involve some pre-processing tasks and saving of intermediate location as well.
+It has to be noted that the framework will check if the provided attributes actually fulfill the format defined above, and will try to give feedback if this is not the case.
+
+
+## Handling large datasets
+It must be noted, that for **large datasets**, this approach might not work if the RAM of the computer is ltoo limited to hold all samples in **self.Path**. In this case, there is an option that allows for the splitting into multiple datasets. Namely, as long as one tends to run a for loop during the extraction of the data, during which **self.Path** and the corresponding attributes discussed above are iteratively appended, one should run the function *self.check_created_paths_for_saving()* (which is already included in the framework) at the end of each instance of this loop. This command checks the size if the currently extracted data, and if necessary, transferes this data to be saved on a harddrive, making room on the RAM. The function *self.check_created_paths_for_saving()* and its requirements for calling it are described below:
 ```
   def check_created_paths_for_saving(self, last = False):
     r'''
@@ -277,7 +287,7 @@ It must be noted, that for **large datasets**, this approach might not work if t
     It should be used during the extraction of datasets too large to be held in
     memory at once.
     
-    It requires the following attributes to be set:
+    It requires the following attributes to exists with the follwing forms:
     **self.Path**:
       This is a list of pandas series. In each such series, each index includes the 
       trajectory of an agent (as a numpy array of shape :math:`\{\vert T_i \vert{\times} 2\}`),
@@ -311,19 +321,57 @@ It must be noted, that for **large datasets**, this approach might not work if t
     Parameters
     ----------
     last : bool
-      If true, the last of the data was added and should therefore be saved. During a run
-      of self.create_path_samples(), this should be set to *True* exactly once.
+      If true, the last of the data was added and should therefore be saved, no matter if 
+      there still is available space on the RAM. During a run of *self.create_path_samples()*, 
+      *self.check_created_paths_for_saving(last = True) should only be called at the end of
+      *self.create_path_samples()*, once all possible samples have been iterated through.
     
     '''
 ```
 
+In the end, for such cases, *self.create_path_samples()* should then should follow this specific
+structure (in this examples, potential Images and Scene Graphs are ignored for simplicity).
 
-For **self.Images**, if one uses a coordinate system unaligned with the image with height $H$ and width $W$ (in pixels), then these are the correlations between a position $(x,y)$ in a trajectory included in **self.Path_old** and the same point $(\hat{x}, \hat{y})$ in the coordinate system aligned with the image. Here, $\Delta x$ is a value in meters from **self.Domain_old.x_center**, $\Delta y$ from **self.Domain_old.y_center**, and $\theta$ (in radians) from **self.Domain_old.rot_angle**.
+```
+  def create_path_samples(self):
+    num_samples = ... # Number of samples in scenario
 
-<img src="https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/Coord_small.svg" alt="Image alinged coordinate system" width="75%">
+    self.Path       = []
+    self.Type_old   = []
+    self.T          = []
+    self.Domain_old = []
 
-While the format of the original raw dataset might vary widely, the unified format required by the framework is clearly defined. Consequently, there are likely a wide array of possible solution to achieve this transformation function, which might involve some pre-processing tasks and saving of intermediate location as well.
-It has to be noted that the framework will check if the provided attributes actually fulfill the format defined above, and will try to give feedback if this is not the case.
+    for i in range(num_samples):
+      ... # Do dataset specific stuff
+
+      agent_names = ... # This is a list of unique strings with the names of the agents involved
+      path = pd.Series(np.empty(len(agent_names), object), index = agent_names)
+      types = pd.Series(np.empty(len(agent_names), str), index = agent_names)
+      t = ... # A 1D np.ndarray with the timepoints of the recorded data 
+
+      for agent in agent_names:
+        ... # Do some agent specific stuff
+
+        path[agent] = ... # A np.ndarray with shape = (len(t), len(self.path_data_info()))
+        types[agent] = ... # A string, which is either 'V', 'P', 'M', or 'B' (see explantion above)
+      
+      domain = ... # This is a pd.Series, with indices like 'image_id' or 'location'
+
+
+      self.Path.append(path)
+      self.Type_old.append(types)
+      self.T.append(t)
+      self.Domain_old.append(domain)
+
+      # Check for saving of partial datasets
+      self.check_created_paths_for_saving()
+
+    # Save remaining samples
+    self.check_created_paths_for_saving(last = True) 
+```
+
+
+
 
 ## Extracting classifiable behavior
 While not necessary in all datasets, in some, being able to classify the interactions of certain vehicles might be an important aspect. To this end, the following three functions are needed, which are able to provide certain aspects of allowing a model to predict those classifications for a single sample. The first function is used to provide the approximated distance one or more agents need to travel to reach the criteria after which their trajectories are classified as a certain behavior. Once these distances turn negative, this is used by the framework to determine that a classification is now possible.
