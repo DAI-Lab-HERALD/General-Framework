@@ -524,17 +524,17 @@ class model_template():
                 else: 
                     raise TypeError('Output type not implemented.')
 
-            if len(Index_missing) == 0:
-                print('Interesting')
-            # Allow for possible transformation of prediction
-            output_trans_missing = self.data_set.transform_outputs(output_missing, model_type, metric_type)
+            if len(Index_missing) > 0:
+                output_trans_missing = self.data_set.transform_outputs(output_missing, model_type, metric_type)
 
-            # Save transformed predictions if allowed
-            if self.data_set.save_predictions:
-                self.save_made_predictions(Index_missing, output_trans_missing, metric_type)
+                # Save transformed predictions if allowed
+                if self.data_set.save_predictions:
+                    self.save_made_predictions(Index_missing, output_trans_missing, metric_type)
 
-            # Combine loaded and made predictions
-            output_trans = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_trans_loaded, output_trans_missing, metric_type) 
+                # Combine loaded and made predictions
+                output_trans = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_trans_loaded, output_trans_missing, metric_type) 
+            else:
+                output_trans = output_trans_loaded
         return output_trans
 
     def combine_loaded_and_made_predictions(self, Index, Index_loaded, Index_made, output_loaded, output_made, pred_type):
