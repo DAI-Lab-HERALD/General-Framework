@@ -194,7 +194,7 @@ class data_set_template():
         pass
         
         
-    def check_created_paths_for_saving(self, last = False):
+    def check_created_paths_for_saving(self, last = False, force_save = False):
         r'''
         This function checks if the current data should be saved to free up memory.
         It should be used during the extraction of datasets too large to be held in
@@ -234,8 +234,15 @@ class data_set_template():
         Parameters
         ----------
         last : bool
-            If true, the last of the data was added and should therefore be saved. During a run
-            of self.create_path_samples(), this should be set to *True* exactly once.
+            If true, the last of the data was added and should therefore be saved, no matter if 
+            there still is available space on the RAM. During a run of *self.create_path_samples()*, 
+            *self.check_created_paths_for_saving(last = True) should only be called at the end of
+            *self.create_path_samples()*, once all possible samples have been iterated through.
+            
+        force_save : bool
+            If true, the data is saved regardless of the memory usage. This might be useful if one
+            runs the script on computers with much larger RAM, but still wants compatability with
+            smaller systems.
         
         '''
         
@@ -243,49 +250,72 @@ class data_set_template():
         if not all([hasattr(self, attr) for attr in ['Path', 'Type_old', 'T', 'Domain_old']]):
             raise AttributeError("The required arguments for saving have not been done.")
         
-        # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
-        if not isinstance(self.Path, pd.core.frame.DataFrame):
-            assert isinstance(self.Path, list), "Path should be a list."
-            # Transform to dataframe
-            Path_check = pd.DataFrame(self.Path)
-            
-        if not isinstance(self.Type_old, pd.core.frame.DataFrame):
-            assert isinstance(self.Type_old, list), "Type_old should be a list."
-            # Transform to dataframe
-            Type_old_check = pd.DataFrame(self.Type_old)
-            
-        if not isinstance(self.T, np.ndarray):
-            assert isinstance(self.T, list), "T should be a list."
-            # Transform to array
-            T_check = np.array(self.T) 
-            
-        if not isinstance(self.Domain_old, pd.core.frame.DataFrame):
-            assert isinstance(self.Domain_old, list), "Domain_old should be a list."
-            # Transform to dataframe
-            Domain_old_check = pd.DataFrame(self.Domain_old)
-            
         # Test if final file allready exists
         final_test_name = self.file_path + '--all_orig_paths_LLL.npy'
         if os.path.isfile(final_test_name):
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
+        
+        num_samples = len(self.Path)
+        if (np.mod(num_samples, 50) == 0) or (not hasattr(self, 'num_overall_timesteps_per_sample')):
+        
+            # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
+            if not isinstance(self.Path, pd.core.frame.DataFrame):
+                assert isinstance(self.Path, list), "Path should be a list."
+                # Transform to dataframe
+                Path_check = pd.DataFrame(self.Path)
+            else:
+                Path_check = self.Path
+                
+            # Get the memory needed to save data right now
+            # Count the number of timesteps in each sample
+            num_timesteps = np.array([len(t) for t in self.T])
             
+            # Get the number of saved agents for each sample
+            num_agents = (~Path_check.isnull()).sum(axis=1)
         
-        # Get the memory needed to save data right now
-        # Count the number of timesteps in each sample
-        num_timesteps = np.array([len(t) for t in self.T])
+            num_overall_timesteps = (num_timesteps * num_agents).sum()
+            self.num_overall_timesteps_per_sample = num_overall_timesteps / num_samples
         
-        # Get the number of saved agents for each sample
-        num_agents = (~Path_check.isnull()).sum(axis=1)
+        assert hasattr(self, 'num_overall_timesteps_per_sample'), "The number of overall timesteps per sample should be defined."
         
         # Get the needed memory per timestep
         memory_per_timestep = 1 + 8 * len(self.path_data_info())
-        memory_used = (num_timesteps * num_agents).sum() * memory_per_timestep
+        memory_used = num_samples * self.num_overall_timesteps_per_sample * memory_per_timestep
         
         # Get the currently available RAM space
         available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
 
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
-        if last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
+        if force_save or last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
+            # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
+            if not isinstance(self.Path, pd.core.frame.DataFrame):
+                assert isinstance(self.Path, list), "Path should be a list."
+                # Transform to dataframe
+                Path_check = pd.DataFrame(self.Path)
+            else:
+                Path_check = self.Path
+                
+            if not isinstance(self.Type_old, pd.core.frame.DataFrame):
+                assert isinstance(self.Type_old, list), "Type_old should be a list."
+                # Transform to dataframe
+                Type_old_check = pd.DataFrame(self.Type_old)
+            else:
+                Type_old_check = self.Type_old
+                
+            if not isinstance(self.T, np.ndarray):
+                assert isinstance(self.T, list), "T should be a list."
+                # Transform to array
+                T_check = np.array(self.T) 
+            else:
+                T_check = self.T
+                
+            if not isinstance(self.Domain_old, pd.core.frame.DataFrame):
+                assert isinstance(self.Domain_old, list), "Domain_old should be a list."
+                # Transform to dataframe
+                Domain_old_check = pd.DataFrame(self.Domain_old)
+            else:
+                Domain_old_check = self.Domain_old
+                
             # Check if some saved original data is allready available
             file_path_test = self.file_path + '--all_orig_paths'
             file_path_test_name = os.path.basename(file_path_test)
@@ -319,8 +349,39 @@ class data_set_template():
             self.Type_old = []
             self.T = []
             self.Domain_old = []
+            
+            # Delete num_timesteps_per_sample
+            if hasattr(self, 'num_overall_timesteps_per_sample'):
+                del self.num_overall_timesteps_per_sample
                 
-             
+    def get_number_of_saved_samples(self):
+        r'''
+        This function returns the number of samples that have been saved so far
+        by the framework. Assuming the order of the samples is not changed, this
+        number can be used to skip the first *num_saved_samples* samples in the
+        next run of *self.create_path_samples()*.
+        
+        Returns
+        -------
+        num_samples : int
+            The number of samples that have been saved so far.
+        '''
+        
+        test_file = self.file_path + '--all_orig_paths'
+        
+        test_file_directory = os.path.dirname(test_file)
+        test_file_name = os.path.basename(test_file)
+        
+        # Find files in same directory that start with file_path_test
+        files = [f for f in os.listdir(test_file_directory) if f.startswith(test_file_name)]
+        num_samples = 0
+        for file in files:
+            file_path = test_file_directory + os.sep + file
+            [_, _, _, _, num_samples_file] = np.load(file_path, allow_pickle=True)
+            num_samples += num_samples_file
+        
+        return num_samples
+                   
             
         
     
@@ -1095,6 +1156,18 @@ class data_set_template():
         # Get number of possible accepted/rejected samples in the whole dataset
         self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
         
+        # Delete all files that allready exist in this directory to avoid duplication
+        data_file = self.data_file[:-4] + path_file_adjust + '_'
+        data_file_directory = os.path.dirname(data_file)
+        data_file_name = os.path.basename(data_file)
+        
+        # Find files in same directory that start with file_path_test
+        delete_files = [data_file_directory + os.sep + f for f in os.listdir(data_file_directory)
+                        if f.startswith(data_file_name)]
+        # Delete all files that allready exist in this directory to avoid duplication
+        for f in delete_files:
+            os.remove(f) 
+        
         # set number of maximum agents
         if self.max_num_agents is not None:
             min_num_agents = len(Path.columns)
@@ -1665,11 +1738,29 @@ class data_set_template():
                 # Get path name adjustment
                 path_file = self.file_path + '--all_orig_paths'
                 
+                # Get path file adjustment
                 if self.number_original_path_files == 1:
                     # Get path name adjustment
                     path_file_adjust = '_LLL'
-                    path_file += path_file_adjust + '.npy'
+                else:
+                    # Get path name adjustment
+                    if i_orig_path < self.number_original_path_files - 1:
+                        path_file_adjust = '_' + str(i_orig_path).zfill(3)
+                    else:
+                        path_file_adjust = '_LLL'
+                        
+                path_file += path_file_adjust + '.npy'
+                
+                # Check if data is allready completely extracted, making renew extraction unnecessary
+                data_file_test = self.data_file[:-4] + path_file_adjust + '_LLL_data.npy'
+                
+                if os.path.isfile(data_file_test):
+                    continue
+                
+            
                     
+                # Get path data
+                if self.number_original_path_files == 1:
                     # Get the allready loaded data
                     Path_loaded = self.Path
                     Type_old_loaded = self.Type_old
@@ -1678,42 +1769,33 @@ class data_set_template():
                     num_samples_loaded = self.num_samples
             
                 else:
-                    # Get path name adjustment
-                    if i_orig_path < self.number_original_path_files - 1:
-                        path_file_adjust = '_' + str(i_orig_path).zfill(3)
-                    else:
-                        path_file_adjust = '_LLL'
-                    path_file += path_file_adjust + '.npy'
-                    
                     # Load the data
                     [Path_loaded,
                     Type_old_loaded,
                     T_loaded,
                     Domain_old_loaded,
                     num_samples_loaded] = np.load(path_file, allow_pickle=True)
-                
-                # Delete previous iterations
-                if i_orig_path > 0:
-                    # Delete the extracted data
-                    del self.Input_prediction
-                    del self.Input_path
-                    del self.Input_T
-
-                    del self.Output_path
-                    del self.Output_T
-                    del self.Output_T_pred
-                    del self.Output_A
-                    del self.Output_T_E
-
-                    del self.Type
-                    del self.Recorded
-                    del self.Domain
 
                 # Get the currently available RAM space
                 self.available_memory_data_extraction = psutil.virtual_memory().total - psutil.virtual_memory().used
 
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
+                
+                # Delete the extracted data
+                del self.Input_prediction
+                del self.Input_path
+                del self.Input_T
+
+                del self.Output_path
+                del self.Output_T
+                del self.Output_T_pred
+                del self.Output_A
+                del self.Output_T_E
+
+                del self.Type
+                del self.Recorded
+                del self.Domain
                 
                 
         

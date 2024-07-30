@@ -72,6 +72,9 @@ class Lyft_interactive(data_set_template):
         self.Images = pd.DataFrame(np.zeros((0, 2), object), index = [], columns = ['Image', 'Target_MeterPerPx'])
         px_per_meter = 2
 
+        # Get allready saved samples
+        num_samples_saved = self.get_number_of_saved_samples()
+        ii = 0
         # Treat the separate parts of the dataset separately
         for part in ['val', 'train', 'sample']: # 'train_full' could be added
             self.path = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +91,11 @@ class Lyft_interactive(data_set_template):
             map_api = MapAPI(Path(cache_path))
             # Go over scenes
             for i, scene in enumerate(dataset.scenes()):
+                # Count saved scenes
+                if ii < num_samples_saved:
+                    continue
+                ii += 1
+                
                 print('')
                 print('Scene ' + str(i + 1) + ': ' + scene.name)
                 print('Number of frames: ' + str(scene.length_timesteps) + ' ({:0.1f} s)'.format(scene.length_seconds()))

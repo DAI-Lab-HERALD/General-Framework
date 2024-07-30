@@ -77,7 +77,14 @@ class Waymo_interactive(data_set_template):
         
         map_api = MapAPI(Path(cache_path))
         # Go over scenes
+        
+        # Get allready saved samples
+        num_samples_saved = self.get_number_of_saved_samples()
+        
         for i, scene in enumerate(dataset.scenes()):
+            if i < num_samples_saved:
+                continue
+            
             print('')
             print('Scene ' + str(i + 1) + ': ' + scene.name)
             print('Number of frames: ' + str(scene.length_timesteps) + ' (' + str(scene.length_seconds()) + 's)')

@@ -281,7 +281,7 @@ It has to be noted that the framework will check if the provided attributes actu
 ## Handling large datasets
 It must be noted, that for **large datasets**, this approach might not work if the RAM of the computer is ltoo limited to hold all samples in **self.Path**. In this case, there is an option that allows for the splitting into multiple datasets. Namely, as long as one tends to run a for loop during the extraction of the data, during which **self.Path** and the corresponding attributes discussed above are iteratively appended, one should run the function *self.check_created_paths_for_saving()* (which is already included in the framework) at the end of each instance of this loop. This command checks the size if the currently extracted data, and if necessary, transferes this data to be saved on a harddrive, making room on the RAM. The function *self.check_created_paths_for_saving()* and its requirements for calling it are described below:
 ```
-  def check_created_paths_for_saving(self, last = False):
+  def check_created_paths_for_saving(self, last = False, force_save = False):
     r'''
     This function checks if the current data should be saved to free up memory.
     It should be used during the extraction of datasets too large to be held in
@@ -325,23 +325,52 @@ It must be noted, that for **large datasets**, this approach might not work if t
       there still is available space on the RAM. During a run of *self.create_path_samples()*, 
       *self.check_created_paths_for_saving(last = True) should only be called at the end of
       *self.create_path_samples()*, once all possible samples have been iterated through.
+            
+    force_save : bool
+      If true, the data is saved regardless of the memory usage. This might be useful if one
+      runs the script on computers with much larger RAM, but still wants compatability with
+      smaller systems.
     
     '''
 ```
+
+Another important aspect is the possibility to restart the extraction of the data if for some reason the extraction stopped without completion. Therefore, one has to use the function *self.get_number_of_saved_samples()*, as otherwise samples would be saved multiple times.
+
+```
+  def get_number_of_saved_samples(self):
+    r'''
+    This function returns the number of samples that have been saved so far
+    by the framework. Assuming the order of the samples is not changed, this
+    number can be used to skip the first *num_saved_samples* samples in the
+    next run of *self.create_path_samples()*.
+        
+    Returns
+    -------
+    num_samples : int
+      The number of samples that have been saved so far.
+    '''
+    
+    ...
+
+    return num_samples
+```
+
 
 In the end, for such cases, *self.create_path_samples()* should then should follow this specific
 structure (in this examples, potential Images and Scene Graphs are ignored for simplicity).
 
 ```
   def create_path_samples(self):
-    num_samples = ... # Number of samples in scenario
+    num_samples = ... # Number of total samples in scenario
 
     self.Path       = []
     self.Type_old   = []
     self.T          = []
     self.Domain_old = []
 
-    for i in range(num_samples):
+    num_samples_saved = self.get_number_of_saved_samples() # Number of samples allready saved.
+
+    for i in range(num_samples_saved, num_samples):
       ... # Do dataset specific stuff
 
       agent_names = ... # This is a list of unique strings with the names of the agents involved
@@ -357,7 +386,7 @@ structure (in this examples, potential Images and Scene Graphs are ignored for s
       
       domain = ... # This is a pd.Series, with indices like 'image_id' or 'location'
 
-
+      # Append data carriers
       self.Path.append(path)
       self.Type_old.append(types)
       self.T.append(t)
