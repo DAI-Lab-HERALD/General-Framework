@@ -78,7 +78,8 @@ class Experiment():
         print('Processor memories:')
         # CPU
         CPU_mem = psutil.virtual_memory()
-        cpu_total = CPU_mem.total / 2 ** 30
+        self.total_memory = CPU_mem.total
+        cpu_total = self.total_memory / 2 ** 30
         cpu_used  = CPU_mem.used / 2 ** 30
         print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total))
 
@@ -255,7 +256,7 @@ class Experiment():
                            enforce_num_timesteps_out, enforce_prediction_time, 
                            exclude_post_crit, allow_extrapolation, 
                            dynamic_prediction_agents, overwrite_results, 
-                           save_predictions]
+                           save_predictions, self.total_memory]
         
         # Save the remaining parameters
         self.evaluate_on_train_set = evaluate_on_train_set
@@ -1423,7 +1424,7 @@ class Experiment():
         
         # Prevent model retraining
         parameters = [param for param in self.parameters]
-        parameters[-2] = 'no'
+        parameters[-3] = 'no'
         
         data_set = data_interface(data_set_dict, parameters)
         

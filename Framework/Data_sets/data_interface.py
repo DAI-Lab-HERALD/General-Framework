@@ -24,6 +24,10 @@ class data_interface(object):
         self.agents_to_predict         = parameters[6]
         self.overwrite_results         = parameters[7]
         self.save_predictions          = parameters[8]
+        self.total_memory              = parameters[9]
+        
+        # Remove total memory from parameters
+        parameters = [parameters[i] for i in range(len(parameters) - 1)]
 
         if isinstance(data_set_dict, dict):
             data_set_dict = [data_set_dict]
@@ -83,7 +87,7 @@ class data_interface(object):
             data_set_module = importlib.import_module(data_set_name)
             data_set_class = getattr(data_set_module, data_set_name)
             
-            parameters_pass = [parameters[i] for i in range(len(parameters) - 1)]
+            parameters_pass = [parameters[i] for i in range(len(parameters) - 1)] + [self.total_memory]
             data_set = data_set_class(Perturbation, *parameters_pass)
 
             data_set.set_extraction_parameters(t0_type, T0_type_compare, max_num_agents)
@@ -516,7 +520,7 @@ class data_interface(object):
                 
         # Check for memory
         if self.data_in_one_piece:
-            available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+            available_memory = self.total_memory - psutil.virtual_memory().used
             needed_memory = 0
             for data_set in self.Datasets.values():
                 data_file_final = data_set.data_file[:-4] + '_LLL_LLL_data.npy'

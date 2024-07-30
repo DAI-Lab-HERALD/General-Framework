@@ -16,9 +16,13 @@ class data_set_template():
                  exclude_post_crit = True,
                  allow_extrapolation = True,
                  agents_to_predict = 'predefined',
-                 overwrite_results = 'no'):
+                 overwrite_results = 'no',
+                 total_memory = psutil.virtual_memory().total):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
+        
+        # Save total memory
+        self.total_memory = total_memory
 
         # Clarify that no data has been loaded yet
         self.data_loaded = False
@@ -283,7 +287,7 @@ class data_set_template():
         memory_used = num_samples * self.num_overall_timesteps_per_sample * memory_per_timestep
         
         # Get the currently available RAM space
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        available_memory = self.total_memory - psutil.virtual_memory().used
 
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
         if force_save or last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
@@ -439,7 +443,7 @@ class data_set_template():
                     raise AttributeError("The raw data cannot be loaded.")
                 
                 # Get the currently available RAM space
-                self.available_memory_creation = psutil.virtual_memory().total - psutil.virtual_memory().used
+                self.available_memory_creation = self.total_memory - psutil.virtual_memory().used
 
                 self.create_path_samples()
                 # Check if the las file allready exists
@@ -1505,7 +1509,7 @@ class data_set_template():
         memory_used = memory_used_path_in + memory_used_path_out + memory_used_pred
         
         # Get the currently available RAM space
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        available_memory = self.total_memory - psutil.virtual_memory().used
         
         # As data needs to be manipulated after loading, check if more than 40% of the memory is used
         # Alternatively, if less than 100 MB are available, save the data
@@ -1777,7 +1781,7 @@ class data_set_template():
                     num_samples_loaded] = np.load(path_file, allow_pickle=True)
 
                 # Get the currently available RAM space
-                self.available_memory_data_extraction = psutil.virtual_memory().total - psutil.virtual_memory().used
+                self.available_memory_data_extraction = self.total_memory - psutil.virtual_memory().used
 
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
@@ -2013,9 +2017,8 @@ class data_set_template():
             # CPU
             if print_progress:
                 print('Reserved memory for rotated images.', flush = True)
-                CPU_mem = psutil.virtual_memory()
-                cpu_total = CPU_mem.total / 2 ** 30
-                cpu_used  = CPU_mem.used / 2 ** 30
+                cpu_total = self.total_memory / 2 ** 30
+                cpu_used  = psutil.virtual_memory().used / 2 ** 30
 
                 print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total), flush = True)
 

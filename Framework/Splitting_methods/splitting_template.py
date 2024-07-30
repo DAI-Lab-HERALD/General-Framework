@@ -290,7 +290,8 @@ class splitting_template():
                       self.data_set.exclude_post_crit,
                       self.data_set.allow_extrapolation,
                       self.data_set.agents_to_predict,
-                      self.data_set.overwrite_results]
+                      self.data_set.overwrite_results,
+                      self.data_set.total_memory]
         
         data_set = data_set_class(Perturbation, *parameters)
 

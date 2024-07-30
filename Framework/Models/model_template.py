@@ -734,7 +734,7 @@ class model_template():
         
         
         # Get the samples that can be saved to one file
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        available_memory = self.data_set.total_memory - psutil.virtual_memory().used
         samples_per_file = int(0.5 * available_memory / n_bytes_per_sample)
         
         # Start saving
@@ -816,7 +816,7 @@ class model_template():
         img_m_per_px # num_overall_agents
         '''
         # try/except is unreliable, so we have to check preemtively if enough memory is available
-        available_memory = psutil.virtual_memory().total - psutil.virtual_memory().used
+        available_memory = self.data_set.total_memory - psutil.virtual_memory().used
 
         # Calculate required memory (img_needed is main culprit, is a u_int8 datatype, X is float32)
         img_size = Img_needed.sum() * self.target_width * self.target_height
