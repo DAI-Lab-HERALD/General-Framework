@@ -32,8 +32,8 @@ def get_total_memory():
             print()
             print(job_info)
             for line in job_info.splitlines():
-                if 'MinMemoryNode' in line:
-                    mem_allocated = line.split('=')[1]
+                if 'MinMemoryCPU' in line:
+                    mem_allocated = line.split('MinMemoryCPU=')[1].split(' ')[0]
                     return convert_memory_to_bytes(mem_allocated)
         except Exception as e:
             print(f"Error fetching Slurm memory allocation: {e}")
@@ -47,7 +47,7 @@ def get_total_memory():
             job_info = result.stdout
             for line in job_info.splitlines():
                 if 'Resource_List.mem' in line:
-                    mem_allocated = line.split('=')[1].strip()
+                    mem_allocated = line.split('=')[1].strip().split(' ')[0]
                     return convert_memory_to_bytes(mem_allocated)
         except Exception as e:
             print(f"Error fetching PBS memory allocation: {e}")
@@ -61,7 +61,7 @@ def get_total_memory():
             job_info = result.stdout
             for line in job_info.splitlines():
                 if 'mem' in line:  # Placeholder; needs proper parsing
-                    mem_allocated = line.split(':')[1].strip()
+                    mem_allocated = line.split(':')[1].strip().split(' ')[0]
                     return convert_memory_to_bytes(mem_allocated)
         except Exception as e:
             print(f"Error fetching SGE memory allocation: {e}")
