@@ -334,7 +334,7 @@ It must be noted, that for **large datasets**, this approach might not work if t
     '''
 ```
 
-Another important aspect is the possibility to restart the extraction of the data if for some reason the extraction stopped without completion. Therefore, one has to use the function *self.get_number_of_saved_samples()*, as otherwise samples would be saved multiple times.
+Another important aspect is the possibility to restart the extraction of the data if for some reason the extraction stopped without completion. Therefore, one has to use the already implemented function *self.get_number_of_saved_samples()*, as otherwise samples would be saved multiple times.
 
 ```
   def get_number_of_saved_samples(self):
