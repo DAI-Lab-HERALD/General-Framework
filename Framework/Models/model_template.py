@@ -672,6 +672,37 @@ class model_template():
                 for i in range(num_outputs):
                     output_loaded[i + 1].loc[Index_loaded_file] = pred_results[i].loc[Index_loaded_file]
 
+            # Do some controls for certain data types
+            if pred_type == 'path_all_wi_pov':
+                out_path = output_loaded[1]
+
+                # Get scenario type
+                scenario_types = self.data_set.Domain.Scenario_type.loc[Index_loaded].to_numpy()
+                assert len(np.unique(scenario_types)) == 1, 'There are multiple scenario types in the same file.'
+                scenario_types = scenario_types[0]
+
+                i_scenario = np.where(self.data_set.unique_scenarios == scenario_types)[0][0]
+                pov_agent = self.data_set.scenario_pov_agents[i_scenario]
+
+                missing_new = out_path[pov_agent].isna()
+            
+            elif pred_type == 'class_and_time':
+                out_time = output_loaded[2]
+                missing_new = out_time.isna().any(axis = 1)
+
+            else:
+                missing_new = np.zeros(len(Index_loaded), bool)
+
+            if missing_new.any():
+                # Overwrite indices
+                Index_missing = np.concatenate((Index_missing, Index_loaded[missing_new]))
+                Index_loaded  = Index_loaded[~missing_new]
+
+                # Adjust outptus
+                output_loaded[0] = Index_loaded
+                for i in range(1, len(output_loaded)):
+                    output_loaded[i] = output_loaded[i].loc[Index_loaded]   
+
         return Index_loaded, Index_missing, output_loaded
 
     def save_made_predictions(self, Index, output, pred_type):
@@ -779,6 +810,10 @@ class model_template():
             # Go through the outputs
             for i in range(num_outputs):
                 pred_results[i] = pd.concat([pred_results[i], output[i + 1].loc[Index_new_saved]], axis = 0)
+            for i in range(num_outputs, num_outputs_req):
+                out_empty = pd.DataFrame(np.empty((len(Index_new_saved), len(columns)), object), columns = columns, index = Index_new_saved)
+                pred_results[i] = pd.concat([pred_results[i], out_empty], axis = 0)
+
             
             # Save the results
             os.makedirs(os.path.dirname(pred_file), exist_ok=True)
