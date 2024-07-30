@@ -74,7 +74,7 @@ class model_template():
                         
                     self.simply_load_results = False
                     # Get the prediction location file
-                    self.pred_loc_file = self.data_set.change_result_directory(self.model_file, 'Predictions')
+                    self.pred_loc_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions')
                 else:
                     self.simply_load_results = True
                 
@@ -524,6 +524,8 @@ class model_template():
                 else: 
                     raise TypeError('Output type not implemented.')
 
+            if len(Index_missing) == 0:
+                print('Interesting')
             # Allow for possible transformation of prediction
             output_trans_missing = self.data_set.transform_outputs(output_missing, model_type, metric_type)
 
@@ -640,7 +642,7 @@ class model_template():
             
             # Get the potential file numbers needed
             pred_file_numbers = self.Pred_locator[pred_name].iloc[Index]
-            
+
             # Get the missing indices
             missing = pred_file_numbers.isna().to_numpy()
             Index_missing = Index[missing]
@@ -2028,7 +2030,7 @@ class model_template():
 
         # Check if data is there
         self.data_set._extract_original_trajectories(file_index)
-        self.data_set._determine_pred_agents(eval_pov = ~exclude_ego)
+        self.data_set._determine_pred_agents(eval_pov = not exclude_ego)
         self._extract_types()
         
         # Initialize output
@@ -2153,7 +2155,7 @@ class model_template():
         Num_steps = self.Pred_step.sum(-1).max(-1)
         
         # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
         for subgroup in np.unique(Subgroups):
@@ -2219,7 +2221,7 @@ class model_template():
         Num_steps = self.Pred_step.sum(-1).max(-1)
        
         # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         Agents = np.array(self.data_set.Agents)[self.Pred_agent_id]
         
@@ -2306,7 +2308,7 @@ class model_template():
         Num_steps = self.Pred_step.sum(-1).max(-1)
         
         # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         
         print('Calculate joint PDF on predicted probabilities.', flush = True)
@@ -2482,7 +2484,7 @@ class model_template():
         Num_steps = self.Pred_step.sum(-1).max(-1)
        
         # Get identical input samples
-        self.data_set._group_indentical_inputs(eval_pov = ~exclude_ego)
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
         Subgroups = self.data_set.Subgroups[Pred_index]
         Agents = np.array(self.data_set.Agents)[self.Pred_agent_id]
         

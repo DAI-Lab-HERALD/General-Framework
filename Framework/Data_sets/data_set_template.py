@@ -1631,6 +1631,10 @@ class data_set_template():
                                                 self.Output_A,
                                                 self.Output_T_E, 0], object)
                     
+                    # Overwrite the Scenario column in self.Domain
+                    perturbed_scenario = self.Domain.Scenario.copy()
+                    self.Domain.Scenario = self.get_name()['print']
+
                     save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
                     save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
                     
@@ -1639,6 +1643,9 @@ class data_set_template():
                     np.save(data_file_unperturbed_save, save_data_unperturbed)
                     np.save(domain_file_unperturbed_save, save_domain_unperturbed)
                     np.save(agent_file_save, save_agent_unperturbed)
+
+                    # Reset the Scenario column in self.Domain
+                    self.Domain.Scenario = perturbed_scenario
                 
                 # Apply the perturbation
                 self = self.Perturbation.perturb(self)

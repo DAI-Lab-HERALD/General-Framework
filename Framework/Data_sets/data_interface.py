@@ -1297,7 +1297,7 @@ class data_interface(object):
         self.file_index_joint   = file_index
 
         # Check if dataset has all valuable stuff
-        self._extract_identical_inputs(eval_pov = ~exclude_ego, file_index = file_index)
+        self._extract_identical_inputs(eval_pov = not exclude_ego, file_index = file_index)
 
         # Shape: Num_samples
         self.Log_prob_true_joint = np.zeros(self.Pred_agents_eval_sorted.shape[0], dtype = np.float32)
@@ -1392,7 +1392,7 @@ class data_interface(object):
         self.file_index_indep   = file_index
         
         # Check if dataset has all valuable stuff
-        self._extract_identical_inputs(eval_pov = ~exclude_ego, file_index = file_index)
+        self._extract_identical_inputs(eval_pov = not exclude_ego, file_index = file_index)
         
         # Shape: Num_samples x num agents
         self.Log_prob_true_indep = np.zeros(self.Pred_agents_eval_sorted.shape, dtype = np.float32)
