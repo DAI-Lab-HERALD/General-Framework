@@ -1793,22 +1793,6 @@ class data_set_template():
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
                 
-                # Delete the extracted data
-                del self.Input_prediction
-                del self.Input_path
-                del self.Input_T
-
-                del self.Output_path
-                del self.Output_T
-                del self.Output_T_pred
-                del self.Output_A
-                del self.Output_T_E
-
-                del self.Type
-                del self.Recorded
-                del self.Domain
-                
-                
         
         # Get the number of files
         domain_files, self.number_data_files = self.get_number_of_data_files()
