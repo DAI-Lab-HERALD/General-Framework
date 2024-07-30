@@ -27,10 +27,7 @@ def get_total_memory():
         try:
             job_id = os.getenv('SLURM_JOB_ID')
             result = subprocess.run(['scontrol', 'show', 'job', job_id], capture_output=True, text=True)
-            print(result)
             job_info = result.stdout
-            print()
-            print(job_info)
             for line in job_info.splitlines():
                 if 'MinMemoryCPU' in line:
                     mem_allocated = line.split('MinMemoryCPU=')[1].split(' ')[0]
