@@ -6,6 +6,7 @@ import os
 import warnings
 import networkx as nx
 import scipy as sp
+from utils.memory_utils import get_total_memory, get_used_memory
 
 from rome.ROME import ROME
 
@@ -520,7 +521,7 @@ class data_interface(object):
                 
         # Check for memory
         if self.data_in_one_piece:
-            available_memory = self.total_memory - psutil.virtual_memory().used
+            available_memory = self.total_memory - get_used_memory()
             needed_memory = 0
             for data_set in self.Datasets.values():
                 data_file_final = data_set.data_file[:-4] + '_LLL_LLL_data.npy'

@@ -4,6 +4,7 @@ import os
 import torch
 import psutil
 from data_interface import data_interface
+from utils.memory_utils import get_total_memory, get_used_memory
 
 class data_set_template():
     # %% Implement the provision of data
@@ -287,7 +288,7 @@ class data_set_template():
         memory_used = num_samples * self.num_overall_timesteps_per_sample * memory_per_timestep
         
         # Get the currently available RAM space
-        available_memory = self.total_memory - psutil.virtual_memory().used
+        available_memory = self.total_memory - get_used_memory()
 
         # As data needs to be manipulated after loading, check if more than 25% of the memory is used
         if force_save or last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
@@ -329,6 +330,8 @@ class data_set_template():
             if len(files) > 0:
                 # Find the number that is attached to this file
                 file_number = np.array([int(f[len(file_path_test_name)+1:-4]) for f in files], int).max() + 1
+                if file_number > 999:
+                    raise AttributeError("Too many files have been saved.")
             else:
                 file_number = 0
                 
@@ -445,7 +448,7 @@ class data_set_template():
                     raise AttributeError("The raw data cannot be loaded.")
                 
                 # Get the currently available RAM space
-                self.available_memory_creation = self.total_memory - psutil.virtual_memory().used
+                self.available_memory_creation = self.total_memory - get_used_memory()
 
                 self.create_path_samples()
                 # Check if the las file allready exists
@@ -1511,7 +1514,7 @@ class data_set_template():
         memory_used = memory_used_path_in + memory_used_path_out + memory_used_pred
         
         # Get the currently available RAM space
-        available_memory = self.total_memory - psutil.virtual_memory().used
+        available_memory = self.total_memory - get_used_memory()
         
         # As data needs to be manipulated after loading, check if more than 40% of the memory is used
         # Alternatively, if less than 100 MB are available, save the data
@@ -1579,6 +1582,8 @@ class data_set_template():
             if len(files) > 0:
                 # Find the number that is attached to this file
                 file_number = np.array([int(f[len(data_file_name)+1:-4]) for f in files], int).max() + 1
+                if file_number > 999:
+                    raise AttributeError("Too many files have been saved in this directory.")
             else:
                 file_number = 0
                 
@@ -1783,7 +1788,7 @@ class data_set_template():
                     num_samples_loaded] = np.load(path_file, allow_pickle=True)
 
                 # Get the currently available RAM space
-                self.available_memory_data_extraction = self.total_memory - psutil.virtual_memory().used
+                self.available_memory_data_extraction = self.total_memory - get_used_memory()
 
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
@@ -2020,7 +2025,7 @@ class data_set_template():
             if print_progress:
                 print('Reserved memory for rotated images.', flush = True)
                 cpu_total = self.total_memory / 2 ** 30
-                cpu_used  = psutil.virtual_memory().used / 2 ** 30
+                cpu_used  = get_used_memory() / 2 ** 30
 
                 print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total), flush = True)
 

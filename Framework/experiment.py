@@ -12,6 +12,7 @@ import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 import time
 import seaborn as sns
+from utils.memory_utils import get_total_memory, get_used_memory
 
 # allow for latex code
 # from matplotlib import rc
@@ -78,9 +79,9 @@ class Experiment():
         print('Processor memories:')
         # CPU
         CPU_mem = psutil.virtual_memory()
-        self.total_memory = CPU_mem.total
+        self.total_memory = get_total_memory()
         cpu_total = self.total_memory / 2 ** 30
-        cpu_used  = CPU_mem.used / 2 ** 30
+        cpu_used  = get_used_memory() / 2 ** 30
         print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total))
 
         # GPU
