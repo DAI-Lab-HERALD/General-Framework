@@ -280,8 +280,12 @@ def preprocess(graph, cross_dist, cross_angle=None):
     if cross_angle is not None:
         # along lane
         f1 = torch.tensor(graph['feats'][hi])
+        if len(f1.shape) == 1:
+            f1 = f1.unsqueeze(0)
         # cross lane
         f2 = torch.tensor(graph['ctrs'][wi] - graph['ctrs'][hi])
+        if len(f2.shape) == 1:
+            f2 = f2.unsqueeze(0)
         t1 = torch.atan2(f1[:, 1], f1[:, 0])
         t2 = torch.atan2(f2[:, 1], f2[:, 0])
         dt = t2 - t1
@@ -322,7 +326,11 @@ def preprocess(graph, cross_dist, cross_angle=None):
         ui = row_idcs[mask]
         vi = min_idcs[mask]
         f1 = torch.tensor(graph['feats'][ui])
+        if len(f1.shape) == 1:
+            f1 = f1.unsqueeze(0)
         f2 = torch.tensor(graph['feats'][vi])
+        if len(f2.shape) == 1:
+            f2 = f2.unsqueeze(0)
         t1 = torch.atan2(f1[:, 1], f1[:, 0])
         t2 = torch.atan2(f2[:, 1], f2[:, 0])
         dt = torch.abs(t1 - t2)
