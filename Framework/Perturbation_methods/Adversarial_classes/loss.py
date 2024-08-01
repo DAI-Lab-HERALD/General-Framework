@@ -323,25 +323,28 @@ class Loss:
             torch.Tensor: The barrier log function value.
         """
         # Calculate the distance between the adversarial observed states and barrier data
-        X_tar = input_data[:, tar_agent, :, :].unsqueeze(1).unsqueeze(1)
+        X_tar = input_data[:, tar_agent, :, :].unsqueeze(1).unsqueeze(1) # batch x 1 x 1 x nT_X x 2
 
         # Define lines out of the barrier data
-        barrier_lines = torch.stack(
-            [barrier_data[:, tar_agent, 1:], barrier_data[:, tar_agent, :-1]], dim=-3).unsqueeze(-2)
+        barrier_lines = torch.stack([barrier_data[:, tar_agent, 1:], barrier_data[:, tar_agent, :-1]], dim=-3).unsqueeze(-2) # batch x 2 x nT_B x 1 x 2
 
         # Get distance to line points
-        distance_line_points = (X_tar - barrier_lines).norm(dim=-1)
-        distance_line_lower_bound = torch.min(
-            distance_line_points, dim=1).values
+        distance_line_points = (X_tar - barrier_lines).norm(dim=-1) # batch x 2 x nT_B x nT_X
+        distance_line_lower_bound = torch.min(distance_line_points, dim=1).values # batch x nT_B x nT_X
 
         # Get distance to unbounded barrier lines segments
-        D1 = barrier_lines[:, 1] - barrier_lines[:, 0]
-        D2 = X_tar[:, 0] - barrier_lines[:, 0]
+        D1 = barrier_lines[:, 1] - barrier_lines[:, 0] # batch x nT_B x 1 x 2
+        D2 = X_tar[:, 0] - barrier_lines[:, 0] # batch x nT_B x nT_X x 2
         D_cross = D1[..., 0] * D2[..., 1] - D1[..., 1] * D2[..., 0]
-        distance_line = D_cross / (D1.norm(dim=-1) + 1e-6)
-
-        distance = torch.maximum(
-            distance_line, distance_line_lower_bound).min(dim=-2).values
+        D_dot = D1[..., 0] * D2[..., 0] + D1[..., 1] * D2[..., 1]
+        distance_line = torch.abs(D_cross / (D1.norm(dim=-1) + 1e-6))
+        rel_spacing = D_dot / (D1.norm(dim=-1) + 1e-6) ** 2
+        
+        # if 0 < rel_spacing < 1, we use distance_line, otherwise distance_line_lower_bound
+        distance = torch.where((rel_spacing > 0) & (rel_spacing < 1), distance_line, distance_line_lower_bound) # batch x nT_B x nT_X
+        
+        # Get minimum distance over all barrier lines
+        distance = distance.min(dim=1).values # batch x nT_X
 
         # calculate the barrier function
         barrier_log = torch.log(distance_threshold - distance)
