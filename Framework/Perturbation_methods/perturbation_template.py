@@ -113,10 +113,6 @@ class perturbation_template():
             
             X_pert_sort[samples], Y_pert_sort[samples] = self.perturb_batch(X_sort[samples], Y_sort[samples], T_sort[samples], Agents, Domain_sort.iloc[samples])
 
-            if i_batch > num_batches - 5:
-                self.alpha_acc = 0.0
-                self.alpha_curv = 0.0
-
 
         sort_indices_inverse = np.argsort(sorted_indices)
         X_pert = X_pert_sort[sort_indices_inverse]
