@@ -211,7 +211,7 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_smoothing = False
         
         # Plot the loss over the iterations
-        self.plot_loss = True
+        self.plot_loss = False
 
         # Image neural network
         self.image_neural_network = False
@@ -221,7 +221,7 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_input = False
 
         # Plot the adversarial scene
-        self.static_adv_scene = True
+        self.static_adv_scene = False
         self.animated_adv_scene = False
 
         # Spline settings animated scene
@@ -282,7 +282,7 @@ class Adversarial_Control_Action(perturbation_template):
             X, Y, Domain)
 
         # Calculate initial control actions
-        control_action, heading, velocity = Control_action.inverse_Dynamical_Model(
+        control_action, heading, velocity = Control_action.Dynamical_Model(
             positions_perturb=positions_perturb, mask_data=self.mask_data, dt=self.dt, device=self.pert_model.device)
 
         # Create a tensor for the perturbation
@@ -292,13 +292,17 @@ class Adversarial_Control_Action(perturbation_template):
         # Store the loss for plot
         loss_store = []
 
+        # learning rate
+        alpha_acc = self.alpha_acc
+        alpha_curv = self.alpha_curv
+
         # Start the optimization of the adversarial attack
         for i in range(self.max_number_iterations):
             # Reset gradients
             perturbation.grad = None
 
             # Calculate updated adversarial position
-            adv_position = Control_action.dynamical_model(
+            adv_position = Control_action.Inverse_Dynamical_Model(
                 control_action + perturbation, positions_perturb, heading, velocity, self.dt, device=self.pert_model.device)
 
             # Split the adversarial position back to X and Y
@@ -330,9 +334,9 @@ class Adversarial_Control_Action(perturbation_template):
             # Update Control inputs
             with torch.no_grad():
                 perturbation[:, :, :, 0].subtract_(
-                    grad[:, :, :, 0], alpha=self.alpha_acc)
+                    grad[:, :, :, 0], alpha=alpha_acc)
                 perturbation[:, :, :, 1].subtract_(
-                    grad[:, :, :, 1], alpha=self.alpha_curv)
+                    grad[:, :, :, 1], alpha=alpha_curv)
                 perturbation[:, :, :X.shape[2], 0].clamp_(
                     -self.epsilon_acc_relative, self.epsilon_acc_relative)
                 perturbation[:, :, :X.shape[2], 1].clamp_(
@@ -350,11 +354,11 @@ class Adversarial_Control_Action(perturbation_template):
                 perturbation[:, 1:] = 0.0
 
             # Update the step size
-            self.alpha_acc  *= self.gamma
-            self.alpha_curv *= self.gamma
+            alpha_acc  *= self.gamma
+            alpha_curv *= self.gamma
 
         # Calculate the final adversarial position
-        adv_position = Control_action.dynamical_model(
+        adv_position = Control_action.Inverse_Dynamical_Model(
             control_action + perturbation, positions_perturb, heading, velocity, self.dt, device=self.pert_model.device)
 
         # Split the adversarial position back to X and Y

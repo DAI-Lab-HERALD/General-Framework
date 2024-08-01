@@ -3,7 +3,7 @@ import torch
 
 class Control_action:
     @staticmethod
-    def inverse_Dynamical_Model(positions_perturb, mask_data, dt, device):
+    def Dynamical_Model(positions_perturb, mask_data, dt, device):
         """
         Computes the control actions, heading, and velocity of agents in a perturbed positions dataset.
 
@@ -24,31 +24,18 @@ class Control_action:
         control_action = torch.zeros(
             (positions_perturb.shape[0], positions_perturb.shape[1], positions_perturb.shape[2]-1, positions_perturb.shape[3])).to(device)
 
-        # Compute the mask values for agents standing still
-        mask_length = positions_perturb.shape[2] - 1
-        mask = mask_data[:, :, :mask_length, :].to(device)
-
         # Initialize heading and velocity
         heading = torch.zeros(positions_perturb.shape[:3]).to(device)
         velocity = torch.zeros(positions_perturb.shape[:3]).to(device)
 
         # update initial velocity and heading
-        velocity[:, :, 0] = Control_action.compute_velocity(
-            positions_perturb, dt, 0)
         heading[:, :, 0] = Control_action.compute_heading(positions_perturb, 0)
-
+        velocity[:, :, 0] = Control_action.compute_velocity(positions_perturb, dt, 0)
+        
         # Create a time step tensor
         time_steps = torch.arange(positions_perturb.shape[2] - 1)
 
-        # Calculate velocities for all time steps
-        all_velocities = Control_action.compute_velocity(
-            positions_perturb, dt, time_steps)
-        velocity[:, :, 1:] = all_velocities
-
-        # Calculate headings for all time steps
-        all_headings = Control_action.compute_heading(
-            positions_perturb, time_steps)
-        heading[:, :, 1:] = all_headings
+        velocity[:, :, 1:], heading[:, :, 1:] = Control_action.compute_velocity_heading_vect(positions_perturb, time_steps, dt)
 
         # acceleration control actions
         acceleration_control = (velocity[:, :, 1:] - velocity[:, :, :-1]) / dt
@@ -57,13 +44,12 @@ class Control_action:
         yaw_rate = (heading[:, :, 1:] - heading[:, :, :-1]) / dt
 
         # curvature control actions
-        curvature_control = yaw_rate / velocity[:, :, :-1]
+        # curvature_control = yaw_rate / velocity[:, :, :-1]
+        curvature_control = torch.where(velocity[:, :, :-1] != 0, yaw_rate / velocity[:, :, :-1], torch.zeros_like(yaw_rate))
 
         # Update the control actions
-        control_action[:, :, :, 0] = torch.where(
-            ~mask[:, :, :, 0], acceleration_control, control_action[:, :, :, 0])
-        control_action[:, :, :, 1] = torch.where(
-            ~mask[:, :, :, 1], curvature_control, control_action[:, :, :, 1])
+        control_action[:, :, :, 0] = acceleration_control
+        control_action[:, :, :, 1] = curvature_control
 
         return control_action, heading, velocity
 
@@ -85,9 +71,44 @@ class Control_action:
 
         # Compute heading using atan2
         heading = torch.atan2(dy, dx)
-
+        
         return heading
 
+    @staticmethod
+    def compute_velocity_heading_vect(data, time_steps, dt):
+        """
+        Computes the heading angle and velocity of agents in a dataset for multiple time steps.
+        Args:
+            data (torch.Tensor): A 4-dimensional tensor of shape (batch size, number agents, number time_steps, coordinates (x,y)).
+            time_steps (torch.Tensor): A 1-dimensional tensor containing the time step indices to compute the heading from.
+            dt (float): The time difference between consecutive time steps.
+        Returns:
+            tuple: A tuple containing:
+                    - velocity (torch.Tensor): A tensor containing the velocities for each agent and time step, with shape (batch size, number agents, number of time steps).
+                    - heading (torch.Tensor): A tensor containing the heading angles (in radians) for each point and time step, with shape (batch_size, number agents, number of time steps).
+        """
+        # Calculate dx and dy for all time steps
+        dx = data[:, :, time_steps + 1, 0] - data[:, :, time_steps, 0]
+        dy = data[:, :, time_steps + 1, 1] - data[:, :, time_steps, 1]
+        
+        # Compute heading using atan2 for all time steps
+        theta = torch.atan2(dy, dx)
+        
+        # # Calculate dx_old and dy_old for all time steps except the first one
+        # dx_old = data[:, :, time_steps[1:], 0] - data[:, :, time_steps[1:] - 1, 0]
+        # dy_old = data[:, :, time_steps[1:], 1] - data[:, :, time_steps[1:] - 1, 1]
+        # theta_old = torch.atan2(dy_old, dx_old)
+        
+        # Calculate the direction of movement
+        sign = torch.ones_like(theta)
+        sign[:, :, 1:] = torch.sign(torch.cos(theta[:, :, 1:] - theta[:, :, :-1]))
+        
+        # Calculate the velocity and heading
+        velocity = sign * (torch.sqrt(dx**2 + dy**2) / dt)
+        heading = torch.atan2(dy * sign, dx * sign)
+        
+        return velocity, heading
+    
     @staticmethod
     def compute_velocity(data, dt, time_step):
         """
@@ -110,7 +131,7 @@ class Control_action:
         return velocity
 
     @staticmethod
-    def dynamical_model(control_action, positions_perturb, heading, velocity, dt, device):
+    def Inverse_Dynamical_Model(control_action, positions_perturb, heading, velocity, dt, device):
         """
         Computes the updated positions of agents based on the dynamical model using control actions, initial postion, velocity, and heading.
 

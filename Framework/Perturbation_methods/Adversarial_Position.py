@@ -271,6 +271,9 @@ class Adversarial_Position(perturbation_template):
         # Store the loss for plot
         loss_store = []
 
+        # learning rate
+        alpha = self.alpha
+
         # Start the optimization of the adversarial attack
         for i in range(self.max_number_iterations):
             # Reset gradients
@@ -304,13 +307,13 @@ class Adversarial_Position(perturbation_template):
 
             # Update Control inputs
             with torch.no_grad():
-                perturbation.subtract_(grad, alpha=self.alpha)
+                perturbation.subtract_(grad, alpha=alpha)
 
                 # set perturbations of ego agent to zero
                 perturbation[:, 1:] = 0.0
 
             # Update the step size
-            self.alpha *= self.gamma
+            alpha *= self.gamma
 
         # Split the adversarial position back to X and Y
         X_new, Y_new = Helper.return_data(

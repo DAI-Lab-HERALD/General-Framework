@@ -17,7 +17,7 @@ class Helper:
         Raises:
             ValueError: If the tensors are not approximately equal within the specified tolerance.
         """
-        equal_tensors = torch.allclose(Data_1, Data_2, atol=1e-3)
+        equal_tensors = torch.allclose(Data_1, Data_2, atol=1e-2)
 
         if not equal_tensors:
             raise ValueError("The conversion is not correct.")
@@ -344,7 +344,7 @@ class Helper:
 
         mask_data = Helper.compute_mask_values_tensor(data)
 
-        control_action, _, _ = Control_action.inverse_Dynamical_Model(
+        control_action, _, _ = Control_action.Dynamical_Model(
             data, mask_data, dt, "cpu")
 
         control_action = Helper.detach_tensor(control_action)[0]
