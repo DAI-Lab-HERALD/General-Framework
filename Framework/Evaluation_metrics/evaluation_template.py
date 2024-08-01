@@ -249,23 +249,23 @@ class evaluation_template():
         Corner_B = np.moveaxis(Corner_B, -1, -2) # Shape (..., N_O, 2, 4)
 
         # Project the corners of rectangle A onto Normals
-        Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4, 4)
-        Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4, 4)
+        Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4(normals), 4(corners A))
+        Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4(normals), 4(corners B))
 
         # Get the diffrences between the points
-        Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4, 4, 4)
-        Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4, 16)
+        Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4(normals), 4(corners A), 4(corners B))
+        Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4(normals), 16(corners A - corners B))
 
-        Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4, 16)
-        Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4, 16)
+        Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
+        Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
 
         # Analytical solution is to complicate din vectorform, cheat by doing linear interpolations
         Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
 
         # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
-        Sign_test = np.sign(Differences_test)
-        Sign_equal = Sign_test[...,[0],:] == Sign_test # Shape (..., N_O - 1, 4, 16, 11)
-        Sign_equal = Sign_equal.all(-2) # Shape (..., N_O - 1, 4, 11)
+        # I.e., there is no overlap between their projections on the normals
+        Sign_test = np.sign(Differences_test) # Shape (..., N_O - 1, 4, 16, 11)
+        Sign_equal = (Sign_test[...,[0],:] == Sign_test).all(-2) # Shape (..., N_O - 1, 4, 11)
 
         # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs
         No_collision = np.any(Sign_equal, -2) # Shape (..., N_O - 1, 11)
@@ -278,7 +278,7 @@ class evaluation_template():
         Path_B_nan = np.isnan(Path_B).any(-1) # Shape (..., N_O)
 
         # For a collision to be possible, both ends need to be observed
-        Missing_agent = ~Path_A_nan[...,1:] & ~Path_B_nan[...,1:] & ~Path_A_nan[...,:-1] & ~Path_B_nan[...,:-1] # Shape (..., N_O - 1)
+        Missing_agent = Path_A_nan[...,1:] | Path_B_nan[...,1:] | Path_A_nan[...,:-1] | Path_B_nan[...,:-1] # Shape (..., N_O - 1)
         No_collision |= Missing_agent
 
         # For no collision to be observed, this must be the case for all original timesteps
