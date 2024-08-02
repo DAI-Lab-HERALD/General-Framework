@@ -94,11 +94,6 @@ class Control_action:
         # Compute heading using atan2 for all time steps
         theta = torch.atan2(dy, dx)
         
-        # # Calculate dx_old and dy_old for all time steps except the first one
-        # dx_old = data[:, :, time_steps[1:], 0] - data[:, :, time_steps[1:] - 1, 0]
-        # dy_old = data[:, :, time_steps[1:], 1] - data[:, :, time_steps[1:] - 1, 1]
-        # theta_old = torch.atan2(dy_old, dx_old)
-        
         # Calculate the direction of movement
         sign = torch.ones_like(theta)
         sign[:, :, 1:] = torch.sign(torch.cos(theta[:, :, 1:] - theta[:, :, :-1]))

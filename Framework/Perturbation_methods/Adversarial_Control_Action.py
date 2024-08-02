@@ -233,6 +233,12 @@ class Adversarial_Control_Action(perturbation_template):
         # Time step
         self.dt = self.kwargs['data_param']['dt']
 
+        # violations barrier
+        self.barrier_helper = self.kwargs['barrier_helper']
+
+        # remove other objectives
+        self.remove_loss_objectives = self.kwargs['remove_loss_objectives']
+
         # Do a assertion check on settings
         self._assertion_check()
 
@@ -270,6 +276,9 @@ class Adversarial_Control_Action(perturbation_template):
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
             If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
         '''
+
+        # torch.autograd.set_detect_anomaly(True)
+
         # Only use input positions
         X_rest = X[..., 2:]
         X = X[..., :2]
@@ -321,7 +330,7 @@ class Adversarial_Control_Action(perturbation_template):
                 Y_Pred_iter_1 = Y_Pred.detach()
 
             losses = self._loss_module(
-                X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier)
+                X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
 
             # Store the loss for plot
             loss_store.append(losses.detach().cpu().numpy())
@@ -443,7 +452,7 @@ class Adversarial_Control_Action(perturbation_template):
             plot.plot_smoothing(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
                                 X_smoothed=self.X_smoothed, X_smoothed_adv=self.X_smoothed_adv, Y_pred_smoothed=self.Y_pred_smoothed, Y_pred_smoothed_adv=self.Y_pred_smoothed_adv)
 
-    def _loss_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier):
+    def _loss_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, iteration):
         """
         Calculates the loss for the given input data, predictions, and barrier data.
 
@@ -455,6 +464,7 @@ class Adversarial_Control_Action(perturbation_template):
         Y_Pred (array-like): The predicted future position tensor.
         Y_Pred_iter_1 (array-like): The initial prediction of future positions.
         data_barrier (array-like): Concatenated tensor of observed and future positions for barrier function.
+        iteration (int): The current iteration of the adversarial attack.
 
         Returns:
         losses (array-like): Calculated loss values based on the input data and predictions.
@@ -467,7 +477,8 @@ class Adversarial_Control_Action(perturbation_template):
                                      Y_new=Y_new,
                                      Y_Pred=Y_Pred,
                                      Y_Pred_iter_1=Y_Pred_iter_1,
-                                     barrier_data=data_barrier
+                                     barrier_data=data_barrier,
+                                     iteration=iteration
                                      )
 
         return losses
