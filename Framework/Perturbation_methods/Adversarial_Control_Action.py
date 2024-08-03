@@ -143,8 +143,8 @@ class Adversarial_Control_Action(perturbation_template):
         self.name += '---' + str(kwargs['alpha'])
         self.name += '---' + str(kwargs['num_samples_perturb'])
         self.name += '---' + str(kwargs['max_number_iterations'])
-        self.name += '---' + kwargs['loss_function_1']
-        self.name += '---' + kwargs['barrier_helper']
+        self.name += '---' + str(kwargs['loss_function_1'])
+        self.name += '---' + str(kwargs['barrier_helper'])
         self.name += '---' + str(kwargs['remove_loss_objectives'])
         if 'loss_function_2' in kwargs.keys() is not None:
             self.name += '---' + str(kwargs['loss_function_2'])
