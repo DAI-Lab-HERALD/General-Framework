@@ -896,9 +896,10 @@ class data_interface(object):
 
                         
                         # Get the corresponding indices
-                        Type_local     = Type_local.loc[self.Domain[used].Index_saved]
-                        Recorded_local = Recorded_local.loc[self.Domain[used].Index_saved]
-                        Output_T       = Output_T[self.Domain[used].Index_saved]
+                        ind_saved = self.Domain[used].Index_saved
+                        Type_local     = Type_local.loc[ind_saved]
+                        Recorded_local = Recorded_local.loc[ind_saved]
+                        Output_T       = Output_T[ind_saved]
 
                         # Get the agent indices
                         agent_index = self.get_indices_1D(Type_local.columns.to_numpy(), np.array(self.Agents))
