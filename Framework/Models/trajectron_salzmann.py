@@ -109,7 +109,7 @@ class trajectron_salzmann(model_template):
         return M_r
         
     
-    def extract_data_batch(self, X, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):
+    def extract_data_batch(self, data, T, Y = None, img = None, img_m_per_px = None, num_steps = 10):
         attention_radius = dict()
         
         if (self.provide_all_included_agent_types() == 'P').all():
@@ -142,18 +142,51 @@ class trajectron_salzmann(model_template):
         delta_x = center_pos - X[:,0,-2]
         rot_angle = np.angle(delta_x[:,0] + 1j * delta_x[:,1])
 
+        # Get positions
+        X = data[...,:2]
         center_pos = center_pos[:,np.newaxis,np.newaxis]        
         X_r = self.rotate_pos_matrix(X - center_pos, rot_angle)
         
-        
-        V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
-        V = np.concatenate((V[...,[0],:], V), axis = -2)
+                # Get given information
+        given_data = np.array(self.input_data_type)
+
+        # get velocity
+        req_vel = np.array(['v_x', 'v_y'])
+        if np.in1d(req_vel, given_data).all():
+            v_ind = self.data_set.get_indices_1D(np.array(req_vel), given_data)
+            V = self.rotate_pos_matrix(data[...,v_ind], rot_angle)
+        else: 
+            V = (X_r[...,1:,:] - X_r[...,:-1,:]) / self.dt
+            V = np.concatenate((V[...,[0],:], V), axis = -2)
+
+        overwrite_V = np.isnan(V).all(-1) & (~np.isnan(X_r).all(-1))
+        assert overwrite_V.sum(-1).max() <= 1, "Velocity interpolation failed."
+
+        if overwrite_V.any():
+            OV_s, OV_a, OV_t = np.where(overwrite_V)
+            OV_use = OV_t < V.shape[2] - 1
+            V[OV_s[OV_use], OV_a[OV_use], OV_t[OV_use]] = V[OV_s[OV_use], OV_a[OV_use], OV_t[OV_use] + 1]
+            V[OV_s[~OV_use], OV_a[~OV_use], OV_t[~OV_use]] = 0.0
        
         # get accelaration
-        A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
-        A = np.concatenate((A[...,[0],:], A), axis = -2)
+        req_acc = np.array(['a_x', 'a_y'])
+        if np.in1d(req_acc, given_data).all():
+            a_ind = self.data_set.get_indices_1D(np.array(req_acc), given_data)
+            A = self.rotate_pos_matrix(data[...,a_ind], rot_angle)
+        else:
+            A = (V[...,1:,:] - V[...,:-1,:]) / self.dt
+            A = np.concatenate((A[...,[0],:], A), axis = -2)
+
+        overwrite_A = np.isnan(A).all(-1) & (~np.isnan(V).all(-1))
+        assert overwrite_A.sum(-1).max() <= 1, "Acceleration interpolation failed."
+
+        if overwrite_A.any():
+            OA_s, OA_a, OA_t = np.where(overwrite_A)
+            OA_use = OA_t < A.shape[2] - 1
+            A[OA_s[OA_use], OA_a[OA_use], OA_t[OA_use]] = A[OA_s[OA_use], OA_a[OA_use], OA_t[OA_use] + 1]
+            A[OA_s[~OA_use], OA_a[~OA_use], OA_t[~OA_use]] = 0.0
        
-        H = np.angle(V[...,0] + 1j * V[...,1])[...,np.newaxis]
+        H = np.angle(V[...,[0]] + 1j * V[...,[1]])
        
         Sin = np.sin(H)
         Cos = np.cos(H)
