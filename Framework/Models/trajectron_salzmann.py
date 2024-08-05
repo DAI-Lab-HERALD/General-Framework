@@ -147,8 +147,11 @@ class trajectron_salzmann(model_template):
         center_pos = center_pos[:,np.newaxis,np.newaxis]        
         X_r = self.rotate_pos_matrix(X - center_pos, rot_angle)
         
-                # Get given information
-        given_data = np.array(self.input_data_type)
+        # Get given information
+        if hasattr(self, 'input_data_type'):
+            given_data = np.array(self.input_data_type)
+        else:
+            given_data = np.array(['x', 'y'])
 
         # get velocity
         req_vel = np.array(['v_x', 'v_y'])
