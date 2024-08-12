@@ -214,20 +214,24 @@ class model_template():
 
 
 
-    def Sort_Metrics(self, Metric_name_list, print_status_function):
+    def Sort_Metrics(self, Metric_dict_list, print_status_function):
         # Check if train and test set are identical
         identical_test_set = np.array_equal(np.unique(self.splitter.Train_index), np.unique(self.splitter.Test_index))
 
         # Go through Metric_list and check if any of them are allready evaluated, if so, remove them from the list
         Metric_train_list = []
         Metric_test_list  = []
-        for metric_name in Metric_name_list:
+        for metric_dict in Metric_dict_list:
+            # Get metric name
+            metric_name = metric_dict['metric']
+            metric_kwargs = metric_dict['kwargs']
+
             # Get metric class
             metric_module = importlib.import_module(metric_name)
             metric_class = getattr(metric_module, metric_name)  
             
             # Initialize the metric
-            metric = metric_class(self.data_set, self.splitter, self)
+            metric = metric_class(metric_kwargs, self.data_set, self.splitter, self)
                 
             # Test if metric is applicable
             metric_failure = metric.check_applicability()
@@ -450,12 +454,12 @@ class model_template():
                 np.save(metric_file, save_data)
 
 
-    def predict_and_evaluate(self, Metric_name_list, print_status_function):
+    def predict_and_evaluate(self, Metric_dict_list, print_status_function):
         assert not self.depict_results, 'This model instance is only for loading results.'
         assert self.data_set is not None, 'This model instance is only for loading results.'
 
         # Preselct the metrics based on their existence and other requirements
-        Metric_dict, Result_dict, identical_test_set = self.Sort_Metrics(Metric_name_list, print_status_function)
+        Metric_dict, Result_dict, identical_test_set = self.Sort_Metrics(Metric_dict_list, print_status_function)
 
         # Get the type of prediction in this output
         model_type = self.get_output_type()

@@ -123,7 +123,6 @@ class Experiment():
         
         self.Data_sets   = Data_sets
         self.Data_params = Data_params
-        self.Metrics     = Metrics
         
         # Check if multiple splitter repetitions have been provided
         self.Splitters = []
@@ -202,7 +201,24 @@ class Experiment():
                 raise TypeError("The provided model must be string or dictionary")
             
             self.Models.append(model_dict)
-                
+
+        # Check if Metrics are all depicted correctly
+        self.Metrics = []
+        for metric in Metrics:
+            if isinstance(metric, str):
+                metric_dict = {'metric': metric, 'kwargs': {}}
+            elif isinstance(metric, dict):
+                assert 'metric' in metric.keys(), "No metric name is provided."
+                assert isinstance(metric['metric'], str), "A metric is set as a string."
+                metric_dict = metric
+                if not 'kwargs' in metric.keys():
+                    metric_dict['kwargs'] = {}
+                else:
+                    assert isinstance(metric_dict['kwargs'], dict), "The kwargs value must be a dictionary."
+            else:
+                raise TypeError("The provided metric must be string or dictionary")
+            
+            self.Metrics.append(metric_dict)
         
         self.provided_modules = True
         
@@ -443,7 +459,8 @@ class Experiment():
         Metrics_minimize = [] 
         Metrics_log_scale = []
 
-        for metric_name in self.Metrics:
+        for metric_dict in self.Metrics:
+            metric_name = metric_dict['metric']
             metric_module = importlib.import_module(metric_name)
             metric_class = getattr(metric_module, metric_name)
             Metrics_minimize.append(metric_class.get_opt_goal() == 'minimize')
@@ -496,10 +513,12 @@ class Experiment():
                     # Get the name of the splitmethod used.
                     splitter_str = splitter.get_name()['file'] + splitter.get_rep_str()
 
-                    for m, metric_name in enumerate(self.Metrics):
+                    for m, metric_dict in enumerate(self.Metrics):
+                        metric_name = metric_dict['metric']
+                        metric_kwargs = metric_dict['kwargs']
                         metric_module = importlib.import_module(metric_name)
                         metric_class = getattr(metric_module, metric_name)
-                        metric = metric_class(data_set, splitter, None)
+                        metric = metric_class(metric_kwargs, data_set, splitter, None)
                             
                         create_plot = plot_if_possible and metric.allows_plot()
                         if create_plot:
@@ -523,7 +542,7 @@ class Experiment():
                                                  # Add model name
                                                  model.get_name()['file']  + '--' + 
                                                  # Add metric name
-                                                 metric_class.get_name()['file']  + '.npy')
+                                                 metric.get_name()['file']  + '.npy')
                             
                             results_file_name = results_file_name.replace(os.sep + 'Data' + os.sep,
                                                                           os.sep + 'Metrics' + os.sep)
@@ -548,8 +567,8 @@ class Experiment():
                                         figure_file = data_set.change_result_directory(results_file_name, 'Metric_figures', '')
                                         
                                         # remove model name from figure file
-                                        num = 6 + len(model.get_name()['file']) + len(metric_class.get_name()['file'])
-                                        figure_file = figure_file[:-num] + metric_class.get_name()['file'] + '.pdf'
+                                        num = 6 + len(model.get_name()['file']) + len(metric.get_name()['file'])
+                                        figure_file = figure_file[:-num] + metric.get_name()['file'] + '.pdf'
                                         
                                         os.makedirs(os.path.dirname(figure_file), exist_ok = True)
                                         saving_figure = l == (self.num_models - 1)
@@ -810,11 +829,14 @@ class Experiment():
         
         
         # start drawing the individual plots
-        for j, metric_name in enumerate(self.Metrics):
+        for j, metric_dict in enumerate(self.Metrics):
+            metric_name = metric_dict['metric']
+            metric_kwargs = metric_dict['kwargs']
             metric_module = importlib.import_module(metric_name)
             metric_class = getattr(metric_module, metric_name)
+            metric = metric_class(metric_kwargs, None, None, None)
             
-            Figure_string += ' \n' + r'    % Draw the metric ' + metric_class.get_name()['print'] + ' \n'
+            Figure_string += ' \n' + r'    % Draw the metric ' + metric.get_name()['print'] + ' \n'
             
             Metric_results = self.Results[..., j]
             metric_is_log  = self.Metrics_log_scale[j]
@@ -843,7 +865,7 @@ class Experiment():
                 else:
                     t0_name = T0_names[data_set.t0_type]
 
-                Plot_string += (' \n' + r'    % Draw the metric ' + metric_class.get_name()['print'] + 
+                Plot_string += (' \n' + r'    % Draw the metric ' + metric.get_name()['print'] + 
                                 ' for ' + t0_name + ' on dataset ' + data_set.get_name()['print'] +  ' \n')
                 
                 
@@ -947,7 +969,7 @@ class Experiment():
                                           '(1.25, {:0.3f}) '.format(y_value + plot_height) + 
                                           r'{$' + '{}'.format(max_value) + r'$};' + ' \n') 
                     # Add metric name
-                    metric_name_latex = metric_class.get_name()['latex']
+                    metric_name_latex = metric.get_name()['latex']
                     
                     if metric_class.get_opt_goal() == 'minimize':
                         metric_name_latex += r' $\downarrow'
@@ -1163,9 +1185,13 @@ class Experiment():
             
         for k, table_name in enumerate(Table_iterator):
             if dataset_row:
-                table_module = importlib.import_module(table_name)
-                table_class = getattr(table_module, table_name)
-                table_filename = table_class.get_name()['file']
+                table_name_name = table_name['metric']
+                table_name_kwargs = table_name['kwargs']
+                table_module = importlib.import_module(table_name_name)
+                table_class = getattr(table_module, table_name_name)
+                table_object = table_class(table_name_kwargs, None, None, None)
+
+                table_filename = table_object.get_name()['file']
             else:
                 table_item = data_interface(table_name, self.parameters)
                 table_filename = table_item.get_name()['file']
@@ -1238,16 +1264,19 @@ class Experiment():
                         row_item = data_interface(row_name, self.parameters)
                         row_latexname = row_item.get_name()['latex']
                     else:
-                        row_module = importlib.import_module(row_name)
-                        row_class  = getattr(row_module, row_name)
+                        row_name_name = row_name['metric']
+                        row_name_kwargs = row_name['kwargs']
+                        row_module = importlib.import_module(row_name_name)
+                        row_class  = getattr(row_module, row_name_name)
+                        row_object = row_class(row_name_kwargs, None, None, None)
                         
-                        row_latexname = row_class.get_name()['latex']
-                        if row_class.get_opt_goal() == 'minimize':
+                        row_latexname = row_object.get_name()['latex']
+                        if row_object.get_opt_goal() == 'minimize':
                             row_latexname += r' $\downarrow'
                         else:
                             row_latexname += r' $\uparrow'
                             
-                        metric_bounds = row_class.metric_boundaries()
+                        metric_bounds = row_object.metric_boundaries()
                         if metric_bounds[0] is not None:
                             row_latexname += r'_{' + str(metric_bounds[0]) + r'}'
                         else:

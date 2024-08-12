@@ -22,7 +22,7 @@ Splitters = [{'Type': 'Location_split', 'repetition': ['zara01']},
 Models = ['trajflow_meszaros']
 
 # Select the metrics to be used
-Metrics = ['ADE_joint', 'KDE_NLL_indep', 'KDE_NLL_joint']
+Metrics = [{'metric': 'ADE_joint', 'kwargs': {'num': 10}}, 'KDE_NLL_indep', 'KDE_NLL_joint']
 
 new_experiment.set_modules(Data_sets, Data_params, Splitters, Models, Metrics)
 

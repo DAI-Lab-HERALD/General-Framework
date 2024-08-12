@@ -4,7 +4,8 @@ import os
 
 
 class evaluation_template():
-    def __init__(self, data_set, splitter, model):
+    def __init__(self, metric_kwargs, data_set, splitter, model):
+        self.metric_kwargs = metric_kwargs
         if data_set is not None:
             self.data_set = data_set
             self.splitter = splitter
@@ -18,14 +19,14 @@ class evaluation_template():
             
             self.metric_override = self.data_set.overwrite_results in ['model', 'prediction', 'metric']
             
+            self.setup_method() # output needs to be a list of components
+            
             if self.requires_preprocessing():
                 test_file = self.data_set.change_result_directory(splitter.split_file,
                                                                   'Metrics', self.get_name()['file'] + '_weights')
                 if os.path.isfile(test_file):
                     self.weights_saved = list(np.load(test_file, allow_pickle = True)[:-1])  
                 else:
-                    self.setup_method() # output needs to be a list of components
-                    
                     save_data = np.array(self.weights_saved + [0], object) # 0 is there to avoid some numpy load and save errros
                     
                     os.makedirs(os.path.dirname(test_file), exist_ok=True)
