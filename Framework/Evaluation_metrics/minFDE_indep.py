@@ -2,25 +2,30 @@ import numpy as np
 import pandas as pd
 from evaluation_template import evaluation_template 
 
-class minFDE20_indep(evaluation_template):
+class minFDE_indep(evaluation_template):
     r'''
     The value :math:`F` of the minimum Final Displacement Error (assuming :math:`N_{agents,i}` independent agents :math:`j`), is calculated in the following way:
         
     .. math::
         F = {1 \over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}} \sum\limits_{j = 1}^{N_{agents,i}}  
-            \underset{p \in P_{20}}{\min} \left( 
+            \underset{p \in P}{\min} \left( 
             \sqrt{\left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p,j} (\max T_{O,i}) \right)^2} \right)
         
-    Here, :math:`P_{20} \subset P` are 20 randomly selected instances of the set of predictions :math:`P` made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    Here, :math:`P` are the set of predictions made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
     at the predicted timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+
+    Here, the number of predictions :math:`|P|` can be set using the kwargs, under the key 'num_preds'. If not set, None is assumed.
     '''
-    
+    def set_default_kwargs(self):
+        if 'num_preds' not in self.metric_kwargs:
+            self.kwargs['num_preds'] = None
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(20)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(self.kwargs['num_preds'])
         Pred_agents = Pred_steps.any(-1)
         Num_steps = Pred_steps.sum(-1).max(-1)
         Num_agents = Pred_agents.sum(-1)
@@ -53,9 +58,20 @@ class minFDE20_indep(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'min FDE (20 samples, independent prediction)',
-                 'file': 'minFDE20_indep',
-                 'latex': r'\emph{min FDE$_{20, indep}$ [m]}'}
+        self.set_default_kwargs()
+        if self.kwargs['num_preds'] == None:
+            N_p = ''
+            N_f = ''
+            N_l = ''
+        else:
+            N_p = str(self.kwargs['num_preds']) + ' samples, '
+            N_f = str(self.kwargs['num_preds'])
+            N_l = str(self.kwargs['num_preds']) + ', '
+        
+
+        names = {'print': 'min FDE (' + N_p + 'independent prediction)',
+                'file': 'minFDE' + N_f + '_indep',
+                'latex': r'\emph{min FDE$_{' + N_l + r'indep}$ [m]}'}
         return names
     
     

@@ -14,13 +14,18 @@ class FDE_indep(evaluation_template):
     Here, :math:`P` are the set of predictions made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
     at the predicted timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+
+    Here, the number of predictions :math:`|P|` can be set using the kwargs, under the key 'num_preds'. If not set, None is assumed.
     '''
-    
+    def set_default_kwargs(self):
+        if 'num_preds' not in self.metric_kwargs:
+            self.kwargs['num_preds'] = None
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(self.kwargs['num_preds'])
         Pred_agents = Pred_steps.any(-1)
         Num_steps = Pred_steps.sum(-1).max(-1)
         Num_agents = Pred_agents.sum(-1)
@@ -53,9 +58,21 @@ class FDE_indep(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'FDE (independent predictions)',
-                 'file': 'FDE_indep',
-                 'latex': r'\emph{FDE$_{indep}$ [m]}'}
+        self.set_default_kwargs()
+        if self.kwargs['num_preds'] == None:
+            N_p = ''
+            N_f = ''
+            N_l = ''
+        else:
+            N_p = str(self.kwargs['num_preds']) + ' samples, '
+            N_f = str(self.kwargs['num_preds'])
+            N_l = str(self.kwargs['num_preds']) + ', '
+        
+
+        names = {'print': 'FDE (' + N_p + 'independent prediction)',
+                'file': 'FDE' + N_f + '_indep',
+                'latex': r'\emph{FDE$_{' + N_l + r'indep}$ [m]}'}
+
         return names
     
     

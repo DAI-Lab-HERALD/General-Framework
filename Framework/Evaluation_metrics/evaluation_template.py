@@ -432,22 +432,28 @@ class evaluation_template():
 
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
-        
-        # Get the stochastic prediction indices
-        if num_preds is None:
-            idx = np.arange(self.data_set.num_samples_path_pred)
-        else:
-            if num_preds <= self.data_set.num_samples_path_pred:
-                idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds] #
+        if not hasattr(self, 'pred_idx'):
+            # Get the stochastic prediction indices
+            if num_preds is None:
+                self.pred_idx = np.arange(self.data_set.num_samples_path_pred)
             else:
-                idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
+                if num_preds <= self.data_set.num_samples_path_pred:
+                    self.pred_idx = np.random.permutation(self.data_set.num_samples_path_pred)[:num_preds] #
+                else:
+                    self.pred_idx = np.random.randint(0, self.data_set.num_samples_path_pred, num_preds)
+        else:
+            if num_preds is None:
+                N = self.data_set.num_samples_path_pred
+            else:
+                N = num_preds
+            assert N == len(self.pred_idx), 'The number of predictions does not match the number of predictions in the model.'
         
         self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov',
                                                    exclude_late_timesteps)
         
         Path_true = self.model.Path_true
-        Path_pred = self.model.Path_pred[:, idx]
+        Path_pred = self.model.Path_pred[:, self.pred_idx]
         Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
@@ -720,9 +726,12 @@ class evaluation_template():
             
             KDE_pred_log_prob_true = self.model.Log_prob_indep_true
             KDE_pred_log_prob_pred = self.model.Log_prob_indep_pred
-        
-        KDE_pred_log_prob_true = KDE_pred_log_prob_true
-        KDE_pred_log_prob_pred = KDE_pred_log_prob_pred
+
+        # Get the KDE probabilities corresponding to the selected trajectory samples        
+        if not hasattr(self, 'pred_idx'):
+            self.pred_index = np.arange(self.data_set.num_samples_path_pred)
+
+        KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[:, self.pred_idx]
         
         # Get useful samples
         self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
