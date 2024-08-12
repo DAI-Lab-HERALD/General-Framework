@@ -1,17 +1,19 @@
 import numpy as np
-import pandas as pd
 from evaluation_template import evaluation_template 
 
-class minFDE20_indep(evaluation_template):
+class Miss_rate_indep(evaluation_template):
     r'''
-    The value :math:`F` of the minimum Final Displacement Error (assuming :math:`N_{agents,i}` independent agents :math:`j`), is calculated in the following way:
-        
-    .. math::
-        F = {1 \over{\sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}} \sum\limits_{j = 1}^{N_{agents,i}}  
-            \underset{p \in P_{20}}{\min} \left( 
-            \sqrt{\left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p,j} (\max T_{O,i}) \right)^2} \right)
-        
-    Here, :math:`P_{20} \subset P` are 20 randomly selected instances of the set of predictions :math:`P` made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
+    The value :math:`F` of the Agent-wise Miss rate (assuming :math:`N_{agents,i}` independent agents :math:`j`) is the 
+    percentage of agents for last position of all of the predicted trjacetories :math:`p \in P`is at least :math:`\epsilon = 2 m` 
+    away from the true trajectory. 
+    It is calculated in the following way:
+
+    .. math ::
+        F = {1 \over{|P| \sum\limits_{i = 1}^{N_{samples}} N_{agents, i}}} \sum\limits_{i = 1}^{N_{samples}}  
+             \sum\limits_{j = 1}^{N_{agents,i}} \begin{cases} 1 & \sqrt{\left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p,j} (\max T_{O,i}) \right)^2 + 
+             \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p,j} (\max T_{O,i}) \right)^2} > \epsilon \forall p \in P \\ 0 & \text{otherwise} \end{cases}
+
+    Here, :math:`P` are the set of predictions made for a specific sample :math:`i \in \{1, ..., N_{samples}\}`
     at the predicted timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
@@ -20,7 +22,7 @@ class minFDE20_indep(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(20)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
         Pred_agents = Pred_steps.any(-1)
         Num_steps = Pred_steps.sum(-1).max(-1)
         Num_agents = Pred_agents.sum(-1)
@@ -34,17 +36,17 @@ class minFDE20_indep(evaluation_template):
         # Take last timestep
         Diff = Diff[np.arange(len(Diff)),:,:,Num_steps - 1]
         
-        # Min over predictions
-        Diff = Diff.min(1)
-        
+        # Mean over predictions
+        Missed = (Diff > 2.0).all(1)
+
         # Mean over samples and agents
-        Error = Diff.sum() / Num_agents.sum()
+        Error = Missed.sum() / Num_agents.sum()
         
         return [Error]
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']
-        return options[2]  
+        return options[2]   
     
     def get_output_type(self = None):
         return 'path_all_wi_pov'
@@ -53,18 +55,17 @@ class minFDE20_indep(evaluation_template):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'min FDE (20 samples, independent prediction)',
-                 'file': 'minFDE20_indep',
-                 'latex': r'\emph{min FDE$_{20, indep}$ [m]}'}
+        names = {'print': 'Miss rate (independent predictions)',
+                 'file': 'MR_indep',
+                 'latex': r'\emph{MR$_{indep}$ [m]}'}
         return names
     
     
     def check_applicability(self):
         return None
     
-    
     def is_log_scale(self = None):
-        return True
+        return False
     
     
     def requires_preprocessing(self):
@@ -74,4 +75,4 @@ class minFDE20_indep(evaluation_template):
         return False
     
     def metric_boundaries(self = None):
-        return [0.0, None]
+        return [0.0, 1.0]

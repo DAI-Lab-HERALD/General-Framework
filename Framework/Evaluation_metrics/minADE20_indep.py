@@ -34,7 +34,7 @@ class minADE20_indep(evaluation_template):
         # Mean over timesteps
         Diff = Diff.sum(-1) / Num_steps[:,np.newaxis,np.newaxis]
         
-        # Mean over predictions
+        # Min over predictions
         Diff = Diff.min(1)
         
         # Mean over samples and agents
