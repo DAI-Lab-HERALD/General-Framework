@@ -139,11 +139,11 @@ class Argoverse_Interactive(data_set_template):
         num_saved_sampled = self.get_number_of_saved_samples()
 
         for _, name in tqdm(enumerate(os.listdir(file_path + '/train'))):
-            if self.num_samples >= num_saved_sampled:
+
+            self.num_samples += 1
+            if self.num_samples > num_saved_sampled:
                 data_path = file_path + '/train/' + name
                 data_collection = read_argoverse2_data(data_path)
-
-                lanegraph = get_lane_graph(data_path)
 
                 domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
                 
@@ -173,34 +173,34 @@ class Argoverse_Interactive(data_set_template):
 
                 t = np.arange(0, 11, 0.1)
 
-                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-                lanegraph_df.columns = [int(graph_id)]
-
-
                 print('Number of agents: ' + str(len(path)))
                 print('Number of frames: ' + str(len(t)))
                 self.Path.append(path)
                 self.Type_old.append(agent_types)
                 self.T.append(t)
                 self.Domain_old.append(domain)
-                self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
-            self.num_samples += 1
+                if self.num_samples % 5000 == 0:
+                    self.check_created_paths_for_saving(force_save=True) 
+                else:
+                    self.check_created_paths_for_saving(force_save=False)
+
+            # Get the scene graph
+            lanegraph = get_lane_graph(data_path)
+            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+            lanegraph_df.columns = [int(graph_id)]
+            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
+
             graph_id += 1
-
-            if self.num_samples % 5000 == 0:
-                self.check_created_paths_for_saving(force_save=True) 
-            else:
-                self.check_created_paths_for_saving(force_save=False) 
+ 
 
         
         for idx, name in tqdm(enumerate(os.listdir(file_path + '/val'))):
 
-            if self.num_samples >= num_saved_sampled:
+            self.num_samples += 1
+            if self.num_samples > num_saved_sampled:
                 data_path = file_path + '/val/' + name
                 data_collection = read_argoverse2_data(data_path)
-
-                lanegraph = get_lane_graph(data_path)
 
                 domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
                 
@@ -234,24 +234,26 @@ class Argoverse_Interactive(data_set_template):
 
                 t = np.arange(0, 11, 0.1)
 
-                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-                lanegraph_df.columns = [int(graph_id)]
-
                 print('Number of agents: ' + str(len(path)))
                 print('Number of frames: ' + str(len(t)))
                 self.Path.append(path)
                 self.Type_old.append(agent_types)
                 self.T.append(t)
                 self.Domain_old.append(domain)
-                self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
-            self.num_samples += 1
+                if self.num_samples % 5000 == 0:
+                    self.check_created_paths_for_saving(force_save=True) 
+                else:
+                    self.check_created_paths_for_saving(force_save=False) 
+
+            # Get the scene graph
+            lanegraph = get_lane_graph(data_path)
+            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+            lanegraph_df.columns = [int(graph_id)]
+            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
+
             graph_id += 1
 
-            if self.num_samples % 5000 == 0:
-                self.check_created_paths_for_saving(force_save=True) 
-            else:
-                self.check_created_paths_for_saving(force_save=False) 
 
         
         self.check_created_paths_for_saving(last=True) 
