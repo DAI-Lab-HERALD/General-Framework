@@ -136,111 +136,122 @@ class Argoverse_Interactive(data_set_template):
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'Argoverse' + os.sep + 'data'
 
         graph_id = 0
+        num_saved_sampled = self.get_number_of_saved_samples()
+
         for _, name in tqdm(enumerate(os.listdir(file_path + '/train'))):
-            data_path = file_path + '/train/' + name
-            data_collection = read_argoverse2_data(data_path)
+            if self.num_samples >= num_saved_sampled:
+                data_path = file_path + '/train/' + name
+                data_collection = read_argoverse2_data(data_path)
 
-            lanegraph = get_lane_graph(data_path)
+                lanegraph = get_lane_graph(data_path)
 
-            domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
-            
-            domain.graph_id = int(graph_id)
-            domain.focal_id = data_collection['focal_id']
-            domain.location = data_collection['city_name']
-            domain.splitting = 'train'
+                domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
+                
+                domain.graph_id = int(graph_id)
+                domain.focal_id = data_collection['focal_id']
+                domain.location = data_collection['city_name']
+                domain.splitting = 'train'
 
-            # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
-            categories = []
+                # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
+                categories = []
 
-            # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
+                # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
 
-            path = pd.Series(np.empty(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])     
+                path = pd.Series(np.empty(0, np.ndarray), index = [])
+                agent_types = pd.Series(np.zeros(0, str), index = [])     
 
-            
-            path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-            agent_types['AV'] = 'V'       
+                
+                path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
+                agent_types['AV'] = 'V'       
 
-            path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
+                path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
-            assert 0 not in categories
+                assert 0 not in categories
 
-            categories.append(1)
-            domain.category = pd.Series(categories, index = agent_types.index)
+                categories.append(1)
+                domain.category = pd.Series(categories, index = agent_types.index)
 
-            t = np.arange(0, 11, 0.1)
+                t = np.arange(0, 11, 0.1)
 
-            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-            lanegraph_df.columns = [int(graph_id)]
+                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+                lanegraph_df.columns = [int(graph_id)]
 
 
-            print('Number of agents: ' + str(len(path)))
-            print('Number of frames: ' + str(len(t)))
+                print('Number of agents: ' + str(len(path)))
+                print('Number of frames: ' + str(len(t)))
+                self.Path.append(path)
+                self.Type_old.append(agent_types)
+                self.T.append(t)
+                self.Domain_old.append(domain)
+                self.SceneGraphs.append(lanegraph_df.iloc[:,0])
+
             self.num_samples += 1
-            self.Path.append(path)
-            self.Type_old.append(agent_types)
-            self.T.append(t)
-            self.Domain_old.append(domain)
-            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
-
             graph_id += 1
 
-            self.check_created_paths_for_saving() 
+            if self.num_samples % 5000 == 0:
+                self.check_created_paths_for_saving(force_save=True) 
+            else:
+                self.check_created_paths_for_saving(force_save=False) 
 
         
         for idx, name in tqdm(enumerate(os.listdir(file_path + '/val'))):
-            data_path = file_path + '/val/' + name
-            data_collection = read_argoverse2_data(data_path)
 
-            lanegraph = get_lane_graph(data_path)
+            if self.num_samples >= num_saved_sampled:
+                data_path = file_path + '/val/' + name
+                data_collection = read_argoverse2_data(data_path)
 
-            domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
-            
-            domain.graph_id = int(graph_id)
-            domain.focal_id = data_collection['focal_id']
-            domain.location = data_collection['city_name']
-            domain.splitting = 'test'
+                lanegraph = get_lane_graph(data_path)
 
-            # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
-            categories = []
-            # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
+                domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
+                
+                domain.graph_id = int(graph_id)
+                domain.focal_id = data_collection['focal_id']
+                domain.location = data_collection['city_name']
+                domain.splitting = 'test'
 
-            path = pd.Series(np.empty(0, np.ndarray), index = [])
-            agent_types = pd.Series(np.zeros(0, str), index = [])
+                # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
+                categories = []
+                # focal_track, focal_agent_type, focal_track_id = self.get_focal_track(data_collection)
+
+                path = pd.Series(np.empty(0, np.ndarray), index = [])
+                agent_types = pd.Series(np.zeros(0, str), index = [])
 
 
-            path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-            agent_types['AV'] = 'V'  
+                path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
+                agent_types['AV'] = 'V'  
 
-            path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
+                path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
-            assert 0 not in categories
+                assert 0 not in categories
 
-            categories.append(1)
-            domain.category = pd.Series(categories, index = agent_types.index)
+                categories.append(1)
+                domain.category = pd.Series(categories, index = agent_types.index)
 
-            # path['tar'] = focal_track
-            # agent_types['tar'] = focal_agent_type
-            
-            # path, agent_types = self.get_other_tracks(data_collection, focal_track_id, path, agent_types)
+                # path['tar'] = focal_track
+                # agent_types['tar'] = focal_agent_type
+                
+                # path, agent_types = self.get_other_tracks(data_collection, focal_track_id, path, agent_types)
 
-            t = np.arange(0, 11, 0.1)
+                t = np.arange(0, 11, 0.1)
 
-            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-            lanegraph_df.columns = [int(graph_id)]
+                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+                lanegraph_df.columns = [int(graph_id)]
 
-            print('Number of agents: ' + str(len(path)))
-            print('Number of frames: ' + str(len(t)))
+                print('Number of agents: ' + str(len(path)))
+                print('Number of frames: ' + str(len(t)))
+                self.Path.append(path)
+                self.Type_old.append(agent_types)
+                self.T.append(t)
+                self.Domain_old.append(domain)
+                self.SceneGraphs.append(lanegraph_df.iloc[:,0])
+
             self.num_samples += 1
-            self.Path.append(path)
-            self.Type_old.append(agent_types)
-            self.T.append(t)
-            self.Domain_old.append(domain)
-            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
-
             graph_id += 1
 
-            self.check_created_paths_for_saving() 
+            if self.num_samples % 5000 == 0:
+                self.check_created_paths_for_saving(force_save=True) 
+            else:
+                self.check_created_paths_for_saving(force_save=False) 
 
         
         self.check_created_paths_for_saving(last=True) 

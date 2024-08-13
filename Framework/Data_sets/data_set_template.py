@@ -250,6 +250,10 @@ class data_set_template():
             smaller systems.
         
         '''
+
+        if not hasattr(self, 'saved_last_orig_paths'):
+            self.saved_last_orig_paths = False
+
         
         # Check if the four required attributes exist
         if not all([hasattr(self, attr) for attr in ['Path', 'Type_old', 'T', 'Domain_old']]):
@@ -257,7 +261,7 @@ class data_set_template():
         
         # Test if final file allready exists
         final_test_name = self.file_path + '--all_orig_paths_LLL.npy'
-        if os.path.isfile(final_test_name):
+        if os.path.isfile(final_test_name) and self.saved_last_orig_paths:
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
         
         num_samples = len(self.Path)
@@ -360,6 +364,9 @@ class data_set_template():
             # Delete num_timesteps_per_sample
             if hasattr(self, 'num_overall_timesteps_per_sample'):
                 del self.num_overall_timesteps_per_sample
+
+        if last:
+            self.saved_last_orig_paths = True
                 
     def get_number_of_saved_samples(self):
         r'''

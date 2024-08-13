@@ -397,6 +397,10 @@ structure (in this examples, potential Images and Scene Graphs are ignored for s
 
     # Save remaining samples
     self.check_created_paths_for_saving(last = True) 
+
+    # Create images/graphs
+    ... # This needs to be done outside the for loop if num_samples_saved > 0
+        # as otherwise, not all required image_id/scene_id might be saved
 ```
 
 
