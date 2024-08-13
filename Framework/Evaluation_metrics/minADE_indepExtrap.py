@@ -19,13 +19,13 @@ class minADE_indepExtrap(evaluation_template):
     '''
     def set_default_kwargs(self):
         if 'num_preds' not in self.metric_kwargs:
-            self.kwargs['num_preds'] = None
+            self.metric_kwargs['num_preds'] = None
 
     def setup_method(self):
         self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(self.kwargs['num_preds'], exclude_late_timesteps = False)
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(self.metric_kwargs['num_preds'], exclude_late_timesteps = False)
 
         Path_true = Path_true[..., self.model.num_timesteps_out:, :]
         Path_pred = Path_pred[..., self.model.num_timesteps_out:, :]
@@ -69,14 +69,14 @@ class minADE_indepExtrap(evaluation_template):
     
     def get_name(self = None):
         self.set_default_kwargs()
-        if self.kwargs['num_preds'] == None:
+        if self.metric_kwargs['num_preds'] == None:
             N_p = ''
             N_f = ''
             N_l = ''
         else:
-            N_p = str(self.kwargs['num_preds']) + ' samples, '
-            N_f = str(self.kwargs['num_preds'])
-            N_l = str(self.kwargs['num_preds']) + ', '
+            N_p = str(self.metric_kwargs['num_preds']) + ' samples, '
+            N_f = str(self.metric_kwargs['num_preds'])
+            N_l = str(self.metric_kwargs['num_preds']) + ', '
         
 
         names = {'print': 'min ADE (' + N_p + 'independent prediction) extrap.',

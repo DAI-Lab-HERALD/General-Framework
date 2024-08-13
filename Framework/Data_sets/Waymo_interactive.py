@@ -168,8 +168,7 @@ class Waymo_interactive(data_set_template):
             # Get less memory intensive saving form
             if (img.dtype != np.unit8) and (img.max() <= 1.0): 
                 img *= 255.0
-                img = img.astype(np.uint8)
-            self.Images.Image.loc[map_key] = img       
+            self.Images.Image.loc[map_key] = img.astype(np.uint8)       
 
         # deletet cached data
         shutil.rmtree(cache_path)

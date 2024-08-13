@@ -89,6 +89,17 @@ class Lyft_interactive(data_set_template):
             ################################################################################
             
             map_api = MapAPI(Path(cache_path))
+
+            # Save images
+            for map_key in list(map_api.maps.keys()):
+                if not map_key in self.Images.index:
+                    img = map_api.maps[map_key].rasterize(px_per_meter)
+                    
+                    # Get less memory intensive saving form
+                    if (img.dtype != np.unit8) and (img.max() <= 1.0): 
+                        img *= 255.0
+                    self.Images.Image.loc[map_key] = img.astype(np.uint8)    
+
             # Go over scenes
             for i, scene in enumerate(dataset.scenes()):
                 # Count saved scenes
@@ -104,17 +115,6 @@ class Lyft_interactive(data_set_template):
                 map_id = scene.env_name + ':' + scene.location
                 map_api.get_map(map_id)
             
-                if map_id not in self.Images.index:
-                    img = map_api.maps[map_id].rasterize(px_per_meter)
-                    
-                    # Get less memory intensive saving form
-                    if (img.dtype != np.uint8) and (img.max() <= 1.0): 
-                        img *= 255.0
-                        img = img.astype(np.uint8)
-
-                    self.Images.loc[map_id] = [img, 1 / px_per_meter]
-            
-                
                 # Get map offset
                 min_x, min_y, _, _, _, _ = map_api.maps[map_id].extent 
                 
