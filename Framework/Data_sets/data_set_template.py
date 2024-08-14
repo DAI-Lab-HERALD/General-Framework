@@ -389,9 +389,9 @@ class data_set_template():
                         np.save(sceneGraph_file, sceneGraph_data)
                         
                         # reset self SceneGraphs
-                        sceneGrap_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
-                                             'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left', 'right']   
-                        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGrap_columns)), object), index = [], columns = sceneGrap_columns)
+                        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                                              'left_boundaries', 'right_boundaries', 'centerlines']   
+                        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
 
         if last:
             self.saved_last_orig_paths = True
