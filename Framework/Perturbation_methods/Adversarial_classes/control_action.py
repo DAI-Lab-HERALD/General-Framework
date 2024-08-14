@@ -3,7 +3,7 @@ import torch
 
 class Control_action:
     @staticmethod
-    def Dynamical_Model(positions_perturb, mask_data, dt, device):
+    def Inverse_Dynamical_Model(positions_perturb, mask_data, dt, device):
         """
         Computes the control actions, heading, and velocity of agents in a perturbed positions dataset.
 
@@ -93,10 +93,15 @@ class Control_action:
         
         # Compute heading using atan2 for all time steps
         theta = torch.atan2(dy, dx)
-        
+
         # Calculate the direction of movement
+        angle_diff = theta[:, :, 1:] - theta[:, :, :-1]
+        angle_diff = (angle_diff + torch.pi) % (2 * torch.pi) - torch.pi
+        cum_angle_diff = torch.cumsum(angle_diff, dim=2)
+
+        # Determine sign based on cumulative angle difference
         sign = torch.ones_like(theta)
-        sign[:, :, 1:] = torch.sign(torch.cos(theta[:, :, 1:] - theta[:, :, :-1]))
+        sign[:, :, 1:] = torch.where(torch.abs(cum_angle_diff) > torch.pi/2, -1.0, 1.0)
         
         # Calculate the velocity and heading
         velocity = sign * (torch.sqrt(dx**2 + dy**2) / dt)
@@ -126,7 +131,7 @@ class Control_action:
         return velocity
 
     @staticmethod
-    def Inverse_Dynamical_Model(control_action, positions_perturb, heading, velocity, dt, device):
+    def Dynamical_Model(control_action, positions_perturb, heading, velocity, dt, device):
         """
         Computes the updated positions of agents based on the dynamical model using control actions, initial postion, velocity, and heading.
 

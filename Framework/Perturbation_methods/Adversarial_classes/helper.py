@@ -344,7 +344,7 @@ class Helper:
 
         mask_data = Helper.compute_mask_values_tensor(data)
 
-        control_action, _, _ = Control_action.Dynamical_Model(
+        control_action, _, _ = Control_action.Inverse_Dynamical_Model(
             data, mask_data, dt, "cpu")
 
         control_action = Helper.detach_tensor(control_action)[0]
