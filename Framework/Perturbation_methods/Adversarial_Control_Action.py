@@ -330,8 +330,6 @@ class Adversarial_Control_Action(perturbation_template):
                 # Store the first prediction
                 Y_Pred_iter_1 = Y_Pred.detach()
 
-                Helper.check_conversion(X, adv_position)
-
             losses = self._loss_module(
                 X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
 
