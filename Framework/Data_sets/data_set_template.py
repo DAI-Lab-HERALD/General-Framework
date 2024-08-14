@@ -2790,54 +2790,47 @@ class data_set_template():
     
         **self.SceneGraphs** : pandas.DataFrame 
             A pandas DataFrame of dimensionality :math:`\{N_{samples} {\times} 15\}`.
-            The columns correspond to the following features:
-            1.  ctrs              - locations between the centerline segments in the global coordinate system
-                                    :math:`\{num_{nodes} {\times} 2\}`
-            2.  num_nodes         - number of nodes in the scene graph
-            3.  feats             - centerline segment offsets :math:`\{num_{nodes} {\times} 2\}`
-            4.  centerlines       - midpoint between the left and right boundary of the section of a lane segment in
-                                    the global coordinate system; 
-                                    array of arrays that represent the individual lane segments 
-                                    :math:`\{num_{nodes} {\times} 2\}`
-            5.  left_boundaries   - left boundary of the section of a lane segment in the global coordinate system; 
-                                    array of arrays that represent the individual lane segments
-                                    :math:`\{num_{nodes} {\times} 2\}`
-            6.  right_boundaries  - right boundary of the section of a lane segment in the global coordinate system; 
-                                    array of arrays that represent the individual lane segments
-                                    :math:`\{num_{nodes} {\times} 2\}`
-            7.  pre               - predecessor nodes of each node in the scene graph;
-                                    list of dictionaries where the length of the list is equal to the number of scales
-                                    for the neighbor dilation as per the implementation in LaneGCN;
-                                    each dictionary contains the keys 'u' and 'v' where 'u' is the *node index* of the 
-                                    source node and 'v' is the index of the target node giving edges pointing from a 
-                                    given source node 'u' to its predessesor
-            8.  suc               - successor nodes of each node in the scene graph;
-                                    list of dictionaries where the length of the list is equal to the number of scales
-                                    for the neighbor dilation as per the implementation in LaneGCN;
-                                    each dictionary contains the keys 'u' and 'v' where 'u' is the *node index* of the
-                                    source node and 'v' is the index of the target node giving edges pointing from a
-                                    given source node 'u' to its successor
-            9.  lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
-            10. pre_pairs         - array of lane_idcs pairs where the first value of the pair is the source *lane index*
-                                    and the second value is source's predecessor lane index
-            11. suc_pairs         - array of lane_idcs pairs where the first value of the pair is the source *lane index*
-                                    and the second value is source's successor lane index
-            12. left_pairs        - array of lane_idcs pairs where the first value of the pair is the source *lane index*
-                                    and the second value is source's left neighbour lane index
-            13. right_pairs       - array of lane_idcs pairs where the first value of the pair is the source *lane index*
-                                    and the second value is source's right neighbour lane index
-            14. left              - left neighbor nodes of each node in the scene graph;
-                                    array containing a dictionary with the keys 'u' and 'v' where 'u' is the *node index* 
-                                    of the source node and 'v' is the index of the target node giving edges pointing from a 
-                                    given source node 'u' to its left neighbor
-            15. right             - right neighbor nodes of each node in the scene graph;
-                                    array containing a dictionary with the keys 'u' and 'v' where 'u' is the *node index* 
-                                    of the source node and 'v' is the index of the target node giving edges pointing from a 
-                                    given source node 'u' to its right neighbor
+            The columns (order is not relevant) correspond to the following features:
+    
+            num_nodes         - number of nodes in the scene graph.
+    
+            lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+    
+            pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                first value of the pair is the source lane index and the second value is source's
+                                predecessor lane index.
+    
+            suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                first value of the pair is the source lane index and the second value is source's
+                                successor lane index.
+    
+            left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                first value of the pair is the source lane index and the second value is source's
+                                left neighbor lane index.
+    
+            right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                first value of the pair is the source lane index and the second value is source's
+                                right neighbor lane index.
+    
+            left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                of points needed to describe the left boundary in travel direction of the current lane.
+                                Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                     
+            right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                of points needed to describe the right boundary in travel direction of the current lane.
+    
+            centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                of points needed to describe the middle between the left and right boundary in travel
+                                direction of the current lane.
 
-            It is paramount that the indices of this DataFrame are equivalent to the unique values found in 
-            **self.Domain_old**['graph_id']. All of the information is represented within the original coordinate system.
-            Any transformations such as alignment with a desired axis should be performed within the model itself.
+        It is paramount that the indices of this DataFrame are equivalent to the unique values found in 
+        **self.Domain_old**['graph_id']. All of the positions in *left_boundaries*, *right_boundaries*, and *centerlines* are given
+        in the same original coordinate system used for the trajectory data in **self.Path**. Any transformations such as alignment
+        with a desired axis should be performed within the model itself.
     
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
