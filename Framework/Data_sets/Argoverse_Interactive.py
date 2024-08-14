@@ -131,18 +131,23 @@ class Argoverse_Interactive(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
-        self.SceneGraphs = []
 
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'Argoverse' + os.sep + 'data'
 
         graph_id = 0
         num_saved_sampled = self.get_number_of_saved_samples()
 
+        # Prepare the SceneGraph
+        self.map_split_save = True
+        sceneGraph_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
+                           'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left', 'right']  
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
+
         for _, name in tqdm(enumerate(os.listdir(file_path + '/train'))):
 
             self.num_samples += 1
+            data_path = file_path + '/train/' + name
             if self.num_samples > num_saved_sampled:
-                data_path = file_path + '/train/' + name
                 data_collection = read_argoverse2_data(data_path)
 
                 domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
@@ -180,16 +185,16 @@ class Argoverse_Interactive(data_set_template):
                 self.T.append(t)
                 self.Domain_old.append(domain)
 
+                # Get the scene graph
+                lanegraph = get_lane_graph(data_path)
+                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+                lanegraph_df.columns = [int(graph_id)]
+                self.SceneGraphs.loc[int(graph_id)] = lanegraph_df.iloc[:,0]
+
                 if self.num_samples % 5000 == 0:
                     self.check_created_paths_for_saving(force_save=True) 
                 else:
                     self.check_created_paths_for_saving(force_save=False)
-
-            # Get the scene graph
-            lanegraph = get_lane_graph(data_path)
-            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-            lanegraph_df.columns = [int(graph_id)]
-            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
             graph_id += 1
  
@@ -198,8 +203,8 @@ class Argoverse_Interactive(data_set_template):
         for idx, name in tqdm(enumerate(os.listdir(file_path + '/val'))):
 
             self.num_samples += 1
+            data_path = file_path + '/val/' + name
             if self.num_samples > num_saved_sampled:
-                data_path = file_path + '/val/' + name
                 data_collection = read_argoverse2_data(data_path)
 
                 domain = pd.Series(np.zeros(5, object), index = ['graph_id', 'focal_id', 'location', 'splitting', 'category'])
@@ -241,16 +246,16 @@ class Argoverse_Interactive(data_set_template):
                 self.T.append(t)
                 self.Domain_old.append(domain)
 
+                # Get the scene graph
+                lanegraph = get_lane_graph(data_path)
+                lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
+                lanegraph_df.columns = [int(graph_id)]
+                self.SceneGraphs.loc[int(graph_id)] = lanegraph_df.iloc[:,0]
+
                 if self.num_samples % 5000 == 0:
                     self.check_created_paths_for_saving(force_save=True) 
                 else:
                     self.check_created_paths_for_saving(force_save=False) 
-
-            # Get the scene graph
-            lanegraph = get_lane_graph(data_path)
-            lanegraph_df = pd.DataFrame.from_dict(lanegraph, orient='index', dtype=object)
-            lanegraph_df.columns = [int(graph_id)]
-            self.SceneGraphs.append(lanegraph_df.iloc[:,0])
 
             graph_id += 1
 

@@ -426,7 +426,7 @@ In the second method, we continuously update **self.Images** and/or **self.Scene
       image_columns = ['Image', 'Target_MeterPerPx']
       self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
     if self.includes_sceneGraphs():
-      sceneGrap_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
+      sceneGraph_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
                            'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left', 'right']  
       self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
 

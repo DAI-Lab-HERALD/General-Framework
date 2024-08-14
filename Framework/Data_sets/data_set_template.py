@@ -255,7 +255,6 @@ class data_set_template():
 
         if not hasattr(self, 'saved_last_orig_paths'):
             self.saved_last_orig_paths = False
-
         
         # Check if the four required attributes exist
         if not all([hasattr(self, attr) for attr in ['Path', 'Type_old', 'T', 'Domain_old']]):
@@ -267,7 +266,7 @@ class data_set_template():
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
         
         num_samples = len(self.Path)
-        if (np.mod(num_samples, 50) == 0) or (not hasattr(self, 'num_overall_timesteps_per_sample')):
+        if (np.mod(num_samples, 100) == 0) or (not hasattr(self, 'num_overall_timesteps_per_sample')):
         
             # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
             if not isinstance(self.Path, pd.core.frame.DataFrame):
