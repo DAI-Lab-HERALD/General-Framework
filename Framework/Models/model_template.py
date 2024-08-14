@@ -1292,7 +1292,9 @@ class model_template():
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
         C : np.ndarray
-            TODO: Say that this is optional
+            Optional return provided when return_categories = True. 
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+            category of agent observed, where the categories are dataset specific.
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -1303,7 +1305,42 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
         graph : np.ndarray
-            TODO: This is not optional
+            This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+            
+                num_nodes         - number of nodes in the scene graph.
+        
+                lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                    with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+        
+                pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    predecessor lane index.
+        
+                suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    successor lane index.
+        
+                left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    left neighbor lane index.
+        
+                right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    right neighbor lane index.
+        
+                left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the left boundary in travel direction of the current lane.
+                                    Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                         
+                right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the right boundary in travel direction of the current lane.
+        
+                centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the middle between the left and right boundary in travel
+                                    direction of the current lane.
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1489,7 +1526,9 @@ class model_template():
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
         C : np.ndarray
-            TODO: Say that this is optional
+            Optional return provided when return_categories = True. 
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+            category of agent observed, where the categories are dataset specific.
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -1500,7 +1539,42 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
             the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
         graph : np.ndarray
-            TODO: This is not optional
+            This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+            
+                num_nodes         - number of nodes in the scene graph.
+        
+                lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                    with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+        
+                pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    predecessor lane index.
+        
+                suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    successor lane index.
+        
+                left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    left neighbor lane index.
+        
+                right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    right neighbor lane index.
+        
+                left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the left boundary in travel direction of the current lane.
+                                    Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                         
+                right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the right boundary in travel direction of the current lane.
+        
+                centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the middle between the left and right boundary in travel
+                                    direction of the current lane.
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1844,7 +1918,9 @@ class model_template():
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
         C : np.ndarray
-            TODO: Say that this is optional
+            Optional return provided when return_categories = True. 
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+            category of agent observed, where the categories are dataset specific.
         agent_names : list
             This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
             agent.
