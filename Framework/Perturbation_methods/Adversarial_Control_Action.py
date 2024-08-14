@@ -244,7 +244,7 @@ class Adversarial_Control_Action(perturbation_template):
         # Do a assertion check on settings
         self._assertion_check()
 
-    def perturb_batch(self, X, Y, T, agent, Domain):
+    def perturb_batch(self, X, Y, T, agent, Domain, samples):
         '''
         This function takes a batch of data and generates perturbations.
 
@@ -293,27 +293,29 @@ class Adversarial_Control_Action(perturbation_template):
             X, Y, Domain)
 
         # Calculate initial control actions
-        control_action, heading, velocity = Control_action.Dynamical_Model(
+        control_action, heading, velocity = Control_action.Inverse_Dynamical_Model(
             positions_perturb=positions_perturb, mask_data=self.mask_data, dt=self.dt, device=self.pert_model.device)
 
         # Create a tensor for the perturbation
-        perturbation = torch.zeros_like(control_action)
-        perturbation.requires_grad = True
+        perturbation_storage = torch.zeros_like(control_action)
 
         # Store the loss for plot
         loss_store = []
 
-        # learning rate
-        alpha_acc = self.alpha_acc
-        alpha_curv = self.alpha_curv
+        alpha_acc = self.alpha_acc * torch.ones_like(control_action[:, :, :, 0])
+        alpha_curv = self.alpha_curv * torch.ones_like(control_action[:, :, :, 1])
 
         # Start the optimization of the adversarial attack
         for i in range(self.max_number_iterations):
+            # Create a tensor for the perturbation
+            perturbation = perturbation_storage.detach().clone()
+            perturbation.requires_grad = True
+
             # Reset gradients
             perturbation.grad = None
 
             # Calculate updated adversarial position
-            adv_position = Control_action.Inverse_Dynamical_Model(
+            adv_position = Control_action.Dynamical_Model(
                 control_action + perturbation, positions_perturb, heading, velocity, self.dt, device=self.pert_model.device)
 
             # Split the adversarial position back to X and Y
@@ -322,14 +324,13 @@ class Adversarial_Control_Action(perturbation_template):
 
             # Forward pass through the model
             Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
-                                                          num_steps=self.num_steps_predict, num_samples=self.num_samples)
+                                                        num_steps=self.num_steps_predict, num_samples=self.num_samples)
 
             if i == 0:
-                # check conversion
-                # Helper.check_conversion(adv_position, positions_perturb)
-
                 # Store the first prediction
                 Y_Pred_iter_1 = Y_Pred.detach()
+
+                Helper.check_conversion(X, adv_position)
 
             losses = self._loss_module(
                 X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
@@ -338,38 +339,75 @@ class Adversarial_Control_Action(perturbation_template):
             loss_store.append(losses.detach().cpu().numpy())
             print(losses)
 
-            # Calulate gradients
+            # Calculate gradients
             losses.sum().backward()
             grad = perturbation.grad
 
+            # copy learning rates
+            alpha_acc_iter = alpha_acc.clone()
+            alpha_curv_iter = alpha_curv.clone()
+
+            inner_loop_count = 0
+
             # Update Control inputs
-            with torch.no_grad():
-                perturbation[:, :, :, 0].subtract_(
-                    grad[:, :, :, 0], alpha=alpha_acc)
-                perturbation[:, :, :, 1].subtract_(
-                    grad[:, :, :, 1], alpha=alpha_curv)
-                perturbation[:, :, :X.shape[2], 0].clamp_(
-                    -self.epsilon_acc_relative, self.epsilon_acc_relative)
-                perturbation[:, :, :X.shape[2], 1].clamp_(
-                    -self.epsilon_curv_relative, self.epsilon_curv_relative)
+            while True:
+                inner_loop_count += 1
+                with torch.no_grad():
+                    perturbation_new = perturbation.clone()
+                    perturbation_new[:, :, :, 0].subtract_(
+                        grad[:, :, :, 0] * alpha_acc_iter)
+                    perturbation_new[:, :, :, 1].subtract_(
+                        grad[:, :, :, 1] * alpha_curv_iter)
+                    perturbation_new[:, :, :X.shape[2], 0].clamp_(
+                        -self.epsilon_acc_relative, self.epsilon_acc_relative)
+                    perturbation_new[:, :, :X.shape[2], 1].clamp_(
+                        -self.epsilon_curv_relative, self.epsilon_curv_relative)
 
-                control_action_perturbed = control_action + perturbation
-                control_action_perturbed[:, :, :, 0].clamp_(
-                    -self.epsilon_acc_absolute, self.epsilon_acc_absolute)
-                control_action_perturbed[:, :, :, 1].clamp_(
-                    -self.epsilon_curv_absolute, self.epsilon_curv_absolute)
+                    control_action_perturbed = control_action + perturbation_new
+                    control_action_perturbed[:, :, :, 0].clamp_(
+                        -self.epsilon_acc_absolute, self.epsilon_acc_absolute)
+                    control_action_perturbed[:, :, :, 1].clamp_(
+                        -self.epsilon_curv_absolute, self.epsilon_curv_absolute)
 
-                perturbation.copy_(control_action_perturbed - control_action)
+                    perturbation_new.copy_(control_action_perturbed - control_action)
 
-                # set perturbations of ego agent to zero
-                perturbation[:, 1:] = 0.0
+                    # set perturbations of ego agent to zero
+                    perturbation_new[:, 1:] = 0.0
+
+                # Calculate updated adversarial position
+                adv_position = Control_action.Dynamical_Model(
+                    control_action + perturbation_new, positions_perturb, heading, velocity, self.dt, device=self.pert_model.device)
+
+                # Split the adversarial position back to X and Y
+                X_new, Y_new = Helper.return_data(
+                    adv_position, X, Y, self.future_action_included)
+
+                # Forward pass through the model
+                Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
+                                                            num_steps=self.num_steps_predict, num_samples=self.num_samples)
+                
+                losses = self._loss_module(
+                    X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
+                
+                print(losses)
+
+                # Check for NaN values in losses
+                invalid_mask = torch.isnan(losses) | torch.isinf(losses)
+                if invalid_mask.any():
+                    # Half the learning rate only for samples with NaN losses
+                    alpha_acc_iter[invalid_mask] *= 0.5
+                    alpha_curv_iter[invalid_mask] *= 0.5
+                    continue  # Skip this iteration and try again with reduced learning rate for NaN samples
+                else:
+                    perturbation_storage = perturbation_new.detach().clone()
+                    break
 
             # Update the step size
             alpha_acc  *= self.gamma
             alpha_curv *= self.gamma
 
         # Calculate the final adversarial position
-        adv_position = Control_action.Inverse_Dynamical_Model(
+        adv_position = Control_action.Dynamical_Model(
             control_action + perturbation, positions_perturb, heading, velocity, self.dt, device=self.pert_model.device)
 
         # Split the adversarial position back to X and Y
