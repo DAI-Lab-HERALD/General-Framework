@@ -98,7 +98,8 @@ class Lyft_interactive(data_set_template):
                     # Get less memory intensive saving form
                     if (img.dtype != np.unit8) and (img.max() <= 1.0): 
                         img *= 255.0
-                    self.Images.Image.loc[map_key] = img.astype(np.uint8)    
+                           
+                    self.Images.loc[map_id] = [img.astype(np.uint8), 1 / px_per_meter] 
 
             # Go over scenes
             for i, scene in enumerate(dataset.scenes()):

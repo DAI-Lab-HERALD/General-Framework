@@ -264,6 +264,8 @@ The most important part of the dataset module is to provide access to training a
       The second column of the DataFrame, named 'Target_MeterPerPx', contains a scalar float value
       :math:`s` that gives us the scaling of the images in the unit :math:`m /` Px. 
 
+    TODO: Talk about scene graphs here
+
     '''
 
     ...
@@ -355,9 +357,9 @@ Another important aspect is the possibility to restart the extraction of the dat
     return num_samples
 ```
 
+In the end, for such cases, *self.create_path_samples()* should then should follow one of the two following specific structures. This mainly depends on the preference in regard to the saving of the images or scene graphs. 
 
-In the end, for such cases, *self.create_path_samples()* should then should follow this specific
-structure (in this examples, potential Images and Scene Graphs are ignored for simplicity).
+The first method is the following, in which the images (**self.Images**, see above) and scene graphs (**self.SceneGraphs**, see above) are always created for the full dataset, independently from the output of *self.get_number_of_saved_samples()*.
 
 ```
   def create_path_samples(self):
@@ -384,7 +386,7 @@ structure (in this examples, potential Images and Scene Graphs are ignored for s
         path[agent] = ... # A np.ndarray with shape = (len(t), len(self.path_data_info()))
         types[agent] = ... # A string, which is either 'V', 'P', 'M', or 'B' (see explantion above)
       
-      domain = ... # This is a pd.Series, with indices like 'image_id' or 'location'
+      domain = ... # This is a pd.Series, with indices like 'image_id', 'scene_id', or 'location'
 
       # Append data carriers
       self.Path.append(path)
@@ -398,12 +400,92 @@ structure (in this examples, potential Images and Scene Graphs are ignored for s
     # Save remaining samples
     self.check_created_paths_for_saving(last = True) 
 
-    # Create images/graphs
+    # Create self.Images and/or self.SceneGraphs 
+    if self.includes_images():
+      self.Images = ... # Do dataset specific stuff
+    if self.includes_sceneGraphs():
+      self.SceneGraphs = ... # Do dataset specific stuff
+    
+```
+
+In the second method, we continuously update **self.Images** and/or **self.SceneGraphs** during the for loop. Note that in this case, we set the attribute *self.map_split_save = True* before we start the for loop.
+
+
+```
+  def create_path_samples(self):
+    num_samples = ... # Number of total samples in scenario
+
+    self.Path       = []
+    self.Type_old   = []
+    self.T          = []
+    self.Domain_old = []
+
+    # Prepare self.Images or self.Scenegraphs
+    self.map_split_save = True
+    if self.includes_images():
+      image_columns = ['Image', 'Target_MeterPerPx']
+      self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
+    if self.includes_sceneGraphs():
+      sceneGrap_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
+                           'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left', 'right']  
+      self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
+
+    num_samples_saved = self.get_number_of_saved_samples() # Number of samples allready saved.
+
+    for i in range(num_samples_saved, num_samples):
+      ... # Do dataset specific stuff
+
+      agent_names = ... # This is a list of unique strings with the names of the agents involved
+      path = pd.Series(np.empty(len(agent_names), object), index = agent_names)
+      types = pd.Series(np.empty(len(agent_names), str), index = agent_names)
+      t = ... # A 1D np.ndarray with the timepoints of the recorded data 
+
+      for agent in agent_names:
+        ... # Do some agent specific stuff
+
+        path[agent] = ... # A np.ndarray with shape = (len(t), len(self.path_data_info()))
+        types[agent] = ... # A string, which is either 'V', 'P', 'M', or 'B' (see explantion above)
+      
+      domain = ... # This is a pd.Series, with indices like 'image_id', 'scene_id', or 'location'
+
+      if self.includes_images():
+        image_id = ... # Do dataset specific stuff
+        domain['image_id'] = image_id
+
+        if not image_id in self.Images.index:
+          image_array = ... # Do dataset specific stuff to create np.uint8 array
+          image_px_per_meter = ... # Do dataset specific stuff to create scalar resolution value
+
+          # Add to image
+          self.Images.loc[image_id] = [image_array, 1 / image_px_per_meter]
+
+
+
+      # Append data carriers
+      self.Path.append(path)
+      self.Type_old.append(types)
+      self.T.append(t)
+      self.Domain_old.append(domain)
+
+      if self.includes_sceneGraphs():
+        graph_id = ... # Do dataset specific stuff
+        domain['graph_id'] = graph_id 
+
+      if not graph_id in self.SceneGraphs.index:
+        scene_graph = ... # Do dataset specific stuff to create either a list with the length len(sceneGraph_columns)
+                          # or a pd.Series with the indices corresponding to sceneGraph_columns
+        self.SceneGraphs[graph_id] = scene_graph 
+
+      # Check for saving of partial datasets
+      self.check_created_paths_for_saving()
+
+    # Save remaining samples
+    self.check_created_paths_for_saving(last = True) 
+
+    # Create self.Images and/or self.SceneGraphs 
     ... # This needs to be done outside the for loop if num_samples_saved > 0
         # as otherwise, not all required image_id/scene_id might be saved
 ```
-
-
 
 
 ## Extracting classifiable behavior

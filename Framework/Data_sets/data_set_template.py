@@ -28,8 +28,6 @@ class data_set_template():
         # Clarify that no data has been loaded yet
         self.data_loaded = False
         self.raw_data_loaded = False
-        self.raw_images_loaded = False
-        self.raw_sceneGraphs_loaded = False
         self.prediction_time_set = False
 
         # Set the model used in transformation functions
@@ -188,6 +186,9 @@ class data_set_template():
                         raise ValueError("For a given path, the agent type must not be nan.")
         
     def check_image_samples(self, Images):
+        assert isinstance(Images, pd.core.frame.DataFrame), "Images should be saved in a pandas data frame"
+        assert 'Image' in Images.columns, "Images should have a column 'Image'"
+
         if not hasattr(Images, 'Target_MeterPerPx'):
             if not hasattr(self, 'Target_MeterPerPx'):
                 raise AttributeError('Images without Px to Meter scaling are useless.')
@@ -196,7 +197,8 @@ class data_set_template():
 
     
     def check_sceneGraph_samples(self, Images):
-        pass
+        assert isinstance(Images, pd.core.frame.DataFrame), "SceneGraphs should be saved in a pandas data frame"
+        # TODO: Implement this function
         
         
     def check_created_paths_for_saving(self, last = False, force_save = False):
@@ -341,10 +343,11 @@ class data_set_template():
                 
             if last:
                 # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
-                file_path_save = file_path_test + '_LLL.npy'
+                path_addition = '_LLL.npy'
             else:
-                file_path_save = file_path_test + '_' + str(file_number).zfill(3) + '.npy'
-                
+                path_addition = '_' + str(file_number).zfill(3) + '.npy'
+            file_path_save = file_path_test + path_addition   
+
             num_samples_check = len(Path_check)
             
             # Check the samples
@@ -364,6 +367,32 @@ class data_set_template():
             # Delete num_timesteps_per_sample
             if hasattr(self, 'num_overall_timesteps_per_sample'):
                 del self.num_overall_timesteps_per_sample
+
+            # Check if images need to be saved
+            if hasattr(self, 'map_split_save'):
+                if self.map_split_save:
+                    if self.includes_images():
+                        self.check_image_samples(self.Images)
+
+                        image_file = self.file_path + '--Images' + path_addition
+                        image_data = np.array([self.Images, 0], object)
+                        np.save(image_file, image_data)
+
+                        # reset self Images
+                        image_columns = ['Image', 'Target_MeterPerPx']
+                        self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
+                
+                    if self.includes_sceneGraphs(): 
+                        self.check_sceneGraph_samples(self.SceneGraphs)
+                        
+                        sceneGraph_file = self.file_path + '--SceneGraphs' + path_addition
+                        sceneGraph_data = np.array([self.SceneGraphs, 0], object)
+                        np.save(sceneGraph_file, sceneGraph_data)
+                        
+                        # reset self SceneGraphs
+                        sceneGrap_columns = ['ctrs', 'num_nodes', 'feats', 'centerlines', 'left_boundaries', 'right_boundaries', 'pre', 'suc', 
+                                             'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left', 'right']   
+                        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGrap_columns)), object), index = [], columns = sceneGrap_columns)
 
         if last:
             self.saved_last_orig_paths = True
@@ -422,11 +451,17 @@ class data_set_template():
         if not self.raw_data_loaded:
             # If extraction was successful, this file should exist.
             test_file = self.file_path + '--all_orig_paths_LLL.npy'
-            image_file = self.file_path + '--Images.npy'
-            sceneGraph_file = self.file_path + '--SceneGraphs.npy' 
+            image_file1 = self.file_path + '--Images.npy'
+            image_file2 = self.file_path + '--Images_LLL.npy'
+            sceneGraph_file1 = self.file_path + '--SceneGraphs.npy'
+            sceneGraph_file2 = self.file_path + '--SceneGraphs_LLL.npy'
+
+            # Check if map files would be available
+            image_available = os.path.isfile(image_file1) or os.path.isfile(image_file2)
+            sceneGraph_available = os.path.isfile(sceneGraph_file1) or os.path.isfile(sceneGraph_file2)
             
-            image_creation_unneeded = (not self.includes_images()) or os.path.isfile(image_file)
-            sceneGraph_creation_unneeded = (not self.includes_sceneGraphs()) or os.path.isfile(sceneGraph_file)
+            image_creation_unneeded = (not self.includes_images()) or image_available
+            sceneGraph_creation_unneeded = (not self.includes_sceneGraphs()) or sceneGraph_available
 
             if os.path.isfile(test_file) and image_creation_unneeded and sceneGraph_creation_unneeded:
                 # Get number of files used for saving
@@ -439,17 +474,6 @@ class data_set_template():
                     self.T,
                     self.Domain_old,
                     self.num_samples] = np.load(test_file, allow_pickle=True)
-                
-                # Load Images
-                if self.includes_images():
-                    [self.Images, _] = np.load(image_file, allow_pickle=True)
-                else:
-                    self.Images = None
-
-                if self.includes_sceneGraphs():
-                    [self.SceneGraphs, _] = np.load(sceneGraph_file, allow_pickle=True)
-                else:
-                    self.SceneGraphs = None 
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -495,68 +519,103 @@ class data_set_template():
                     
                     np.save(test_file, test_data)
                 
-                # Save the image data
-                if self.includes_images():
-                    if not hasattr(self, 'Images'):
-                        raise AttributeError('Images are missing.')
-                    
-                    self.check_image_samples(self.Images)
-
-                    image_data = np.array([self.Images, 0], object)
-                    np.save(image_file, image_data)
-                else:
-                    self.Images = None
-
+                # Check if data needs to be saved:
+                if not hasattr(self, 'map_split_save'):
+                    self.map_split_save = False
                 
-                # Save the sceneGraph data
-                if self.includes_sceneGraphs():
-                    if not hasattr(self, 'SceneGraphs'):
-                        raise AttributeError('SceneGraphs are missing.')
+                if not self.map_split_save:
+                    # Save the image data
+                    if self.includes_images():
+                        if not hasattr(self, 'Images'):
+                            raise AttributeError('Images are missing.')
+                        
+                        self.check_image_samples(self.Images)
+
+                        image_data = np.array([self.Images, 0], object)
+                        np.save(image_file1, image_data)
+
                     
-                    self.check_sceneGraph_samples(self.SceneGraphs)
-                    sceneGraph_data = np.array([self.SceneGraphs, 0], object)
-                    np.save(sceneGraph_file, sceneGraph_data)
-                else:
-                    self.SceneGraphs = None
+                    # Save the sceneGraph data
+                    if self.includes_sceneGraphs():
+                        if not hasattr(self, 'SceneGraphs'):
+                            raise AttributeError('SceneGraphs are missing.')
+                        
+                        self.check_sceneGraph_samples(self.SceneGraphs)
+                        sceneGraph_data = np.array([self.SceneGraphs, 0], object)
+                        np.save(sceneGraph_file1, sceneGraph_data)
                     
-                
             self.raw_data_loaded = True
-            self.raw_images_loaded = True
-            self.raw_sceneGraphs_loaded = True
             
-    def load_raw_images(self):
-        if not self.raw_images_loaded and self.includes_images():
-            image_file = self.file_path + '--Images.npy'
-            if os.path.isfile(image_file):
+    def load_raw_images(self, path_addition = None):
+        if self.includes_images():
+            if hasattr(self, 'path_addition_image_old'):
+                if self.path_addition_image_old == path_addition:
+                    return
+
+            image_file_test_1 = self.file_path + '--Images.npy'
+            image_file_test_2 = self.file_path + '--Images_LLL.npy'
+
+            # Check if they exist
+            test_1_exists = os.path.isfile(image_file_test_1)
+            test_2_exists = os.path.isfile(image_file_test_2)
+
+            # if both not exist, load raw data
+            if not (test_1_exists or test_2_exists):
+                self.load_raw_data()
+
+            # Recheck which file exists
+            test_1_exists = os.path.isfile(image_file_test_1)
+            test_2_exists = os.path.isfile(image_file_test_2)
+
+            # Now, one them should exist, but not both
+            assert test_1_exists != test_2_exists, "Only one of the two image files should exist."
+
+            if test_1_exists:
+                if not hasattr(self, 'Images'):
+                    [self.Images, _] = np.load(image_file_test_1, allow_pickle=True)
+            else:
+                assert path_addition is not None, "The path addition is needed to load the correct file."
+                image_file = self.file_path + '--Images' + path_addition + '.npy'
                 [self.Images, _] = np.load(image_file, allow_pickle=True)
-            else:
+
+            self.path_addition_image_old = path_addition
+
+
+    def load_raw_sceneGraphs(self, path_addition = None):
+        if self.includes_sceneGraphs():
+            if hasattr(self, 'path_addition_scenegraph_old'):
+                if self.path_addition_scenegraph_old == path_addition:
+                    return
+            
+            sceneGraph_file_test_1 = self.file_path + '--SceneGraphs.npy'
+            sceneGraph_file_test_2 = self.file_path + '--SceneGraphs_LLL.npy'
+
+            # Check if they exist
+            test_1_exists = os.path.isfile(sceneGraph_file_test_1)
+            test_2_exists = os.path.isfile(sceneGraph_file_test_2)
+
+            # if both not exist, load raw data
+            if not (test_1_exists or test_2_exists):
                 self.load_raw_data()
-                # save the results
-                image_data = np.array([self.Images, 0], object)
 
-                os.makedirs(os.path.dirname(image_file), exist_ok=True)
-                np.save(image_file, image_data)
+            # Recheck which file exists
+            test_1_exists = os.path.isfile(sceneGraph_file_test_1)
+            test_2_exists = os.path.isfile(sceneGraph_file_test_2)
 
-            self.raw_images_loaded = True
+            # Now, one them should exist, but not both
+            assert test_1_exists != test_2_exists, "Only one of the two sceneGraph files should exist."
 
-
-    def load_raw_sceneGraphs(self):
-        if not self.raw_sceneGraphs_loaded and self.includes_sceneGraphs():
-            sceneGraph_file = self.file_path + '--SceneGraphs.npy'
-            if os.path.isfile(sceneGraph_file):
+            if test_1_exists:
+                if not hasattr(self, 'SceneGraphs'):
+                    [self.SceneGraphs, _] = np.load(sceneGraph_file_test_1, allow_pickle=True)
+            else:
+                assert path_addition is not None, "The path addition is needed to load the correct file."
+                sceneGraph_file = self.file_path + '--SceneGraphs' + path_addition + '.npy'
                 [self.SceneGraphs, _] = np.load(sceneGraph_file, allow_pickle=True)
-            else:
-                self.load_raw_data()
-                # save the results
-                sceneGraph_data = np.array([self.SceneGraphs, 0], object)
-
-                os.makedirs(os.path.dirname(sceneGraph_file), exist_ok=True)
-                np.save(sceneGraph_file, sceneGraph_data)
-
-            self.raw_sceneGraphs_loaded = True
+            
+            self.path_addition_scenegraph_old = path_addition
 
     
-
     def reset(self):
         self.data_loaded = False
         self.path_models_trained = False
@@ -1942,7 +2001,6 @@ class data_set_template():
                 print('')
                 print('Load needed images:', flush = True)
             
-            self.load_raw_images()
             
             # Find the gpu
             if not torch.cuda.is_available():
@@ -1957,14 +2015,15 @@ class data_set_template():
             
                 device = torch.device(device)
             
+            # Get domain dividers
+            Locations = domain.image_id.to_numpy()
+            Path_additions = domain.path_addition.to_numpy()
+
+            # Preemptively load first data
+            self.load_raw_images('_000')
             if print_progress:
                 print('')
-                print('Get locations:', flush = True)
-            Locations = domain.image_id.to_numpy()
-            
-            if print_progress:
                 print('Extract rotation matrix', flush = True)
-            max_size = 2 * max(self.Images.Image.iloc[0].shape[:2]) + 1
             
             # check if images are float
             if self.Images.Image.iloc[0].max() > 1:
@@ -1974,10 +2033,10 @@ class data_set_template():
                 rgb = False
             
             if target_width is None:
-                target_width = max_size
+                target_width = 500
                 
             if target_height is None:
-                target_height = max_size
+                target_height = 500
                 
             if rot_angle is None:
                 first_stage = False
@@ -2018,76 +2077,68 @@ class data_set_template():
             
             Pos_old[...,1] *= -1
             # Pos_old: Position in goal coordinate system in Px.
-                
-            # CPU
-            if print_progress:
-                print('Reserved memory for rotated images.', flush = True)
-                cpu_total = self.total_memory / 2 ** 30
-                cpu_used  = get_used_memory() / 2 ** 30
-
-                print('CPU: {:5.2f}/{:5.2f} GB are available'.format(cpu_total - cpu_used, cpu_total), flush = True)
-
-                torch.cuda.empty_cache()
-                gpu_total         = torch.cuda.get_device_properties(device = device).total_memory  / 2 ** 30
-                gpu_reserved      = torch.cuda.memory_reserved(device = device) / 2 ** 30
-                gpu_max_reserved  = torch.cuda.max_memory_reserved(device = device) / 2 ** 30
-                torch.cuda.reset_peak_memory_stats()
-                print('GPU: {:5.2f}/{:5.2f} GB are available'.format(gpu_total - gpu_reserved, gpu_total), flush = True)
-                print('GPU previous min available: {:0.2f}'.format(gpu_total - gpu_max_reserved), flush = True)
-                print('', flush = True)
-                print('start rotating', flush = True)
 
             n = 250
             image_num = 0
-            for location in np.unique(Locations):
-                loc_indices = np.where(Locations == location)[0]
-                
-                loc_Image = torch.from_numpy(self.Images.Image.loc[location]).to(device = device)
-                loc_M2px  = float(self.Images.Target_MeterPerPx.loc[location])
-                for i in range(0, len(loc_indices), n):
-                    torch.cuda.empty_cache()
-                    Index_local = np.arange(i, min(i + n, len(loc_indices)))
-                    Index = loc_indices[Index_local]
+
+            # Go through unique path_additions
+            for path_addition in np.unique(Path_additions):
+                # Load the images
+                self.load_raw_images(path_addition)
+
+                # Get the corresponding index
+                path_indices = np.where(Path_additions == path_addition)[0]
+                Locations_unique_path = Locations[path_indices]
+
+                for location in np.unique(Locations_unique_path):
+                    loc_indices = np.where(Locations_unique_path == location)[0]
                     
-                    if print_progress:
-                        print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
-                            ' of ' + str(len(domain)) + ' total', flush = True)
-                    image_num = image_num + len(Index)
-                    Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
-                    
-                    # Position in goal coordinate system in Px.
-                    pos_old = Pos_old * loc_M2px
-                    
-                    # Get position in the coordinate system in self.paths
-                    if first_stage:
-                        pos_old = torch.matmul(pos_old, Rot_matrix[Index_torch].unsqueeze(1))
-                        pos_old = pos_old + center[Index_torch,:].unsqueeze(1).unsqueeze(1)
-                    
-                    # Get position im Image aligned coordinate system
-                    if second_stage:
-                        pos_old = torch.matmul(pos_old, Rot_matrix_old[Index_torch].unsqueeze(1))
-                        pos_old = pos_old + center_old[Index_torch,:].unsqueeze(1).unsqueeze(1)
-                    
-                    # Get pixel position in Image
-                    pos_old = pos_old / loc_M2px
-                    pos_old[...,1] *= -1
-                    
-                    torch.cuda.empty_cache()
-                    
-                    # Enforce grayscale here using the gpu
-                    if grayscale:
-                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = loc_Image.dtype, device = device)
-                    else:
-                        imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = loc_Image.dtype, device = device)
-                    
-                    
-                    imgs_rot = self._interpolate_image(imgs_rot, pos_old, loc_Image)
-                    
-                    if not rgb:
-                        imgs_rot = 255 * imgs_rot
+                    loc_Image = torch.from_numpy(self.Images.Image.loc[location]).to(device = device)
+                    loc_M2px  = float(self.Images.Target_MeterPerPx.loc[location])
+                    for i in range(0, len(loc_indices), n):
+                        torch.cuda.empty_cache()
+                        Index_local = np.arange(i, min(i + n, len(loc_indices)))
+                        Index = path_indices[loc_indices[Index_local]]
                         
-                    torch.cuda.empty_cache()
-                    Imgs_rot[Imgs_index[Index]] = imgs_rot.detach().cpu().numpy().astype('uint8')
+                        if print_progress:
+                            print('rotating images ' + str(image_num + 1) + ' to ' + str(image_num + len(Index)) + 
+                                  ' of ' + str(len(domain)) + ' total', flush = True)
+                        image_num = image_num + len(Index)
+                        Index_torch = torch.from_numpy(Index).to(device = device, dtype = torch.int64)
+                        
+                        # Position in goal coordinate system in Px.
+                        pos_old = Pos_old * loc_M2px
+                        
+                        # Get position in the coordinate system in self.paths
+                        if first_stage:
+                            pos_old = torch.matmul(pos_old, Rot_matrix[Index_torch].unsqueeze(1))
+                            pos_old = pos_old + center[Index_torch,:].unsqueeze(1).unsqueeze(1)
+                        
+                        # Get position im Image aligned coordinate system
+                        if second_stage:
+                            pos_old = torch.matmul(pos_old, Rot_matrix_old[Index_torch].unsqueeze(1))
+                            pos_old = pos_old + center_old[Index_torch,:].unsqueeze(1).unsqueeze(1)
+                        
+                        # Get pixel position in Image
+                        pos_old = pos_old / loc_M2px
+                        pos_old[...,1] *= -1
+                        
+                        torch.cuda.empty_cache()
+                        
+                        # Enforce grayscale here using the gpu
+                        if grayscale:
+                            imgs_rot = torch.zeros((len(Index), target_height, target_width, 1), dtype = loc_Image.dtype, device = device)
+                        else:
+                            imgs_rot = torch.zeros((len(Index), target_height, target_width, 3), dtype = loc_Image.dtype, device = device)
+                        
+                        
+                        imgs_rot = self._interpolate_image(imgs_rot, pos_old, loc_Image)
+                        
+                        if not rgb:
+                            imgs_rot = 255 * imgs_rot
+                            
+                        torch.cuda.empty_cache()
+                        Imgs_rot[Imgs_index[Index]] = imgs_rot.detach().cpu().numpy().astype('uint8')
         
             return Imgs_rot
         else:
@@ -2102,8 +2153,6 @@ class data_set_template():
             if print_progress:    
                 print('')
                 print('Load needed scene graphs:', flush = True)
-                
-            self.load_raw_sceneGraphs()
             
             # Find the gpu
             if not torch.cuda.is_available():
@@ -2118,30 +2167,39 @@ class data_set_template():
             
                 device = torch.device(device)
             
-            if print_progress:   
-                print('')
-                print('Get locations:', flush = True)
-            Locations = domain.graph_id.to_numpy()
+            # Get domain dividers
+            Locations = domain.image_id.to_numpy()
+            Path_additions = domain.path_addition.to_numpy()
             
             n = 250
             
             graph_num = 0
-            for location in np.unique(Locations):
-                loc_indices = np.where(Locations == location)[0]
-                
-                loc_Graph = self.SceneGraphs.loc[location]
-                for i in range(0, len(loc_indices), n):
-                    torch.cuda.empty_cache()
-                    Index_local = np.arange(i, min(i + n, len(loc_indices)))
-                    Index = loc_indices[Index_local]
+
+            # Go through unique path_additions
+            for path_addition in np.unique(Path_additions):
+                # Load the scene graphs
+                self.load_raw_sceneGraphs(path_addition)
+
+                # Get the corresponding index
+                path_indices = np.where(Path_additions == path_addition)[0]
+                Locations_unique_path = Locations[path_indices]
+
+                for location in np.unique(Locations_unique_path):
+                    loc_indices = np.where(Locations_unique_path == location)[0]
                     
-                    if print_progress:
-                        print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + len(Index)) + 
-                            ' of ' + str(len(domain)) + ' total', flush = True)
-                    graph_num = graph_num + len(Index)
+                    loc_Graph = self.SceneGraphs.loc[location]
+                    for i in range(0, len(loc_indices), n):
+                        torch.cuda.empty_cache()
+                        Index_local = np.arange(i, min(i + n, len(loc_indices)))
+                        Index = path_indices[loc_indices[Index_local]]
                         
-                    torch.cuda.empty_cache()
-                    SceneGraphs[Graphs_Index[Index]] = [loc_Graph]*len(Index)
+                        if print_progress:
+                            print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + len(Index)) + 
+                                ' of ' + str(len(domain)) + ' total', flush = True)
+                        graph_num = graph_num + len(Index)
+                            
+                        torch.cuda.empty_cache()
+                        SceneGraphs[Graphs_Index[Index]] = [loc_Graph]*len(Index)
         
             return SceneGraphs
         else:

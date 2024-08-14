@@ -390,7 +390,7 @@ class data_interface(object):
             data_set_files, file_index_local = self._extract_save_files_from_data_set(data_set)
             
             # Remove the addition from the domai
-            Domain_local = data_set.Domain.drop(['path_addition', 'data_addition'], axis = 1)
+            Domain_local = data_set.Domain.drop(['data_addition'], axis = 1)
             Domain_local['file_index'] = file_index_local + len(self.Files)
 
             # Save the data type index
