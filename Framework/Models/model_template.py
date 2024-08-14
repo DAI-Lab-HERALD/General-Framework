@@ -1704,27 +1704,16 @@ class model_template():
         # Check if graphs need to be extracted
         if hasattr(self, 'use_graph_batch_extraction') and (not ignore_graph) and self.has_graph:
 
-            Graph_needed = np.zeros(X.shape[:2], bool)
-            Graph_needed[:,0] = True
-
             if self.use_graph_batch_extraction:
-                domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Graph_needed]]
-                graph_needed, unsuccesful = self.extract_sceneGraphs(domain_needed)
+                domain = self.data_set.Domain.iloc[self.ID[ind_advance,0,0]]
+                graph, unsuccesful = self.extract_sceneGraphs(domain)
                 if unsuccesful:
                     MemoryError('Not enough memory to extract graphs even with batches.' )
             else:
                 # Find at which places in self.graph_needed_sample one can find ind_advance
                 use_graphs = np.in1d(self.graph_needed_sample, ind_advance)
 
-                graph_needed = self.graph[use_graphs]
-
-            Graph_needed = Graph_needed[:,:1]
-            
-            # Transfrom graph needed back according to Graph_needed into required format
-            graph = np.full((Graph_needed.shape), np.nan, dtype=object)
-
-            graph[Graph_needed] = graph_needed
-
+                graph = self.graph[use_graphs]
         else:
             graph = None
 

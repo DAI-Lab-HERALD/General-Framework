@@ -597,7 +597,7 @@ class data_interface(object):
     
     def return_batch_sceneGraphs(self, domain, print_progress = False):
         
-        Graphs = np.full(len(domain), np.nan, dtype = object)
+        SceneGraphs = np.full(len(domain), np.nan, dtype = object)
         
         for data_set in self.Datasets.values():
             if data_set.includes_sceneGraphs():
@@ -612,7 +612,7 @@ class data_interface(object):
                                 
                 Index_use = np.where(Use)[0]
                 SceneGraphs = data_set.return_batch_sceneGraphs(domain.iloc[Use],
-                                                    Graphs, Index_use, print_progress)
+                                                    SceneGraphs, Index_use, print_progress)
 
         return SceneGraphs
     
