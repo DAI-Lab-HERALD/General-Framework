@@ -2091,28 +2091,28 @@ class model_template():
                           the centerline segments
 
                 pre     - predecessor nodes of each node in the scene graph;
-                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
-                          dilation as per the implementation in LaneGCN. 
+                          list of dictionaries where the length of the list is equal to *len(scales) + 1*, as per the 
+                          implementation in LaneGCN. 
                           Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
                           'v' is the index of the target node giving edges pointing from a given source node 'u' to its
                           predecessor.
 
                 suc     - successor nodes of each node in the scene graph;
-                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
-                          dilation as per the implementation in LaneGCN. 
+                          list of dictionaries where the length of the list is equal to *len(scales) + 1*, as per the 
+                          implementation in LaneGCN. 
                           Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
                           'v' is the index of the target node giving edges pointing from a given source node 'u' to its
                           successor.
 
                 left    - left neighbor nodes of each node in the scene graph;
-                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
-                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
-                          its left neighbor.
+                          list with length 1 containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of 
+                          the source node and 'v' is the index of the target node giving edges pointing from a given source node 
+                          'u' to its left neighbor.
 
                 right   - right neighbor nodes of each node in the scene graph;
-                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
-                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
-                          its right neighbor.
+                          list with length 1 containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of 
+                          the source node and 'v' is the index of the target node giving edges pointing from a given source node 
+                          'u' to its right neighbor.
                                 
 
         
