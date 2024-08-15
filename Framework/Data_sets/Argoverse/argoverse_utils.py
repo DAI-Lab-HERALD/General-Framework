@@ -231,6 +231,10 @@ def get_lane_graph(file_path):
 
     graph = preprocess(graph, cross_dist, cross_angle)
 
+    # delete ctrs from graph
+    del graph['ctrs']
+    del graph['feats']
+
     return graph
 
 ### FROM LANE_GCN
@@ -246,7 +250,6 @@ def dilated_nbrs(nbr, num_nodes, num_scales):
         nbr = dict()
         coo = mat.tocoo()
         nbr['u'] = coo.row.astype(np.int64)
-        print(len(coo.row))
         nbr['v'] = coo.col.astype(np.int64)
         nbrs.append(nbr)
     return nbrs
