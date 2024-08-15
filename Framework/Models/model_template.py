@@ -2020,6 +2020,358 @@ class model_template():
                 return X, T, agent_names, D, dist_names, class_names, P, DT
             else:
                 return X, T, agent_names, D, dist_names, class_names
+            
+
+    
+    def add_node_connections(self, graph, scales = [2, 4, 8, 16, 32], cross_dist = 6, cross_angle = 0.5 * np.pi, device = 'cpu'):
+        '''
+        This function adds node connections to the graph. 
+        
+        graph : pandas.Series 
+            A pandas.Series representing the scene graph. It should contain the following entries:    
+        
+                num_nodes         - number of nodes in the scene graph.
+
+                lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                    with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+
+                pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    predecessor lane index.
+
+                suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    successor lane index.
+
+                left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    left neighbor lane index.
+
+                right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    right neighbor lane index.
+
+                left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the left boundary in travel direction of the current lane.
+                                    Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                        
+                right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the right boundary in travel direction of the current lane.
+
+                centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the middle between the left and right boundary in travel
+                                    direction of the current lane.
+
+        scales : list
+            A list of scales for neighbor dillation as per the implementation in LaneGCN. The scales should be strictly
+            monotonically increasing. The first element should be larger than 1.
+
+        cross_dist : float
+            The distance at which two nodes are considered to be connected in the cross direction.
+
+        cross_angle : float
+            The angle at which two nodes are considered to be connected in the cross direction.
+
+        device : str or torch.device
+            The device on which the data should be stored. It can be either 'cpu' or a torch.device object.
+
+
+        Returns
+        -------
+        graph : pandas.Series
+            The updated scene graph. The following entries are added to the graph:
+
+                ctrs    - array with shape :math:`\{num_{nodes} {\times} 2\}` where the entries represent locations between 
+                          the centerline segments
+
+                feats   - array with shape :math:`\{num_{nodes} {\times} 2\}` where the entries represent the offsets between
+                          the centerline segments
+
+                pre     - predecessor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                          dilation as per the implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          predecessor.
+
+                suc     - successor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                          dilation as per the implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          successor.
+
+                left    - left neighbor nodes of each node in the scene graph;
+                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                          its left neighbor.
+
+                right   - right neighbor nodes of each node in the scene graph;
+                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                          its right neighbor.
+                                
+
+        
+        '''
+        graph_indices = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left_boundaries', 'right_boundaries', 'centerlines']   
+
+        assert isinstance(graph, pd.Series)
+        assert np.in1d(graph_indices, graph.index).all()
+
+        # Check scales (shoud be sorted, and the first element should be larger than 1)
+        assert np.all(np.diff(scales) > 0)
+        assert scales[0] > 1
+
+
+        ##################################################################################
+        # Add node connections                                                           #
+        ##################################################################################
+
+        ctrs  = np.zeros((graph.num_nodes, 2), np.float32)
+        feats = np.zeros((graph.num_nodes, 2), np.float32)
+
+        node_idcs = []
+
+        unique_lane_segments = list(np.unique(graph.lane_idcs))
+        for lane_segment in unique_lane_segments:        
+            lane_ind = np.where(graph.lane_idcs == lane_segment)[0]
+            node_idcs.append(lane_ind)
+
+            centerline = graph.centerlines[lane_segment]
+
+            assert len(centerline) == len(lane_ind) + 1
+            ctrs[lane_ind]  = np.asarray((centerline[:-1] + centerline[1:]) * 0.5, np.float32)
+            feats[lane_ind] = np.asarray(centerline[1:] - centerline[:-1], np.float32)
+        
+        graph['ctrs'] = ctrs
+        graph['feats'] = feats
+
+        ##################################################################################
+        # Add predecessors and successors                                                #
+        ##################################################################################
+
+        # predecessors and successors of a lane
+        pre, suc = dict(), dict()
+        for key in ['u', 'v']:
+            pre[key], suc[key] = [], []
+
+        for i, lane_segment in enumerate(unique_lane_segments):
+            idcs = node_idcs[i]
+
+            # points to the predecessor
+            pre['u'] += list(idcs[1:])
+            pre['v'] += list(idcs[:-1])
+
+            # Get lane predecessores
+            lane_pre = graph.pre_pairs[graph.pre_pairs[:, 0] == lane_segment, 1]
+            for lane_segment_pre in lane_pre:
+                if lane_segment_pre in unique_lane_segments:
+                    idcs_pre = node_idcs[unique_lane_segments.index(lane_segment_pre)]
+                    pre['u'].append(idcs[0])
+                    pre['v'].append(idcs_pre[-1])
+
+            # points to the successor
+            suc['u'] += list(idcs[:-1])
+            suc['v'] += list(idcs[1:])
+
+            # Get lane successors
+            lane_suc = graph.suc_pairs[graph.suc_pairs[:, 0] == lane_segment, 1]
+            for lane_segment_suc in lane_suc:
+                if lane_segment_suc in unique_lane_segments:
+                    idcs_suc = node_idcs[unique_lane_segments.index(lane_segment_suc)]
+                    suc['u'].append(idcs[-1])
+                    suc['v'].append(idcs_suc[0])
+        
+        # we now compute lane-level features
+        graph['pre'] = [pre]
+        graph['suc'] = [suc]
+
+
+        # longitudinal connections
+        for key in ['pre', 'suc']:
+            # Transform to numpy arrays
+            for k2 in ['u', 'v']:
+                graph[key][0][k2] = np.asarray(graph[key][0][k2], np.int64)
+            
+            assert len(graph[key]) == 1
+            nbr = graph[key][0]
+
+            # create a sparse matrix
+            data = np.ones(len(nbr['u']), bool)
+            csr = sp.sparse.csr_matrix((data, (nbr['u'], nbr['v'])), shape=(graph.num_nodes, graph.num_nodes))
+
+            # prepare the output
+            mat = csr.copy()
+
+            current_scale = 1
+            for i, scale in enumerate(scales):
+                assert scale > current_scale, 'scales should be stricly monotonicly increasing.'
+                continue_squaring = scale / current_scale >= 2
+                while continue_squaring:
+                    mat = mat * mat
+                    current_scale *= 2
+                    continue_squaring = scale / current_scale >= 2
+                
+                # multiple the original matrix to this 
+                continue_multiplying = scale > current_scale
+                if continue_multiplying:
+                    mat = mat * csr
+                    current_scale += 1
+                    continue_multiplying = scale > current_scale
+
+                # Save matrix
+                nbr = dict()
+                coo = mat.tocoo()
+                nbr['u'] = coo.row.astype(np.int64)
+                # print(len(coo.row))
+                nbr['v'] = coo.col.astype(np.int64)
+                graph[key].append(nbr)
+
+
+
+        ##################################################################################
+        # Add left and right node connections                                            #
+        ##################################################################################
+        # like pre and sec, but for left and right nodes
+        left, right = dict(), dict()
+
+        # indexing starts from 0, makes sense
+        num_lanes = len(unique_lane_segments)
+
+        ctrs  = torch.from_numpy(ctrs).to(device = device)
+        feats = torch.from_numpy(feats).to(device = device)
+
+        # distances between all node centres
+        dist = torch.sqrt(((ctrs.unsqueeze(1) - ctrs.unsqueeze(0)) ** 2).sum(2))
+        
+        
+        # allows us to index through all pairs of lane nodes
+        # if num_nodes == 3: [0, 1, 2]
+        row_idcs = torch.arange(graph.num_nodes).to(dist.device)
+        # if num_nodes == 3: [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        hi = row_idcs.unsqueeze(1).repeat(1, graph.num_nodes).flatten()
+        # if num_nodes == 3: [0, 1, 2, 0, 1, 2, 0, 1, 2]
+        wi = row_idcs.unsqueeze(0).repeat(graph.num_nodes, 1).flatten()
+
+        # find possible left and right neighouring nodes
+        if cross_angle is not None:
+            # along lane
+            t_nodes = torch.atan2(feats[:, 1], feats[:, 0])
+
+            # cross lane
+            f2 = ctrs[wi] - ctrs[hi]
+
+            # Get the angle of the current node 
+            t1 = t_nodes[hi]
+            # Get the angle between all node center connection
+            t2 = torch.atan2(f2[:, 1], f2[:, 0])
+
+            # Get the difference in angle
+            dt = t2 - t1
+            
+            # Roll around angles
+            m = dt > 2 * np.pi
+            dt[m] = dt[m] - 2 * np.pi
+            m = dt < -2 * np.pi
+            dt[m] = dt[m] + 2 * np.pi
+            left_mask = torch.logical_and(dt > 0, dt < cross_angle).logical_not()
+            right_mask = torch.logical_and(dt < 0, dt > -cross_angle).logical_not()
+
+        # Get the current matrices for pre and suc
+        pre_suc_valid = False 
+        if len(graph['pre_pairs'].shape) == 2 and len(graph['suc_pairs'].shape) == 2:
+            pre = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            pre[graph['pre_pairs'][:, 0], graph['pre_pairs'][:, 1]] = 1
+            
+            suc = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            suc[graph['suc_pairs'][:, 0], graph['suc_pairs'][:, 1]] = 1
+            
+            pre_suc_valid = True
+
+        # find left lane nodes
+        if len(graph['left_pairs']) > 0 and pre_suc_valid:
+            # get lane segments that are either left, or the predecessor/successor of a left lane
+            mat = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            mat[graph['left_pairs'][:, 0], graph['left_pairs'][:, 1]] = 1
+            mat = (torch.matmul(mat, pre) + torch.matmul(mat, suc) + mat) > 0.5
+
+            # Get the nodes that do not belong to those lanes
+            mask = ~ mat[graph.lane_idcs[hi.cpu().numpy()], graph.lane_idcs[wi.cpu().numpy()]]
+
+            # Ignore the nodes that are too far away or not in the correct angle
+            left_dist = dist.clone()
+            left_dist[hi[mask], wi[mask]] = 1e6
+            if cross_angle is not None:
+                left_dist[hi[left_mask], wi[left_mask]] = 1e6
+
+            # Find the nodes whose nearest valid neighbor is close enough
+            min_dist, min_idcs = left_dist.min(1)
+            mask = min_dist < cross_dist
+            ui = row_idcs[mask]
+            vi = min_idcs[mask]
+
+            # Get the corresponding angles of the nodes
+            t1 = t_nodes[ui]
+            t2 = t_nodes[vi]
+
+            # Check if nodes are aligned enough
+            dt = torch.abs(t1 - t2)
+            m = dt > np.pi
+            dt[m] = torch.abs(dt[m] - 2 * np.pi)
+            m = dt < 0.25 * np.pi
+
+            left['u'] = ui[m].cpu().numpy().astype(np.int16)
+            left['v'] = vi[m].cpu().numpy().astype(np.int16)
+        else:
+            left['u'] = np.zeros(0, np.int16)
+            left['v'] = np.zeros(0, np.int16)
+
+        # find right lane nodes
+        if len(graph['right_pairs']) > 0 and pre_suc_valid:
+            # get lane segments that are either right, or the predecessor/successor of a right lane
+            mat = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            mat[graph['right_pairs'][:, 0], graph['right_pairs'][:, 1]] = 1
+            mat = (torch.matmul(mat, pre) + torch.matmul(mat, suc) + mat) > 0.5
+
+            # Get the nodes that do not belong to those lanes
+            mask = ~ mat[graph.lane_idcs[hi.cpu().numpy()], graph.lane_idcs[wi.cpu().numpy()]]
+
+            # Ignore the nodes that are too far away or not in the correct angle
+            right_dist = dist.clone()
+            right_dist[hi[mask], wi[mask]] = 1e6
+            if cross_angle is not None:
+                right_dist[hi[right_mask], wi[right_mask]] = 1e6
+
+            # Find the nodes whose nearest valid neighbor is close enough
+            min_dist, min_idcs = right_dist.min(1)
+            mask = min_dist < cross_dist
+            ui = row_idcs[mask]
+            vi = min_idcs[mask]
+
+            # Get the corresponding angles of the nodes
+            t1 = t_nodes[ui]
+            t2 = t_nodes[vi]
+
+            # Check if nodes are aligned enough
+            dt = torch.abs(t1 - t2)
+            m = dt > np.pi
+            dt[m] = torch.abs(dt[m] - 2 * np.pi)
+            m = dt < 0.25 * np.pi
+
+            right['u'] = ui[m].cpu().numpy().astype(np.int16)
+            right['v'] = vi[m].cpu().numpy().astype(np.int16)
+        else:
+            right['u'] = np.zeros(0, np.int16)
+            right['v'] = np.zeros(0, np.int16)
+
+        graph['left'] = [left]
+        graph['right'] = [right]
+
+        return graph
     
 
     def create_empty_output_path(self):
