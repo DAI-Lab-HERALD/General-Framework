@@ -329,10 +329,10 @@ class Adversarial_Control_Action(perturbation_template):
             if i == 0:
                 # Store the first prediction
                 Y_Pred_iter_1 = Y_Pred.detach()
-
+                
             losses = self._loss_module(
                 X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
-
+    
             # Store the loss for plot
             loss_store.append(losses.detach().cpu().numpy())
             print(losses)
@@ -392,6 +392,11 @@ class Adversarial_Control_Action(perturbation_template):
                 # Check for NaN values in losses
                 invalid_mask = torch.isnan(losses) | torch.isinf(losses)
                 if invalid_mask.any():
+                    # check if agent crashes replace tensor with zero tensor
+                    if inner_loop_count >= 20:
+                        perturbation_new[invalid_mask] = torch.zeros_like(perturbation_new[invalid_mask])
+                        perturbation_storage = perturbation_new.detach().clone()
+                        break
                     # Half the learning rate only for samples with NaN losses
                     alpha_acc_iter[invalid_mask] *= 0.5
                     alpha_curv_iter[invalid_mask] *= 0.5
