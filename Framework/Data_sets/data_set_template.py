@@ -2826,6 +2826,30 @@ class data_set_template():
                                 of points needed to describe the middle between the left and right boundary in travel
                                 direction of the current lane.
 
+            pre               - predecessor nodes of each node in the scene graph;
+                                list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                dilation as per the implementation in LaneGCN. 
+                                Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                predecessor.
+    
+            suc               - successor nodes of each node in the scene graph;
+                                list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                dilation as per the implementation in LaneGCN. 
+                                Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                successor.
+    
+            left              - left neighbor nodes of each node in the scene graph;
+                                list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                its left neighbor.
+    
+            right             - right neighbor nodes of each node in the scene graph;
+                                list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                its right neighbor.
+
         It is paramount that the indices of this DataFrame are equivalent to the unique values found in 
         **self.Domain_old**['graph_id']. All of the positions in *left_boundaries*, *right_boundaries*, and *centerlines* are given
         in the same original coordinate system used for the trajectory data in **self.Path**. Any transformations such as alignment
