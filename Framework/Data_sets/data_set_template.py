@@ -389,8 +389,7 @@ class data_set_template():
                         np.save(sceneGraph_file, sceneGraph_data)
                         
                         # reset self SceneGraphs
-                        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
-                                              'left_boundaries', 'right_boundaries', 'centerlines']   
+                        sceneGraph_columns = self.SceneGraphs.columns  
                         self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
 
         if last:
@@ -2167,7 +2166,7 @@ class data_set_template():
                 device = torch.device(device)
             
             # Get domain dividers
-            Locations = domain.image_id.to_numpy()
+            Locations = domain.graph_id.to_numpy()
             Path_additions = domain.path_addition.to_numpy()
             
             n = 250
