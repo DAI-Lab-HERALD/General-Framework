@@ -919,7 +919,7 @@ class data_interface(object):
                             Allowable = np.stack(use_recorded.to_numpy()[use_rec_index, use_rec_agent], 0).all(-1)
                             Recorded_agents[used_index[use_samples[use_rec_index]], agent_index[use_rec_agent]] = Allowable
                         
-                        used_2D = np.tile(used[:, np.newaxis], (1, len(agent_index)))
+                        used_2D = np.tile(used_index[:, np.newaxis], (1, len(agent_index)))
                         agent_index_2D = np.tile(agent_index[np.newaxis], (len(used), 1))
                         # Get correct type 
                         if self.agents_to_predict != 'all':
