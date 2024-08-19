@@ -1260,8 +1260,8 @@ class data_interface(object):
         Used_pred_subgroups = subgroups_inverse[Used_pred_samples]
 
         # Get the count of the subgroups, i.e., the number correponding to the n-th occurence of the subgroup
-        Used_pred_subgroups_df = pd.DataFrame(Used_pred_subgroups[:,np.newaxis], columns = ['Subgroups'])
-        Used_pred_subgroups_count = Used_pred_subgroups_df.groupby('Subgroups').cumcount().to_numpy()
+        Used_pred_subgroups_df = pd.DataFrame(subgroups_inverse[:,np.newaxis], columns = ['Subgroups'])
+        Used_pred_subgroups_count = Used_pred_subgroups_df.groupby('Subgroups').cumcount().to_numpy()[Used_pred_samples]
 
         # Find agents to be predicted first
         i_agent_sort = np.argsort(-Pred_agents_eval.astype(float), axis = 1)
