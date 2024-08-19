@@ -49,12 +49,12 @@ Here, the following notation is used:
     We can then define the following log likelihoods:
     - For marginal metrics, we have:
 
-      $`L_{i,j} = \ln \left( P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
-      $`\hat{L}_{i,j} = \ln \left( P_{KDE,i,j} \left(\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
+      $`L_{i,j} = \ln \left( P_{KDE,i,j} \left( \{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
+      $`\hat{L}_{i,j} = \ln \left( P_{KDE,i,j} \left( \{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
     - For joint metrics, we have:
-    
-      $`L_{i} = \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}}  \} \right)\right)`$
-      $`\hat{L}_{i} = \ln \left( P_{KDE,i} \left(\{\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}}  \} \right)\right)`$
+
+      $`L_{i} = \ln \left( P_{KDE,i} \left( \{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)`$
+      $`\hat{L}_{i} = \ln \left( P_{KDE,i} \left( \{\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)`$
 
 
 - For classification based metrics, the following notation is used:
