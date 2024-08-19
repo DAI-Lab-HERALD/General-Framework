@@ -299,8 +299,6 @@ class Loss:
             barrier_data (torch.Tensor): The barrier data tensor that aligns the input data.
             log_value (float): The logarithm base value for the barrier function.
             tar_agent (int): The index of the target agent.
-            prediction1 (bool): Whether the barrier data is a prediction.
-            prediction2 (bool): Whether the input data and barrier data is a prediction.
 
         Returns:
             torch.Tensor: The barrier log function value.
@@ -326,8 +324,6 @@ class Loss:
             barrier_data (torch.Tensor): The barrier data tensor that aligns the input data.
             log_value (float): The logarithm base value for the barrier function.
             tar_agent (int): The index of the target agent.
-            prediction1 (bool): Whether the barrier data is a prediction.
-            prediction2 (bool): Whether the input data and barrier data is a prediction.
 
         Returns:
             torch.Tensor: The barrier log function value.
@@ -343,7 +339,7 @@ class Loss:
         return torch.mean(barrier_log_new, dim=-1)
 
     @staticmethod
-    def barrier_log_function_Trajectory(distance_threshold, barrier_helper, input_data, barrier_data, log_value, tar_agent):
+    def barrier_log_function_Trajectory(distance_threshold, barrier_helper, input_data, barrier_data, log_value, tar_agent, remove_final):
         """
         Calculates the barrier log function based on the distance between adversarial positions and barrier data.
 
@@ -354,8 +350,7 @@ class Loss:
             barrier_data (torch.Tensor): The barrier data tensor that aligns the input data.
             log_value (float): The logarithm base value for the barrier function.
             tar_agent (int): The index of the target agent.
-            prediction1 (bool): Whether the barrier data is a prediction.
-            prediction2 (bool): Whether the input data and barrier data is a prediction.
+            remove_final (bool): Whether to remove the final time step from the barrier function.
 
         Returns:
             torch.Tensor: The barrier log function value.
@@ -383,6 +378,9 @@ class Loss:
         
         # Get minimum distance over all barrier lines
         distance = distance.min(dim=1).values # batch x nT_X
+
+        if remove_final:
+            distance = distance[:, :-1]
 
         # calculate the barrier function
         distance_threshold = torch.ones_like(distance) * distance_threshold
@@ -392,7 +390,7 @@ class Loss:
         return torch.mean(barrier_log_new, dim=-1)
     
     @staticmethod
-    def barrier_log_function_Trajectory_V2(distance_threshold, barrier_helper, input_data, barrier_data, log_value, tar_agent):
+    def barrier_log_function_Trajectory_V2(distance_threshold, barrier_helper, input_data, barrier_data, log_value, tar_agent, remove_final):
         """
         Calculates the barrier log function based on the distance between adversarial positions and barrier data.
 
@@ -403,8 +401,7 @@ class Loss:
             barrier_data (torch.Tensor): The barrier data tensor that aligns the input data.
             log_value (float): The logarithm base value for the barrier function.
             tar_agent (int): The index of the target agent.
-            prediction1 (bool): Whether the barrier data is a prediction.
-            prediction2 (bool): Whether the input data and barrier data is a prediction.
+            remove_final (bool): Whether to remove the final time step from the barrier function.
 
         Returns:
             torch.Tensor: The barrier log function value.
@@ -432,6 +429,9 @@ class Loss:
         
         # Get minimum distance over all barrier lines
         distance = distance.min(dim=1).values # batch x nT_X
+
+        if remove_final:
+            distance = distance[:, :-1]
 
         # calculate the barrier function
         distance_threshold = torch.ones_like(distance) * distance_threshold
@@ -701,7 +701,7 @@ class TrajectoryBarrierPast(BarrierFunctionPast):
         self.log_value = log_value
 
     def calculate_barrier(self, X_new, X, tar_agent):
-        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent, remove_final=False)
 
 
 class TrajectoryBarrierPastV2(BarrierFunctionPast):
@@ -712,7 +712,7 @@ class TrajectoryBarrierPastV2(BarrierFunctionPast):
         self.log_value = log_value
 
     def calculate_barrier(self, X_new, X, tar_agent):
-        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent, remove_final=False)
     
 
 class TrajectoryBarrierFuture(BarrierFunctionFuture):
@@ -745,7 +745,7 @@ class TimeTrajectoryBarrierPast(BarrierFunctionPast):
         self.log_value = log_value
 
     def calculate_barrier(self, X_new, X, tar_agent):
-        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent) - Loss.barrier_log_function_Time(self.distance_threshold, self.barrier_helper, X_new[:, :, -1, :].unsqueeze(2), X[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent, remove_final=True) - Loss.barrier_log_function_Time(self.distance_threshold, self.barrier_helper, X_new[:, :, -1, :].unsqueeze(2), X[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
 
 
 class TimeTrajectoryBarrierPastV2(BarrierFunctionPast):
@@ -756,7 +756,7 @@ class TimeTrajectoryBarrierPastV2(BarrierFunctionPast):
         self.log_value = log_value
 
     def calculate_barrier(self, X_new, X, tar_agent):
-        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent) - Loss.barrier_log_function_Time_V2(self.distance_threshold, self.barrier_helper, X_new[:, :, -1, :].unsqueeze(2), X[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, X_new, self.barrier_data, self.log_value, tar_agent, remove_final=True) - Loss.barrier_log_function_Time_V2(self.distance_threshold, self.barrier_helper, X_new[:, :, -1, :].unsqueeze(2), X[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
     
 
 class TimeTrajectoryBarrierFuture(BarrierFunctionFuture):
