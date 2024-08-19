@@ -19,13 +19,18 @@ class FDE_ML_joint(evaluation_template):
     where :math:`P_{KDE,i}`, a sample specific gaussian Kernel Density Estimate trained on all predictions :math:`p \in P`, returns the
     likelihood for trajectories predicted at timesteps :math:`T_{O,i}`. :math:`x` and :math:`y` are here the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
+
+    Here, the number of predictions :math:`|P|` can be set using the kwargs, under the key 'num_preds'. If not set, None is assumed.
     '''
-    
+    def set_default_kwargs(self):
+        if 'num_preds' not in self.metric_kwargs:
+            self.metric_kwargs['num_preds'] = None
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths()
+        Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths(self.metric_kwargs['num_preds'])
         Pred_agents = Pred_steps.any(-1) 
         
         _, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = True)
