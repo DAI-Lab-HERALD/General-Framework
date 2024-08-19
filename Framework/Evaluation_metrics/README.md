@@ -1,5 +1,5 @@
 # Existing evaluation metrics
-In the framework, the following metrics are currently implemented (notations below the table):
+In the framework, the following metrics are currently implemented (notations below the table, correct rendering of the table can be found [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/README.pdf)):
 | Metric | Input | Formula |
 | :------------ |:---------------| :----- |
 | [ADE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ADE_indep.py) | Trajectories | $${1\over{\vert P_{N_p} \vert\sum\limits_{i = 1}^{N_S} N_{A, i}}}\sum\limits_{i = 1}^{N_S}{1\over{N_{O,i} }}\sum\limits_{p \in P_{N_p}}\sum\limits_{t \in T_{O,i}}\sum\limits_{j = 1}^{N_{A,i}}\sqrt{D_{i,p,j}(t)}$$ |
@@ -42,25 +42,27 @@ Here, the following notation is used:
   - $T_{O,i}$: The output timesteps for trajectories, with length $N_{O,i}$.
   - $t$: Value of those timesteps.
   - $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
-  - $`\hat{x}_{i,p,j}(t)`$, $`\hat{y}_{i,p,j}(t)`$: Predicted positions of an agent.
+  - $\hat{x}_{i,p,j}(t)$, $\hat{y}_{i,p,j}(t)$: Predicted positions of an agent.
     We can then define the following shortcuts for squared distances:
-    $`D_{i,p,j}(t) = (x_{i,j}(t) - \hat{x}_{i,p,j}(t)) ^ 2 + (y_{i,j}(t) - \hat{y}_{i,p,j}(t)) ^ 2`$
+    $D_{i,p,j}(t) = (x_{i,j}(t) - \hat{x}_{i,p,j}(t)) ^ 2 + (y_{i,j}(t) - \hat{y}_{i,p,j}(t)) ^ 2$
   - $P_{KDE}$: A probability density function trained over predicted samples (from $P$, not $P_{N_p}). 
     We can then define the following log likelihoods:
     - For marginal metrics, we have:
 
-      $`L_{i,j} = \ln \left( P_{KDE,i,j} \left( \{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
-      $`\hat{L}_{i,p,j} = \ln \left( P_{KDE,i,j} \left( \{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
+      $L_{i,j} = \ln \left( P_{KDE,i,j} \left( \{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)$
+
+      $\hat{L}_{i,p,j} = \ln \left( P_{KDE,i,j} \left( \{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)$
     - For joint metrics, we have:
 
-      $`L_{i} = \ln \left( P_{KDE,i} \left( \{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)`$
-      $`\hat{L}_{i,p} = \ln \left( P_{KDE,i} \left( \{\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)`$
+      $L_{i} = \ln \left( P_{KDE,i} \left( \{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)$
+      
+      $\hat{L}_{i,p} = \ln \left( P_{KDE,i} \left( \{\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}\}  \} \right)\right)$
 
 
 - For classification based metrics, the following notation is used:
   - $N_{B}$: Number of potentially classifiable behaviors.
   - $k$: Index for those behaviors.
-  - $p_{i,k}$, $`\hat{p}_{i,k}`$ : The actual and predicted likelihood of behavior $k$ in smaple $i$.
+  - $p_{i,k}$, $\hat{p}_{i,k}$ : The actual and predicted likelihood of behavior $k$ in smaple $i$.
 
 # Adding a new evaluation metric to the framework
 
