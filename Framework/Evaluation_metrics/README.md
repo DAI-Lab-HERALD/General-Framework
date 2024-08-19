@@ -12,14 +12,16 @@ In the framework, the following metrics are currently implemented (notations bel
 | [FDE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/FDE_joint.py) | Trajectories | $`{1\over{\vert P \vert N_{S}}} \sum\limits_{i = 1}^{N_S}\sum\limits_{p \in P}  \sqrt{{1\over{N_{A,i}}} \sum\limits_{j = 1}^{N_{A,i}} \left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2}`$ |
 | [min FDE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/minFDE_indep.py) | Trajectories | $`{1\over{\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S} \sum\limits_{j = 1}^{N_{A,i}} \underset{p \in P}{\min} \sqrt{\left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2}`$ |
 | [min FDE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/minFDE_joint.py) | Trajectories | $`{1\over{N_{S}}} \sum\limits_{i = 1}^{N_S}\underset{p \in P}{\min}   \sqrt{{1\over{N_{A,i}}} \sum\limits_{j = 1}^{N_{A,i}} \left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2}`$ |
+| [Brier min FDE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Brier_minFDE_indep.py) | Trajectories | $`{1\over{\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S} \sum\limits_{j = 1}^{N_{A,i}} \underset{p \in P}{\min} \sqrt{\left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2}`$ |
+| [Brier min FDE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Brier_minFDE_joint.py) | Trajectories | $`{1\over{N_{S}}} \sum\limits_{i = 1}^{N_S}\underset{p \in P}{\min}   \sqrt{{1\over{N_{A,i}}} \sum\limits_{j = 1}^{N_{A,i}} \left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2}`$ |
 | [most likely FDE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/FDE_ML_indep.py) | Trajectories | $`{1 \over{\sum\limits_{i = 1}^{N_{S}} N_{A, i}}} \sum\limits_{i = 1}^{N_{S}}  \sum\limits_{j = 1}^{N_{A,i}}   \sqrt{\left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p^*_{i,j},j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p^*_{i,j},j} (\max T_{O,i}) \right)^2} `$, with $`p^*_{i,j} = \underset{p \in P}{arg \min} P_{KDE,i,j} \left(\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_O\} \right)`$ |
 | [most likely FDE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/FDE_ML_joint.py) | Trajectories | $`{1\over{ N_{S}}} \sum\limits_{i = 1}^{N_S}  \sqrt{{1\over{N_{A,i}}} \sum\limits_{j = 1}^{N_{A,i}} \left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p^*_{i},j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p^*_{i},j} (\max T_{O,i}) \right)^2}`$, with $`p^*_{i} = \underset{p \in P}{\text{arg} \min} P_{KDE,i} \left(\{\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_O\} \, \vert \; \forall \, j \} \right)`$ |
 | [NLL (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/KDE_NLL_indep.py) | Trajectories | $`- {1 \over{\sum\limits_{i = 1}^{N_{S}} N_{A, i}}}  \sum\limits_{i = 1}^{N_{S}}  \sum\limits_{j = 1}^{N_{A,i}} \ln \left( P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right) `$ |
 | [NLL (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/KDE_NLL_joint.py) | Trajectories | $`- {1 \over{N_{S}}}  \sum\limits_{i = 1}^{N_{S}} \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \} \right)\right) `$ |
 | [ECE (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ECE_traj_indep.py) | Trajectories | $`{1\over{201}} \sum\limits_{k = 0}^{200} \left\vert \left({1\over{\sum\limits_{i = 1}^{N_{S}} N_{A, i}}} \lvert \left\{i,j \, \vert \, {1\over{\vert P\vert}} \lvert \left\{ p \in P \, \vert \, \hat{L}_{i,p,j} > L_{i,j}\right\} \rvert > {k\over{200}}  \right\} \rvert \right) + {k\over{200}} - 1 \right\vert `$, with $`L_{i,j} = P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right) `$ and $` \hat{L}_{i,p,j} = P_{KDE,i,j} \left(\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right) `$ |
 | [ECE (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ECE_traj_joint.py) | Trajectories | $`{1\over{201}} \sum\limits_{k = 0}^{200} \left\vert \left({1\over{N_{S}}} \lvert \left\{i \, \vert \, {1\over{\vert P\vert}} \lvert \left\{ p \in P \, \vert \, \hat{L}_{i,p} > L_{i}\right\} \rvert > {k\over{200}}  \right\} \rvert \right) + {k\over{200}} - 1 \right\vert `$, with $`L_{i} = P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_O\} \, \vert \; \forall \, j \} \right)`$ and $` \hat{L}_{i,p} = P_{KDE,i} \left(\{\{\{\hat{x}_{i,p,j} (t), \hat{y}_{i,p,j} (t) \} \, \vert \; \forall\, t \in T_O\} \, \vert \; \forall \, j \} \right)`$ |
-| [Miss rate (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Miss_rate_indep.py) | Trajectories | $`{1\over{\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S} \sum\limits_{j = 1}^{N_{A,i}} \begin{cases} 1 & \sqrt{\left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p,j} (\max T_{O,i}) \right)^2} > 2 \forall p \in P \\ 0 & \text{otherwise} \end{cases}   `$ |
-| [Miss rate (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Miss_rate_joint.py) | Trajectories | $`{1\over{N_{S}}} \sum\limits_{i = 1}^{N_S} \underset{j \in \{1,..., N_{A,i} \}}{\max} \begin{cases} 1 & \sqrt{\left( x_{i,j}(\max T_{O,i}) - x_{pred,i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - y_{pred,i,p,j} (\max T_{O,i}) \right)^2} > 2 \forall p \in P \\ 0 & \text{otherwise} \end{cases}   `$ |
+| [Miss rate (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Miss_rate_indep.py) | Trajectories | $`{1\over{\sum\limits_{i = 1}^{N_S} N_{A, i}}} \sum\limits_{i = 1}^{N_S} \sum\limits_{j = 1}^{N_{A,i}} \begin{cases} 1 & \sqrt{\left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2} > 2 \forall p \in P \\ 0 & \text{otherwise} \end{cases}   `$ |
+| [Miss rate (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Miss_rate_joint.py) | Trajectories | $`{1\over{N_{S}}} \sum\limits_{i = 1}^{N_S} \underset{j \in \{1,..., N_{A,i} \}}{\max} \begin{cases} 1 & \sqrt{\left( x_{i,j}(\max T_{O,i}) - \hat{x}_{i,p,j} (\max T_{O,i}) \right)^2 + \left( y_{i,j}(\max T_{O,i}) - \hat{y}_{i,p,j} (\max T_{O,i}) \right)^2} > 2 \forall p \in P \\ 0 & \text{otherwise} \end{cases}   `$ |
 | [Collision rate (marginal)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Collision_rate_indep.py) | Trajectories | Needs to be rewritten, but should evaluate collision rate against GT of other agents |
 | [Collision rate (joint)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/Collision_rate_joint.py) | Trajectories | Needs to be rewritten, but should evaluate collision rate against predicted futures of other agents if available, otherwise against GT |
 | [Area under Curve (AUC)](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/AUC_ROC.py) | Classifications | $`{1 \over{N_{S}}} \sum\limits_{k} {\left(\sum\limits_{i = 1}^{N_{S}} r_{i,k} p_{i,k} \right) - {1\over{2}} N_k (N_k + 1)  \over {N_{S} - N_k }}`$, where likelihood rank $r_{i,k}$ fulfills $`r_{i_1,k} > r_{i_2,k} \Rightarrow {\hat{p}_{i_1,k} \over {\hat{p}_{i_1,k} + \underset{\widehat{k} \neq k}{\max} \hat{p}_{i_1,\widehat{k}}}} \geq {\hat{p}_{i_2,k} \over {\hat{p}_{i_2,k} + \underset{\widehat{k} \neq k}{\max} \hat{p}_{i_2,\widehat{k}}}}`$, with $`N_k = \sum\limits_{i = 1}^{N_{S}} p_{i,k}`$ |
@@ -31,19 +33,32 @@ In the framework, the following metrics are currently implemented (notations bel
 Here, the following notation is used:
 - $N_{S}$: Number of samples in the dataset.
 - $i$: Index for those samples.
-- $N_{A,i}$: The number of evaluated agents in each sample.
-- $j$: Index for those agents.
-- $P$: Number of predictions made for each agent in each sample.
-- $P_{N_p}$: A random subset of $P$ with $|P_{N_p}| = N_p$.
-- $p$: Index for those predictions.
-- $T_{O,i}$: The output timesteps for trajectories, with length $N_{O,i}$.
-- $t$: Value of those timesteps.
-- $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
-- $`\hat{x}_{i,p,j}(t)`$, $`\hat{y}_{i,p,j}(t)`$: Predicted positions of an agent.
-- $P_{KDE}$: A probability density function trained over $p \in P$. 
-- $N_{B}$: Number of potentially classifiable behaviors.
-- $k$: Index for those behaviors.
-- $p_{i,k}$, $`\hat{p}_{i,k}`$ : The actual and predicted likelihood of behavior $k$ in smaple $i$.
+- For trajectory based metrics, the following notation is used:
+  - $N_{A,i}$: The number of evaluated agents in each sample.
+  - $j$: Index for those agents.
+  - $P$: Number of predictions made for each agent in each sample.
+  - $P_{N_p}$: A random subset of $P$ with $|P_{N_p}| = N_p$.
+  - $p$: Index for those predictions.
+  - $T_{O,i}$: The output timesteps for trajectories, with length $N_{O,i}$.
+  - $t$: Value of those timesteps.
+  - $x_{i,j}(t)$, $y_{i,j}(t)$: Recorded positions of an agent.
+  - $`\hat{x}_{i,p,j}(t)`$, $`\hat{y}_{i,p,j}(t)`$: Predicted positions of an agent.
+    We can then define the following shortcuts for squared distances:
+    $`D_{i,p,j}(t) = (x_{i,j}(t) - \hat{x}_{i,p,j}(t)) ^ 2 + (y_{i,j}(t) - \hat{y}_{i,p,j}(t)) ^ 2`$
+  - $P_{KDE}$: A probability density function trained over $p \in P$ predicted samples. 
+    We can then define the following log likelihoods:
+    - For marginal metrics, we have:
+      $`L_{i,j} = \ln \left( P_{KDE,i,j} \left(\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
+      $`\hat{L}_{i,j} = \ln \left( P_{KDE,i,j} \left(\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \right)\right)`$
+    - For joint metrics, we have
+      $`L_{i} = \ln \left( P_{KDE,i} \left(\{\{\{x_{i,j} (t), y_{i,j} (t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}}  \} \right)\right)`$
+      $`\hat{L}_{i} = \ln \left( P_{KDE,i} \left(\{\{\{\hat{x}_{i,p,j}(t), \hat{y}_{i,p,j}(t) \} \, \vert \; \forall\, t \in T_{O,i}\} \, \vert \; \forall \, j \in \{1,...,N_{A,i}}  \} \right)\right)`$
+
+
+- For classification based metrics, the following notation is used:
+  - $N_{B}$: Number of potentially classifiable behaviors.
+  - $k$: Index for those behaviors.
+  - $p_{i,k}$, $`\hat{p}_{i,k}`$ : The actual and predicted likelihood of behavior $k$ in smaple $i$.
 
 # Adding a new evaluation metric to the framework
 
