@@ -308,6 +308,10 @@ The most important part of the dataset module is to provide access to training a
                             :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
                             of points needed to describe the middle between the left and right boundary in travel
                             direction of the current lane.
+        
+        lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                            where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                            entry is a boolean, which is true if the lane segment is part of an intersection.
 
         pre               - predecessor nodes of each node in the scene graph;
                             list of dictionaries where the length of the list is equal to the number of scales for the neighbor
@@ -499,7 +503,7 @@ In the second method, we continuously update **self.Images** and/or **self.Scene
       self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
     if self.includes_sceneGraphs():
       sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
-                            'left_boundaries', 'right_boundaries', 'centerlines']  
+                            'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
       self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
 
     num_samples_saved = self.get_number_of_saved_samples() # Number of samples allready saved.

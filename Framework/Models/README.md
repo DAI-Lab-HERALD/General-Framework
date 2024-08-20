@@ -265,7 +265,7 @@ To use the following helper functions, the following attributes have to be set i
 - **self.min_t_O_train** (int): This is the number of future timesteps that have to be observed so that a sample can be used for training.
 - **self.max_t_O_train** (int): This is the maximum number of future timesteps to be processed during training. While this will not lead to whole samples being discarded, for samples with more recorded future timesteps than **self.max_t_O_train**, these additional timesteps will not be used for training.
 - **self.predict_single_agent** (bool): This is *True* if the model is unable to make joint predictions and is only able to predict the future trajectory of one agent at a time. For joint prediction models, each scene is then given as a single sample, with a potentially unlimited number of agents, of which [multiple have to be predicted](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#set-the-experiment-hyperparameters) by the model. Meanwhile, for a model making single-agent predictions, each scene is split into multiple samples, wherein each sample has a different agent that has to be predicted, and its surrounding agents are given to the model. The number of surrounding agents is identical to the 'max_num_agents' - 1 given to the [Framework](https://github.com/julianschumann/General-Framework/blob/main/Framework/README.md#select-modules).
-- **self.can_use_graph** (bool):  This is true if the model is able to process graph based environment data (TODO: link to explanaton of the specifc graph setup used).
+- **self.can_use_graph** (bool):  This is true if the model is able to process graph based environment data.
 - **self.can_use_map** (bool):  This is true if the model is able to process image data. Only if this is the case, do the following three attributes have to be defined.
 - **self.target_width** (int): This is the width $W$ of the images to be extracted from the maps.
 - **self.target_height** (int): This is the height $H$ of the images to be extracted from the maps.
@@ -307,7 +307,9 @@ For a given sample, the extracted images are centered around the last observed p
       the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
       If an agent is not observed at all, the value will instead be '0'.
     C_train : np.ndarray
-      TODO: Say that this is optional
+      Optional return provided when return_categories = True. 
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+      category of agent observed, where the categories are dataset specific.
     img_train : np.ndarray
       This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
       It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values
@@ -319,7 +321,70 @@ For a given sample, the extracted images are centered around the last observed p
       indicate the resolution of the provided images in *m/Px*. If only black images are provided, this will be
       np.nan.
     graph : np.ndarray
-      TODO: This is not optional
+      This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+        num_nodes         - number of nodes in the scene graph.
+
+        lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                            with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+
+        pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            predecessor lane index.
+
+        suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            successor lane index.
+
+        left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            left neighbor lane index.
+
+        right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            right neighbor lane index.
+
+        left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the left boundary in travel direction of the current lane.
+                            Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                  
+        right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the right boundary in travel direction of the current lane.
+
+        centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the middle between the left and right boundary in travel
+                            direction of the current lane.
+
+        lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                            where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                            entry is a boolean, which is true if the lane segment is part of an intersection.
+
+        pre               - predecessor nodes of each node in the scene graph;
+                            list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                            dilation as per the implementation in LaneGCN. 
+                            Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                            'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                            predecessor.
+
+        suc               - successor nodes of each node in the scene graph;
+                            list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                            dilation as per the implementation in LaneGCN. 
+                            Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                            'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                            successor.
+
+        left              - left neighbor nodes of each node in the scene graph;
+                            list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                            node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                            its left neighbor.
+
+        right             - right neighbor nodes of each node in the scene graph;
+                            list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                            node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                            its right neighbor.
+
     Pred_agents_train : np.ndarray
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
       true if it is expected by the framework that a prediction will be made for the specific agent.
@@ -414,7 +479,9 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
     If an agent is not observed at all, the value will instead be '0'.
   C : np.ndarray
-    TODO: Say that this is optional
+    Optional return provided when return_categories = True. 
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+    category of agent observed, where the categories are dataset specific.
   img : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
     It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -425,7 +492,70 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
     the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
   graph : np.ndarray
-    TODO: This is not optional
+    This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+      num_nodes         - number of nodes in the scene graph.
+
+      lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                          with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+
+      pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                          first value of the pair is the source lane index and the second value is source's
+                          predecessor lane index.
+
+      suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                          first value of the pair is the source lane index and the second value is source's
+                          successor lane index.
+
+      left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                          first value of the pair is the source lane index and the second value is source's
+                          left neighbor lane index.
+
+      right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                          first value of the pair is the source lane index and the second value is source's
+                          right neighbor lane index.
+
+      left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                          :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                          of points needed to describe the left boundary in travel direction of the current lane.
+                          Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                
+      right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                          :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                          of points needed to describe the right boundary in travel direction of the current lane.
+
+      centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                          :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                          of points needed to describe the middle between the left and right boundary in travel
+                          direction of the current lane.
+
+      lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                          where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                          entry is a boolean, which is true if the lane segment is part of an intersection.
+
+      pre               - predecessor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                          dilation as per the implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          predecessor.
+
+      suc               - successor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                          dilation as per the implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          successor.
+
+      left              - left neighbor nodes of each node in the scene graph;
+                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                          its left neighbor.
+
+      right             - right neighbor nodes of each node in the scene graph;
+                          list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                          node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                          its right neighbor.
+                            
   Pred_agents : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean values and is
     true if it is expected by the framework that a prediction will be made for the specific agent.
@@ -522,7 +652,9 @@ def get_classification_data(self, train = True, return_categories = False):
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
   C : np.ndarray
-    TODO: Say that this is optional
+    Optional return provided when return_categories = True. 
+    This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+    category of agent observed, where the categories are dataset specific.
   agent_names : list
     This is a list of length :math:`N_{agents}`, where each string contains the name of a possible 
     agent.

@@ -1341,6 +1341,35 @@ class model_template():
                                     :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
                                     of points needed to describe the middle between the left and right boundary in travel
                                     direction of the current lane.
+        
+                lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                                    where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                                    entry is a boolean, which is true if the lane segment is part of an intersection.
+
+                pre               - predecessor nodes of each node in the scene graph;
+                                    list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                    dilation as per the implementation in LaneGCN. 
+                                    Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                    'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                    predecessor.
+        
+                suc               - successor nodes of each node in the scene graph;
+                                    list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                    dilation as per the implementation in LaneGCN. 
+                                    Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                    'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                    successor.
+        
+                left              - left neighbor nodes of each node in the scene graph;
+                                    list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                    node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                    its left neighbor.
+        
+                right             - right neighbor nodes of each node in the scene graph;
+                                    list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                    node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                    its right neighbor.
+
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -1575,6 +1604,35 @@ class model_template():
                                     :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
                                     of points needed to describe the middle between the left and right boundary in travel
                                     direction of the current lane.
+        
+                lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                                    where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                                    entry is a boolean, which is true if the lane segment is part of an intersection.
+
+                pre               - predecessor nodes of each node in the scene graph;
+                                    list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                    dilation as per the implementation in LaneGCN. 
+                                    Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                    'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                    predecessor.
+        
+                suc               - successor nodes of each node in the scene graph;
+                                    list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                    dilation as per the implementation in LaneGCN. 
+                                    Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                    'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                    successor.
+        
+                left              - left neighbor nodes of each node in the scene graph;
+                                    list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                    node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                    its left neighbor.
+        
+                right             - right neighbor nodes of each node in the scene graph;
+                                    list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                    node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                    its right neighbor.
+
         Pred_agents : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
             if it expected by the framework that a prediction will be made for the specific agent.
@@ -2064,6 +2122,10 @@ class model_template():
                                     :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
                                     of points needed to describe the middle between the left and right boundary in travel
                                     direction of the current lane.
+        
+                lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                                    where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                                    entry is a boolean, which is true if the lane segment is part of an intersection.
 
         scales : list
             A list of scales for neighbor dillation as per the implementation in LaneGCN. The scales should be strictly
@@ -2117,7 +2179,7 @@ class model_template():
 
         
         '''
-        graph_indices = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left_boundaries', 'right_boundaries', 'centerlines']   
+        graph_indices = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type']   
 
         assert isinstance(graph, pd.Series)
         assert np.in1d(graph_indices, graph.index).all()
