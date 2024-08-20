@@ -173,7 +173,7 @@ class Argoverse_Interactive(data_set_template):
 
                 assert 0 not in categories
 
-                categories.append(1)
+                categories.insert(0,1)
                 domain.category = pd.Series(categories, index = agent_types.index)
 
                 t = np.arange(0, 11, 0.1)
@@ -229,7 +229,7 @@ class Argoverse_Interactive(data_set_template):
 
                 assert 0 not in categories
 
-                categories.append(1)
+                categories.insert(0,1)
                 domain.category = pd.Series(categories, index = agent_types.index)
 
                 # path['tar'] = focal_track
