@@ -140,7 +140,7 @@ class Argoverse_Interactive(data_set_template):
         # Prepare the SceneGraph
         self.map_split_save = True
         sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
-                              'left_boundaries', 'right_boundaries', 'centerlines', 'pre', 'suc', 'left', 'right']   
+                              'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']   
         self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
 
         for _, name in tqdm(enumerate(os.listdir(file_path + '/train'))):

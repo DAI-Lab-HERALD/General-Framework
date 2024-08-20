@@ -72,3 +72,4 @@ processing.py
 .python-version
 
 
+*.parquet

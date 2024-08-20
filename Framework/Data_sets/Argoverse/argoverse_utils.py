@@ -106,11 +106,15 @@ def get_lane_graph(file_path):
 
     lane_ids, ctrs, feats = [], [], []
     centerlines, left_boundaries, right_boundaries = [], [], []
+    lane_type = []
     for lane_segment in static_map.vector_lane_segments.values():
         left_boundary = copy.deepcopy(lane_segment.left_lane_boundary.xyz[:, :2])
         right_boundary = copy.deepcopy(lane_segment.right_lane_boundary.xyz[:, :2])
         centerline, _ = compute_midpoint_line(left_boundary, right_boundary, min(10, max(left_boundary.shape[0], right_boundary.shape[0])))
-        centerline = copy.deepcopy(centerline)             
+        centerline = copy.deepcopy(centerline)       
+
+        # Get the lane marker types
+        lane_type.append((lane_segment.lane_type.value, lane_segment.is_intersection))
         
         # process lane centerline in same way as agent trajectories
         # centerline = np.matmul(data['rot'], (centerline - data['orig'].reshape(-1, 2)).T).T
@@ -218,6 +222,7 @@ def get_lane_graph(file_path):
     graph['suc_pairs'] = suc_pairs
     graph['left_pairs'] = left_pairs
     graph['right_pairs'] = right_pairs
+    graph['lane_type'] = lane_type
 
     for k1 in ['pre', 'suc']:
         for k2 in ['u', 'v']:
