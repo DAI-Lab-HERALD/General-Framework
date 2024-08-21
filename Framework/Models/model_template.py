@@ -2803,6 +2803,10 @@ class model_template():
         else:
             file_addon += 'wi_pov'
         kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
+
+        if not hasattr(self, 'exclude_ego_joint'):
+            self.excluded_ego_joint = None
+            
         if not ((self.excluded_ego_joint == exclude_ego) and hasattr(self, 'KDE_joint_data')):
             # Load kde data if it exists
             if os.path.exists(kde_file):
