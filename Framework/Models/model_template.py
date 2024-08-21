@@ -676,36 +676,37 @@ class model_template():
                 for i in range(num_outputs):
                     output_loaded[i + 1].loc[Index_loaded_file] = pred_results[i].loc[Index_loaded_file]
 
-            # Do some controls for certain data types
-            if pred_type == 'path_all_wi_pov':
-                out_path = output_loaded[1]
+            if len(Index_loaded) > 0:
+                # Do some controls for certain data types
+                if pred_type == 'path_all_wi_pov':
+                    out_path = output_loaded[1]
 
-                # Get scenario type
-                scenario_types = self.data_set.Domain.Scenario_type.loc[Index_loaded].to_numpy()
-                assert len(np.unique(scenario_types)) == 1, 'There are multiple scenario types in the same file.'
-                scenario_types = scenario_types[0]
+                    # Get scenario type
+                    scenario_types = self.data_set.Domain.Scenario_type.loc[Index_loaded].to_numpy()
+                    assert len(np.unique(scenario_types)) == 1, 'There are multiple scenario types in the same file.'
+                    scenario_types = scenario_types[0]
 
-                i_scenario = np.where(self.data_set.unique_scenarios == scenario_types)[0][0]
-                pov_agent = self.data_set.scenario_pov_agents[i_scenario]
+                    i_scenario = np.where(self.data_set.unique_scenarios == scenario_types)[0][0]
+                    pov_agent = self.data_set.scenario_pov_agents[i_scenario]
 
-                missing_new = out_path[pov_agent].isna()
-            
-            elif pred_type == 'class_and_time':
-                out_time = output_loaded[2]
-                missing_new = out_time.isna().any(axis = 1)
+                    missing_new = out_path[pov_agent].isna()
+                
+                elif pred_type == 'class_and_time':
+                    out_time = output_loaded[2]
+                    missing_new = out_time.isna().any(axis = 1)
 
-            else:
-                missing_new = np.zeros(len(Index_loaded), bool)
+                else:
+                    missing_new = np.zeros(len(Index_loaded), bool)
 
-            if missing_new.any():
-                # Overwrite indices
-                Index_missing = np.concatenate((Index_missing, Index_loaded[missing_new]))
-                Index_loaded  = Index_loaded[~missing_new]
+                if missing_new.any():
+                    # Overwrite indices
+                    Index_missing = np.concatenate((Index_missing, Index_loaded[missing_new]))
+                    Index_loaded  = Index_loaded[~missing_new]
 
-                # Adjust outptus
-                output_loaded[0] = Index_loaded
-                for i in range(1, len(output_loaded)):
-                    output_loaded[i] = output_loaded[i].loc[Index_loaded]   
+                    # Adjust outptus
+                    output_loaded[0] = Index_loaded
+                    for i in range(1, len(output_loaded)):
+                        output_loaded[i] = output_loaded[i].loc[Index_loaded]   
 
         return Index_loaded, Index_missing, output_loaded
 
