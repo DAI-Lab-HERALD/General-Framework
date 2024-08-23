@@ -921,14 +921,22 @@ class model_template():
                 T = np.zeros(self.data_set.Pred_agents_pred_all.shape, str)
                 for file_index in range(len(self.data_set.Files)):
                     used = self.data_set.Domain.file_index == file_index
+                    used_index = np.where(used)[0]
                     
                     agent_file = self.data_set.Files[file_index] + '_AM.npy'
                     T_local, _, _ = np.load(agent_file, allow_pickle = True)
+                    
+                    # Get agent inices
+                    agent_index = self.data_set.get_indices_1D(T_local.columns, self.data_set.Agents)
+                    
                     T_local = T_local.to_numpy().astype(str)
                     T_local[T_local == 'nan'] = '0'
                     
                     ind = self.data_set.Domain[used].Index_saved
-                    T[used] = T_local[ind]
+                    
+                    used_2d = np.tile(used_index[:,np.newaxis], (1, len(agent_index)))
+                    agent_2d = np.tile(agent_index[np.newaxis,:], (len(used_index), 1))
+                    T[used_2d, agent_2d] = T_local[ind]
                 
             self.Type = T.astype(str)
     
