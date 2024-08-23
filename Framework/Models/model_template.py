@@ -1129,7 +1129,7 @@ class model_template():
                 
                 useful_agents = np.array([0], int)
 
-                for file_index in range(len(self.Files)):
+                for file_index in range(len(self.data_set.Files)):
                     used = self.Domain.file_index == file_index
                     used_index = np.where(used)[0]
 
