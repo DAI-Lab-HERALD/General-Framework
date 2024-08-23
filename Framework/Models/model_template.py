@@ -927,7 +927,7 @@ class model_template():
                     T_local, _, _ = np.load(agent_file, allow_pickle = True)
                     
                     # Get agent inices
-                    agent_index = self.data_set.get_indices_1D(T_local.columns, self.data_set.Agents)
+                    agent_index = self.data_set.get_indices_1D(np.array(T_local.columns), self.data_set.Agents)
                     
                     T_local = T_local.to_numpy().astype(str)
                     T_local[T_local == 'nan'] = '0'
