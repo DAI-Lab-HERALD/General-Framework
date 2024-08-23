@@ -629,7 +629,7 @@ class model_template():
                 else:
                     self.Pred_locator = pd.DataFrame(np.empty((len(self.data_set.Domain), 2), object), 
                                                      columns = ['class', 'paths'], index = self.data_set.Domain.index)
-            # Pred locator is a dataframe of shape = (len(self.Domain), 2), with columns 'class' and 'paths'
+            # Pred locator is a dataframe of shape = (len(self.data_set.Domain), 2), with columns 'class' and 'paths'
             if pred_type[:4] == 'path':
                 pred_name = 'paths'
                 columns = self.data_set.Agents 
@@ -1130,7 +1130,7 @@ class model_template():
                 useful_agents = np.array([0], int)
 
                 for file_index in range(len(self.data_set.Files)):
-                    used = self.Domain.file_index == file_index
+                    used = self.data_set.Domain.file_index == file_index
                     used_index = np.where(used)[0]
 
                     Pred_agents_pred_local = self.Pred_agents_pred[used_index]
@@ -2031,7 +2031,7 @@ class model_template():
                 for i_dist in range(D.shape[1]):
                     D[i_sample, i_dist] = D_help[i_sample, i_dist].astype(np.float32)
         else:
-            D = np.zeros((len(self.Domain),0), dtype = np.float32)
+            D = np.zeros((len(self.data_set.Domain),0), dtype = np.float32)
         
         # Select current samples
         if train:
