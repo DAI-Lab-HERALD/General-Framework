@@ -1136,7 +1136,7 @@ class model_template():
                     Pred_agents_pred_local = self.data_set.Pred_agents_pred[used_index]
                     
                     # Get the original data
-                    self.data_set._extract_original_trajectories(file_index = 0)
+                    self.data_set._extract_original_trajectories(file_index)
                     
                     # Extract the required information
                     [N_O_data_local, N_O_pred_local, useful_agents_local, 
