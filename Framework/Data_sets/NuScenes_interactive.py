@@ -45,7 +45,7 @@ class NuScenes_interactive(data_set_template):
         return True 
     
     def includes_sceneGraphs(self = None):
-        return False
+        return True
     
     def set_scenario(self):
         self.scenario = scenario_none()
@@ -67,9 +67,15 @@ class NuScenes_interactive(data_set_template):
         # prepare file path
         file_path = self.path + os.sep + 'Data_sets' + os.sep + 'NuScenes' + os.sep + 'data'
 
+        # extract map data
         # Get images
         image_path_full = file_path + os.sep + 'maps' + os.sep + 'expansion' + os.sep 
         self.Images = pd.DataFrame(np.zeros((0, 2), object), columns = ['Image', 'Target_MeterPerPx'])
+
+        # Get scenegraphs
+        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                            'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
 
         map_files = os.listdir(image_path_full)
         map_files.reverse()
@@ -77,15 +83,25 @@ class NuScenes_interactive(data_set_template):
         
         for map_file in map_files:
             if map_file.endswith('.json'):
+                from nuscenes.map_expansion.map_api import NuScenesMap
+
                 map_name = map_file[:-5]
+
+                print(' Extracting map data for ' + map_name)
+
+                map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
+
+                # Get the sceneGraph
+                graph = self.getSceneGraphTrajdata(map_image)
+                self.SceneGraphs.loc[map_name] = graph
+
+                # Get the bit map 
                 test_file = file_path + os.sep + 'Map_arrays' + os.sep + map_name + '.npy'
                 if os.path.isfile(test_file):
                     bit_map = np.load(test_file, allow_pickle = True)
                 else:
-                    from nuscenes.map_expansion.map_api import NuScenesMap
                     from NuScenes.vec_map import VectorMap
                     from NuScenes.nusc_utils import populate_vector_map
-                    map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
                     vector_map = VectorMap('placeholder:' + map_name)
                     populate_vector_map(vector_map, map_image)
                     bit_map = vector_map.rasterize(resolution = px_per_meter)
@@ -99,6 +115,7 @@ class NuScenes_interactive(data_set_template):
                     np.save(test_file, bit_map)
                     
                 self.Images.loc[map_name] = [bit_map, 1 / px_per_meter]
+
 
         # Get trajectories
         data_obj = NuScenes(version = 'v1.0-trainval', dataroot = file_path, verbose = True)
@@ -230,11 +247,12 @@ class NuScenes_interactive(data_set_template):
             pred_points['tar'] = ego_predictions
             agent_types['tar'] = 'V'
 
-            domain = pd.Series(np.zeros(6, object), index = ['location', 'scene', 'image_id', 
+            domain = pd.Series(np.zeros(7, object), index = ['location', 'scene', 'image_id', 'graph_id',
                                                              'pred_agents', 'pred_timepoints', 'splitting'])
             domain.location = scene_location
             domain.scene = scene_name 
             domain.image_id = scene_location
+            domain.graph_id = scene_location
             domain.pred_agents = pred_points
             domain.pred_timepoints = t
             

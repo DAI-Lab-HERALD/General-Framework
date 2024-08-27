@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
+import scipy as sp
 import os
 import torch
 import psutil
+import networkx as nx
 from data_interface import data_interface
 from utils.memory_utils import get_total_memory, get_used_memory
 
@@ -618,6 +620,768 @@ class data_set_template():
         self.data_loaded = False
         self.path_models_trained = False
 
+
+    def getSceneGraphTrajdata(self, map_image):
+        from NuScenes.nusc_utils import extract_lane_and_edges, extract_lane_center, extract_area
+        from trajdata.maps.vec_map_elements import MapElementType, PedCrosswalk, PedWalkway, Polyline, RoadArea, RoadLane
+
+        # Prepare transformation of lane types to argoverse style
+        lane_user_dict = {'CAR': 'VEHICLE',
+                          'TRUCK': 'VEHICLE',
+                          'BUS': 'BUS'}
+
+        # Setting the map bounds.
+        min_x, min_y = map_image.explorer.canvas_min_x, map_image.explorer.canvas_min_y
+        image_bounds = np.array([[min_x, min_y]])
+
+        # prepare the sceneGraph
+        num_nodes = 0
+        lane_idcs = []
+        pre_pairs = np.zeros((0,2), int)
+        suc_pairs = np.zeros((0,2), int)
+
+        left_boundaries = []
+        right_boundaries = []
+        centerlines = []
+
+        lane_type = []
+
+        # Get list of tokens
+        map_lanes_tokens = {}
+        i_counter = 0
+        for i, lane in enumerate(map_image.lane):
+            map_lanes_tokens[lane["token"]] = i
+        i_counter += len(map_image.lane)
+
+        map_connector_tokens = {}
+        for i, lane in enumerate(map_image.lane_connector):
+            map_connector_tokens[lane["token"]] = i + i_counter
+        i_counter += len(map_image.lane_connector)
+
+        map_ped_area_tokens = {}
+        for i, lane in enumerate(map_image.ped_crossing):
+            map_ped_area_tokens[lane["token"]] = i + i_counter
+        i_counter += len(map_image.ped_crossing)
+
+        for i, lane in enumerate(map_image.walkway):
+            map_ped_area_tokens[lane["token"]] = i + i_counter
+        
+
+        # get lane end and start points
+        lane_start = np.zeros((0, 2))
+        lane_end = np.zeros((0, 2))
+        for lane_record in map_image.lane:
+            # Get points describing the lane aspect
+            center_pts, left_pts, right_pts = extract_lane_and_edges(map_image, lane_record)
+
+            # Subtract image bounds from positions
+            center_pts -= image_bounds
+            left_pts -= image_bounds
+            right_pts -= image_bounds
+
+            # Mirror along y axis
+            center_pts[:, 1] *= -1
+            left_pts[:, 1] *= -1
+            right_pts[:, 1] *= -1
+
+            # Append lane end and start points
+            lane_start = np.vstack((lane_start, center_pts[0]))
+            lane_end = np.vstack((lane_end, center_pts[-1]))
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Get lane id
+            lane_id = map_lanes_tokens[lane_record['token']]
+
+            # Append lane_idc
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (lanes are no intersections, compared to lane connectors)
+            lane_user = lane_record['lane_type']
+            lane_type.append((lane_user_dict[lane_user], False))
+
+            lane_record_token: str = lane_record["token"]
+
+            pre_suc_connections = map_image.connectivity[lane_record_token]
+            for pre in pre_suc_connections['incoming']:
+                if pre in map_lanes_tokens:
+                    pre_pairs = np.vstack((pre_pairs, [lane_id, map_lanes_tokens[pre]]))
+                elif pre in map_connector_tokens:
+                    pre_pairs = np.vstack((pre_pairs, [lane_id, map_connector_tokens[pre]]))
+                    suc_pairs = np.vstack((suc_pairs, [map_connector_tokens[pre], lane_id]))
+                else:
+                    pass
+            for suc in pre_suc_connections['outgoing']:
+                if suc in map_lanes_tokens:
+                    suc_pairs = np.vstack((suc_pairs, [lane_id, map_lanes_tokens[suc]]))
+                elif suc in map_connector_tokens:
+                    suc_pairs = np.vstack((suc_pairs, [lane_id, map_connector_tokens[suc]]))
+                    pre_pairs = np.vstack((pre_pairs, [map_connector_tokens[suc], lane_id]))
+                else:
+                    pass
+                
+            # TODO: Search for left and right neighbors
+        D_start_start = np.linalg.norm(lane_start[:, np.newaxis] - lane_start[np.newaxis], axis = -1)
+        D_end_end   = np.linalg.norm(lane_end[:, np.newaxis] - lane_end[np.newaxis], axis = -1)
+        D_start_end = np.linalg.norm(lane_start[:, np.newaxis] - lane_end[np.newaxis], axis = -1)
+        D_start_end = np.minimum(D_start_end, D_start_end.T)
+        D_start_end = np.minimum(D_start_end, 15)
+
+        # Get angle between norm vectors
+        Norm_vec = lane_end - lane_start
+        Angle = np.arctan2(Norm_vec[:, 1], Norm_vec[:, 0])
+        D_angle = np.abs(Angle[:, np.newaxis] - Angle[np.newaxis])
+
+        # Fit D_angle to be between -pi and pi
+        D_angle = np.mod(D_angle + np.pi, 2 * np.pi) - np.pi
+
+        potential_pair = (0<= D_angle) & (D_angle < np.pi / 18) & ((D_start_start < D_start_end) | (D_end_end < D_start_end))
+        # Set main diagonal to False
+        np.fill_diagonal(potential_pair, False)
+
+        # Find subgraphs in potential pairs
+        G = nx.Graph(potential_pair)
+        unconnected_subgraphs = list(nx.connected_components(G))
+        for subgraph in unconnected_subgraphs:
+            if len(subgraph) <= 2:
+                continue
+            subgraph = np.array(list(subgraph))
+
+            # Get the centerlines of the lanes
+            C = [centerlines[i] for i in subgraph]
+
+            # Get shortest distance between the lanes
+            D = np.zeros((len(subgraph), len(subgraph)))
+            for i in range(len(subgraph)):
+                for j in range(i + 1, len(subgraph)):
+                    D[i, j] = np.min(np.linalg.norm(C[i][:, np.newaxis] - C[j][np.newaxis], axis = -1))
+                    D[j, i] = D[i, j]
+            
+            max_D = np.max(D) + 1
+            np.fill_diagonal(D, max_D)
+
+            # Only allow connections, where the distance is either the shortest or second shortest distance
+            if len(subgraph) == 3:
+                D_div = np.sort(D, axis = -1)[:, [0]]
+                D_connect = D <= D_div
+                D_connect = D_connect | D_connect.T
+            else:
+                D_div = np.sort(D, axis = -1)[:, [1]]
+                D_connect = D <= D_div
+                D_connect = D_connect & D_connect.T
+
+            potential_pair[subgraph[:,np.newaxis], subgraph[np.newaxis]] = D_connect
+
+        np.fill_diagonal(potential_pair, False)
+
+        I1, I2 = np.where(potential_pair)
+
+        assert (potential_pair == potential_pair.T).all(), "Potential pair matrix should be symmetric."
+
+        # Get angle between lanes to see what is left pair and right pair
+        Dref = lane_end[I2] - lane_start[I1]
+        angle_ref = np.arctan2(Dref[:, 1], Dref[:, 0])
+        D_angle_ref = angle_ref - Angle[I1]
+        D_angle_ref = np.mod(D_angle_ref + np.pi, 2 * np.pi) - np.pi
+
+        # get pairs where I2 is left of I1
+        left_pair = D_angle_ref > 0
+
+        potential_pair = potential_pair.astype(float)
+        potential_pair[I1[left_pair], I2[left_pair]] = -1.0
+
+        assert potential_pair.sum() == 0, "All potential pairs should be used."
+        assert ((potential_pair + potential_pair.T) == 0).all(), "All potential pairs should be used."
+
+        I1_left = I1[left_pair]
+        I2_left = I2[left_pair]
+
+        I1_right = I1[~left_pair]
+        I2_right = I2[~left_pair]
+
+        # Sort right by I2
+        ind_sort = np.argsort(I2_right)
+        I1_right = I1_right[ind_sort]
+        I2_right = I2_right[ind_sort]
+
+        left_pairs = np.stack((I1_left, I2_left), axis = -1)
+        right_pairs = np.stack((I1_right, I2_right), axis = -1)
+
+
+
+        for lane_record in map_image.lane_connector:
+            # Unfortunately lane connectors in nuScenes have very simple exterior
+            # polygons which make extracting their edges quite difficult, so we
+            # only extract the centerline.
+            center_pts = extract_lane_center(map_image, lane_record)
+
+            # Subtract image bounds from positions
+            center_pts -= image_bounds
+
+            # Mirror along y axis
+            center_pts[:, 1] *= -1
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            right_boundaries.append(np.zeros((0, 2)))
+            left_boundaries.append(np.zeros((0, 2)))
+
+            # Get lane id
+            lane_id = map_connector_tokens[lane_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (lanes are no intersections, compared to lane connectors)
+            lane_type.append(('VEHICLE', True))
+
+        for ped_area_record in map_image.ped_crossing:
+            polygon_pts = extract_area(map_image, ped_area_record)
+            assert len(polygon_pts) >= 4, "Pedestrian crossing should have 4 points."
+
+            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Get lane id
+            lane_id = map_ped_area_tokens[ped_area_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (crosswalks are intersections, compared to walkways)
+            lane_type.append(('PEDESTRIAN', True))
+
+        for ped_area_record in map_image.walkway:
+            polygon_pts = extract_area(map_image, ped_area_record)
+            assert len(polygon_pts) >= 4, "Walkway should have at least 4 points."
+
+            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Get lane id
+            lane_id = map_ped_area_tokens[ped_area_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (walkways are no intersections, compared to crosswalks)
+            lane_type.append(('PEDESTRIAN', False))
+
+
+        graph = pd.Series([])
+        graph['num_nodes'] = num_nodes
+        graph['lane_idcs'] = np.array(lane_idcs)
+        graph['pre_pairs'] = pre_pairs
+        graph['suc_pairs'] = suc_pairs
+        graph['left_pairs'] = left_pairs
+        graph['right_pairs'] = right_pairs
+        graph['left_boundaries'] = left_boundaries
+        graph['right_boundaries'] = right_boundaries
+        graph['centerlines'] = centerlines
+        graph['lane_type'] = lane_type
+
+
+        # Get available gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        graph = self.add_node_connections(graph, device = device)
+
+        return graph
+    
+
+    def extract_polygon(self, polygon_pts, image_bounds):            
+        # Find line furthes away from each other
+        polygon_closed = np.concatenate((polygon_pts, polygon_pts[[0]]), 0)
+        center = 0.5 * (polygon_closed[:-1] + polygon_closed[1:])
+
+        # Get distances between the center points
+        D_center = np.linalg.norm(center[np.newaxis] - center[:, np.newaxis], axis = -1)
+
+        # Get the two points with the largest distance
+        max_idx = np.unravel_index(np.argmax(D_center), D_center.shape)
+
+        # Left is counting up along polygon_closed
+        left_start = max_idx[0] + 1
+        left_end = max_idx[1]
+        if left_end == 0:
+            left_end = len(polygon_closed) - 1
+
+        # Right is counting down along polygon_closed
+        right_start = max_idx[0]
+        if right_start == 0:
+            right_start = len(polygon_closed) - 1
+        right_end = max_idx[1] + 1
+
+        # Get the left and right points, interpolate between points two far away
+        left_pts = []
+        for i in range(left_start, left_end):
+            dist = np.linalg.norm(polygon_closed[i] - polygon_closed[i + 1], -1)
+            num_nodes_needed = max(2, np.ceil(dist).astype(int))
+
+            interpolator = np.linspace(0, 1, num_nodes_needed)[:-1, np.newaxis]
+
+            left_pts += list((1 - interpolator) * polygon_closed[[i]] + interpolator * polygon_closed[[i + 1]])
+        # Add last point
+        left_pts.append(polygon_closed[left_end])
+        left_pts = np.array(left_pts)
+
+        right_pts = []
+        for i in range(right_start, right_end, -1):
+            dist = np.linalg.norm(polygon_closed[i] - polygon_closed[i - 1], -1)
+            num_nodes_needed = max(2, np.ceil(dist).astype(int))
+
+            interpolator = np.linspace(0, 1, num_nodes_needed)[:-1, np.newaxis]
+
+            right_pts += list((1 - interpolator) * polygon_closed[[i]] + interpolator * polygon_closed[[i - 1]])
+        # Add last point
+        right_pts.append(polygon_closed[right_end])
+        right_pts = np.array(right_pts)
+
+        # Get center points
+        # Get distances between left and right points
+        D_left_right = np.linalg.norm(left_pts[np.newaxis] - right_pts[:, np.newaxis], axis = -1)
+
+        # Get the shorter side to be first dimension
+        if D_left_right.shape[0] > D_left_right.shape[1]:
+            D_left_right = D_left_right.T
+            row_pts = left_pts
+            col_pts = right_pts
+        else:
+            row_pts = right_pts
+            col_pts = left_pts
+        
+        # For each row, get the index with the closest distance
+        closest_idx = np.argmin(D_left_right, axis = 1)
+
+        # Get center points
+        center_pts = 0.5 * (row_pts + col_pts[closest_idx])
+
+        # Subtract image bounds from positions
+        center_pts -= image_bounds
+        left_pts -= image_bounds
+        right_pts -= image_bounds
+
+        # Mirror along y axis
+        center_pts[:, 1] *= -1
+        left_pts[:, 1] *= -1
+        right_pts[:, 1] *= -1
+
+        return center_pts, left_pts, right_pts
+
+
+    def add_node_connections(self, graph, scales = [2, 4, 8, 16, 32], cross_dist = 6, cross_angle = 0.5 * np.pi, device = 'cpu'):
+        '''
+        This function adds node connections to the graph. 
+        
+        graph : pandas.Series 
+            A pandas.Series representing the scene graph. It should contain the following entries:    
+        
+                num_nodes         - number of nodes in the scene graph.
+
+                lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                    with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+
+                pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    predecessor lane index.
+
+                suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    successor lane index.
+
+                left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    left neighbor lane index.
+
+                right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                    first value of the pair is the source lane index and the second value is source's
+                                    right neighbor lane index.
+
+                left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the left boundary in travel direction of the current lane.
+                                    Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                        
+                right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the right boundary in travel direction of the current lane.
+
+                centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                    :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                    of points needed to describe the middle between the left and right boundary in travel
+                                    direction of the current lane.
+        
+                lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                                    where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                                    entry is a boolean, which is true if the lane segment is part of an intersection.
+
+        scales : list
+            A list of scales for neighbor dillation as per the implementation in LaneGCN. The scales should be strictly
+            monotonically increasing. The first element should be larger than 1.
+
+        cross_dist : float
+            The distance at which two nodes are considered to be connected in the cross direction.
+
+        cross_angle : float
+            The angle at which two nodes are considered to be connected in the cross direction.
+
+        device : str or torch.device
+            The device on which the data should be stored. It can be either 'cpu' or a torch.device object.
+
+
+        Returns
+        -------
+        graph : pandas.Series
+            The updated scene graph. The following entries are added to the graph:
+
+                ctrs    - array with shape :math:`\{num_{nodes} {\times} 2\}` where the entries represent locations between 
+                          the centerline segments
+
+                feats   - array with shape :math:`\{num_{nodes} {\times} 2\}` where the entries represent the offsets between
+                          the centerline segments
+
+                pre     - predecessor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to *len(scales) + 1*, as per the 
+                          implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          predecessor.
+
+                suc     - successor nodes of each node in the scene graph;
+                          list of dictionaries where the length of the list is equal to *len(scales) + 1*, as per the 
+                          implementation in LaneGCN. 
+                          Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                          'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                          successor.
+
+                left    - left neighbor nodes of each node in the scene graph;
+                          list with length 1 containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of 
+                          the source node and 'v' is the index of the target node giving edges pointing from a given source node 
+                          'u' to its left neighbor.
+
+                right   - right neighbor nodes of each node in the scene graph;
+                          list with length 1 containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of 
+                          the source node and 'v' is the index of the target node giving edges pointing from a given source node 
+                          'u' to its right neighbor.
+                                
+
+        
+        '''
+        graph_indices = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs', 'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type']   
+
+        assert isinstance(graph, pd.Series)
+        assert np.in1d(graph_indices, graph.index).all()
+
+        # Check scales (shoud be sorted, and the first element should be larger than 1)
+        assert np.all(np.diff(scales) > 0)
+        assert scales[0] > 1
+
+
+        ##################################################################################
+        # Add node connections                                                           #
+        ##################################################################################
+
+        ctrs  = np.zeros((graph.num_nodes, 2), np.float32)
+        feats = np.zeros((graph.num_nodes, 2), np.float32)
+
+        node_idcs = []
+
+        unique_lane_segments = list(np.unique(graph.lane_idcs))
+        for lane_segment in unique_lane_segments:        
+            lane_ind = np.where(graph.lane_idcs == lane_segment)[0]
+            node_idcs.append(lane_ind)
+
+            centerline = graph.centerlines[lane_segment]
+
+            assert len(centerline) == len(lane_ind) + 1
+            ctrs[lane_ind]  = np.asarray((centerline[:-1] + centerline[1:]) * 0.5, np.float32)
+            feats[lane_ind] = np.asarray(centerline[1:] - centerline[:-1], np.float32)
+        
+        graph['ctrs'] = ctrs
+        graph['feats'] = feats
+
+        ##################################################################################
+        # Add predecessors and successors                                                #
+        ##################################################################################
+
+        # predecessors and successors of a lane
+        pre, suc = dict(), dict()
+        for key in ['u', 'v']:
+            pre[key], suc[key] = [], []
+
+        for i, lane_segment in enumerate(unique_lane_segments):
+            idcs = node_idcs[i]
+
+            # points to the predecessor
+            pre['u'] += list(idcs[1:])
+            pre['v'] += list(idcs[:-1])
+
+            # Get lane predecessores
+            lane_pre = graph.pre_pairs[graph.pre_pairs[:, 0] == lane_segment, 1]
+            for lane_segment_pre in lane_pre:
+                if lane_segment_pre in unique_lane_segments:
+                    idcs_pre = node_idcs[unique_lane_segments.index(lane_segment_pre)]
+                    pre['u'].append(idcs[0])
+                    pre['v'].append(idcs_pre[-1])
+
+            # points to the successor
+            suc['u'] += list(idcs[:-1])
+            suc['v'] += list(idcs[1:])
+
+            # Get lane successors
+            lane_suc = graph.suc_pairs[graph.suc_pairs[:, 0] == lane_segment, 1]
+            for lane_segment_suc in lane_suc:
+                if lane_segment_suc in unique_lane_segments:
+                    idcs_suc = node_idcs[unique_lane_segments.index(lane_segment_suc)]
+                    suc['u'].append(idcs[-1])
+                    suc['v'].append(idcs_suc[0])
+        
+        # we now compute lane-level features
+        graph['pre'] = [pre]
+        graph['suc'] = [suc]
+
+
+        # longitudinal connections
+        for key in ['pre', 'suc']:
+            # Transform to numpy arrays
+            for k2 in ['u', 'v']:
+                graph[key][0][k2] = np.asarray(graph[key][0][k2], np.int64)
+            
+            assert len(graph[key]) == 1
+            nbr = graph[key][0]
+
+            # create a sparse matrix
+            data = np.ones(len(nbr['u']), bool)
+            csr = sp.sparse.csr_matrix((data, (nbr['u'], nbr['v'])), shape=(graph.num_nodes, graph.num_nodes))
+
+            # prepare the output
+            mat = csr.copy()
+
+            current_scale = 1
+            for i, scale in enumerate(scales):
+                assert scale > current_scale, 'scales should be stricly monotonicly increasing.'
+                continue_squaring = scale / current_scale >= 2
+                while continue_squaring:
+                    mat = mat * mat
+                    current_scale *= 2
+                    continue_squaring = scale / current_scale >= 2
+                
+                # multiple the original matrix to this 
+                continue_multiplying = scale > current_scale
+                if continue_multiplying:
+                    mat = mat * csr
+                    current_scale += 1
+                    continue_multiplying = scale > current_scale
+
+                # Save matrix
+                nbr = dict()
+                coo = mat.tocoo()
+                nbr['u'] = coo.row.astype(np.int64)
+                # print(len(coo.row))
+                nbr['v'] = coo.col.astype(np.int64)
+                graph[key].append(nbr)
+
+
+
+        ##################################################################################
+        # Add left and right node connections                                            #
+        ##################################################################################
+        # like pre and sec, but for left and right nodes
+        left, right = dict(), dict()
+        left['u'], left['v'] = [], []
+        right['u'], right['v'] = [], []
+
+        # indexing starts from 0, makes sense
+        num_lanes = graph.lane_idcs.max() + 1
+
+        ctrs  = torch.from_numpy(ctrs).to(device = device)
+        feats = torch.from_numpy(feats).to(device = device)
+
+        # get the needed bytes for each column
+        # Get the number of boolean bytes
+        memory_per_row = graph.num_nodes * 40 # This is a rough upper bound
+
+        # Usable nodes_at once
+        available_gpu_memory = torch.cuda.get_device_properties(device = device).total_memory - torch.cuda.memory_reserved(device = device)
+        available_rows = available_gpu_memory // memory_per_row
+
+        # Check the first multiple of power two
+        available_rows = 2 ** np.floor(np.log2(available_rows)).astype(int)
+
+        # get angle along lane
+        t_nodes = torch.atan2(feats[:, 1], feats[:, 0])
+
+        # Get lane indices
+        lane_indices = torch.from_numpy(graph.lane_idcs).to(device = device)
+
+        # Get the current matrices for pre and suc
+        if len(graph['pre_pairs'].shape) == 2 and len(graph['suc_pairs'].shape) == 2:
+            pre = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            pre[graph['pre_pairs'][:, 0], graph['pre_pairs'][:, 1]] = 1
+            
+            suc = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+            suc[graph['suc_pairs'][:, 0], graph['suc_pairs'][:, 1]] = 1
+
+        # get lane segments that are left
+        mat_left = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+        mat_left[graph['left_pairs'][:, 0], graph['left_pairs'][:, 1]] = 1
+
+        # get lane segments that are right
+        mat_right = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
+        mat_right[graph['right_pairs'][:, 0], graph['right_pairs'][:, 1]] = 1
+
+        assert (mat_left == mat_right.T).all(), 'Left and right are not symmetric.'
+
+        # Extend mat left and mat right to include the predecessors and successors of the left and right lanes
+        mat_left = (torch.matmul(mat_left, pre) + torch.matmul(mat_left, suc) + mat_left) > 0.5
+        mat_right = (torch.matmul(mat_right, pre) + torch.matmul(mat_right, suc) + mat_right) > 0.5
+
+        # Prepare extraction to the available rows
+        mat_left = mat_left[:, lane_indices]
+        mat_right = mat_right[:, lane_indices]
+
+        row_splits = np.arange(0, graph.num_nodes, available_rows)
+
+        # Row: origin node (u), Columns: Candidate for left or right node (v)
+        for i_start in row_splits:
+            i_end = min(i_start + available_rows, graph.num_nodes)
+            # allows us to index through all pairs of lane nodes
+            row_idcs = torch.arange(i_start, i_end).to(device)
+
+            # find possible left and right neighouring nodes
+            if cross_angle is not None:
+                # cross lane
+                f2 = ctrs.unsqueeze(0) - ctrs[row_idcs].unsqueeze(1)
+
+                # Get the angle between all node center connection
+                f21 = f2[..., 1]
+                f20 = f2[..., 0]
+                del f2
+
+                dt = torch.atan2(f21, f20) 
+
+                del f21, f20
+
+                # Get the difference in angle
+                dt -= t_nodes[row_idcs].unsqueeze(1)
+
+                
+                # Roll around angles
+                dt -= (dt > (2 * np.pi)).float() * (2 * torch.pi)
+                dt += (dt < (-2 * np.pi)).float() * (2 * torch.pi)
+
+                left_mask = torch.logical_and(dt > 0, dt < cross_angle)
+                right_mask = torch.logical_and(dt < 0, dt > -cross_angle)
+
+                del dt
+
+            
+
+            # distances between all node centres
+            dist = ctrs[row_idcs].unsqueeze(1) - ctrs.unsqueeze(0)
+            dist = dist ** 2
+            dist = torch.sum(dist, dim=-1)
+            dist = torch.sqrt(dist)
+
+            # find left lane nodes
+            # Get the nodes that do not belong to those lanes
+            mask = mat_left[lane_indices[row_idcs]]
+            if mask.any() and ((cross_angle is None) or left_mask.any()):
+
+                # Ignore the nodes that are too far away or not in the correct angle
+                left_dist = dist.clone()
+                if cross_angle is not None:
+                    mask &= left_mask
+                    
+                mask = mask.logical_not()
+                left_dist[mask] = 1e6
+
+                # Find the nodes whose nearest valid neighbor is close enough
+                min_dist, min_idcs = left_dist.min(1)
+                del left_dist
+                mask = min_dist < cross_dist
+                ui = row_idcs[mask]
+                vi = min_idcs[mask]
+
+                # Get the corresponding angles of the nodes
+                t1 = t_nodes[ui]
+                t2 = t_nodes[vi] 
+
+                # Check if nodes are aligned enough
+                dt = torch.abs(t1 - t2)
+                m = dt > np.pi
+                dt[m] = torch.abs(dt[m] - 2 * np.pi)
+                m = dt < 0.25 * np.pi
+
+                left['u'] += list(ui[m].cpu().numpy())
+                left['v'] += list(vi[m].cpu().numpy())
+
+            # find right lane nodes
+            # Get the nodes that do not belong to those lanes
+            mask = mat_right[lane_indices[row_idcs]]
+            if mask.any() and ((cross_angle is None) or right_mask.any()):
+
+                # Ignore the nodes that are too far away or not in the correct angle
+                right_dist = dist.clone()
+                if cross_angle is not None:
+                    mask &= right_mask
+                    
+                mask = mask.logical_not()
+                right_dist[mask] = 1e6
+
+                # Find the nodes whose nearest valid neighbor is close enough
+                min_dist, min_idcs = right_dist.min(1)
+                del right_dist
+                mask = min_dist < cross_dist
+                ui = row_idcs[mask]
+                vi = min_idcs[mask]
+
+                # Get the corresponding angles of the nodes
+                t1 = t_nodes[ui]
+                t2 = t_nodes[vi]
+
+                # Check if nodes are aligned enough
+                dt = torch.abs(t1 - t2)
+                m = dt > np.pi
+                dt[m] = torch.abs(dt[m] - 2 * np.pi)
+                m = dt < 0.25 * np.pi
+
+                right['u'] += list(ui[m].cpu().numpy())
+                right['v'] += list(vi[m].cpu().numpy())
+
+        # Make to arrays
+        left['u'] = np.array(left['u'], np.int64)
+        left['v'] = np.array(left['v'], np.int64)
+        right['u'] = np.array(right['u'], np.int64)
+        right['v'] = np.array(right['v'], np.int64)
+
+        graph['left'] = [left]
+        graph['right'] = [right]
+
+        return graph
+    
+
+
+
+    ######################################################################################################
+    ######################################################################################################
+    ###                                                                                                ###
+    ###                                       Data Extraction                                          ###
+    ###                                                                                                ###
+    ######################################################################################################
+    ######################################################################################################
 
     def classify_path(self, path, t, domain):
         r'''
