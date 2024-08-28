@@ -453,6 +453,29 @@ class model_template():
                 os.makedirs(os.path.dirname(metric_file), exist_ok=True)
                 np.save(metric_file, save_data)
 
+    
+    def predict_Index(self, Index, model_type, file_index = 0):
+        # Get original data
+        self.data_set._extract_original_trajectories(file_index = file_index)
+
+        # Load potential output
+        Index_loaded, Index_missing, output_loaded = self.load_predictions(Index, model_type)
+
+        # Make predictions on the given testing set
+        output_missing = self.predict_actual(Index_missing) 
+
+        # Save predictions if allowed
+        if self.data_set.save_predictions:
+            self.save_made_predictions(Index_missing, output_missing, model_type)
+
+        # Combine loaded and made predictions
+        output = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_loaded, output_missing, model_type)
+        
+        return output
+
+        
+        
+    
 
     def predict_and_evaluate(self, Metric_dict_list, print_status_function):
         assert not self.depict_results, 'This model instance is only for loading results.'
@@ -479,23 +502,9 @@ class model_template():
             for i_index in range(len(Index_df)):
                 Index = Index_df.iloc[i_index].Index
                 file_index = Index_df.iloc[i_index].file_index
-
-                # Get original data
-                self.data_set._extract_original_trajectories(file_index = file_index)
-
-                # Load potential output
-                Index_loaded, Index_missing, output_loaded = self.load_predictions(Index, model_type)
-
-                # Make predictions on the given testing set
-                output_missing = self.predict_actual(Index_missing) 
-
-                # Save predictions if allowed
-                if self.data_set.save_predictions:
-                    self.save_made_predictions(Index_missing, output_missing, model_type)
-
-                # Combine loaded and made predictions
-                output = self.combine_loaded_and_made_predictions(Index, Index_loaded, Index_missing, output_loaded, output_missing, model_type)
-
+                
+                # Get output
+                output = self.predict_Index(Index, model_type, file_index)
 
                 for metric_type, Metric_list in Metric_type_dict.items():
                     output_trans = self.transform_output(output, Index, model_type, metric_type)
