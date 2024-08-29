@@ -2697,6 +2697,14 @@ class data_set_template():
         self.Agents = list(self.Agents[np.argsort(index)])
 
         self.data_loaded = True
+
+        if 'graph_id' in self.Domain.columns:
+            # For each unique graph_id, check how often they are repeated
+            unqiue_graph_id, counts = np.unique(self.Domain.graph_id, return_counts = True)
+
+            # Transfer to dictionary
+            self.graph_count = dict(zip(unqiue_graph_id, counts))
+
         # check if dataset is useful
         if len(self.Domain) < 100:
             return "there are not enough samples for a reasonable training process."
@@ -2906,34 +2914,132 @@ class data_set_template():
         else:
             return None
             
+
+
+    def cut_sceneGraph(self, loc_Graph, X, radius):
+        # loc_Graph: SceneGraph of the location, as a pandas dataframe
+        # X: Position of the agent in the location, with shape 2
+        # radius: Radius of the scene graph, in meters
+
+        X_a = X[np.newaxis, :]
+
+        # Get contents of loc_Graph
+        num_nodes = loc_Graph.num_nodes + 0 # Number of nodes in the scene graph
+        lane_idcs = loc_Graph.lane_idcs.copy() # Lane indices of the nodes
+        pre_pairs = loc_Graph.pre_pairs.copy() # Predecessor pairs of the nodes, array of shape (num_pre_pairs, 2)
+        suc_pairs = loc_Graph.suc_pairs.copy() # Successor pairs of the nodes, array of shape (num_suc_pairs, 2)
+        left_pairs = loc_Graph.left_pairs.copy() # Left pairs of the nodes, array of shape (num_left_pairs, 2)
+        right_pairs = loc_Graph.right_pairs.copy() # Right pairs of the nodes, array of shape (num_right_pairs, 2)
+        left_boundaries = np.array(loc_Graph.left_boundaries) # Left boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        right_boundaries = np.array(loc_Graph.right_boundaries) # Right boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        centerlines = np.array(loc_Graph.centerlines) # Centerlines of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        lane_type = np.array(loc_Graph.lane_type) # Lane type of the nodes, array of shape (num_segments)
+
+        # Go through segments
+        Keep_segments = np.zeros(len(left_boundaries), bool)
+        Keep_nodes = np.zeros(num_nodes, bool)
+
+        for lane_id in range(len(left_boundaries)):
+            left_pts = left_boundaries[lane_id]
+            right_pts = right_boundaries[lane_id]
+            centerline_pts = centerlines[lane_id]
+
+            # Get remaining points
+            dist_left = np.linalg.norm(left_pts - X_a, axis = 1)
+            dist_right = np.linalg.norm(right_pts - X_a, axis = 1)
+            dist_center = np.linalg.norm(centerline_pts - X_a, axis = 1)
+
+            # Check if the agent is within the radius
+            keep_left = dist_left < radius
+            keep_right = dist_right < radius
+            keep_center = dist_center < radius
+
+            # Check if the agent is to be kept at all
+            if not (keep_left.any() or keep_right.any() or keep_center.any()):
+                continue
+            else:
+                Keep_segments[lane_id] = True
+                left_boundaries[lane_id] = left_pts[keep_left]
+                right_boundaries[lane_id] = right_pts[keep_right]
+                centerlines[lane_id] = centerline_pts[keep_center]
+
+                # If the last center node is not kept, remove all successor connections
+                if not keep_center[-1]:
+                    # Get all successors
+                    suc_idcs = suc_pairs[:,0] == lane_id
+                    suc_pairs = suc_pairs[~suc_idcs]
+
+                # If the first center node is not kept, remove all predecessor connections
+                if not keep_center[0]:
+                    # Get all predecessors
+                    pre_idcs = pre_pairs[:,0] == lane_id
+                    pre_pairs = pre_pairs[~pre_idcs]
+
+            # Number nodes to keep
+            keep_num_nodes = keep_center.sum() - 1
+
+            # Get the current nodes for this lane
+            lane_nodes = lane_idcs == lane_id
+            keep_nodes_bool = np.zeros(lane_nodes.sum(), bool)
+            keep_nodes_bool[:keep_num_nodes] = True
+
+            # Get the nodes to keep 
+            Keep_nodes[lane_nodes] = keep_nodes_bool
+
+        # Only keep the current lane segments
+        lane_idcs = lane_idcs[Keep_nodes]
+        num_nodes = len(lane_idcs)
+
+        left_boundaries = left_boundaries[Keep_segments]
+        right_boundaries = right_boundaries[Keep_segments]
+        centerlines = centerlines[Keep_segments]
+
+        # Remove pairs that contain nodes that are not kept
+        keep_suc   = Keep_segments[suc_pairs].all(1)
+        keep_pre   = Keep_segments[pre_pairs].all(1)
+        keep_left  = Keep_segments[left_pairs].all(1)
+        keep_right = Keep_segments[right_pairs].all(1)
+
+        suc_pairs   = suc_pairs[keep_suc]
+        pre_pairs   = pre_pairs[keep_pre]
+        left_pairs  = left_pairs[keep_left]
+        right_pairs = right_pairs[keep_right]
+
+        # Assemble new graph
+
+        loc_Graph_cut = pd.DataFrame({
+                                        'num_nodes': num_nodes,
+                                        'lane_idcs': lane_idcs,
+                                        'pre_pairs': pre_pairs,
+                                        'suc_pairs': suc_pairs,
+                                        'left_pairs': left_pairs,
+                                        'right_pairs': right_pairs,
+                                        'left_boundaries': left_boundaries,
+                                        'right_boundaries': right_boundaries,
+                                        'centerlines': centerlines,
+                                        'lane_type': lane_type})
         
+        # Get the missing segments
+        loc_Graph_cut = self.add_node_connections(loc_Graph_cut)
+
+        return loc_Graph_cut
+
+
+
+
+
         
         
       
-    def return_batch_sceneGraphs(self, domain, SceneGraphs, Graphs_Index, print_progress=False): # TODO
+    def return_batch_sceneGraphs(self, domain, X, radius, SceneGraphs, Graphs_Index, print_progress=False):
         if self.includes_sceneGraphs():
             if print_progress:    
                 print('')
                 print('Load needed scene graphs:', flush = True)
             
-            # Find the gpu
-            if not torch.cuda.is_available():
-                device = torch.device('cpu')
-                raise TypeError("GPU cannot be detected")
-            else:
-                if torch.cuda.device_count() == 1:
-                    # If you have CUDA_VISIBLE_DEVICES set, which you should,
-                    # then this will prevent leftover flag arguments from
-                    # messing with the device allocation.
-                    device = 'cuda:0'
-            
-                device = torch.device(device)
-            
             # Get domain dividers
             Locations = domain.graph_id.to_numpy()
             Path_additions = domain.path_addition.to_numpy()
-            
-            n = 250
             
             graph_num = 0
 
@@ -2950,18 +3056,21 @@ class data_set_template():
                     loc_indices = np.where(Locations_unique_path == location)[0]
                     
                     loc_Graph = self.SceneGraphs.loc[location]
-                    for i in range(0, len(loc_indices), n):
-                        torch.cuda.empty_cache()
-                        Index_local = np.arange(i, min(i + n, len(loc_indices)))
-                        Index = path_indices[loc_indices[Index_local]]
-                        
-                        if print_progress:
-                            print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + len(Index)) + 
-                                ' of ' + str(len(domain)) + ' total', flush = True)
-                        graph_num = graph_num + len(Index)
+                    if (radius is None) or (self.graph_count[location] == 1):
+                        Index = path_indices[loc_indices]
+                        SceneGraphs[Graphs_Index[Index]] = [loc_Graph] * len(Index)
+                    else:
+                        for i in range(len(loc_indices)):
+                            index = path_indices[loc_indices[i]]
                             
-                        torch.cuda.empty_cache()
-                        SceneGraphs[Graphs_Index[Index]] = [loc_Graph]*len(Index)
+                            if print_progress and np.mod(graph_num, 100) == 0:
+                                print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + 1) + 
+                                    ' of ' + str(len(domain)) + ' total', flush = True)
+                                
+                            loc_Graph_cut = self.cut_sceneGraph(loc_Graph, X[index], radius)
+                            SceneGraphs[Graphs_Index[index]] = loc_Graph_cut
+
+                            graph_num += 1
         
             return SceneGraphs
         else:

@@ -897,13 +897,29 @@ class model_template():
         return img_needed, img_m_per_px_needed, use_batch_extraction
 
 
-    def extract_sceneGraphs(self, domain_needed):
+    def extract_sceneGraphs(self, domain_needed, X, radius = 100):
         '''
         Returns scene graph data 
         '''
-        # TODO: Implement pre-estimation of needed memory
-        graph_needed = self.data_set.return_batch_sceneGraphs(domain_needed)
-        use_batch_extraction = False
+        # try/except is unreliable, so we have to check preemtively if enough memory is available
+        available_memory = self.data_set.total_memory - get_used_memory()
+
+        # For a given scene graph with radius 100 m, assume 0.2 MB per sample, with this being quadratic to the radius
+        required_memory_per_sample = 200 * 2 ** 10 * (radius / 100) ** 2
+        required_memory = required_memory_per_sample * len(domain_needed)
+
+        if required_memory < 0.4 * available_memory:
+            # Get scene graphs
+            if hasattr(self, 'use_batch_extraction') and self.use_batch_extraction:
+                print_progress = False
+            else:
+                print_progress = True
+
+            graph_needed = self.data_set.return_batch_sceneGraphs(domain_needed, X, radius, print_progress)
+            use_batch_extraction = False
+        else:
+            graph_needed = None
+            use_batch_extraction = True
         
         return graph_needed, use_batch_extraction
 
@@ -1096,141 +1112,163 @@ class model_template():
         # self.target_height:
         # self.grayscale: Are image required in grayscale
         
-        if not self.extracted_data:
-            # Determine needed agents
-            self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
+        if self.extracted_data:
+            return
+        
+        # Determine needed agents
+        self.data_set._determine_pred_agents(pred_pov = self.get_output_type() == 'path_all_wi_pov')
 
-            # Load data type
-            self._extract_types()
+        # Load data type
+        self._extract_types()
+            
+        # Determine map use
+        use_map = self.has_map and self.can_use_map
+
+        # Determine graph use
+        use_graph = self.has_graph and self.can_use_graph 
+        
+        if self.data_set.data_in_one_piece:
+            # Extract old trajectories
+            self.data_set._extract_original_trajectories()
+            
+            [N_O_data, N_O_pred, useful_agents, 
+                Sample_id, Agent_id] = self.prepare_batch_generation_single(self.data_set.Pred_agents_pred)
+        
+        else:
+            num_data_samples, max_num_agents = self.data_set.Pred_agents_pred.shape
+
+            # Initialize the sample and agent id
+            Sample_id = np.zeros((0,max_num_agents), int)
+            Agent_id = np.zeros((0,max_num_agents), int)
+
+            # Initialize the number of future timesteps
+            N_O_data = np.zeros(num_data_samples, int)
+            N_O_pred = np.zeros(num_data_samples, int)
+            
+            useful_agents = np.array([0], int)
+
+            for file_index in range(len(self.data_set.Files)):
+                used = self.data_set.Domain.file_index == file_index
+                used_index = np.where(used)[0]
+
+                Pred_agents_pred_local = self.data_set.Pred_agents_pred[used_index]
                 
-            # Determine map use
-            use_map = self.has_map and self.can_use_map
-
-            # Determine graph use
-            use_graph = self.has_graph and self.can_use_graph 
-            
-            if self.data_set.data_in_one_piece:
-                # Extract old trajectories
-                self.data_set._extract_original_trajectories()
+                # Get the original data
+                self.data_set._extract_original_trajectories(file_index)
                 
-                [N_O_data, N_O_pred, useful_agents, 
-                 Sample_id, Agent_id] = self.prepare_batch_generation_single(self.data_set.Pred_agents_pred)
+                # Extract the required information
+                [N_O_data_local, N_O_pred_local, useful_agents_local, 
+                    Sample_id_local, Agent_id_local] = self.prepare_batch_generation_single(Pred_agents_pred_local)
+
+                # Adjust Sample_id_local to actual position in dataset
+                Sample_id_local = used_index[Sample_id_local]
+
+                # Fill in the global arrays
+                N_O_data[used_index] = N_O_data_local 
+                N_O_pred[used_index] = N_O_pred_local
+
+                # Add to global arrays
+                Sample_id = np.concatenate((Sample_id, Sample_id_local), 0)
+                Agent_id  = np.concatenate((Agent_id, Agent_id_local), 0)
+
+                # Track useful agents (this are index values)
+                useful_agents = np.unique(np.concatenate((useful_agents, useful_agents_local), 0))
+        
+        # remove nan columns
+        Sample_id = Sample_id[:,useful_agents]
+        Agent_id  = Agent_id[:,useful_agents]
+        
+        # Save ID
+        self.ID = np.stack((Sample_id, Agent_id), -1) 
+        
+        # Get pred agents
+        self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id] # num_samples, num_agents
+        if self.predict_single_agent:
+            # Only first agent gets predicted
+            self.Pred_agents[:,1:] = False
             
-            else:
-                num_data_samples, max_num_agents = self.data_set.Pred_agents_pred.shape
-
-                # Initialize the sample and agent id
-                Sample_id = np.zeros((0,max_num_agents), int)
-                Agent_id = np.zeros((0,max_num_agents), int)
-
-                # Initialize the number of future timesteps
-                N_O_data = np.zeros(num_data_samples, int)
-                N_O_pred = np.zeros(num_data_samples, int)
-                
-                useful_agents = np.array([0], int)
-
-                for file_index in range(len(self.data_set.Files)):
-                    used = self.data_set.Domain.file_index == file_index
-                    used_index = np.where(used)[0]
-
-                    Pred_agents_pred_local = self.data_set.Pred_agents_pred[used_index]
-                    
-                    # Get the original data
-                    self.data_set._extract_original_trajectories(file_index)
-                    
-                    # Extract the required information
-                    [N_O_data_local, N_O_pred_local, useful_agents_local, 
-                     Sample_id_local, Agent_id_local] = self.prepare_batch_generation_single(Pred_agents_pred_local)
-
-                    # Adjust Sample_id_local to actual position in dataset
-                    Sample_id_local = used_index[Sample_id_local]
-
-                    # Fill in the global arrays
-                    N_O_data[used_index] = N_O_data_local 
-                    N_O_pred[used_index] = N_O_pred_local
-
-                    # Add to global arrays
-                    Sample_id = np.concatenate((Sample_id, Sample_id_local), 0)
-                    Agent_id  = np.concatenate((Agent_id, Agent_id_local), 0)
-
-                    # Track useful agents (this are index values)
-                    useful_agents = np.unique(np.concatenate((useful_agents, useful_agents_local), 0))
+        # Get agent types
+        self.T = self.Type[Sample_id, Agent_id] # num_samples, num_agents
+        
+        # Get the number of future timesteps
+        self.N_O_pred = N_O_pred[Sample_id[:,0]]
+        self.N_O_data = N_O_data[Sample_id[:,0]]
+        
+        if self.data_set.data_in_one_piece:
+            # Get trajectory data
+            self.Data_index, self.Data_index_mask = self.get_orig_data_index(Sample_id, Agent_id) 
+            # self.Data_index.shape = self.Data_index_mask.sum()
+            # self.Data_index_mask.shape = num_samples, num_agents
             
-            # remove nan columns
-            Sample_id = Sample_id[:,useful_agents]
-            Agent_id  = Agent_id[:,useful_agents]
-            
-            # Save ID
-            self.ID = np.stack((Sample_id, Agent_id), -1) 
-            
-            # Get pred agents
-            self.Pred_agents = self.data_set.Pred_agents_pred[Sample_id, Agent_id] # num_samples, num_agents
-            if self.predict_single_agent:
-                # Only first agent gets predicted
-                self.Pred_agents[:,1:] = False
-                
-            # Get agent types
-            self.T = self.Type[Sample_id, Agent_id] # num_samples, num_agents
-            
-            # Get the number of future timesteps
-            self.N_O_pred = N_O_pred[Sample_id[:,0]]
-            self.N_O_data = N_O_data[Sample_id[:,0]]
-            
-            if self.data_set.data_in_one_piece:
-                # Get trajectory data
-                self.Data_index, self.Data_index_mask = self.get_orig_data_index(Sample_id, Agent_id) 
-                # self.Data_index.shape = self.Data_index_mask.sum()
-                # self.Data_index_mask.shape = num_samples, num_agents
+            if use_map or use_graph:
+                # Transform self.Data_index to an array
+                Data_index_array = np.full(self.Data_index_mask.shape, -1, int)
+                Data_index_array[self.Data_index_mask] = self.Data_index
 
-                # Get images
-                if use_map:
-                    # Get metadata
-                    domain_old = self.data_set.Domain
-                    if self.predict_single_agent:
-                        Img_needed = np.zeros(self.Data_index_mask.shape[:2], bool)
-                        Img_needed[:,0] = True
-                    else:
-                        Img_needed = self.T != '0'
-
-                    domain_needed = domain_old.iloc[self.ID[Img_needed][:,0]]
-
-                    # Precalculate an X that is allready reduced to the needed agents
-                    # assert that agents with needed images are in Data_index_mask
-                    assert self.Data_index_mask[Img_needed].all(), 'All agents with images should be available.'
-
-                    # Transform self.Data_index to an array
-                    Data_index_array = np.full(self.Data_index_mask.shape, -1, int)
-                    Data_index_array[self.Data_index_mask] = self.Data_index
-
-                    Data_index_needed = Data_index_array[Img_needed]
-                    Img_needed_inside = np.ones(len(Data_index_needed), bool)
-
-                    self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.data_set.X_orig[Data_index_needed, ..., :2].astype(np.float32), 
-                                                                                                 Img_needed_inside, domain_needed)
-                    self.img_needed_sample = np.where(Img_needed)[0]
-
+            # Get images
+            if use_map:
+                # Get metadata
+                domain_old = self.data_set.Domain
+                if self.predict_single_agent:
+                    Img_needed = np.zeros(self.Data_index_mask.shape[:2], bool)
+                    Img_needed[:,0] = True
                 else:
-                    self.img = None
-                    self.img_m_per_px = None
+                    Img_needed = self.T != '0'
 
+                domain_needed = domain_old.iloc[self.ID[Img_needed][:,0]]
 
-                # Get graphs
-                if use_graph:
-                    # Get metadata
-                    domain_old = self.data_set.Domain
+                # Precalculate an X that is allready reduced to the needed agents
+                # assert that agents with needed images are in Data_index_mask
+                assert self.Data_index_mask[Img_needed].all(), 'All agents with images should be available.'
 
-                    domain_needed = domain_old.iloc[self.ID[:,0,0]]
-                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed)
-                    self.graph_needed_sample = np.arange(len(self.ID))
-                else:
-                    self.graph = None
+                # Get the needed agent data
+                Data_index_needed = Data_index_array[Img_needed]
+                Img_needed_inside = np.ones(len(Data_index_needed), bool)
+
+                self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.data_set.X_orig[Data_index_needed, ..., :2].astype(np.float32), 
+                                                                                                Img_needed_inside, domain_needed)
+                self.img_needed_sample = np.where(Img_needed)[0]
 
             else:
-                self.use_batch_extraction = True
-                self.use_graph_batch_extraction = True
                 self.img = None
                 self.img_m_per_px = None
+
+
+            # Get graphs
+            if use_graph:
+                # Get metadata
+                domain_old = self.data_set.Domain
+                domain_needed = domain_old.iloc[self.ID[:,0,0]]
+
+                # Get the mean positions of all pred agents at prediction time
+                X_last = self.data_set.X_orig[..., -1, :2] # num_samples_agents, 2
+
+                X_last_all = np.full((self.data_set.Pred_agents_pred.shape[0], self.data_set.Pred_agents_pred.shape[1], 2), np.nan, np.float32)
+
+                # check if all agents are available
+                assert self.Data_index_mask[self.Pred_agents].all(), 'All agents should be available.'
+
+                # Get the needed agent data
+                Data_index_needed = Data_index_array[self.Pred_agents]
+                X_last_all[self.Pred_agents] = X_last[Data_index_needed]
+
+                # Get the nan mean values over the agents
+                X_last_mean = np.nanmean(X_last_all, 1) # num_samples, 2
+
+                if hasattr(self, 'sceneGraph_radius'):
+                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_mean, self.sceneGraph_radius)
+                else:
+                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_mean)
+                self.graph_needed_sample = np.arange(len(self.ID))
+            else:
                 self.graph = None
+
+        else:
+            self.use_batch_extraction = True
+            self.use_graph_batch_extraction = True
+            self.img = None
+            self.img_m_per_px = None
+            self.graph = None
         
         self.extracted_data = True
     
@@ -1422,10 +1460,10 @@ class model_template():
         Pred_agents_train = self.Pred_agents[I_train]
         
         if self.img is not None:
-            use_images = np.in1d(self.img_needed_sample, I_train)
+            image_ind = self.data_set.get_indices_1D(I_train, self.img_needed_sample)
 
-            img_needed          = self.img[use_images]
-            img_m_per_px_needed = self.img_m_per_px[use_images]
+            img_needed          = self.img[image_ind]
+            img_m_per_px_needed = self.img_m_per_px[image_ind]
 
             if self.predict_single_agent:
                 Img_needed = np.zeros(X_train.shape[:2], bool)
@@ -1447,8 +1485,8 @@ class model_template():
 
         
         if self.graph is not None:
-            use_graphs = np.in1d(self.graph_needed_sample, I_train)
-            graph_needed = self.graph[use_graphs]
+            graph_ind = self.data_set.get_indices_1D(I_train, self.graph_needed_sample)
+            graph_needed = self.graph[graph_ind]
             if self.predict_single_agent:
                 Graph_needed = np.zeros(X_train.shape[:2], bool)
                 Graph_needed[:,0] = True
@@ -1815,17 +1853,17 @@ class model_template():
                 Img_needed = T != '0'
 
             if self.use_batch_extraction:
-                domain_needed = self.data_set.Domain.iloc[self.ID[ind_advance,:,0][Img_needed]]
+                domain_needed = self.data_set.Domain.iloc[Sample_id[Img_needed]]
                 img_needed, img_m_per_px_needed, unsuccesful = self.extract_images(X, Img_needed, domain_needed)
                 if unsuccesful:
                     raise MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution.' +
                                       '\nNote, however, that other errors might have caused this as well.')
             else:
                 # Find at which places in self.img_needed_sample one can find ind_advance
-                use_images = np.in1d(self.img_needed_sample, ind_advance)
+                image_ind = self.data_set.get_indices_1D(ind_advance, self.img_needed_sample)
 
-                img_needed          = self.img[use_images]
-                img_m_per_px_needed = self.img_m_per_px[use_images]
+                img_needed          = self.img[image_ind]
+                img_m_per_px_needed = self.img_m_per_px[image_ind]
 
             if self.predict_single_agent:
                 Img_needed = Img_needed[:,:1]
@@ -1841,25 +1879,30 @@ class model_template():
             img          = None
             img_m_per_px = None
 
+        # Ignore identical columns
+        Sample_id = Sample_id[:,0]
 
         # Check if graphs need to be extracted
         if hasattr(self, 'use_graph_batch_extraction') and (not ignore_graph) and self.has_graph:
 
             if self.use_graph_batch_extraction:
-                domain = self.data_set.Domain.iloc[self.ID[ind_advance,0,0]]
-                graph, unsuccesful = self.extract_sceneGraphs(domain)
+                domain = self.data_set.Domain.iloc[Sample_id]
+                X_last_mean = np.nanmean(X[...,-1,:2], 1)
+                if hasattr(self, 'sceneGraph_radius'):
+                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_mean, self.sceneGraph_radius)
+                else:
+                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_mean)
+
                 if unsuccesful:
                     MemoryError('Not enough memory to extract graphs even with batches.' )
             else:
                 # Find at which places in self.graph_needed_sample one can find ind_advance
-                use_graphs = np.in1d(self.graph_needed_sample, ind_advance)
+                graph_ind = self.data_set.get_indices_1D(ind_advance, self.graph_needed_sample)
 
-                graph = self.graph[use_graphs]
+                graph = self.graph[graph_ind]
         else:
             graph = None
 
-        # Ignore identical columns
-        Sample_id = Sample_id[:,0]
 
         # Get the corresponding input_data_type
         input_data_type_indices = self.data_set.Domain.iloc[Sample_id].data_type_index
@@ -1868,7 +1911,6 @@ class model_template():
 
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
-                Agent_id = self.ID[ind_advance,:,1]
                 C = self.data_set.Domain.category.iloc[Sample_id]
                 C = pd.DataFrame(C.to_list())
 
@@ -1885,13 +1927,11 @@ class model_template():
             else:
                 C = None
             if mode == 'pred':
-                Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
-                Agent_id = self.ID[ind_advance,:,1]
                 return X,    T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
