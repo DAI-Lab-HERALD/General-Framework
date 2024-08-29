@@ -2953,15 +2953,11 @@ class data_set_template():
             keep_right = dist_right < radius
             keep_center = dist_center < radius
 
+
             # Check if the agent is to be kept at all
             if keep_center.sum() < 2:
                 continue
             else:
-                Keep_segments[lane_id] = True
-                left_boundaries[lane_id] = left_pts[keep_left]
-                right_boundaries[lane_id] = right_pts[keep_right]
-                centerlines[lane_id] = centerline_pts[keep_center]
-
                 # If the last center node is not kept, remove all successor connections
                 if not keep_center[-1]:
                     # Get all successors
@@ -2973,6 +2969,46 @@ class data_set_template():
                     # Get all predecessors
                     pre_idcs = pre_pairs[:,0] == lane_id
                     pre_pairs = pre_pairs[~pre_idcs]
+                
+                left_pts = left_pts[keep_left]
+                right_pts = right_pts[keep_right]
+                centerline_pts = centerline_pts[keep_center]
+
+                # Filter out intemediat steps so general distance are kept within roughly 1 meters
+                dist_cons_left = np.linalg.norm(left_pts[1:] - left_pts[:-1], axis = 1)
+                dist_cons_right = np.linalg.norm(right_pts[1:] - right_pts[:-1], axis = 1)
+                dist_cons_center = np.linalg.norm(centerline_pts[1:] - centerline_pts[:-1], axis = 1)
+
+                # Cumulative distance
+                cum_dist_left = np.concatenate([[0], np.cumsum(dist_cons_left)]).astype(int)
+                cum_dist_right = np.concatenate([[0], np.cumsum(dist_cons_right)]).astype(int)  
+                cum_dist_center = np.concatenate([[0], np.cumsum(dist_cons_center)]).astype(int)
+
+                # get points that are unnecessary
+                remove_left = np.zeros(len(left_pts), bool)
+                remove_left[1:] = cum_dist_left[1:] == cum_dist_left[:-1]
+
+                remove_right = np.zeros(len(right_pts), bool)
+                remove_right[1:] = cum_dist_right[1:] == cum_dist_right[:-1]
+
+                remove_center = np.zeros(len(centerline_pts), bool)
+                remove_center[1:-1] = cum_dist_center[1:-1] == cum_dist_center[:-2]
+
+                # Update the points
+                left_pts = left_pts[~remove_left]
+                right_pts = right_pts[~remove_right]
+                centerline_pts = centerline_pts[~remove_center]
+
+                # Set lanes
+                Keep_segments[lane_id] = True
+                left_boundaries[lane_id] = left_pts
+                right_boundaries[lane_id] = right_pts
+                centerlines[lane_id] = centerline_pts
+
+                # Update keep center
+                keep_center[keep_center] = ~remove_center
+
+                assert keep_center.sum() >= 2, "Not enough center points kept."
 
             # Number nodes to keep
             keep_num_nodes = keep_center.sum() - 1
