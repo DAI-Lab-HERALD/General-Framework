@@ -2699,8 +2699,15 @@ class data_set_template():
         self.data_loaded = True
 
         if 'graph_id' in self.Domain.columns:
+            graph_ids = self.Domain.graph_id.to_numpy()
+            Path_ids = self.Domain.Path_ID.to_numpy()
+
+            # Get unique Path_ids, with index
+            index_unique_path = np.unique(Path_ids, return_index = True)[1]
+            graph_ids_old = graph_ids[index_unique_path]
+
             # For each unique graph_id, check how often they are repeated
-            unqiue_graph_id, counts = np.unique(self.Domain.graph_id, return_counts = True)
+            unqiue_graph_id, counts = np.unique(graph_ids_old, return_counts = True)
 
             # Transfer to dictionary
             self.graph_count = dict(zip(unqiue_graph_id, counts))
