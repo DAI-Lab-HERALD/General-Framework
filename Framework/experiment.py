@@ -1591,15 +1591,6 @@ class Experiment():
         return model
         
     
-    
-    def _get_data_pred(self, model, Index):
-        
-        output = model.predict_actual(Index)
-        
-        output_path = model.transform_output(output, Index, model.get_output_type(), 'path_all_wi_pov')
-        
-        return output_path[1] 
-    
     def _get_data_sample(self, sample_ind, data_set, Output_A, Domain):
         
         domain           = Domain.loc[sample_ind]
