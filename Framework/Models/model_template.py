@@ -910,7 +910,7 @@ class model_template():
 
         if required_memory < 0.4 * available_memory:
             # Get scene graphs
-            if hasattr(self, 'use_batch_extraction') and self.use_batch_extraction:
+            if hasattr(self, 'use_graph_batch_extraction') and self.use_graph_batch_extraction:
                 print_progress = False
             else:
                 print_progress = True
@@ -1243,7 +1243,7 @@ class model_template():
                 # Get the mean positions of all pred agents at prediction time
                 X_last = self.data_set.X_orig[..., -1, :2] # num_samples_agents, 2
 
-                X_last_all = np.full((self.data_set.Pred_agents_pred.shape[0], self.data_set.Pred_agents_pred.shape[1], 2), np.nan, np.float32)
+                X_last_all = np.full((self.Pred_agents.shape[0], self.Pred_agents.shape[1], 2), np.nan, np.float32)
 
                 # check if all agents are available
                 assert self.Data_index_mask[self.Pred_agents].all(), 'All agents should be available.'

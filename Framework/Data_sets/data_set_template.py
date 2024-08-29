@@ -1099,7 +1099,7 @@ class data_set_template():
         node_idcs = []
 
         unique_lane_segments = list(np.unique(graph.lane_idcs))
-        for lane_segment in unique_lane_segments:        
+        for lane_segment in unique_lane_segments:  
             lane_ind = np.where(graph.lane_idcs == lane_segment)[0]
             node_idcs.append(lane_ind)
 
@@ -2933,7 +2933,6 @@ class data_set_template():
         left_boundaries = np.array(loc_Graph.left_boundaries) # Left boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
         right_boundaries = np.array(loc_Graph.right_boundaries) # Right boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
         centerlines = np.array(loc_Graph.centerlines) # Centerlines of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
-        lane_type = np.array(loc_Graph.lane_type) # Lane type of the nodes, array of shape (num_segments)
 
         # Go through segments
         Keep_segments = np.zeros(len(left_boundaries), bool)
@@ -2955,7 +2954,7 @@ class data_set_template():
             keep_center = dist_center < radius
 
             # Check if the agent is to be kept at all
-            if not (keep_left.any() or keep_right.any() or keep_center.any()):
+            if keep_center.sum() < 2:
                 continue
             else:
                 Keep_segments[lane_id] = True
@@ -2987,8 +2986,10 @@ class data_set_template():
             Keep_nodes[lane_nodes] = keep_nodes_bool
 
         # Only keep the current lane segments
-        lane_idcs = lane_idcs[Keep_nodes]
+        unique_ids, lane_idcs = np.unique(lane_idcs[Keep_nodes], return_inverse = True)
         num_nodes = len(lane_idcs)
+        lane_id_map = np.zeros(unique_ids.max() + 1, int)
+        lane_id_map[unique_ids] = np.arange(len(unique_ids))
 
         left_boundaries = left_boundaries[Keep_segments]
         right_boundaries = right_boundaries[Keep_segments]
@@ -3000,27 +3001,23 @@ class data_set_template():
         keep_left  = Keep_segments[left_pairs].all(1)
         keep_right = Keep_segments[right_pairs].all(1)
 
-        suc_pairs   = suc_pairs[keep_suc]
-        pre_pairs   = pre_pairs[keep_pre]
-        left_pairs  = left_pairs[keep_left]
-        right_pairs = right_pairs[keep_right]
+        suc_pairs   = lane_id_map[suc_pairs[keep_suc]]
+        pre_pairs   = lane_id_map[pre_pairs[keep_pre]]
+        left_pairs  = lane_id_map[left_pairs[keep_left]]
+        right_pairs = lane_id_map[right_pairs[keep_right]]
+
+        lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
 
         # Assemble new graph
 
-        loc_Graph_cut = pd.DataFrame({
-                                        'num_nodes': num_nodes,
-                                        'lane_idcs': lane_idcs,
-                                        'pre_pairs': pre_pairs,
-                                        'suc_pairs': suc_pairs,
-                                        'left_pairs': left_pairs,
-                                        'right_pairs': right_pairs,
-                                        'left_boundaries': left_boundaries,
-                                        'right_boundaries': right_boundaries,
-                                        'centerlines': centerlines,
-                                        'lane_type': lane_type})
+        loc_Graph_cut = pd.Series([num_nodes, lane_idcs, pre_pairs, suc_pairs, left_pairs, right_pairs, 
+                                   left_boundaries, right_boundaries, centerlines, lane_type],
+                                   index = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                                             'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type'])
         
         # Get the missing segments
-        loc_Graph_cut = self.add_node_connections(loc_Graph_cut)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        loc_Graph_cut = self.add_node_connections(loc_Graph_cut, device = device)
 
         return loc_Graph_cut
 
@@ -3064,7 +3061,7 @@ class data_set_template():
                             index = path_indices[loc_indices[i]]
                             
                             if print_progress and np.mod(graph_num, 100) == 0:
-                                print('retrieving graphs ' + str(graph_num + 1) + ' to ' + str(graph_num + 1) + 
+                                print('retrieving graphs ' + str(graph_num + 1) + 
                                     ' of ' + str(len(domain)) + ' total', flush = True)
                                 
                             loc_Graph_cut = self.cut_sceneGraph(loc_Graph, X[index], radius)
