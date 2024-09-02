@@ -200,7 +200,8 @@ class fjmp_rowe(model_template):
 
         if hasattr(self, 'model_file'):
             if not ('log_path' in self.model_kwargs.keys()):
-                self.model_kwargs["log_path"] = Path(os.path.dirname(self.model_file) + '/logs/')
+                log_folder = 'FJMP_' + str(self.model_kwargs["num_joint_modes"]) + "_" + str(self.num_samples_path_pred) + "_logs"
+                self.model_kwargs["log_path"] = Path(os.path.dirname(self.model_file) + os.sep + log_folder + os.sep)
 
                 # self.model_kwargs["log_path"].mkdir(exist_ok=True, parents=True)
                 if not os.path.exists(self.model_kwargs["log_path"]):
@@ -211,7 +212,7 @@ class fjmp_rowe(model_template):
                 sys.stdout = Logger(log)
 
 
-        if self.data_set.get_name()['file'] == 'Argoverse':
+        if self.data_set.get_name()['file'] in ['Argoverse', 'NuScenes']:
             self.model_kwargs["dataset"] = 'argoverse2'
         elif self.data_set.get_name()['file'] == 'Interaction':
             self.model_kwargs["dataset"] = 'interaction'
@@ -329,7 +330,8 @@ class fjmp_rowe(model_template):
             steps = np.arange(trajs.shape[1])
             data['steps'] = [steps[~np.isnan(traj[:,0])] for traj in trajs]
 
-            data['agenttypes'] = [object_type_dict[T[b, t]]*np.ones((len(data['steps'][t]), 1)) for t in range(len(T[b]))]
+            T[T == ''] = '0'
+            data['agenttypes'] = [object_type_dict[T[b, t]] * np.ones((len(data['steps'][t]), 1)) for t in range(len(T[b]))]
             
             data['agentcategories'] = [C[b,c] * np.ones((len(data['steps'][c]), 2)) for c in range(len(C[b]))]
 
@@ -458,7 +460,7 @@ class fjmp_rowe(model_template):
         # hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
         for epoch in range(start_epoch, self.model_kwargs['max_epochs'] + 1):   
-            print("Epoch/Total: {}/{}".format(epoch, self.model_kwargs['max_epochs']))
+            print("Epoch/Total: {}/{} ".format(epoch, self.model_kwargs['max_epochs']))
             # this shuffles the training set every epoch         
             # train_loader.sampler.set_epoch(int(epoch))
             

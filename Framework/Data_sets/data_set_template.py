@@ -2712,6 +2712,11 @@ class data_set_template():
             # Transfer to dictionary
             self.graph_count = dict(zip(unqiue_graph_id, counts))
 
+            if np.max(counts) == 1:
+                self.graph_count_always_one = True
+            else:
+                self.graph_count_always_one = False
+
         # check if dataset is useful
         if len(self.Domain) < 100:
             return "there are not enough samples for a reasonable training process."
@@ -3096,7 +3101,13 @@ class data_set_template():
                     loc_indices = np.where(Locations_unique_path == location)[0]
                     
                     loc_Graph = self.SceneGraphs.loc[location]
-                    if (radius is None) or (self.graph_count[location] == 1):
+
+                    if self.graph_count_always_one:
+                        num = 1
+                    else:
+                        num = self.graph_count[location]
+
+                    if (radius is None) or (num == 1):
                         Index = path_indices[loc_indices]
                         SceneGraphs[Graphs_Index[Index]] = [loc_Graph] * len(Index)
                     else:
