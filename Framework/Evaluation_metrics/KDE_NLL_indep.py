@@ -38,7 +38,7 @@ class KDE_NLL_indep(evaluation_template):
         NLL = np.log(Num_steps.max() / Num_steps) - PLL 
         
         Error = NLL.mean()
-        return [Error, PLL, KDE_log_prob_pred.max(1)[Pred_agents], KDE_log_prob_pred.min(1)[Pred_agents]]
+        return [Error]
     
     def partial_calculation(self = None):
         options = ['No', 'Sample', 'Pred_agents']

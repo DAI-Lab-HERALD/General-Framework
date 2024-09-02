@@ -698,7 +698,10 @@ class model_template():
                     i_scenario = np.where(self.data_set.unique_scenarios == scenario_types)[0][0]
                     pov_agent = self.data_set.scenario_pov_agents[i_scenario]
 
-                    missing_new = out_path[pov_agent].isna()
+                    if pov_agent is None:
+                        missing_new = np.zeros(len(Index_loaded), bool)
+                    else:
+                        missing_new = out_path[pov_agent].isna()
                 
                 elif pred_type == 'class_and_time':
                     out_time = output_loaded[2]
@@ -1854,7 +1857,7 @@ class model_template():
             Y[data_index_mask] = self.data_set.Y_orig[data_index, :num_steps].astype(np.float32)
 
         # Check if images need to be extracted
-        if hasattr(self, 'use_batch_extraction') and (not ignore_map):
+        if hasattr(self, 'use_batch_extraction') and (not ignore_map) and self.has_map:
             if self.predict_single_agent:
                 Img_needed = np.zeros(X.shape[:2], bool)
                 Img_needed[:,0] = True

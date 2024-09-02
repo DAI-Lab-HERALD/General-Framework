@@ -3,7 +3,10 @@ from torch import nn
 from torch.distributions import Normal
 import torch
 import math
-from fractions import gcd
+try:
+    from fractions import gcd
+except:
+    from math import gcd
 from FJMP.fjmp_utils import *
 
 class Linear(nn.Module):
