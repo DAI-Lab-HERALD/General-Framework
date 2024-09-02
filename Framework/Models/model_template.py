@@ -946,7 +946,7 @@ class model_template():
                 T = T.astype(str)
                 T[T == 'nan'] = '0'
             else:
-                T = np.zeros(self.data_set.Pred_agents_pred_all.shape, str)
+                T = np.full(self.data_set.Pred_agents_pred_all.shape, '0', str)
                 for file_index in range(len(self.data_set.Files)):
                     used = self.data_set.Domain.file_index == file_index
                     used_index = np.where(used)[0]
@@ -965,7 +965,7 @@ class model_template():
                     used_2d = np.tile(used_index[:,np.newaxis], (1, len(agent_index)))
                     agent_2d = np.tile(agent_index[np.newaxis,:], (len(used_index), 1))
                     T[used_2d, agent_2d] = T_local[ind]
-                
+    
             self.Type = T.astype(str)
     
 
