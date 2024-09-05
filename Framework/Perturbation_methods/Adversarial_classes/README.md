@@ -17,11 +17,12 @@ self.max_number_iterations = 50
 self.gamma = 1
 self.alpha = 0.01
 ```
-- Setting the future data stored (essential for evaluation measures
+- Setting the future data stored (essential for evaluation measures)
+``` 
 self.store_GT = True # Ground truth future states are stored
 self.store_GT = False # Perturbed future states are stored
 self.store_pred_1 = True # average of num_samples predictions is stored on the initial unperturbed observed states
-
+```
 
 
 ### Car size
