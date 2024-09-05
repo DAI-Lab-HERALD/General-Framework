@@ -102,6 +102,27 @@ class Helper:
         nan_array = np.full(
             (Y_shape[0], Y_shape[1], Y_shape[2]-Y_new_pert.shape[2], Y_shape[3]), np.nan)
         return np.concatenate((Y_new_pert, nan_array), axis=2)
+    
+    @staticmethod
+    def return_to_old_shape_pred_1(Y_new_pert, Y_old, Y_shape, ego_agent_index):
+        """
+        Restores the perturbed tensor to its original shape by appending NaN values.
+
+        Args:
+            Y_new_pert (np.ndarray): The perturbed tensor with reduced shape.
+            Y_old (np.ndarray): The original tensor.
+            Y_shape (tuple): The original shape of the tensor.
+            ego_agent_index (int): The index of the ego agent.
+
+        Returns:
+            np.ndarray: The tensor restored to its original shape with NaN values appended.
+        """
+        mean_Y_new_pert = np.expand_dims(np.mean(Y_new_pert, axis=1), axis=1)
+        Y_final = np.concatenate((mean_Y_new_pert, np.expand_dims(Y_old[:, ego_agent_index, :, :], axis=1)), axis=1)
+
+        nan_array = np.full(
+            (Y_shape[0], Y_shape[1], Y_shape[2]-Y_final.shape[2], Y_shape[3]), np.nan)
+        return np.concatenate((Y_final, nan_array), axis=2)
 
     @staticmethod
     def validate_settings_order(First, Second):
@@ -136,7 +157,7 @@ class Helper:
         assert args[0] * args[1] >= args[2], "The third value is to large."
 
     @staticmethod
-    def flip_dimensions_2(X_new_pert, Y_new_pert, agent_order):
+    def flip_dimensions_2(X_new_pert, Y_new_pert, Y_pred_1, agent_order):
         """
         Reorders the dimensions of the perturbed tensors based on the original agent order if flipping is required.
 
@@ -154,8 +175,9 @@ class Helper:
         agent_order_inverse = np.argsort(agent_order)
         X_new_pert = X_new_pert[:, agent_order_inverse, :, :]
         Y_new_pert = Y_new_pert[:, agent_order_inverse, :, :]
+        Y_pred_1 = Y_pred_1[:, agent_order_inverse, :, :]
 
-        return X_new_pert, Y_new_pert
+        return X_new_pert, Y_new_pert, Y_pred_1
 
     @staticmethod
     def compute_mask_values_standing_still(array):

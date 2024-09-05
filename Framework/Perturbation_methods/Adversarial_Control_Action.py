@@ -146,6 +146,8 @@ class Adversarial_Control_Action(perturbation_template):
         self.name += '---' + str(kwargs['loss_function_1'])
         self.name += '---' + str(kwargs['barrier_helper'])
         self.name += '---' + str(kwargs['remove_loss_objectives'])
+        self.name += '---' + str(kwargs['store_GT'])
+        self.name += '---' + str(kwargs['store_pred_1'])
         if 'loss_function_2' in kwargs.keys() is not None:
             self.name += '---' + str(kwargs['loss_function_2'])
         if 'barrier_function_past' in kwargs.keys() is not None:
@@ -204,6 +206,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         # store which data
         self.store_GT = self.kwargs['store_GT']
+        self.store_pred_1 = self.kwargs['store_pred_1']
 
         # Randomized smoothing
         self.smoothing = False
@@ -213,7 +216,7 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_smoothing = False
         
         # Plot the loss over the iterations
-        self.plot_loss = False
+        self.plot_loss = True
 
         # Image neural network
         self.image_neural_network = False
@@ -223,7 +226,7 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_input = False
 
         # Plot the adversarial scene
-        self.static_adv_scene = False
+        self.static_adv_scene = True
         self.animated_adv_scene = False
 
         # Spline settings animated scene
@@ -329,12 +332,11 @@ class Adversarial_Control_Action(perturbation_template):
             if i == 0:
                 # Store the first prediction
                 Y_Pred_iter_1 = Y_Pred.detach()
+                Helper
                 
             losses = self._loss_module(
                 X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
     
-            # Store the loss for plot
-            loss_store.append(losses.detach().cpu().numpy())
             print(losses)
 
             # Calculate gradients
@@ -405,6 +407,9 @@ class Adversarial_Control_Action(perturbation_template):
                     perturbation_storage = perturbation_new.detach().clone()
                     break
 
+            # Store the loss for plot
+            loss_store.append(losses.detach().cpu().numpy())
+
             # Update the step size
             alpha_acc  *= self.gamma
             alpha_curv *= self.gamma
@@ -436,15 +441,18 @@ class Adversarial_Control_Action(perturbation_template):
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
         self.copy_Y = Helper.return_to_old_shape(self.copy_Y, self.Y_shape)
+        Y_Pred_iter_1_new = Helper.return_to_old_shape_pred_1(Y_Pred_iter_1, Y, self.Y_shape, self.ego_agent_index)
 
         # Flip dimensions back
-        X_new_pert, Y_new_pert = Helper.flip_dimensions_2(
-            X_new, Y_new, self.agent_order)
+        X_new_pert, Y_new_pert, Y_Pred_iter_1_new = Helper.flip_dimensions_2(
+            X_new, Y_new, Y_Pred_iter_1_new, self.agent_order)
 
         # Add back additional data
         X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
 
-        if self.store_GT:
+        if self.store_pred_1:
+            return X_new_pert, Y_Pred_iter_1_new
+        elif self.store_GT:
             return X_new_pert, self.copy_Y
         else:
             return X_new_pert, Y_new_pert

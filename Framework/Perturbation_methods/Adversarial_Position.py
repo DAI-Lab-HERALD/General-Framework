@@ -145,6 +145,8 @@ class Adversarial_Position(perturbation_template):
         self.name += '---' + str(kwargs['loss_function_1'])
         self.name += '---' + str(kwargs['barrier_helper'])
         self.name += '---' + str(kwargs['remove_loss_objectives'])
+        self.name += '---' + str(kwargs['store_GT'])
+        self.name += '---' + str(kwargs['store_pred_1'])
         if 'loss_function_2' in kwargs.keys() is not None:
             self.name += '---' + str(kwargs['loss_function_2'])
         if 'barrier_function_past' in kwargs.keys() is not None:
@@ -191,12 +193,13 @@ class Adversarial_Position(perturbation_template):
 
         # store which data
         self.store_GT = self.kwargs['store_GT']
+        self.store_pred_1 = self.kwargs['store_pred_1']
 
         # Randomized smoothing
-        self.smoothing = True
+        self.smoothing = False
         self.num_samples_used_smoothing = 15  
         self.sigma = [0.05, 0.1]
-        self.plot_smoothing = True
+        self.plot_smoothing = False
 
         # Plot the loss over the iterations
         self.plot_loss = True
@@ -227,7 +230,7 @@ class Adversarial_Position(perturbation_template):
         # Do a assertion check on settings
         self._assertion_check()
 
-    def perturb_batch(self, X, Y, T, agent, Domain):
+    def perturb_batch(self, X, Y, T, agent, Domain, samples):
         '''
         This function takes a batch of data and generates perturbations.
 
@@ -273,17 +276,20 @@ class Adversarial_Position(perturbation_template):
             X, Y)
 
         # Create a tensor for the perturbation
-        perturbation = torch.zeros_like(positions_perturb)
-        perturbation.requires_grad = True
+        perturbation_storage = torch.zeros_like(positions_perturb)
 
         # Store the loss for plot
         loss_store = []
 
         # learning rate
-        alpha = self.alpha
+        alpha = self.alpha * torch.ones_like(positions_perturb)
 
         # Start the optimization of the adversarial attack
         for i in range(self.max_number_iterations):
+            # Create a tensor for the perturbation
+            perturbation = perturbation_storage.detach().clone()
+            perturbation.requires_grad = True
+
             # Reset gradients
             perturbation.grad = None
 
@@ -305,20 +311,61 @@ class Adversarial_Position(perturbation_template):
             losses = self._loss_module(
                 X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
 
-            # Store the loss for plot
-            loss_store.append(losses.detach().cpu().numpy())
+            # # Store the loss for plot
             print(losses)
 
             # Calulate gradients
             losses.sum().backward()
             grad = perturbation.grad
 
-            # Update Control inputs
-            with torch.no_grad():
-                perturbation.subtract_(grad, alpha=alpha)
+            inner_loop_count = 0
 
-                # set perturbations of ego agent to zero
-                perturbation[:, 1:] = 0.0
+            # copy learning rates
+            # alpha_iter = alpha.clone()
+
+            # Update Control inputs
+            while True:
+                inner_loop_count += 1
+
+                # Update Control inputs
+                with torch.no_grad():
+                    perturbation_new = perturbation.clone()
+                    perturbation_new.subtract_(grad * alpha)
+
+                    # set perturbations of ego agent to zero
+                    perturbation_new[:, 1:] = 0.0
+
+                # Split the adversarial position back to X and Y
+                X_new, Y_new = Helper.return_data(
+                    positions_perturb + perturbation_new, X, Y, self.future_action_included)
+                
+                # Forward pass through the model
+                Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
+                                                            num_steps=self.num_steps_predict, num_samples=self.num_samples)
+
+                losses = self._loss_module(
+                    X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
+                
+                print(losses)
+
+                # Check for NaN values in losses
+                invalid_mask = torch.isnan(losses) | torch.isinf(losses)
+                if invalid_mask.any():
+                    # check if agent crashes replace tensor with zero tensor
+                    if inner_loop_count >= 20:
+                        # perturbation_new[invalid_mask] = torch.zeros_like(perturbation_new[invalid_mask])
+                        perturbation_new[invalid_mask] = perturbation_storage[invalid_mask].clone()
+                        perturbation_storage = perturbation_new.detach().clone()
+                        break
+                    # Half the learning rate only for samples with NaN losses
+                    alpha[invalid_mask] *= 0.5
+                    continue  # Skip this iteration and try again with reduced learning rate for NaN samples
+                else:
+                    perturbation_storage = perturbation_new.detach().clone()
+                    break
+
+            # Store the loss for plot
+            loss_store.append(losses.detach().cpu().numpy())
 
             # Update the step size
             alpha *= self.gamma
@@ -346,15 +393,18 @@ class Adversarial_Position(perturbation_template):
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
         self.copy_Y = Helper.return_to_old_shape(self.copy_Y, self.Y_shape)
+        Y_Pred_iter_1_new = Helper.return_to_old_shape_pred_1(Y_Pred_iter_1, Y, self.Y_shape, self.ego_agent_index)
 
         # Flip dimensions back
-        X_new_pert, Y_new_pert = Helper.flip_dimensions_2(
-            X_new, Y_new, self.agent_order)
+        X_new_pert, Y_new_pert, Y_Pred_iter_1_new = Helper.flip_dimensions_2(
+            X_new, Y_new, Y_Pred_iter_1_new, self.agent_order)
 
         # Add back additional data
         X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
         
-        if self.store_GT:
+        if self.store_pred_1:
+            return X_new_pert, Y_Pred_iter_1_new
+        elif self.store_GT:
             return X_new_pert, self.copy_Y
         else:
             return X_new_pert, Y_new_pert

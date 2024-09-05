@@ -723,7 +723,7 @@ class TrajectoryBarrierFuture(BarrierFunctionFuture):
         self.log_value = log_value
 
     def calculate_barrier(self, Y_new, Y, tar_agent):
-        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent, remove_final=False)
 
 
 class TrajectoryBarrierFutureV2(BarrierFunctionFuture):
@@ -734,7 +734,7 @@ class TrajectoryBarrierFutureV2(BarrierFunctionFuture):
         self.log_value = log_value
 
     def calculate_barrier(self, Y_new, Y, tar_agent):
-        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent, remove_final=False)
 
 
 class TimeTrajectoryBarrierPast(BarrierFunctionPast):
@@ -767,7 +767,7 @@ class TimeTrajectoryBarrierFuture(BarrierFunctionFuture):
         self.log_value = log_value
 
     def calculate_barrier(self, Y_new, Y, tar_agent):
-        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent) - Loss.barrier_log_function_Time(self.distance_threshold, self.barrier_helper, Y_new[:, :, -1, :].unsqueeze(2), Y[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent, remove_final=True) - Loss.barrier_log_function_Time(self.distance_threshold, self.barrier_helper, Y_new[:, :, -1, :].unsqueeze(2), Y[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
 
 
 class TimeTrajectoryBarrierFutureV2(BarrierFunctionFuture):
@@ -778,7 +778,7 @@ class TimeTrajectoryBarrierFutureV2(BarrierFunctionFuture):
         self.log_value = log_value
 
     def calculate_barrier(self, Y_new, Y, tar_agent):
-        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent) - Loss.barrier_log_function_Time_V2(self.distance_threshold, self.barrier_helper, Y_new[:, :, -1, :].unsqueeze(2), Y[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
+        return -Loss.barrier_log_function_Trajectory_V2(self.distance_threshold, self.barrier_helper, Y_new, self.barrier_data, self.log_value, tar_agent, remove_final=True) - Loss.barrier_log_function_Time_V2(self.distance_threshold, self.barrier_helper, Y_new[:, :, -1, :].unsqueeze(2), Y[:, :, -1, :].unsqueeze(2), self.log_value, tar_agent)
     
 
 class barrier_None_Past(BarrierFunctionPast):
