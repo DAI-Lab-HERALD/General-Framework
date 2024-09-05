@@ -144,8 +144,6 @@ class Adversarial_Search(perturbation_template):
         self.name += '---' + str(kwargs['num_samples_perturb'])
         self.name += '---' + str(kwargs['max_number_iterations'])
         self.name += '---' + str(kwargs['loss_function_1'])
-        self.name += '---' + str(kwargs['barrier_helper'])
-        self.name += '---' + str(kwargs['remove_loss_objectives'])
         self.name += '---' + str(kwargs['store_GT'])
         self.name += '---' + str(kwargs['store_pred_1'])
         if 'loss_function_2' in kwargs.keys() is not None:
@@ -220,12 +218,6 @@ class Adversarial_Search(perturbation_template):
 
         # Time step
         self.dt = self.kwargs['data_param']['dt']
-
-        # violations barrier
-        self.barrier_helper = self.kwargs['barrier_helper']
-
-        # remove other objectives
-        self.remove_loss_objectives = self.kwargs['remove_loss_objectives']
 
         # Do a assertion check on settings
         self._assertion_check()
