@@ -17,6 +17,12 @@ self.max_number_iterations = 50
 self.gamma = 1
 self.alpha = 0.01
 ```
+- Setting the future data stored (essential for evaluation measures
+self.store_GT = True # Ground truth future states are stored
+self.store_GT = False # Perturbed future states are stored
+self.store_pred_1 = True # average of num_samples predictions is stored on the initial unperturbed observed states
+
+
 
 ### Car size
 To modify the size of the car ($m$) used in the animation, the length and width can be adjusted accordingly:
@@ -90,9 +96,9 @@ self.log_value_future = 1.5
 
 | Type Regularization (Reference figure)  | Clean data   | Preturbed data | Edges clean data | First timestep |  Last timestep | Critical timestep | Deviation penalty | Formula       | Name framework (str)  | 
 | ------------- | ------------- | ------------- | ------------- | ------------- |   ------------- | ------------- | ------------- | ------------- | ------------- | 
-| Time specific (A) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ |  |  ${t}_{0}$ | ${t}_{1}$  |   | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{{t}_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t} -  S_{\text{tar}}^{t} \right\|_2)`$ | 'Time_specific'|
-| Trajectory specific (B) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ |  ${t}_{0}$ | ${t}_{1}$   |   | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))`$ | 'Trajectory_specific' |
-| Time and Trajectory specific (C) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ | ${t}_{0}$  |  ${t}_{1}$  |  ${t}_{critical}$ | $\epsilon$ | $`-\frac{1}{t_{1}-{t}_{0}+1} {\sum}_{t={t}_{0}}^{t_{1}} \log_{\epsilon} (D_{\text{Adversarial\;threshold}} - \min (\min_{t_{\text{eval}} \in \{{t}_{0}, \ldots, t_{1}\}} \left\| \tilde{S}^{t}_{\text{tar}} -  S^{t_{\text{eval}}}_{\text{tar}} \right\|_2, \min_{z \in \{1, \ldots, H + T - 1\}} (d_{\perp} (\tilde{S}_{\text{tar}}^{t},  Z_{\text{tar}}^{z})))  - \log_{\epsilon} ( D_{\text{Adversarial\;threshold}} - \left\| \tilde{S}_{\text{tar}}^{t_{critical}} -  S_{\text{tar}}^{t_{critical}} \right\|_2)`$ | 'Time_Trajectory_specific' |
+| Time specific (A) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ |  |  ${t}_{0}$ | ${t}_{1}$  |   | $\epsilon$ | $`l_{\text{Time}}(S_{\text{tar}},\tilde{S}_{\text{tar}},{t}_{0},t_{1}) =-\frac{1}{t_{1}-{t}_{0}+1} \sum_{t={t}_{0}}^{{t}_{1}} \ln \left(D_{\text{max}} - \left\| \tilde{S}_{\text{tar}}^{t} -  S_{\text{tar}}^{t} \right\|_2\right)`$ | 'Time_specific'|
+| Trajectory specific (B) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ |  ${t}_{0}$ | ${t}_{1}$   |   | $\epsilon$ | $`l_{\text{Traj}}(S_{\text{tar}}, \tilde{S}_{\text{tar}}, t_0, t_1) = -\frac{1}{t_1 - t_0 + 1} \sum_{t=t_0}^{t_1} \ln \left( D_{\text{Max}} - \min_{z \in \{-H+1, \ldots, T-1\}} d(z, t) \right)`$ $`d(z, t) = \begin{cases} d_{\perp}(\tilde{S}_{\text{tar}}^t, Z_{\text{tar}}^z, Z_{\text{tar}}^{z+1}) \hspace{0.5cm} & \text{if } 0 < r(z, t) < 1, \\\min(\|\tilde{S}_{\text{tar}}^t - Z_{\text{tar}}^z\|_2, \\ \hspace{0.7cm}\|\tilde{S}_{\text{tar}}^t - Z_{\text{tar}}^{z+1}\|_2) & \text{otherwise}. \end{cases} `$  $` d_{\perp}(\tilde{S}_{\text{tar}}^t, Z_{\text{tar}}^z, Z_{\text{tar}}^{z+1}) = \| \frac{D^{1}_{x} D^{2}_{y} - D^{1}_{y} D^{2}_{x}}{\| D^{1}\|_2} \| `$ $`r(z, t) = \frac{D^{1}_{x} D^{2}_{x} + D^{1}_{y} D^{2}_{y}}{\|D^{1}\|_2^2} `$ $` \text{with} \quad D^{1} = Z_{\text{tar}}^{z+1} - Z_{\text{tar}}^z,D^{2} = \tilde{S}_{\text{tar}}^t - Z_{\text{tar}}^z.`$ | 'Trajectory_specific' |
+| Time and Trajectory specific (C) | ${S}_{\text{tar}}$ | $\tilde{S}_{\text{tar}}$ | $Z_{\text{tar}}$ | ${t}_{0}$  |  ${t}_{1}$  |  ${t}_{critical}$ | $\epsilon$ | $`l_{\text{Time-traj}}(S_{\text{tar}},\tilde{S}_{\text{tar}},{t}_{0},t_{1},t_{crit}) = l_{\text{Time}}(S_{\text{tar}},\tilde{S}_{\text{tar}},{t}_{crit},t_{crit}) + l_{\text{Traj}}(S_{\text{tar}},\tilde{S}_{\text{tar}},{t}_{0},t_{1})`$ | 'Time_Trajectory_specific' |
 
 **_NOTE:_**  Regularization for observed states $`{t}_{0} = -H + 1`$, $`{t}_{1} = 0`$, and $`{t}_{critical} = 0`$. Regularization for future states $`{t}_{0} = 1`$, $`{t}_{1} = T`$, and $`{t}_{critical} = T`$
 
@@ -106,7 +112,7 @@ self.num_samples_used_smoothing = 15
 ```
 - To select the sigmas to analyze, a list can be filled:
 ```
-self.sigmas = [0.05,0.1]
+self.sigma = [0.05,0.1]
 ```
 Specific for the attack type, 'Adversarial_Control_Action', sigmas specific for their control action can be selected:
 ```
