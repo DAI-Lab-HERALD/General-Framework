@@ -19,11 +19,12 @@ def convert_memory_to_bytes(memory_str):
         return int(memory_str)  # Assume bytes if no unit
     
     
-def get_total_memory():
+def get_total_memory(print_output = True):
     """ Get memory allocated to the job, considering different schedulers. """
     # Check for Slurm
     if 'SLURM_JOB_ID' in os.environ:
-        print("Detecting usage of SLURM")
+        if print_output:
+            print("Detecting usage of SLURM")
         try:
             job_id = os.getenv('SLURM_JOB_ID')
             result = subprocess.run(['scontrol', 'show', 'job', job_id], capture_output=True, text=True)
@@ -37,7 +38,8 @@ def get_total_memory():
 
     # Check for PBS/Torque
     elif 'PBS_JOBID' in os.environ:
-        print("Detecting usage of PBS/Torque")
+        if print_output:
+            print("Detecting usage of PBS/Torque")
         try:
             job_id = os.getenv('PBS_JOBID')
             result = subprocess.run(['qstat', '-f', job_id], capture_output=True, text=True)
@@ -51,7 +53,8 @@ def get_total_memory():
 
     # Check for SGE
     elif 'SGE_JOB_ID' in os.environ:
-        print("Detecting usage of SGE")
+        if print_output:
+            print("Detecting usage of SGE")
         try:
             job_id = os.getenv('SGE_JOB_ID')
             result = subprocess.run(['qstat', '-j', job_id], capture_output=True, text=True)
@@ -65,8 +68,9 @@ def get_total_memory():
         
     # Assume that this is running on a local machine    
     else:
-        print("Scheduler-specific memory allocation information not found.")
-        print("Checking system memory instead...")
+        if print_output:
+            print("Scheduler-specific memory allocation information not found.")
+            print("Checking system memory instead...")
         return psutil.virtual_memory().total
     
 

@@ -200,7 +200,7 @@ class fjmp_rowe(model_template):
 
         if hasattr(self, 'model_file'):
             if not ('log_path' in self.model_kwargs.keys()):
-                log_folder = 'FJMP_' + str(self.model_kwargs["num_joint_modes"]) + "_" + str(self.num_samples_path_pred) + "_logs"
+                log_folder = 'FJMP_' + str(self.model_kwargs["num_joint_modes"]) + "_" + str(self.num_samples_path_pred) + "_logs_seed_" + str(self.model_kwargs["seed"])
                 self.model_kwargs["log_path"] = Path(os.path.dirname(self.model_file) + os.sep + log_folder + os.sep)
 
                 # self.model_kwargs["log_path"].mkdir(exist_ok=True, parents=True)
@@ -212,12 +212,10 @@ class fjmp_rowe(model_template):
                 sys.stdout = Logger(log)
 
 
-        if self.data_set.get_name()['file'] in ['Argoverse', 'NuScenes']:
-            self.model_kwargs["dataset"] = 'argoverse2'
-        elif self.data_set.get_name()['file'] == 'Interaction':
+        if self.data_set.get_name()['file'] == 'Interaction':
             self.model_kwargs["dataset"] = 'interaction'
         else:
-            raise ValueError('Dataset not supported')
+            self.model_kwargs["dataset"] = 'argoverse2'
 
         if self.model_kwargs["dataset"] == 'interaction':
             self.model_kwargs["switch_lr_1"] = 40
@@ -292,13 +290,50 @@ class fjmp_rowe(model_template):
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
 
-    def extract_batch_data(self, X, T, C, Y = None, graph = None, Sample_id = None, Agent_id = None):
+    def rearange_input_data(self, data):
+        # data.shape = bs x num_agents x num_timesteps x 2
+
+        data_old = data.copy()
+        assert np.array_equal(self.input_data_type[:2], ['x', 'y']), "Input data type does not start with ['x', 'y']"
+
+        data = np.concatenate([data[...,:2], np.zeros(data.shape[:3] + (3,))], axis = -1)
+        if 'v_x' in self.input_data_type:
+            v_x_id = self.input_data_type.index('v_x')
+            data[...,2] = data_old[...,v_x_id]
+        else:
+            # Use differentation along 'x' axis to get v_x
+            data[...,2] = np.gradient(data[...,0], axis = -1)
+        
+        if 'v_y' in self.input_data_type:
+            v_y_id = self.input_data_type.index('v_y')
+            data[...,3] = data_old[...,v_y_id]
+        else:
+            # Use differentation along 'y' axis to get v_y
+            data[...,3] = np.gradient(data[...,1], axis = -1)
+        
+        if 'theta' in self.input_data_type:
+            theta_id = self.input_data_type.index('theta')
+            data[...,4] = data_old[...,theta_id]
+        else:
+            # Use atan2 between v_y and v_x to get theta
+            data[...,4] = np.arctan2(data[...,3], data[...,2])
+        return data
+
+
+
+    def extract_batch_data(self, X, T, C, Pred_agents, Y = None, graph = None, Sample_id = None, Agent_id = None):
         # X.shape:   bs x num_agents x num_timesteps_is x 2
         # Y.shape:   bs x num_agents x num_timesteps_is x 2
         # T.shape:   bs x num_agents 
 
-        # TODO correct data transfer because order is ['x', 'y', 'theta', 'v_x', 'v_y'] not ['x', 'y', 'v_x', 'v_y', 'theta']
+        # requires ['x', 'y', 'v_x', 'v_y', 'theta']
         # check again with self.input_data_type with each new framework update
+        if not np.array_equal(self.input_data_type, ['x', 'y', 'v_x', 'v_y', 'theta']):
+            X = self.rearange_input_data(X)
+            if Y is not None:
+                Y = self.rearange_input_data(Y)
+
+        
         
         data = {}
         data_feats, data_ctrs, data_orig, data_theta, data_rot = [], [], [], [], []
@@ -307,6 +342,12 @@ class fjmp_rowe(model_template):
         data_ig_labels_sparse, data_ig_labels_dense, data_ig_labels_m2i = [], [], []
         data_graphs = []
 
+        if C is None:
+            C = np.ones(T.shape)
+            # Remove missing agents
+            C[~np.isfinite(X).all(-1).all(-1)] = 0
+            # Make predicted agents have category 2
+            C[Pred_agents] = 2
 
         for b in range(X.shape[0]):
             if Y is not None:
@@ -332,7 +373,7 @@ class fjmp_rowe(model_template):
 
             T[T == ''] = '0'
             data['agenttypes'] = [object_type_dict[T[b, t]] * np.ones((len(data['steps'][t]), 1)) for t in range(len(T[b]))]
-            
+
             data['agentcategories'] = [C[b,c] * np.ones((len(data['steps'][c]), 2)) for c in range(len(C[b]))]
 
             data['track_ids'] = [Agent_id[b,id] * np.ones((len(data['steps'][id]), 1)) for id in range(len(Agent_id[b]))]
@@ -494,7 +535,7 @@ class fjmp_rowe(model_template):
                 # X.shape:   bs x num_agents x num_timesteps_is x 2
                 # Y.shape:   bs x num_agents x num_timesteps_is x 2
                 # T.shape:   bs x num_agents 
-                data = self.extract_batch_data(X=X, T=T, C=C, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
+                data = self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
                 # get data dictionary for processing batch
@@ -554,7 +595,7 @@ class fjmp_rowe(model_template):
                                                                                         val_split_size = 0.1, return_categories=True)
                 
 
-                data = self.extract_batch_data(X=X, T=T, C=C, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
+                data = self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
                 # get data dictionary for processing batch
@@ -713,7 +754,7 @@ class fjmp_rowe(model_template):
             # tot_log = self.num_val_samples // (self.batch_size * hvd.size())            
             while not prediction_done:
                 X, T, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['batch_size'], return_categories=True)
-                data =  self.extract_batch_data(X=X, T=T, C=C, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
+                data =  self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
         
                 dd = self.model.process(data)
                 
