@@ -54,7 +54,7 @@ class fjmp_rowe(model_template):
         self.define_default_kwargs()
 
         kwargs_str = '_train' + str(self.model_kwargs['num_joint_modes'])  + '_pred' + str(self.num_samples_path_pred)
-        model_str = 'FJMP' + kwargs_str
+        model_str = 'FJMP' + kwargs_str + '_seed' + str(self.model_kwargs['seed'])
 
         names = {'print': model_str,
                 'file': model_str,
