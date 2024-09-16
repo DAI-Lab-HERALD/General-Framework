@@ -1131,28 +1131,37 @@ class data_interface(object):
                     used_index = np.where(used)[0]
                     
                     # Adjust Type to used indices
-                    Type = Type.loc[self.Domain[used].Index_saved]
+                    Domain = self.Domain[used]
+                    Type = Type.loc[Domain.Index_saved]
+
+                    # Transform to numpy
+                    T = Type.to_numpy().astype(str)
+
+                    # Get the corresponding agent indices
+                    agent_index = self.get_indices_1D(Type.columns.to_numpy(), np.array(self.Agents))
                     
                     # Get data corresponding to file
-                    Domain = self.Domain[used]
                     Pred_agents_eval = self.Pred_agents_eval[used]
-                    
-                    # Initialize file subgroups
-                    Subgroups = np.zeros(len(Domain), int)
+                    Pred_agents_eval = Pred_agents_eval[:, agent_index]
+
+                    # Get Pred agent as string
+                    PA_str = Pred_agents_eval.astype(str)
                     
                     # Get the same entries in full dataset
-                    T = Type.to_numpy().astype(str)
-                    PA_str = Pred_agents_eval.astype(str) 
                     if hasattr(Domain, 'location'):
                         Loc = np.tile(Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
                         Div = np.stack((T, PA_str, Loc), axis = -1)
                     else:
-                        Div = np.stack((T, PA_str), axis = -1)
+                        Div = np.stack((T, PA_str), axis = -1) # shape: num_samples x num_agents x 2
                         
                     Div_unique, Div_inverse, _ = np.unique(Div, axis = 0, return_inverse = True,  return_counts = True)
                     
-                    
+                    # Get the underlying trajectories
                     self._extract_original_trajectories(file_index)
+
+                    # Initialize file subgroups
+                    Subgroups = np.zeros(len(Domain), int)
+
                     # go through all potentiall similar entries
                     for div_inverse in range(len(Div_unique)):
                         # Get potentially similar samples

@@ -655,9 +655,12 @@ class fjmp_rowe(model_template):
 
         # Check if stage 1 model exists
         if self.model_kwargs['two_stage_training']:
+            print('')
+            print("Check if stage 1 exists")
             if self.model_kwargs['training_stage'] == 1 and not os.path.exists(self.model_file[:-4] + '_stage_1'):
                 if os.path.exists(str(self.model_kwargs["log_path"]) + 'best_model_relation_header.pt'):
                     self.model.load_relation_header()
+                print("Training stage 1")
                 self.train_fjmp(start_epoch+1, optimizer)
 
                 start_epoch = 0
@@ -666,15 +669,11 @@ class fjmp_rowe(model_template):
             if self.model_kwargs['training_stage'] == 2 and not os.path.exists(self.model_file[:-4] + '_stage_1'):
                 raise ValueError('Stage 1 model does not exist')
             
-            
             if os.path.exists(self.model_file[:-4] + '_stage_1'):
                 self.model_kwargs['training_stage'] = 2
-
-
-                if self.model_kwargs['training_stage'] == 2:
-                    self.pretrained_relation_header = None
-                    self.model.training_stage = 2
+                self.model.training_stage = 2
                 
+                print('Load stage 1 model')
                 with open(os.path.join(self.model_kwargs["log_path"], "config_stage_1.pkl"), "rb") as f:
                     config_stage_1 = pickle.load(f) 
                 
@@ -693,7 +692,12 @@ class fjmp_rowe(model_template):
                 if os.path.exists(str(self.model_kwargs["log_path"]) + 'best_model.pt'):
                     self.model.load_for_train(optimizer)
 
+                print('')
+                print("Training stage 2")
                 self.train_fjmp(start_epoch+1, optimizer)
+            
+            else:
+                raise ValueError('Stage 1 model does not exist')
         
 
         self.train_loss = np.ones((1, self.model_kwargs['max_epochs'])) * np.nan
