@@ -58,6 +58,15 @@ class Waymo_interactive(data_set_template):
         self.Type_old = []
         self.T = []
         self.Domain_old = []
+
+        # Get images 
+        self.Images = pd.DataFrame(np.zeros((0, 2), object), index = [], columns = ['Image', 'Target_MeterPerPx'])
+        px_per_meter = 2
+
+        # Get scenegraphs
+        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                            'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
         
         # The framed code should be the only dataset specific part whenusing trajdata
         ################################################################################
@@ -76,11 +85,36 @@ class Waymo_interactive(data_set_template):
         ################################################################################
         
         map_api = MapAPI(Path(cache_path))
-        # Go over scenes
+
+        # Go over scenes to collect maps
+        for i, scene in enumerate(dataset.scenes()):
+            # Get map
+            map_id = scene.env_name + ':' + scene.location
+            map_api.get_map(map_id)
+
+        # Save images
+        for map_key in list(map_api.maps.keys()):
+            if not map_key in self.Images.index:
+                map_image = map_api.maps[map_key]
+
+                # Get the sceneGraph
+                graph = self.getSceneGraphTrajdata(map_image)
+                self.SceneGraphs.loc[map_key] = graph
+
+
+                img = map_image.rasterize(px_per_meter)
+                
+                # Get less memory intensive saving form
+                if (img.dtype != np.unit8) and (img.max() <= 1.0): 
+                    img *= 255.0
+                        
+                self.Images.loc[map_key] = [img.astype(np.uint8), 1 / px_per_meter] 
+
         
         # Get allready saved samples
         num_samples_saved = self.get_number_of_saved_samples()
         
+        # Go over scenes
         for i, scene in enumerate(dataset.scenes()):
             if i < num_samples_saved:
                 continue
@@ -149,26 +183,7 @@ class Waymo_interactive(data_set_template):
             self.T.append(t)
             self.Domain_old.append(domain)
         
-        
         self.check_created_paths_for_saving(last = True) 
-        
-        # Get images 
-        self.Images = pd.DataFrame(np.zeros((len(map_api.maps), 2), object), 
-                                   index = list(map_api.maps.keys()),
-                                   columns = ['Image', 'Target_MeterPerPx'])
-        
-        # set image resolution
-        px_per_meter = 2
-        self.Images.Target_MeterPerPx = 1 / px_per_meter
-        
-        # cycle through images
-        for map_key in self.Images.index:
-            img = map_api.maps[map_key].rasterize(px_per_meter)
-            
-            # Get less memory intensive saving form
-            if (img.dtype != np.unit8) and (img.max() <= 1.0): 
-                img *= 255.0
-            self.Images.Image.loc[map_key] = img.astype(np.uint8)       
 
         # deletet cached data
         shutil.rmtree(cache_path)

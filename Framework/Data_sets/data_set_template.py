@@ -620,10 +620,96 @@ class data_set_template():
         self.data_loaded = False
         self.path_models_trained = False
 
-
     def getSceneGraphTrajdata(self, map_image):
+        min_x, min_y = map_image.extent[:2]
+        image_bounds = np.array([[min_x, min_y]])
+        
+        # prepare the sceneGraph
+        num_nodes = 0
+        lane_idcs = []
+        pre_pairs = np.zeros((0,2), int)
+        suc_pairs = np.zeros((0,2), int)
+        left_pairs = np.zeros((0,2), int)
+        right_pairs = np.zeros((0,2), int)
+
+        left_boundaries = []
+        right_boundaries = []
+        centerlines = []
+
+        lane_type = []
+
+        # Get lane_ids
+        map_lanes_tokens = {}
+        for i, lane in enumerate(map_image.lanes):
+            map_lanes_tokens[lane.id] = i
+
+        for lane_record in map_image.lanes:
+            token = lane_record.id
+            lane_id = map_lanes_tokens[token]
+            center_pts = lane_record.center.points[:,:2]
+            left_pts = lane_record.left_edge.points[:,:2]
+            right_pts = lane_record.right_edge.points[:,:2]
+
+            # Subtract image bounds from positions
+            center_pts -= image_bounds
+            left_pts -= image_bounds
+            right_pts -= image_bounds
+
+            # Mirror along y axis
+            center_pts[:, 1] *= -1
+            left_pts[:, 1] *= -1
+            right_pts[:, 1] *= -1
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Append lane_idc
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type
+            lane_type.append(('VEHICLE', False))
+
+            # Get predecessor and successor connections
+            for pre in lane_record.prev_lanes:
+                pre_pairs = np.vstack((pre_pairs, [lane_id, map_lanes_tokens[pre]]))
+
+            for suc in lane_record.next_lanes:
+                suc_pairs = np.vstack((suc_pairs, [lane_id, map_lanes_tokens[suc]]))
+
+            for left in lane_record.adj_lanes_left:
+                left_pairs = np.vstack((left_pairs, [lane_id, map_lanes_tokens[left]]))
+
+            for right in lane_record.adj_lanes_right:
+                right_pairs = np.vstack((right_pairs, [lane_id, map_lanes_tokens[right]]))
+
+        # Initialize graph
+        graph = pd.Series([])
+        graph['num_nodes'] = num_nodes
+        graph['lane_idcs'] = np.array(lane_idcs)
+        graph['pre_pairs'] = pre_pairs
+        graph['suc_pairs'] = suc_pairs
+        graph['left_pairs'] = right_pairs # The use of * -1 mirrors everything, switching sides
+        graph['right_pairs'] = left_pairs # The use of * -1 mirrors everything, switching sides
+        graph['left_boundaries'] = right_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['centerlines'] = centerlines
+        graph['lane_type'] = lane_type
+
+
+        # Get available gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        graph = self.add_node_connections(graph, device = device)
+
+        return graph
+
+
+
+    def getSceneGraphNuScenes(self, map_image):
         from NuScenes.nusc_utils import extract_lane_and_edges, extract_lane_center, extract_area
-        from trajdata.maps.vec_map_elements import MapElementType, PedCrosswalk, PedWalkway, Polyline, RoadArea, RoadLane
 
         # Prepare transformation of lane types to argoverse style
         lane_user_dict = {'CAR': 'VEHICLE',
@@ -666,10 +752,7 @@ class data_set_template():
         for i, lane in enumerate(map_image.walkway):
             map_ped_area_tokens[lane["token"]] = i + i_counter
         
-
-        # get lane end and start points
-        lane_start = np.zeros((0, 2))
-        lane_end = np.zeros((0, 2))
+        # Go through lanes
         for lane_record in map_image.lane:
             # Get points describing the lane aspect
             center_pts, left_pts, right_pts = extract_lane_and_edges(map_image, lane_record)
@@ -683,10 +766,6 @@ class data_set_template():
             center_pts[:, 1] *= -1
             left_pts[:, 1] *= -1
             right_pts[:, 1] *= -1
-
-            # Append lane end and start points
-            lane_start = np.vstack((lane_start, center_pts[0]))
-            lane_end = np.vstack((lane_end, center_pts[-1]))
 
             # Append lane markers
             centerlines.append(center_pts)
@@ -723,8 +802,107 @@ class data_set_template():
                     pre_pairs = np.vstack((pre_pairs, [map_connector_tokens[suc], lane_id]))
                 else:
                     pass
-                
-            # TODO: Search for left and right neighbors
+        
+        # Get left and right pairs
+        left_pairs, right_pairs = self.get_Left_Right_pairs(centerlines)
+
+        for lane_record in map_image.lane_connector:
+            # Unfortunately lane connectors in nuScenes have very simple exterior
+            # polygons which make extracting their edges quite difficult, so we
+            # only extract the centerline.
+            center_pts = extract_lane_center(map_image, lane_record)
+
+            # Subtract image bounds from positions
+            center_pts -= image_bounds
+
+            # Mirror along y axis
+            center_pts[:, 1] *= -1
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            right_boundaries.append(np.zeros((0, 2)))
+            left_boundaries.append(np.zeros((0, 2)))
+
+            # Get lane id
+            lane_id = map_connector_tokens[lane_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (lanes are no intersections, compared to lane connectors)
+            lane_type.append(('VEHICLE', True))
+
+        for ped_area_record in map_image.ped_crossing:
+            polygon_pts = extract_area(map_image, ped_area_record)
+            assert len(polygon_pts) >= 4, "Pedestrian crossing should have 4 points."
+
+            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Get lane id
+            lane_id = map_ped_area_tokens[ped_area_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (crosswalks are intersections, compared to walkways)
+            lane_type.append(('PEDESTRIAN', True))
+
+        for ped_area_record in map_image.walkway:
+            polygon_pts = extract_area(map_image, ped_area_record)
+            assert len(polygon_pts) >= 4, "Walkway should have at least 4 points."
+
+            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
+
+            # Append lane markers
+            centerlines.append(center_pts)
+            left_boundaries.append(left_pts)
+            right_boundaries.append(right_pts)
+
+            # Get lane id
+            lane_id = map_ped_area_tokens[ped_area_record['token']]
+            lane_idcs += [lane_id] * (len(center_pts) - 1)
+
+            num_nodes += len(center_pts) - 1
+
+            # Get lane type (walkways are no intersections, compared to crosswalks)
+            lane_type.append(('PEDESTRIAN', False))
+
+
+        graph = pd.Series([])
+        graph['num_nodes'] = num_nodes
+        graph['lane_idcs'] = np.array(lane_idcs)
+        graph['pre_pairs'] = pre_pairs
+        graph['suc_pairs'] = suc_pairs
+        graph['left_pairs'] = left_pairs
+        graph['right_pairs'] = right_pairs
+        graph['left_boundaries'] = right_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['centerlines'] = centerlines
+        graph['lane_type'] = lane_type
+
+
+        # Get available gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        graph = self.add_node_connections(graph, device = device)
+
+        return graph
+    
+
+    def get_Left_Right_pairs(self, centerlines):
+        # get lane end and start points
+        lane_start = np.zeros((0, 2))
+        lane_end = np.zeros((0, 2))
+        for center_pts in centerlines:
+            # Append lane end and start points
+            lane_start = np.vstack((lane_start, center_pts[0]))
+            lane_end = np.vstack((lane_end, center_pts[-1]))
+
         D_start_start = np.linalg.norm(lane_start[:, np.newaxis] - lane_start[np.newaxis], axis = -1)
         D_end_end   = np.linalg.norm(lane_end[:, np.newaxis] - lane_end[np.newaxis], axis = -1)
         D_start_end = np.linalg.norm(lane_start[:, np.newaxis] - lane_end[np.newaxis], axis = -1)
@@ -811,95 +989,8 @@ class data_set_template():
         left_pairs = np.stack((I1_left, I2_left), axis = -1)
         right_pairs = np.stack((I1_right, I2_right), axis = -1)
 
+        return left_pairs, right_pairs
 
-
-        for lane_record in map_image.lane_connector:
-            # Unfortunately lane connectors in nuScenes have very simple exterior
-            # polygons which make extracting their edges quite difficult, so we
-            # only extract the centerline.
-            center_pts = extract_lane_center(map_image, lane_record)
-
-            # Subtract image bounds from positions
-            center_pts -= image_bounds
-
-            # Mirror along y axis
-            center_pts[:, 1] *= -1
-
-            # Append lane markers
-            centerlines.append(center_pts)
-            right_boundaries.append(np.zeros((0, 2)))
-            left_boundaries.append(np.zeros((0, 2)))
-
-            # Get lane id
-            lane_id = map_connector_tokens[lane_record['token']]
-            lane_idcs += [lane_id] * (len(center_pts) - 1)
-
-            num_nodes += len(center_pts) - 1
-
-            # Get lane type (lanes are no intersections, compared to lane connectors)
-            lane_type.append(('VEHICLE', True))
-
-        for ped_area_record in map_image.ped_crossing:
-            polygon_pts = extract_area(map_image, ped_area_record)
-            assert len(polygon_pts) >= 4, "Pedestrian crossing should have 4 points."
-
-            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
-
-            # Append lane markers
-            centerlines.append(center_pts)
-            left_boundaries.append(left_pts)
-            right_boundaries.append(right_pts)
-
-            # Get lane id
-            lane_id = map_ped_area_tokens[ped_area_record['token']]
-            lane_idcs += [lane_id] * (len(center_pts) - 1)
-
-            num_nodes += len(center_pts) - 1
-
-            # Get lane type (crosswalks are intersections, compared to walkways)
-            lane_type.append(('PEDESTRIAN', True))
-
-        for ped_area_record in map_image.walkway:
-            polygon_pts = extract_area(map_image, ped_area_record)
-            assert len(polygon_pts) >= 4, "Walkway should have at least 4 points."
-
-            center_pts, left_pts, right_pts = self.extract_polygon(polygon_pts, image_bounds)
-
-            # Append lane markers
-            centerlines.append(center_pts)
-            left_boundaries.append(left_pts)
-            right_boundaries.append(right_pts)
-
-            # Get lane id
-            lane_id = map_ped_area_tokens[ped_area_record['token']]
-            lane_idcs += [lane_id] * (len(center_pts) - 1)
-
-            num_nodes += len(center_pts) - 1
-
-            # Get lane type (walkways are no intersections, compared to crosswalks)
-            lane_type.append(('PEDESTRIAN', False))
-
-
-        graph = pd.Series([])
-        graph['num_nodes'] = num_nodes
-        graph['lane_idcs'] = np.array(lane_idcs)
-        graph['pre_pairs'] = pre_pairs
-        graph['suc_pairs'] = suc_pairs
-        graph['left_pairs'] = left_pairs
-        graph['right_pairs'] = right_pairs
-        graph['left_boundaries'] = left_boundaries
-        graph['right_boundaries'] = right_boundaries
-        graph['centerlines'] = centerlines
-        graph['lane_type'] = lane_type
-
-
-        # Get available gpu
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        graph = self.add_node_connections(graph, device = device)
-
-        return graph
-    
 
     def extract_polygon(self, polygon_pts, image_bounds):            
         # Find line furthes away from each other

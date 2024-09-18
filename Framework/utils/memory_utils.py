@@ -32,7 +32,20 @@ def get_total_memory(print_output = True):
             for line in job_info.splitlines():
                 if 'MinMemoryCPU' in line:
                     mem_allocated = line.split('MinMemoryCPU=')[1].split(' ')[0]
-                    return convert_memory_to_bytes(mem_allocated)
+                    mem_allocated = convert_memory_to_bytes(mem_allocated)
+                    if mem_allocated is None:
+                        print("memroy failed to be extracted from this line:")
+                        print(line)
+                        raise ValueError("Sudden error in memory allocation")
+                    return mem_allocated
+            
+            
+            print("memroy failed to be extracted from this text:")
+            result = subprocess.run(['scontrol', 'show', 'job', job_id], capture_output=True, text=True)
+            job_info = result.stdout
+            for line in job_info.splitlines():
+                print(line)
+            raise ValueError("Sudden error in memory allocation")
         except Exception as e:
             print(f"Error fetching Slurm memory allocation: {e}")
 
@@ -77,6 +90,8 @@ def get_total_memory(print_output = True):
 def get_used_memory():
     """ Get the current process memory usage. """
     if ('SLURM_JOB_ID' in os.environ) or ('PBS_JOBID' in os.environ) or ('SGE_JOB_ID' in os.environ):
-        return psutil.Process(os.getpid()).memory_info().rss
+        mem_used = psutil.Process(os.getpid()).memory_info().rss
+        assert mem_used is not None, "Sudden error in memory usage"
+        return mem_used
     else:
         return psutil.virtual_memory().used

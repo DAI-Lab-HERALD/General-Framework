@@ -39,7 +39,7 @@ class Lyft_interactive(data_set_template):
         return True 
     
     def includes_sceneGraphs(self = None):
-        return False
+        return True
     
     def set_scenario(self):
         self.scenario = scenario_none()
@@ -72,11 +72,16 @@ class Lyft_interactive(data_set_template):
         self.Images = pd.DataFrame(np.zeros((0, 2), object), index = [], columns = ['Image', 'Target_MeterPerPx'])
         px_per_meter = 2
 
+        # Get scenegraphs
+        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                            'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
+
         # Get allready saved samples
         num_samples_saved = self.get_number_of_saved_samples()
         ii = 0
         # Treat the separate parts of the dataset separately
-        for part in ['val', 'train', 'sample']: # 'train_full' could be added
+        for part in ['sample', 'val', 'train', 'train_full']: # 'train_full' could be added
             self.path = os.path.dirname(os.path.abspath(__file__))
 
             lyft_string = 'lyft_' + part
@@ -90,16 +95,29 @@ class Lyft_interactive(data_set_template):
             
             map_api = MapAPI(Path(cache_path))
 
+            # Go over scenes to collect maps
+            for i, scene in enumerate(dataset.scenes()):
+                # Get map
+                map_id = scene.env_name + ':' + scene.location
+                map_api.get_map(map_id)
+
             # Save images
             for map_key in list(map_api.maps.keys()):
                 if not map_key in self.Images.index:
-                    img = map_api.maps[map_key].rasterize(px_per_meter)
+                    map_image = map_api.maps[map_key]
+
+                    # Get the sceneGraph
+                    graph = self.getSceneGraphTrajdata(map_image)
+                    self.SceneGraphs.loc[map_key] = graph
+
+
+                    img = map_image.rasterize(px_per_meter)
                     
                     # Get less memory intensive saving form
                     if (img.dtype != np.unit8) and (img.max() <= 1.0): 
                         img *= 255.0
                            
-                    self.Images.loc[map_id] = [img.astype(np.uint8), 1 / px_per_meter] 
+                    self.Images.loc[map_key] = [img.astype(np.uint8), 1 / px_per_meter] 
 
             # Go over scenes
             for i, scene in enumerate(dataset.scenes()):
@@ -181,8 +199,6 @@ class Lyft_interactive(data_set_template):
 
         # delete cached data
         shutil.rmtree(cache_path)
-
-        print('Finished extraction, start saving data.')
 
 
         

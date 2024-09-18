@@ -92,7 +92,7 @@ class NuScenes_interactive(data_set_template):
                 map_image = NuScenesMap(dataroot = file_path, map_name = map_name)
 
                 # Get the sceneGraph
-                graph = self.getSceneGraphTrajdata(map_image)
+                graph = self.getSceneGraphNuScenes(map_image)
                 self.SceneGraphs.loc[map_name] = graph
 
                 # Get the bit map 
