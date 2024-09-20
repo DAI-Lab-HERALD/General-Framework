@@ -16,9 +16,7 @@ If you have questions regarding the usage of the framework or are interested in 
 
 ## Coming updates
 The following improvements are currently planned for the framework.
-- In its current version, the size of the datasets that models can be trained and tested upon is limited by the RAM. This problem is supposed to be rectified in a coming update, in which the framework will save intermediate results on the hard drive as well, allowing for larger datasets to be used.
-- An update which will ad the generation of adversarial attacks against models will be added.
-- The framework will be extended to be able to deal with map information that is saved both as pixelated images or as vectorized representation (showing positions of lane markers, ...). Currently, only the former is implemented.
+- SceneGraphs (allready implemented for Waymo, Lyft, NuScenes, and Argoverse) will be expanded to the remaining, currently implemented datasets.
 
 ## Citation
 When using this framework for your work, please cite the [initial paper](https://ieeexplore.ieee.org/abstract/document/10043012). Please be advised that we are planning to publish a new paper about this framework before the end of 2024, so if you do not plan to publish your work until then, please check the current preferred citation. Thank you very much. 
