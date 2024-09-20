@@ -233,8 +233,8 @@ Those tables are then also saved as *\*.tex* files in the folder *../Framework/L
 ### Plotting trajectories
 Lastly, one can also plot trajectories, true and predicted alike:
 ```
-new_experiment.plot_paths(load_all = False, plot_similar_futures = False, plot_train = False,
-                          only_show_pred_agents = False, likelihood_visualization = False, plot_only_lines = False)
+new_experiment.plot_paths(load_all = False, plot_similar_futures = False, plot_train = False, only_show_pred_agents = False, 
+                          likelihood_visualization = False, joint_likelihoods = False, plot_only_lines = False)
 ```
 Here, the first step will be to select for all the given modules one instance using console inputs (such as a dataset and model). Once selected, one can then choose to create trajectory plots for all samples in the testing set (*load_all = True*), or that one wants to only select a single sample using a console input (*load_all = False*). The resulting *\*.pdf* image(s) are then saved in *../Framework/Results/<Dataset_name>/Metric_figures/*. 
 
@@ -244,7 +244,7 @@ It is the standard case that samples can only be selected from the testset (*plo
 
 If one wishes to toggle whether only the agents for which the predictions are made are plotted, one can do so by setting *only_show_pred_agents = True* if this is the case. Otherwise for plotting all the agents in a scene regardless of whether predictions are available for them one must set *only_show_pred_agents = False*.
 
-It is additionally possible to plot the likelihoods of the predicted trajectories (*likelihood_visualization = True*), where the likelihoods are depicted by the opacity level of the trajectory. 
+It is additionally possible to plot the likelihoods of the predicted trajectories (*likelihood_visualization = True*), where the likelihoods are depicted by the opacity level of the trajectory. If one decides to use this feature, and plots scenes with multiple depicted agents, then setting *joint_likelihoods = True* will provide likelihoods calculated based on distributions over the joint trajectories agents, while otherwise, each agent's likelihood will be calculated separately.
 
 Lastly, if one wishes to mark the locations at each time step of a prediction one must set *plot_only_lines = False*.
 

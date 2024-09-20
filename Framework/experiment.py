@@ -1801,7 +1801,14 @@ class Experiment():
         return sample_inds
     
         
-    def _get_path_likelihoods(self, data_set, model, sample_ind, opp, ind_pp):
+    def _get_path_likelihoods(self, data_set, model, sample_ind, opp, ind_pp, joint = False):
+        # presafe model parameters
+        save_prediction = bool(int(model.data_set.save_predictions)) # Be sure to make copy
+        num_samples_path_pred = int(float(model.num_samples_path_pred))
+
+        # Set save predictions to false to not touch saved data
+        model.data_set.save_predictions = False
+
         # Overwrite number of predictions
         model.num_samples_path_pred = max(1, 3000 - len(opp))
         # Run the actual prediction
@@ -1821,10 +1828,18 @@ class Experiment():
         data_set.save_predictions  = False
         model.prediction_overwrite = True
 
-        model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
+        if joint:
+            model._get_joint_KDE_pred_probabilities(Pred_index, Output_path_pred)
+            Lp = model.Log_prob_joint_pred[0, :opp.shape[0], np.newaxis] # num_preds x 1
+            Lp = np.repeat(Lp, opp.shape[1], axis = 1)
+        else:
+            model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
+            # Only consider the likelihoods of trajectories in opp
+            Lp = model.Log_prob_indep_pred[0, :opp.shape[0], :opp.shape[1]] # num_preds x num_agents
 
-        # Only consider the likelihoods of trajectories in opp
-        Lp = model.Log_prob_indep_pred[0, :opp.shape[0], :opp.shape[1]]
+        # Reset model parameters
+        model.data_set.save_predictions = save_prediction
+        model.num_samples_path_pred     = num_samples_path_pred
 
         return Lp
 
@@ -1834,6 +1849,7 @@ class Experiment():
                    plot_train = False,
                    only_show_pred_agents = False,
                    likelihood_visualization = False,
+                   joint_likelihoods = False,
                    plot_only_lines = False):
         assert self.provided_modules, "No modules have been provided. Run self.set_modules() first."
         assert self.provided_setting, "No parameters have been provided. Run self.set_parameters() first."
@@ -1893,7 +1909,7 @@ class Experiment():
             if likelihood_visualization:
                 # Only available for path prediction models
                 if model.get_output_type() == 'path_all_wi_pov':
-                    Lp = self._get_path_likelihoods(data_set, model, sample_ind, opp, ind_pp)
+                    Lp = self._get_path_likelihoods(data_set, model, sample_ind, opp, ind_pp, joint = joint_likelihoods)
             
 
 
