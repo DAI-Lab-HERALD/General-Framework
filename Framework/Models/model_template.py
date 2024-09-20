@@ -1711,6 +1711,14 @@ class model_template():
             This indicates wether one has just sampled all batches from an epoch and has to go to the next one.
 
         '''
+        reset_train_indices = False
+        if hasattr(self, 'val_split_size') and mode == 'train':
+            if hasattr(self, 'Ind_train') and val_split_size != self.val_split_size:
+                # Check if a new epoch is starting
+                if len(self.Ind_train[1]) == 0:
+                    reset_train_indices = True
+
+        self.val_split_size = val_split_size
         
         self.prepare_batch_generation()
         
@@ -1728,17 +1736,28 @@ class model_template():
             if not hasattr(self, 'Ind_val'):
                 I_train = self._extract_useful_training_samples()
                 num_train = int(len(I_train) * (1 - val_split_size))
-                self.Ind_val = [I_train[num_train:], np.array([], int)]
+
+                # Set train/val indices
+                self.Ind_train = [I_train[:num_train], np.array([], int)]
+                self.Ind_val   = [I_train[num_train:], np.array([], int)]
+                    
                 
             N_O = np.minimum(self.N_O_data, self.max_t_O_train)
             Ind_advance = self.Ind_val
             
         elif mode == 'train':
             assert self.model_mode == 'train', 'During training, the non-validation part of the training set should be called.'
-            if not hasattr(self, 'Ind_train'):
+            if not hasattr(self, 'Ind_train') or reset_train_indices:
                 I_train = self._extract_useful_training_samples()
                 num_train = int(len(I_train) * (1 - val_split_size))
+
+                # Set train/val indices
                 self.Ind_train = [I_train[:num_train], np.array([], int)]
+                self.Ind_val   = [I_train[num_train:], np.array([], int)]
+
+                if reset_train_indices:
+                    np.random.shuffle(self.Ind_train[0])
+                    np.random.shuffle(self.Ind_val[0])
             
             N_O = np.minimum(self.N_O_data, self.max_t_O_train)
             Ind_advance = self.Ind_train

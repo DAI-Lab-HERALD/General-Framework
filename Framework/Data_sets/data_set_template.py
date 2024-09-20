@@ -643,6 +643,13 @@ class data_set_template():
         for i, lane in enumerate(map_image.lanes):
             map_lanes_tokens[lane.id] = i
 
+        # Assert tyhat all pre stuff us empty
+        no_pre = True
+        for lane_record in map_image.lanes:
+            if len(lane_record.prev_lanes) > 0:
+                no_pre = False
+                break
+
         for lane_record in map_image.lanes:
             token = lane_record.id
             lane_id = map_lanes_tokens[token]
@@ -670,14 +677,21 @@ class data_set_template():
             num_nodes += len(center_pts) - 1
 
             # Get lane type
+            # TODO: Determine intersections
             lane_type.append(('VEHICLE', False))
 
             # Get predecessor and successor connections
-            for pre in lane_record.prev_lanes:
-                pre_pairs = np.vstack((pre_pairs, [lane_id, map_lanes_tokens[pre]]))
+            if no_pre:
+                for suc in lane_record.next_lanes:
+                    suc_pairs = np.vstack((suc_pairs, [lane_id, map_lanes_tokens[suc]]))
+                    pre_pairs = np.vstack((pre_pairs, [map_lanes_tokens[suc], lane_id]))
 
-            for suc in lane_record.next_lanes:
-                suc_pairs = np.vstack((suc_pairs, [lane_id, map_lanes_tokens[suc]]))
+            else:
+                for pre in lane_record.prev_lanes:
+                    pre_pairs = np.vstack((pre_pairs, [lane_id, map_lanes_tokens[pre]]))
+
+                for suc in lane_record.next_lanes:
+                    suc_pairs = np.vstack((suc_pairs, [lane_id, map_lanes_tokens[suc]]))
 
             for left in lane_record.adj_lanes_left:
                 left_pairs = np.vstack((left_pairs, [lane_id, map_lanes_tokens[left]]))
@@ -697,7 +711,6 @@ class data_set_template():
         graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
         graph['centerlines'] = centerlines
         graph['lane_type'] = lane_type
-
 
         # Get available gpu
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

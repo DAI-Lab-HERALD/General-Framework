@@ -449,7 +449,9 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     The number of samples to be selected.
   val_split_size : float, optional
     The part of the overall training set that is set aside for model validation during the
-    training process. The default is *0.0*.
+    training process. The default is *0.0*. At the beginning of each training epoch (mode == 'train'),
+    the framework will check if this value has changed and - if so - redo the splitting of the 
+    training set into training and validation part. 
   ignore_map : bool, optional
     This indicates if image data is not needed, even if available in the dataset 
     and processable by the model. The default is *False*.
