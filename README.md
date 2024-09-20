@@ -19,4 +19,4 @@ The following improvements are currently planned for the framework.
 - SceneGraphs (allready implemented for Waymo, Lyft, NuScenes, and Argoverse) will be expanded to the remaining, currently implemented datasets.
 
 ## Citation
-When using this framework for your work, please cite the [initial paper](https://ieeexplore.ieee.org/abstract/document/10043012). Please be advised that we are planning to publish a new paper about this framework before the end of 2024, so if you do not plan to publish your work until then, please check the current preferred citation. Thank you very much. 
+When using this framework for your work, please cite the [initial paper](https://ieeexplore.ieee.org/abstract/document/10043012). Please be advised that we are planning to publish a new paper about this framework before the end of 2025, so if you do not plan to publish your work until then, please check the current preferred citation. Thank you very much. 
