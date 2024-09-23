@@ -1596,14 +1596,14 @@ class Experiment():
         domain           = Domain.loc[sample_ind]
         output_A         = Output_A.loc[sample_ind]
 
-        # Go through needed data
-        file_indices = Domain.file_index.loc[sample_ind]
 
         # get empty inputs
         input_path  = pd.DataFrame(np.empty((len(sample_ind), len(data_set.Agents)), dtype = object), columns = data_set.Agents, index = sample_ind)
         output_path = pd.DataFrame(np.empty((len(sample_ind), len(data_set.Agents)), dtype = object), columns = data_set.Agents, index = sample_ind)
         output_T_E  = np.empty(len(sample_ind), dtype = object)
 
+        # Go through needed data
+        file_indices = domain.file_index
         for file_index in np.unique(file_indices):
             use_index = file_indices == file_index
 
@@ -1611,7 +1611,7 @@ class Experiment():
             file = data_set.Files[file_index] + '_data.npy'
             [_, Input_path, _, Output_path, _, _, _, Output_T_E, _] = np.load(file, allow_pickle = True)
 
-            ind = Domain[use_index].Index_saved
+            ind = domain[use_index].Index_saved
 
             input_path[use_index]  = Input_path.iloc[ind]
             output_path[use_index] = Output_path.iloc[ind]
