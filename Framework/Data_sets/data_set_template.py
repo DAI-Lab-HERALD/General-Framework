@@ -2347,6 +2347,9 @@ class data_set_template():
                                 ind_start = 0
                                 ind_last = len(helper_T)
                         
+                        # Check if the dimension (i.e., self.path_data_info() has correct length)
+                        assert len(self.path_data_info()) == helper_path[agent].shape[-1], "The path data info does not match the path data"
+                        
                         # Split by input and output, however, only include positions in the output
                         input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real].astype(np.float32)
                         output_path[agent] = helper_path[agent][self.num_timesteps_in_real:].astype(np.float32)
@@ -2804,7 +2807,7 @@ class data_set_template():
 
         if 'graph_id' in self.Domain.columns:
             graph_ids = self.Domain.graph_id.to_numpy()
-            Path_ids = self.Domain.Path_ID.to_numpy()
+            Path_ids = self.Domain[['Path_ID', 'path_addition']].to_numpy().astype(str)
 
             # Get unique Path_ids, with index
             index_unique_path = np.unique(Path_ids, return_index = True)[1]
