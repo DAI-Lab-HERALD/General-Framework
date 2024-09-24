@@ -2245,7 +2245,9 @@ class data_set_template():
                     input_prediction = pd.Series(np.nan * np.ones(1), index=['empty'])
                 # prepare empty pandas series for path
                 helper_path   = pd.Series(np.empty(len(path.index), np.ndarray), index=path.index)
-                helper_T_appr = np.concatenate((input_T + 1e-5, output_T - 1e-5))
+                helper_T_appr = np.concatenate((input_T, output_T))
+                helper_T_appr[0] += 1e-5
+                helper_T_appr[-1] -= 1e-5
                 
                 assert isinstance(t, np.ndarray), "Time has to be a numpy array"
                 
@@ -2270,7 +2272,7 @@ class data_set_template():
                         
                     # check if needed agents have reuqired input and output
                     if agent in self.needed_agents:
-                        if np.isnan(helper_path[agent][:,:2]).any():
+                        if isinstance(helper_path[agent], float) or np.isnan(helper_path[agent][:,:2]).any():
                             correct_path = False
                             
                 if not correct_path:
