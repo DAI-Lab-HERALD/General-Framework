@@ -2812,7 +2812,7 @@ class data_set_template():
             Path_ids = self.Domain[['Path_ID', 'path_addition']].to_numpy().astype(str)
 
             # Get unique Path_ids, with index
-            index_unique_path = np.unique(Path_ids, return_index = True)[1]
+            index_unique_path = np.unique(Path_ids, axis = 0, return_index = True)[1]
             graph_ids_old = graph_ids[index_unique_path]
 
             # For each unique graph_id, check how often they are repeated
