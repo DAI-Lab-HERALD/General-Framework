@@ -2413,7 +2413,7 @@ class data_set_template():
                 # Update size with default values if new agents were added
                 if size_given:
                     for agent in agent_types.index:
-                        if ((size[agent] == np.nan) or np.isnan(size[agent]).any()) and (agent_types[agent] != float('nan')):
+                        if (str(agent_types[agent]) != 'nan') and np.isnan(size[agent]).any():
                             if agent_types[agent] == 'V':
                                 size[agent] + np.array([5.0, 2.0])
                             elif agent_types[agent] == 'M':
