@@ -224,6 +224,20 @@ The most important part of the dataset module is to provide access to training a
     **self.num_samples** : int
       A scalar integer value, which gives the number of samples :math:`N_{samples}`. It should be noted 
       that :math:`self.num_Samples = len(self.Path) = len(self.T) = len(self.Domain_old) = N_{samples}`.
+
+    **self.Size_old** : pandas.DataFrame (optional!)
+      If one wants to not only provide agent types (see **self.Type_old**), but also agent sizes, one can
+      choose to define this argument. It is a pandas DataFrame of dimensionality 
+      :math:`\{N_{samples} {\times} N_{agents}\}`. Its column names are identical to the column names of 
+      **self.Path**. Each corresponding entry contains the size of the agent whose path is recorded at the 
+      same location in *self.Path** as a numpy array of shape :math:`2`, with the first element being the 
+      length and the second element being the width of the agent (given in meters).
+      If one does not provide this information (i.e., *hasattr(self, 'Size_old') = False*), the following values
+      will be assumed as default, depending on the agent types:
+        - 'V': [5, 2]
+        - 'M': [2, 0.5]
+        - 'B': [2, 0.5]
+        - 'P': [0.5, 0.5]
         
     It might be possible that the selected dataset can provide images. In this case, it is
     paramount that **self.Domain_old** contains a column named 'image_id', so that images can

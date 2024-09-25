@@ -192,7 +192,7 @@ class flomo_schoeller(model_template):
                 
                 train_epoch_done = False
                 while not train_epoch_done:
-                    X, Y, T, img, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
+                    X, Y, T, _, img, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
@@ -252,7 +252,7 @@ class flomo_schoeller(model_template):
                 with torch.no_grad():
                     val_epoch_done = False
                     while not val_epoch_done:
-                        X, Y, T, img, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
+                        X, Y, T, _, img, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
                         X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                         
@@ -323,7 +323,7 @@ class flomo_schoeller(model_template):
     def predict_method(self):
         prediction_done = False
         while not prediction_done:
-            X, T, img, _, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+            X, T, _, img, _, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
             actual_batch_size = len(X)
             Ped_agent = T == 'P'
             

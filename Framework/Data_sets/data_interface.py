@@ -355,6 +355,25 @@ class data_interface(object):
             
         return Files, file_number
     
+
+    def set_default_size(self, Type):
+        Size = pd.DataFrame(columns=Type.columns, index=Type.index, dtype = object)
+
+        default_dict = {
+            'V': np.array([5.0, 2.0]),
+            'M': np.array([2.0, 0.5]),
+            'B': np.array([2.0, 0.5]),
+            'P': np.array([0.5, 0.5]),
+        }
+        T_array = Type.to_numpy()
+
+        for typ, size in default_dict.items():
+            useful = T_array == typ
+            size_array = np.array([size] * useful.sum() + ['helper'], dtype = object)[:-1]
+            Size.values[useful] = size_array
+
+        return Size
+
     
     def assemble_data(self, file_identifier, keep_useless_samples = False):
         self.Files = []
@@ -381,6 +400,7 @@ class data_interface(object):
             self.Output_T_E       = np.zeros(0, float)
 
             self.Type             = pd.DataFrame(np.zeros((0,0), np.ndarray))
+            self.Size             = pd.DataFrame(np.zeros((0,0), np.ndarray))
             self.Recorded         = pd.DataFrame(np.zeros((0,0), np.ndarray))
 
         
@@ -433,6 +453,13 @@ class data_interface(object):
                 
                 self.Type             = pd.concat((self.Type, data_set.Type))
                 self.Recorded         = pd.concat((self.Recorded, data_set.Recorded))
+
+                # Get data_set size
+                if data_set.Size is not None:
+                    data_set_size = data_set.Size
+                else:
+                    data_set_size = self.set_default_size(data_set.Type)
+                self.Size = pd.concat((self.Size, data_set_size))
         
         # combine the agents
         self.Agents, index = np.unique(self.Agents, return_index = True)
@@ -444,6 +471,7 @@ class data_interface(object):
             self.Input_path  = self.Input_path[self.Agents]
             self.Output_path = self.Output_path[self.Agents]
             self.Type        = self.Type[self.Agents]
+            self.Size        = self.Size[self.Agents]
             self.Recorded    = self.Recorded[self.Agents]
         
             # Ensure behavior stuff is aligned and fill missing behaviors
@@ -483,6 +511,7 @@ class data_interface(object):
                 self.Output_T_E       = self.Output_T_E[Useful_agents]
 
                 self.Type             = self.Type.iloc[Useful_agents].reset_index(drop = True)
+                self.Size             = self.Size.iloc[Useful_agents].reset_index(drop = True)
                 self.Recorded         = self.Recorded.iloc[Useful_agents].reset_index(drop = True)
         
         return complete_failure
@@ -888,7 +917,12 @@ class data_interface(object):
                         data_file = self.Files[file_index] + '_data.npy'
                         
                         # Load the agent files
-                        [Type_local, Recorded_local, _] = np.load(agent_file, allow_pickle=True)
+                        Agent_data = np.load(agent_file, allow_pickle=True)
+                        if len(Agent_data) == 3:
+                            [Type_local, Recorded_local, _] = Agent_data
+                        else:
+                            assert len(Agent_data) == 4, 'Agent data should have 3 or 4 entries.'
+                            [Type_local, _, Recorded_local, _] = Agent_data
 
                         # Load Output_T
                         [_, _, _, _, Output_T, _, _, _, _] = np.load(data_file, allow_pickle=True)
@@ -1125,7 +1159,7 @@ class data_interface(object):
                 
                 for file_index in range(len(self.Files)):
                     agent_file = self.Files[file_index] + '_AM.npy'
-                    [Type, _, _] = np.load(agent_file, allow_pickle = True)
+                    Type = np.load(agent_file, allow_pickle = True)[0]
                     
                     used = self.Domain.file_index == file_index
                     used_index = np.where(used)[0]

@@ -211,6 +211,7 @@ class model_template():
             
         if hasattr(self, 'Type'):
             del self.Type
+            del self.Size
 
 
 
@@ -935,38 +936,66 @@ class model_template():
         
         return graph_needed, use_batch_extraction
 
+
+    def get_agent_data_to_array(self, Type, Size):
+        # Get agent types to array
+        T = Type.to_numpy().astype(str)
+        T[T == 'nan'] = '0'
+
+        # Get agent size to array
+        overwrite = Size.isna().to_numpy()
+        S = Size.to_numpy()
+        
+        # overwrtite nan stuff
+        overwrite_array = np.array([np.full(2, np.nan)] * overwrite.sum() + ['test'], dtype = object)[:-1]
+        S[overwrite] = overwrite_array
+        S = np.stack(S.tolist())
+
+        return T, S
+
+
     def _extract_types(self):
         ## NOTE: Method has been adjusted for large datasets
         # Get pred agents
         
         if not hasattr(self, 'Type'):
+            assert not hasattr(self, 'Size'), 'Size should be done separately to Types.'
             if self.data_set.data_in_one_piece:
-                # Get agent types
-                T = self.data_set.Type.to_numpy()
-                T = T.astype(str)
-                T[T == 'nan'] = '0'
+                # Get agent types to array
+                T, S = self.get_agent_data_to_array(self.data_set.Type, self.data_set.Size)
             else:
                 T = np.full(self.data_set.Pred_agents_pred_all.shape, '0', str)
+                S = np.full((*self.data_set.Pred_agents_pred_all.shape, 2), np.nan)
                 for file_index in range(len(self.data_set.Files)):
                     used = self.data_set.Domain.file_index == file_index
                     used_index = np.where(used)[0]
                     
                     agent_file = self.data_set.Files[file_index] + '_AM.npy'
-                    T_local, _, _ = np.load(agent_file, allow_pickle = True)
+                    agent_data = np.load(agent_file, allow_pickle = True)
+                    if len(agent_data) == 3:
+                        T_local, _, _ = agent_data
+                        S_local = self.data_set.set_default_size(T_local)
+                    else:
+                        assert len(agent_data) == 4, 'Agent data should be of length 3 or 4.'
+                        T_local, S_local, _, _ = agent_data
                     
                     # Get agent inices
                     agent_index = self.data_set.get_indices_1D(np.array(T_local.columns), np.array(self.data_set.Agents))
                     
-                    T_local = T_local.to_numpy().astype(str)
-                    T_local[T_local == 'nan'] = '0'
-                    
+                    # get agent types top array
+                    T_local, S_local = self.get_agent_data_to_array(T_local, S_local)
+
+                    # Get used indices
                     ind = self.data_set.Domain[used].Index_saved
-                    
                     used_2d = np.tile(used_index[:,np.newaxis], (1, len(agent_index)))
                     agent_2d = np.tile(agent_index[np.newaxis,:], (len(used_index), 1))
+
+                    # Fill in the data
                     T[used_2d, agent_2d] = T_local[ind]
+                    S[used_2d, agent_2d] = S_local[ind]
     
             self.Type = T.astype(str)
+            self.Size = S.astype(np.float32)
     
 
     def get_orig_data_index(self, Sample_ind, Agent_ind = None):
@@ -1201,6 +1230,9 @@ class model_template():
             
         # Get agent types
         self.T = self.Type[Sample_id, Agent_id] # num_samples, num_agents
+
+        # Get agent sizes
+        self.S = self.Size[Sample_id, Agent_id] # num_samples, num_agents, 2
         
         # Get the number of future timesteps
         self.N_O_pred = N_O_pred[Sample_id[:,0]]
@@ -1350,6 +1382,11 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
+        S_train : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+            where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+            (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+            instead be np.nan.
         C : np.ndarray
             Optional return provided when return_categories = True. 
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -1469,6 +1506,7 @@ class model_template():
 
         # Get globally saved data
         T_train = self.T[I_train]
+        S_train = self.S[I_train]
         Pred_agents_train = self.Pred_agents[I_train]
         
         if self.img is not None:
@@ -1538,10 +1576,10 @@ class model_template():
             else:
                 C_train = None
 
-            return [X_train, Y_train, T_train, C_train, img_train, img_m_per_px_train, graph_train,
+            return [X_train, Y_train, T_train, S_train, C_train, img_train, img_m_per_px_train, graph_train,
                     Pred_agents_train, Sample_id_train, Agent_id_train]
         else:
-            return [X_train, Y_train, T_train, img_train, img_m_per_px_train, graph_train,
+            return [X_train, Y_train, T_train, S_train, img_train, img_m_per_px_train, graph_train,
                     Pred_agents_train, Sample_id_train, Agent_id_train]
         
         
@@ -1613,6 +1651,11 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
             the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
             If an agent is not observed at all, the value will instead be '0'.
+        S : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+            where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+            (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+            instead be np.nan.
         C : np.ndarray
             Optional return provided when return_categories = True. 
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -1828,6 +1871,7 @@ class model_template():
         
         # Get data as available for whole dataset
         T = self.T[ind_advance]
+        S = self.S[ind_advance]
         Pred_agents = self.Pred_agents[ind_advance]
 
         # Get the corresponding sample_ids 
@@ -1958,14 +2002,14 @@ class model_template():
             else:
                 C = None
             if mode == 'pred':
-                return X,    T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+                return X,    T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
-                return X,    T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+                return X,    T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
     
     
     def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
@@ -2055,6 +2099,11 @@ class model_template():
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
+        S : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+            where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+            (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+            instead be np.nan.
         C : np.ndarray
             Optional return provided when return_categories = True. 
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -2114,6 +2163,7 @@ class model_template():
 
         # Get other inputs
         T = self.Type[Index]
+        S = self.Size[Index]
         D = D[Index]
         P = self.data_set.Output_A.to_numpy().astype(np.float32)[Index]
         DT = self.data_set.Output_T_E.astype(np.float32)[Index]
@@ -2150,14 +2200,14 @@ class model_template():
                 C = None
             
             if train:
-                return X, T, C, agent_names, D, dist_names, class_names, P, DT
+                return X, T, S, C, agent_names, D, dist_names, class_names, P, DT
             else:
-                return X, T, C, agent_names, D, dist_names, class_names
+                return X, T, S, C, agent_names, D, dist_names, class_names
         else:
             if train:
-                return X, T, agent_names, D, dist_names, class_names, P, DT
+                return X, T, S, agent_names, D, dist_names, class_names, P, DT
             else:
-                return X, T, agent_names, D, dist_names, class_names
+                return X, T, S, agent_names, D, dist_names, class_names
             
 
     
@@ -2692,8 +2742,12 @@ class model_template():
         # Get agent predictions
         self.T_pred = self.Type[Pred_index[i_sampl_sort], i_agent_sort]
 
+        # Get size of agents
+        self.S_pred = self.Size[Pred_index[i_sampl_sort], i_agent_sort]
+
         # Set agent types of agents not included in Pred step to '0'
         self.T_pred[~self.Pred_step.any(-1)] = '0'
+        self.S_pred[~self.Pred_step.any(-1)] = np.nan
 
         # Save the id of the agents used here
         self.Pred_agent_id = i_agent_sort

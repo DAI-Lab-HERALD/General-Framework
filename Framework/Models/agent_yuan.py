@@ -214,7 +214,7 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    X, Y, T, _, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
                     data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations
@@ -371,7 +371,7 @@ class agent_yuan(model_template):
                           str(epoch).rjust(len(str(epochs))) + 
                           '/{}, Batch {}'.format(epochs, batch), flush = True)
                     
-                    X, Y, T, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
+                    X, Y, T, _, img, img_m_per_px, _, Pred_agents, num_steps, _, _, epoch_done = self.provide_batch_data('train', self.batch_size)
                     data = self.extract_data_batch(X, T, Pred_agents, Y, img, img_m_per_px, num_steps)
                     samples += len(data)
                     # prevent unnecessary simulations
@@ -529,7 +529,7 @@ class agent_yuan(model_template):
             print('Predict trajectron: Batch {}'.format( batch))
             
             # check if problem was already solved in saved data
-            X, T, img, img_m_per_px, _, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 1)
+            X, T, _, img, img_m_per_px, _, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 1)
             data = self.extract_data_batch(X, T, Pred_agents, img, img_m_per_px, num_steps)
             
             # OOM protection

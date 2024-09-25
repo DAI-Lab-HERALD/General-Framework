@@ -3133,10 +3133,10 @@ class commotions_template():
         
         # Get the purpose specific names (train or test)
         if purpose == 'train':
-            _, T, agent_names, D, dist_names, class_names, P, DT = self.get_classification_data(train = True)
+            _, T, S, agent_names, D, dist_names, class_names, P, DT = self.get_classification_data(train = True)
             Output_T_pred = self.data_set.Output_T_pred[self.Index_train]
         elif purpose == 'test':
-            _, T, agent_names, D, dist_names, class_names = self.get_classification_data(train = False)
+            _, T, S, agent_names, D, dist_names, class_names = self.get_classification_data(train = False)
             Output_T_pred = self.data_set.Output_T_pred
         else:
             raise KeyError('The purpose "' + purpose + '" is not an available split of the data')
@@ -3212,8 +3212,7 @@ class commotions_template():
             ctrl_types[Types == 'V'] = CtrlType.ACCELERATION
         
         # Allocate empty tensors for further information
-        lengths           = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
-                                        dtype = torch.float32, device = self.device)
+        lengths           = torch.from_numpy(S[...,0].T).to(device = self.device, dtype = torch.float32)
         widths            = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
                                         dtype = torch.float32, device = self.device)
         free_speeds       = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
@@ -3227,13 +3226,9 @@ class commotions_template():
         coll_dist         = torch.zeros((self.commotions_model.N_AGENTS, num_samples), 
                                         dtype = torch.float32, device = self.device)
         
-        
-        
+        # Get the free speed of the agents
         free_speeds[Ped_agents]  = self.fixed_params.FREE_SPEED_PED
         free_speeds[~Ped_agents] = self.fixed_params.FREE_SPEED_VEH
-        
-        lengths[Ped_agents]  = 1.0 
-        lengths[~Ped_agents] = 5.0
         
         # Get the width of th agents, based on set gap sizes
         widths[0] = Lt
@@ -3298,7 +3293,7 @@ class commotions_template():
         names, ctrl_types, initial_positions, speeds, accs, coll_dist, free_speeds, T_out, dt = self.extract_data('train')
         
         # Allocate tensors for desired output data
-        _, _, _, _, _, class_names, P, DT = self.get_classification_data(train = True)
+        _, _, _, _, _, _, class_names, P, DT = self.get_classification_data(train = True)
         
         i_accepted = np.where(np.array(class_names) == 'accepted')[0][0]
         

@@ -97,7 +97,7 @@ class data_set_template():
                          self.get_name()['file'])
         
         
-    def check_path_samples(self, Path, Type_old, T, Domain_old, num_samples):
+    def check_path_samples(self, Path, Type_old, T, Domain_old, num_samples, Size_old = None):
         # Check if the rigth path information if provided
         path_info = self.path_data_info()
         if not isinstance(path_info, list):
@@ -149,7 +149,18 @@ class data_set_template():
         for needed_agent in self.needed_agents:
             if not needed_agent in path_names:
                 raise AttributeError("Agent " + needed_agent + " must be included in the paths")
+            
+        check_size = Size_old is not None
+        if check_size:
+            if not isinstance(Size_old, pd.core.frame.DataFrame):
+                raise TypeError("Size information should be saved in a pandas data frame")
+            if len(Size_old) != num_samples:
+                raise TypeError("Size information should have correct number of sampels")
+            if (path_names != Size_old.columns).any():
+                raise TypeError("Agent Paths and Sizes need to have the same columns.")
+            
         
+
         for i in range(num_samples):
             # check if time input consists out of tuples
             if not isinstance(T[i], np.ndarray):
@@ -160,18 +171,8 @@ class data_set_template():
                 # check if time input consists out of tuples
                 agent_path = Path.iloc[i, j]
                 agent_type = Type_old.iloc[i, j]
-                # For needed agents, nan is not admissible
-                if agent in self.needed_agents:
-                    if not isinstance(agent_path, np.ndarray):
-                        raise TypeError("Path is expected to be consisting of np.ndarrays.")
-                else:
-                    if not isinstance(agent_path, np.ndarray):
-                        if str(agent_path) != 'nan':
-                            raise TypeError("Path is expected to be consisting of np.ndarrays.")
-                        
-                        if str(agent_type) != 'nan':
-                            raise TypeError("If no path is given, there should be no agent type.")
-                            
+                if check_size:
+                    agent_size = Size_old.iloc[i, j]
                 
                 # if the agent exists in this sample, adjust this
                 if isinstance(agent_path, np.ndarray):
@@ -186,6 +187,32 @@ class data_set_template():
                         
                     if str(agent_type) == 'nan':
                         raise ValueError("For a given path, the agent type must not be nan.")
+
+                    if not isinstance(agent_type, str):
+                        raise TypeError("Agent type is expected to be a string.")
+                    
+                    if check_size:
+                        if not isinstance(agent_size, np.ndarray):
+                            raise TypeError("Size is expected to be consisting of np.ndarrays.")
+                        if not len(agent_size) == 2:
+                            raise TypeError("Size is expected to be consisting of np.ndarrays with two dimension.")
+                        if not np.isfinite(agent_size).all():
+                            raise TypeError("Size is expected to be consisting of finite values.")
+
+                
+                else:
+                    if agent in self.needed_agents:
+                        raise TypeError("Path of needed agent is expected to be consisting of np.ndarrays.")
+                    if str(agent_path) != 'nan':
+                        raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                    
+                    if str(agent_type) != 'nan':
+                        raise TypeError("If no path is given, there should be no agent type.")
+
+                    if check_size:
+                        if str(agent_size) != 'nan':
+                            raise TypeError("If no path is given, there should be no agent size.")
+
         
     def check_image_samples(self, Images):
         assert isinstance(Images, pd.core.frame.DataFrame), "Images should be saved in a pandas data frame"
@@ -327,6 +354,19 @@ class data_set_template():
                 Domain_old_check = pd.DataFrame(self.Domain_old)
             else:
                 Domain_old_check = self.Domain_old
+
+            # Check is self.Size_old exists
+            if hasattr(self, 'Size_old'):
+                if not isinstance(self.Size_old, pd.core.frame.DataFrame):
+                    assert isinstance(self.Size_old, list), "Size_old should be a list."
+                    # Transform to dataframe
+                    Size_old_check = pd.DataFrame(self.Size_old)
+                else:
+                    Size_old_check = self.Size_old
+            else:
+                Size_old_check = None
+                if last:
+                    self.Size_old = None
                 
             # Check if some saved original data is allready available
             file_path_test = self.file_path + '--all_orig_paths'
@@ -352,11 +392,15 @@ class data_set_template():
             num_samples_check = len(Path_check)
             
             # Check the samples
-            self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check)
+            self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check, Size_old_check)
             
             # Save the results
             os.makedirs(os.path.dirname(file_path_save), exist_ok=True)
-            test_data = np.array([Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check], object)
+
+            if Size_old_check is None:
+                test_data = np.array([Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check], object)
+            else:
+                test_data = np.array([Path_check, Type_old_check, Size_old_check, T_check, Domain_old_check, num_samples_check], object)
             np.save(file_path_save, test_data)
             
             # Reset the data to empty lists
@@ -422,7 +466,7 @@ class data_set_template():
         num_samples = 0
         for file in files:
             file_path = test_file_directory + os.sep + file
-            [_, _, _, _, num_samples_file] = np.load(file_path, allow_pickle=True)
+            num_samples_file = np.load(file_path, allow_pickle=True)[-1]
             num_samples += num_samples_file
         
         return num_samples
@@ -469,11 +513,21 @@ class data_set_template():
                 
                 if self.number_original_path_files == 1:
                     # Allready load samples for higher efficiency
-                    [self.Path,
-                    self.Type_old,
-                    self.T,
-                    self.Domain_old,
-                    self.num_samples] = np.load(test_file, allow_pickle=True)
+                    Loaded_data = np.load(test_file, allow_pickle=True)
+                    if len(Loaded_data) == 5:
+                        [self.Path,
+                         self.Type_old,
+                         self.T,
+                         self.Domain_old,
+                         self.num_samples] = Loaded_data
+                    else:
+                        assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
+                        [self.Path,
+                         self.Type_old,
+                         self.Size_old,
+                         self.T,
+                         self.Domain_old,
+                         self.num_samples] = Loaded_data
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -482,16 +536,27 @@ class data_set_template():
                 self.available_memory_creation = self.total_memory - get_used_memory()
 
                 self.create_path_samples()
-                # Check if the las file allready exists
+
+                # Check if the last file allready exists
                 if os.path.isfile(test_file):
                     self.number_original_path_files = self.get_number_of_original_path_files()
                     # If there is only one file, load the data
                     if self.number_original_path_files == 1:
-                        [self.Path,
-                        self.Type_old,
-                        self.T,
-                        self.Domain_old,
-                        self.num_samples] = np.load(test_file, allow_pickle=True)
+                        Loaded_data = np.load(test_file, allow_pickle=True)
+                        if len(Loaded_data) == 5:
+                            [self.Path,
+                            self.Type_old,
+                            self.T,
+                            self.Domain_old,
+                            self.num_samples] = Loaded_data
+                        else:
+                            assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
+                            [self.Path,
+                            self.Type_old,
+                            self.Size_old,
+                            self.T,
+                            self.Domain_old,
+                            self.num_samples] = Loaded_data
                     
                 else:
                     # Check that no other save files exists
@@ -504,18 +569,21 @@ class data_set_template():
                         raise AttributeError("Incomplete use of self.check_created_paths_for_saving.")
                     
                     self.number_original_path_files = 1
+
+                    # Check if self.Size_old exists
+                    if not hasattr(self, 'Size_old'):
+                        self.Size_old = None
                     
                     # Validate the data                    
-                    self.check_path_samples(self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples)
+                    self.check_path_samples(self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples, self.Size_old)
                 
                     # save the results
                     os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
                     
-                    test_data = np.array([self.Path,
-                                        self.Type_old,
-                                        self.T,
-                                        self.Domain_old,
-                                        self.num_samples], object)
+                    if self.Size_old is None:
+                        test_data = np.array([self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples], object)
+                    else:
+                        test_data = np.array([self.Path, self.Type_old, self.Size_old, self.T, self.Domain_old, self.num_samples], object)
                     
                     np.save(test_file, test_data)
                 
@@ -1805,10 +1873,18 @@ class data_set_template():
                         path_file += path_file_adjust + '.npy'
                         
                         # Load the data
-                        [Path_loaded, _,
-                        T_loaded,
-                        Domain_old_loaded,
-                        num_samples_loaded] = np.load(path_file, allow_pickle=True)
+                        Loaded_data = np.load(path_file, allow_pickle=True)
+                        if len(Loaded_data) == 5:
+                            [Path_loaded, _,
+                            T_loaded,
+                            Domain_old_loaded,
+                            num_samples_loaded] = Loaded_data
+                        else:
+                            assert len(Loaded_data) == 6, "The loaded data does not have the correct shape"
+                            [Path_loaded, _, _,
+                            T_loaded, 
+                            Domain_old_loaded,
+                            num_samples_loaded] = Loaded_data
                 
                     # Load extracted time points
                     [
@@ -2081,7 +2157,7 @@ class data_set_template():
         return domain_files, num_files
     
     
-    def get_data_from_orig_path(self, Path, Type_old, T, Domain_old, num_samples, path_file, path_file_adjust):
+    def get_data_from_orig_path(self, Path, Type_old, Size_old, T, Domain_old, num_samples, path_file, path_file_adjust):
         # Extract time points from raw data
         [
             local_id,
@@ -2093,6 +2169,15 @@ class data_set_template():
             local_t_start,
             local_t_decision,
             local_t_crit] = self.extract_time_points(Path, T, Domain_old, num_samples, path_file)
+        
+        # Check if size is used
+        size_given = Size_old is not None
+
+        # Check if this is consistent over dataset
+        if not hasattr(self, 'size_given'):
+            self.size_given = size_given
+        
+        assert self.size_given == size_given, "The decision to use size has to be consisten over the dataset"
 
         # Get number of possible accepted/rejected samples in the whole dataset
         self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
@@ -2134,6 +2219,9 @@ class data_set_template():
         self.Type_local     = []
         self.Recorded_local = []
         self.Domain_local   = []
+
+        if size_given:
+            self.Size_local = []
 
         # Go through samples
         local_num_samples = len(local_id)
@@ -2196,6 +2284,8 @@ class data_set_template():
                 domain['t_0'] = t0
                 
                 agent_types = Type_old.iloc[i_path].copy()
+                if size_given:
+                    size = Size_old.iloc[i_path].copy()
                 
                 # Check if this t0 is applicable
                 t0 = self.check_t0_constraint(t0, t, self.t0_type, t_start, t_crit, t_decision)
@@ -2265,10 +2355,14 @@ class data_set_template():
                         if np.sum(available_pos) <= 1:
                             helper_path[agent] = np.nan
                             agent_types[agent] = float('nan')
+                            if size_given:
+                                size[agent] = np.nan
                             
                     else:
                         helper_path[agent] = np.nan
                         agent_types[agent] = float('nan')
+                        if size_given:
+                            size[agent] = np.nan
                         
                     # check if needed agents have reuqired input and output
                     if agent in self.needed_agents:
@@ -2317,10 +2411,27 @@ class data_set_template():
                 
                 # complete partially available paths
                 helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
+
+                # Update size with default values if new agents were added
+                if size_given:
+                    for agent in agent_types.index:
+                        if (size[agent] == np.nan) and (agent_types[agent] != float('nan')):
+                            if agent_types[agent] == 'V':
+                                size[agent] + np.array([5.0, 2.0])
+                            elif agent_types[agent] == 'M':
+                                size[agent] + np.array([2.0, 0.5])
+                            elif agent_types[agent] == 'B':
+                                size[agent] + np.array([2.0, 0.5])
+                            elif agent_types[agent] == 'P':
+                                size[agent] + np.array([0.5, 0.5])
+                            else:
+                                raise KeyError("The agent type is not known")
                 
                 if self.max_num_agents is not None:
                     helper_path = helper_path.iloc[:max_num_agent_local]
                     agent_types = agent_types.iloc[:max_num_agent_local]
+                    if size_given:
+                        size = size.iloc[:max_num_agent_local]
                     
                 
                 # Split completed paths back into input and output
@@ -2362,12 +2473,16 @@ class data_set_template():
                             output_path[agent]        = np.nan
                             recorded_positions[agent] = np.nan
                             agent_types[agent] = float('nan')
+                            if size_given:
+                                size[agent] = np.nan
                         
                     else:
                         input_path[agent]         = np.nan
                         output_path[agent]        = np.nan
                         recorded_positions[agent] = np.nan
                         agent_types[agent]        = float('nan')
+                        if size_given:
+                            size[agent] = np.nan
                         
                 # save results
                 self.Input_prediction_local.append(input_prediction)
@@ -2383,6 +2498,10 @@ class data_set_template():
                 self.Type_local.append(agent_types)
                 self.Recorded_local.append(recorded_positions)
                 self.Domain_local.append(domain)
+
+                if size_given:
+                    self.Size_local.append(size)
+
                 
                 current_length = len(self.Input_T_local)
                 if (current_length > predicted_saving_length) or (np.mod(current_length - 1, 5000) == 0):
@@ -2471,6 +2590,9 @@ class data_set_template():
             self.Recorded = pd.DataFrame(self.Recorded_local)
             self.Domain   = pd.DataFrame(self.Domain_local)
 
+            if self.size_given:
+                self.Size = pd.DataFrame(self.Size_local)
+
             # Clear up memory by emptying local data files
             self.Input_prediction_local = []
             self.Input_path_local       = []
@@ -2486,6 +2608,9 @@ class data_set_template():
             self.Recorded_local = []
             self.Domain_local   = []
 
+            if self.size_given:
+                self.Size_local = []
+
             self.num_behaviors_local = np.zeros(len(self.Behaviors), int)
             
             # Ensure that dataframes with agent columns have the same order
@@ -2494,6 +2619,8 @@ class data_set_template():
             self.Output_path = self.Output_path[Agents]
             self.Type        = self.Type[Agents]
             self.Recorded    = self.Recorded[Agents]
+            if self.size_given:
+                self.Size = self.Size[Agents]
 
             # Ensure that indices of dataframes are the same
             self.Input_path = self.Input_path.reset_index(drop = True)
@@ -2503,6 +2630,8 @@ class data_set_template():
             self.Type.index             = self.Input_path.index
             self.Recorded.index         = self.Input_path.index
             self.Domain.index           = self.Input_path.index
+            if self.size_given:
+                self.Size.index = self.Input_path.index
             
             ## Get the corresponding save file
             data_file_name = os.path.basename(data_file)
@@ -2524,8 +2653,6 @@ class data_set_template():
             else:
                 file_number = 0
                 
-                
-            
             if last:
                 data_file_addition = '_LLL'
             else:
@@ -2573,7 +2700,11 @@ class data_set_template():
                     self.Domain.Scenario = self.get_name()['print']
 
                     save_domain_unperturbed = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-                    save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
+
+                    if self.size_given:
+                        save_agent_unperturbed = np.array([self.Type, self.Size, self.Recorded, 0], object)
+                    else:
+                        save_agent_unperturbed  = np.array([self.Type, self.Recorded, 0], object)
                     
                     
                     # Save the unperturbed data
@@ -2624,7 +2755,11 @@ class data_set_template():
                                     self.Output_T_E, 0], object)
             
             save_domain = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-            save_agent  = np.array([self.Type, self.Recorded, 0], object)
+
+            if self.size_given:
+                save_agent = np.array([self.Type, self.Size, self.Recorded, 0], object)
+            else:
+                save_agent = np.array([self.Type, self.Recorded, 0], object)
             
             
             data_file_save = data_file + data_file_addition + '_data.npy'
@@ -2719,23 +2854,35 @@ class data_set_template():
                     # Get the allready loaded data
                     Path_loaded = self.Path
                     Type_old_loaded = self.Type_old
+                    Size_old_loaded = self.Size_old
                     T_loaded = self.T
                     Domain_old_loaded = self.Domain_old
                     num_samples_loaded = self.num_samples
             
                 else:
                     # Load the data
-                    [Path_loaded,
-                    Type_old_loaded,
-                    T_loaded,
-                    Domain_old_loaded,
-                    num_samples_loaded] = np.load(path_file, allow_pickle=True)
+                    Loaded_data = np.load(path_file, allow_pickle=True)
+                    if len(Loaded_data) == 5:
+                        [Path_loaded,
+                        Type_old_loaded,
+                        T_loaded,
+                        Domain_old_loaded,
+                        num_samples_loaded] = Loaded_data
+                        Size_old_loaded = None
+                    else:
+                        assert len(Loaded_data) == 6, "The loaded data has the wrong length."
+                        [Path_loaded,
+                        Type_old_loaded,
+                        Size_old_loaded,
+                        T_loaded,
+                        Domain_old_loaded,
+                        num_samples_loaded] = Loaded_data
 
                 # Get the currently available RAM space
                 self.available_memory_data_extraction = self.total_memory - get_used_memory()
 
                 # Adjust base data file name accordingly
-                self.get_data_from_orig_path(Path_loaded, Type_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
+                self.get_data_from_orig_path(Path_loaded, Type_old_loaded, Size_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
                 
         
         # Get the number of files
@@ -2759,7 +2906,14 @@ class data_set_template():
             self.Output_T_E, _] = np.load(data_file, allow_pickle=True)
             
             [self.Domain, self.num_behaviors, self.num_behaviors_out, self.Agents, _] = np.load(domain_file, allow_pickle=True)
-            [self.Type, self.Recorded, _] = np.load(agent_file, allow_pickle=True)
+
+            Agent_data = np.load(agent_file, allow_pickle=True)
+            if len(Agent_data) == 3:
+                [self.Type, self.Recorded, _] = Agent_data
+                self.Size = None
+            else:
+                assert len(Agent_data) == 4, "The loaded data has the wrong length."
+                [self.Type, self.Size, self.Recorded, _] = Agent_data
         
         else:
             # Free up memory

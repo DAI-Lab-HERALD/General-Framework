@@ -530,7 +530,7 @@ class fjmp_rowe(model_template):
             i = 0
 
             while not train_epoch_done:
-                X, Y, T, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data('train', self.model_kwargs['batch_size'], 
+                X, Y, T, S, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, train_epoch_done = self.provide_batch_data('train', self.model_kwargs['batch_size'], 
                                                                                     val_split_size = 0.1, return_categories=True)  
                 # X.shape:   bs x num_agents x num_timesteps_is x 2
                 # Y.shape:   bs x num_agents x num_timesteps_is x 2
@@ -591,7 +591,7 @@ class fjmp_rowe(model_template):
             i = 0
             val_epoch_done = False
             while not val_epoch_done:
-                X, Y, T, C, img, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, val_epoch_done = self.provide_batch_data('val', self.model_kwargs['batch_size'], 
+                X, Y, T, S, C, img, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, val_epoch_done = self.provide_batch_data('val', self.model_kwargs['batch_size'], 
                                                                                         val_split_size = 0.1, return_categories=True)
                 
 
@@ -757,7 +757,7 @@ class fjmp_rowe(model_template):
         with torch.no_grad():
             # tot_log = self.num_val_samples // (self.batch_size * hvd.size())            
             while not prediction_done:
-                X, T, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['batch_size'], return_categories=True)
+                X, T, S, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['batch_size'], return_categories=True)
                 data =  self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
         
                 dd = self.model.process(data)

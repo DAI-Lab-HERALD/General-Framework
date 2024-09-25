@@ -307,6 +307,11 @@ For a given sample, the extracted images are centered around the last observed p
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
       the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
       If an agent is not observed at all, the value will instead be '0'.
+    S_train : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+      where the first column (S_train[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+      (S_train[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values 
+      will instead be np.nan.
     C_train : np.ndarray
       Optional return provided when return_categories = True. 
       This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -408,10 +413,10 @@ For a given sample, the extracted images are centered around the last observed p
     return [X_train, Y_train, T_train, img_train, img_m_per_px_train, 
             Pred_agents_train, Sample_id_train, Agent_id_train]
     if return_categories:
-      return [X_train, Y_train, T_train, C_train, img_train, img_m_per_px_train, graph_train,
+      return [X_train, Y_train, T_train, S_train, C_train, img_train, img_m_per_px_train, graph_train,
               Pred_agents_train, Sample_id_train, Agent_id_train]
     else:
-      return [X_train, Y_train, T_train, img_train, img_m_per_px_train, graph_train,
+      return [X_train, Y_train, T_train, S_train, img_train, img_m_per_px_train, graph_train,
               Pred_agents_train, Sample_id_train, Agent_id_train]
 ```
 ```
@@ -481,6 +486,11 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
     the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
     If an agent is not observed at all, the value will instead be '0'.
+  S : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+    where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+    (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+    instead be np.nan.
   C : np.ndarray
     Optional return provided when return_categories = True. 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -584,14 +594,14 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   
   if return_categories:
     if mode == 'pred':
-      return X, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+      return X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
     else:
-      return X, Y, T, C, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
+      return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
   else:
     if mode == 'pred':
-      return X, T, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+      return X, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
     else:
-      return X, Y, T, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
+      return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
 
 ```
 ```
@@ -654,6 +664,11 @@ def get_classification_data(self, train = True, return_categories = False):
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
+  S : np.ndarray
+    This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+    where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+    (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+    instead be np.nan.
   C : np.ndarray
     Optional return provided when return_categories = True. 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
@@ -689,14 +704,14 @@ def get_classification_data(self, train = True, return_categories = False):
   
   if return_categories:
     if train:
-      return X, T, C, agent_names, D, dist_names, class_names, P, DT
+      return X, T, S, C, agent_names, D, dist_names, class_names, P, DT
     else:
-      return X, T, C, agent_names, D, dist_names, class_names
+      return X, T, S, C, agent_names, D, dist_names, class_names
   else:
     if train:
-      return X, T, agent_names, D, dist_names, class_names, P, DT
+      return X, T, S, agent_names, D, dist_names, class_names, P, DT
     else:
-      return X, T, agent_names, D, dist_names, class_names
+      return X, T, S, agent_names, D, dist_names, class_names
 ```
 ```
 def save_predicted_classifications(self, class_names, P, DT = None):

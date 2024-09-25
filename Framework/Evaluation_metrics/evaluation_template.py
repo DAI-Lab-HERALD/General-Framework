@@ -115,7 +115,7 @@ class evaluation_template():
     #                Helper functions for the evaluation of the metric                           #
     ##############################################################################################
 
-    def _check_collisions(self, Path_A, Path_B, Type_A, Type_B):
+    def _check_collisions(self, Path_A, Path_B, Size_A, Size_B):
         r'''
         This function checks if two agents collide with each other.
 
@@ -127,12 +127,12 @@ class evaluation_template():
         Path_B : np.ndarray
             The path of the second agent, in the form of a :math:`\{... \times N_{O} \times 2\}` dimensional
             numpy array. Here, :math:`N_{O}` is the number of observed timesteps.
-        Type_A : np.ndarray
-            The type of the first agent, in the form of a :math:`\{...\}` dimensional numpy array, with 
-            string values.
-        Type_B : np.ndarray
-            The type of the second agent, in the form of a :math:`\{...\}` dimensional numpy array, with
-            string values.
+        Size_A : np.ndarray
+            The type of the first agent, in the form of a :math:`\{... \times 2\}` dimensional numpy array, 
+            with string the length x width values of the agents
+        Size_B : np.ndarray
+            The type of the second agent, in the form of a :math:`\{... \times 2\}` dimensional numpy array, 
+            with string the length x width values of the agents
         
         Returns
         -------
@@ -172,40 +172,12 @@ class evaluation_template():
         # Get the relative angles
         Theta_B_adj = Theta_B - Theta_A # Shape (..., N_O)
 
-        # Get widths (y-axis) and lengths (x-axis) of the vihicles
-        W = {'V': 2, 
-             'B': 0.5,
-             'M': 0.5,
-             'P': 0.5}
-        
-        L = {'V': 5,
-             'B': 2,
-             'M': 2,
-             'P': 0.5}
-        
-        # Tranform the Type arrays to interger ones 
-        Type_A_int = np.zeros_like(Type_A, int)
-        Type_B_int = np.zeros_like(Type_B, int)
+        # Get widths (y-axis) and lengths (x-axis) of the vehicles
+        W_A = Size_A[...,1]
+        W_B = Size_B[...,1]
 
-        Type_A_int[Type_A == 'V'] = 0
-        Type_A_int[Type_A == 'B'] = 1
-        Type_A_int[Type_A == 'M'] = 2
-        Type_A_int[Type_A == 'P'] = 3
-
-        Type_B_int[Type_B == 'V'] = 0
-        Type_B_int[Type_B == 'B'] = 1
-        Type_B_int[Type_B == 'M'] = 2
-        Type_B_int[Type_B == 'P'] = 3
-
-        W_int = np.array([W['V'], W['B'], W['M'], W['P']])
-        L_int = np.array([L['V'], L['B'], L['M'], L['P']])
-
-        # Extract the agents width and length
-        W_A = W_int[Type_A_int]
-        W_B = W_int[Type_B_int]
-
-        L_A = L_int[Type_A_int]
-        L_B = L_int[Type_B_int]
+        L_A = Size_A[...,0]
+        L_B = Size_B[...,0]
 
         # Get initial corner positions
         Corner_A = np.stack([np.stack([-L_A/2, -W_A/2], -1),
@@ -429,6 +401,12 @@ class evaluation_template():
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
             It is only returned if **return_types** is *True*.
+        Sizes : np.ndarray, optional
+            This is a :math:`\{N_S \times N_{A_other} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+            where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+            (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values 
+            will instead be np.nan.
+            It is only returned if **return_types** is *True*.
 
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
@@ -466,7 +444,10 @@ class evaluation_template():
         if return_types:
             Types = self.model.T_pred
             Types = Types[Use_samples]
-            return Path_true, Path_pred, Pred_step, Types     
+
+            Sizes = self.model.S_pred
+            Sizes = Sizes[Use_samples]
+            return Path_true, Path_pred, Pred_step, Types, Sizes   
         else:
             return Path_true, Path_pred, Pred_step
         
@@ -492,6 +473,12 @@ class evaluation_template():
             This is a :math:`\{N_{samples} \times N_{agents_other}\}` dimensional numpy array. It includes strings 
             that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
             for available types). If an agent is not observed at all, the value will instead be '0'.
+            It is only returned if **return_types** is *True*.
+        Sizes : np.ndarray, optional
+            This is a :math:`\{N_S \times N_{A_other} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+            where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+            (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values 
+            will instead be np.nan.
             It is only returned if **return_types** is *True*.
 
         '''
@@ -534,6 +521,7 @@ class evaluation_template():
 
             if return_types:
                 Types = self.model.Type[self.Index_curr[i_sampl_sort], i_agent_sort]
+                Sizes = self.model.Size[self.Index_curr[i_sampl_sort], i_agent_sort]
 
                 # Find positions where Path_other is nan
                 nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
@@ -541,11 +529,14 @@ class evaluation_template():
                 # Test if all nonexisting paths have type zero
                 assert (Types[nan_pos] == '0').all(), 'There are types for nonexisting paths.'
                 assert (Types[~nan_pos] != '0').all(), 'There are no types for existing paths.'
+                assert np.isnan(Sizes[nan_pos]).all(), 'There are sizes for nonexisting paths.'
+                assert np.isfinite(Sizes[~nan_pos]).all(), 'There are no sizes for existing paths.'
         
         else:
             Path_other = np.full((len(Other_agents), 1, 0, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
             if return_types:
                 Types = np.full((len(Other_agents), 0), '0', dtype = str)
+                Sizes = np.full((len(Other_agents), 0, 2), np.nan, dtype = float)
 
         # Adjust to used samples
         Use_samples = Pred_agents.any(-1)
@@ -556,8 +547,8 @@ class evaluation_template():
         if return_types:
             # Apply the same adjustemnt as to predicted agents
             Types = Types[Use_samples]
-
-            return Path_other, Types
+            Sizes = Sizes[Use_samples]
+            return Path_other, Types, Sizes
         
         else:
             return Path_other

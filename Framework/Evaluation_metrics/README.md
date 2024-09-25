@@ -416,13 +416,19 @@ def get_true_and_predicted_paths(self, num_preds = None, return_types = False,
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
     It is only returned if **return_types** is *True*.
+  Sizes : np.ndarray, optional
+    This is a :math:`\{N_S \times N_{A_other} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+    where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+    (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values 
+    will instead be np.nan.
+    It is only returned if **return_types** is *True*.
   
   '''
   
   ...
   
   if return_types:
-      return Path_true, Path_pred, Pred_step, Types     
+      return Path_true, Path_pred, Pred_step, Types, Sizes
   else:
       return Path_true, Path_pred, Pred_step
 
@@ -450,13 +456,19 @@ def get_other_agents_paths(self):
     that indicate the type of agent observed (see definition of **provide_all_included_agent_types()** 
     for available types). If an agent is not observed at all, the value will instead be '0'.
     It is only returned if **return_types** is *True*.
+  Sizes : np.ndarray, optional
+    This is a :math:`\{N_S \times N_{A_other} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+    where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+    (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values 
+    will instead be np.nan.
+    It is only returned if **return_types** is *True*.
 
   '''
   
   ...
   
   if return_types:
-    return Path_other, Types     
+    return Path_other, Types, Sizes     
   else:
     return Path_other
 ```

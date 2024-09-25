@@ -13,8 +13,8 @@ class Collision_rate_joint(evaluation_template):
         pass
      
     def evaluate_prediction_method(self):
-        Path_true, Path_pred, Pred_steps, Type_pred = self.get_true_and_predicted_paths(return_types = True)
-        Path_other, Type_other = self.get_other_agents_paths(return_types = True)
+        Path_true, Path_pred, Pred_steps, _, Size_pred = self.get_true_and_predicted_paths(return_types = True)
+        Path_other, _, Size_other = self.get_other_agents_paths(return_types = True)
 
         # Check that Path_other does not has to many timesteps
         if Path_other.shape[-2] > Path_pred.shape[-2]:

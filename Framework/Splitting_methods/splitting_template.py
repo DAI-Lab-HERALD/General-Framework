@@ -179,6 +179,11 @@ class splitting_template():
                     Type_new = self.data_set.Type.loc[needed_indices_old].copy()
                     Type_new.index = needed_indices_new
                     self.data_set.Type = pd.concat([self.data_set.Type, Type_new])
+
+                    # Size (pandas)
+                    Size_new = self.data_set.Size.loc[needed_indices_old].copy()
+                    Size_new.index = needed_indices_new
+                    self.data_set.Size = pd.concat([self.data_set.Size, Size_new])
                     
                     # Recorded (pandas)
                     Recorded_new = self.data_set.Recorded.loc[needed_indices_old].copy()

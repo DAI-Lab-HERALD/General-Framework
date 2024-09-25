@@ -660,7 +660,7 @@ class trajectron_salzmann_old(model_template):
             while not epoch_done:
                 batch_number += 1
                 print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch_number))
-                X, Y, T, img, img_m_per_px, _, _, num_steps, _, _, epoch_done = self.provide_batch_data('train', batch_size)
+                X, Y, T, _, img, img_m_per_px, _, _, num_steps, _, _, epoch_done = self.provide_batch_data('train', batch_size)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)
                 
@@ -727,7 +727,7 @@ class trajectron_salzmann_old(model_template):
         while not prediction_done:
             batch_number += 1
             print('Predict trajectron: Batch {}'.format(batch_number))
-            X, T, img, img_m_per_px, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+            X, T, _, img, img_m_per_px, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
             S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch(X, T, None, img, num_steps)
             
             # Move img to device

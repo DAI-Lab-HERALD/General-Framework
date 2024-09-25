@@ -17,9 +17,9 @@ class logit_theofilatos_general(logit_theofilatos):
     '''
     def get_data(self, train = True):
         if train:
-            _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)
+            _, _, _, _, X, _, class_names, P, _ = self.get_classification_data(train)
         else:
-            _, _, _, X, _, class_names = self.get_classification_data(train)
+            _, _, _, _, X, _, class_names = self.get_classification_data(train)
             P = None
         X = X.reshape(X.shape[0], -1)
         
