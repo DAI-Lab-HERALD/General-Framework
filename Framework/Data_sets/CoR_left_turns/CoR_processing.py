@@ -61,8 +61,8 @@ for i in ran:
     local_track = local_track[local_track.intersection_no==measures.intersection_no[i]]
     local_track = local_track[local_track.subj_id==measures.subj_id[i]]
     local_track = local_track[local_track.route==measures.route[i]]
-    local_track_ego = local_track[['t','ego_x','ego_y','ego_vx','ego_vy','ego_ax','ego_ay']].reset_index(drop = True)
-    local_track_bot=local_track[['t','bot_x','bot_y','bot_vx','bot_vy','bot_ax','bot_ay']].reset_index(drop=True)
+    local_track_ego = local_track[['t','ego_x','ego_y','ego_vx','ego_vy','ego_yaw','ego_ax','ego_ay']].reset_index(drop = True)
+    local_track_bot = local_track[['t','bot_x','bot_y','bot_vx','bot_vy','bot_yaw','bot_ax','bot_ay']].reset_index(drop=True)
     # Zero for intersection, and rotate to always have the bot hav vy=0 ad vx<0
     bot_vx = np.array(local_track_bot.bot_vx)
     bot_vy = np.array(local_track_bot.bot_vy)
@@ -73,29 +73,33 @@ for i in ran:
     bot_spawn_idx = updated[0]
     local_track_bot = local_track_bot.loc[bot_spawn_idx:]
     # Rename to equal columns        
-    local_track_ego.columns = ['t','x','y','vx','vy','ax','ay']
-    local_track_bot.columns = ['t','x','y','vx','vy','ax','ay']
+    local_track_ego.columns = ['t','x','y','vx','vy','heading','ax','ay']
+    local_track_bot.columns = ['t','x','y','vx','vy','heading','ax','ay']
+
+    # Transform heading degrees to radians
+    local_track_ego.heading = - np.radians(local_track_ego.heading)
+    local_track_bot.heading = - np.radians(local_track_bot.heading)
     
-    # Subtract the fucking intersection location
+    # Subtract the mean intersection location
     local_track_ego.x -= local_track.intersection_x.iloc[0]
     local_track_ego.y -= local_track.intersection_y.iloc[0]
     local_track_bot.x -= local_track.intersection_x.iloc[0]
     local_track_bot.y -= local_track.intersection_y.iloc[0]
     
     # Rotate problem so the bot hase vy=0 ad vx>0
-    # Determine angle
-    theta = np.arctan2(local_track_bot.vx.iloc[0],local_track_bot.vy.iloc[0])
-    dtheta = theta-np.pi/2
+    dtheta = local_track_bot.heading.iloc[0]
     rotation = np.array( [[np.cos(dtheta), -np.sin(dtheta)],\
                           [np.sin(dtheta),  np.cos(dtheta)]])
         
     [local_track_bot.x ,local_track_bot.y ] = np.dot(rotation,np.array([local_track_bot.x ,local_track_bot.y ]))
     [local_track_bot.vx,local_track_bot.vy] = np.dot(rotation,np.array([local_track_bot.vx,local_track_bot.vy]))
     [local_track_bot.ax,local_track_bot.ay] = np.dot(rotation,np.array([local_track_bot.ax,local_track_bot.ay]))
+    local_track_bot.heading -= dtheta
     
     [local_track_ego.x ,local_track_ego.y ] = np.dot(rotation,np.array([local_track_ego.x ,local_track_ego.y ]))
     [local_track_ego.vx,local_track_ego.vy] = np.dot(rotation,np.array([local_track_ego.vx,local_track_ego.vy]))
     [local_track_ego.ax,local_track_ego.ay] = np.dot(rotation,np.array([local_track_ego.ax,local_track_ego.ay]))
+    local_track_ego.heading -= dtheta
     # Condition for crash: Bot leaves straight line while crossing the intersection
     Final.ego_track[i] = local_track_ego
     Final.bot_track[i] = local_track_bot
