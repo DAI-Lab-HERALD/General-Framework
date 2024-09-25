@@ -45,7 +45,7 @@ class Lyft_interactive(data_set_template):
         self.scenario = scenario_none()
     
     def path_data_info(self = None):
-        return ['x', 'y']
+        return ['x', 'y', 'v_x', 'v_y', 'theta']
         
     def create_path_samples(self):
         # Only load if needed
@@ -57,6 +57,7 @@ class Lyft_interactive(data_set_template):
         self.num_samples = 0 
         self.Path = []
         self.Type_old = []
+        self.Size_old = []
         self.T = []
         self.Domain_old = []
         
@@ -114,7 +115,7 @@ class Lyft_interactive(data_set_template):
                     img = map_image.rasterize(px_per_meter)
                     
                     # Get less memory intensive saving form
-                    if (img.dtype != np.unit8) and (img.max() <= 1.0): 
+                    if (img.dtype != np.uint8) and (img.max() <= 1.0): 
                         img *= 255.0
                            
                     self.Images.loc[map_key] = [img.astype(np.uint8), 1 / px_per_meter] 
@@ -142,22 +143,29 @@ class Lyft_interactive(data_set_template):
                 scene_agents = np.array([[agent.name, agent.type.name] for agent in scene.agents if agent.type != AgentType.UNKNOWN])
                 
                 # Extract position data
-                scene_data = Cache.scene_data_df[['x', 'y']]
+                scene_data = Cache.scene_data_df[['x', 'y', 'vx', 'vy', 'heading', 'length', 'width']]
                 scene_data = scene_data.loc[scene_agents[:,0]]
                 
                 # Set indices
                 sort_index = np.argsort(scene_agents[:,0])
-                agent_index = scene_data.index.get_level_values(0).to_numpy()
-                agent_index = sort_index[np.searchsorted(scene_agents[sort_index,0], agent_index)]
+                agent_index_names = scene_data.index.get_level_values(0).to_numpy()
+                agent_index = sort_index[np.searchsorted(scene_agents[sort_index,0], agent_index_names)]
                 times_index = scene_data.index.get_level_values(1).to_numpy()
                 
                 # Set trajectories
-                trajectories = np.ones((len(scene_agents),scene.length_timesteps, 2), dtype = np.float32) * np.nan
-                trajectories[agent_index, times_index] = scene_data.to_numpy()
+                trajectories = np.ones((len(scene_agents), scene.length_timesteps, 2), dtype = np.float32) * np.nan
+                trajectories[agent_index, times_index] = scene_data[['x', 'y', 'vx', 'vy', 'heading']].to_numpy()
+
+                # Get aveage sizes
+                sizes = np.ones((len(scene_agents), scene.length_timesteps, 2), dtype = np.float32) * np.nan
+                sizes[agent_index, times_index] = scene_data[['length', 'width']].to_numpy()
+                sizes = np.nanmax(sizes, axis = 1)
                 
                 # Adjust to map
-                trajectories -= np.array([[[min_x, min_y]]])
-                trajectories[...,1] *= -1
+                trajectories -= np.array([[[min_x, min_y, 0, 0, 0]]])
+                trajectories[...,1] *= -1 # mirror y_position
+                trajectories[...,3] *= -1 # mirror y_velocity
+                trajectories[...,4] *= -1 # mirror heading
                 
                 # Get agent names
                 assert scene_agents[0,0] == 'ego'
@@ -165,8 +173,8 @@ class Lyft_interactive(data_set_template):
                 
                 # Set path and agent types
                 path = pd.Series(list(trajectories.astype(np.float32)), dtype = object, index = Index)
-                path = pd.Series(list(trajectories.astype(np.float32)), dtype = object, index = Index)
                 agent_types = pd.Series(scene_agents[:,1].astype('<U1'), index = Index)
+                agent_sizes = pd.Series(list(sizes), index = Index)
                 
                 # Get timesteps
                 t = np.arange(scene.length_timesteps) * scene.dt
@@ -187,6 +195,7 @@ class Lyft_interactive(data_set_template):
                 self.num_samples += 1
                 self.Path.append(path)
                 self.Type_old.append(agent_types)
+                self.Size_old.append(agent_sizes)
                 self.T.append(t)
                 self.Domain_old.append(domain) 
                 

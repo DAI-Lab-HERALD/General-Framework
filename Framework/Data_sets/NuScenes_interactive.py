@@ -61,6 +61,7 @@ class NuScenes_interactive(data_set_template):
         self.num_samples = 0 
         self.Path = []
         self.Type_old = []
+        self.Size_old = []
         self.T = []
         self.Domain_old = []
 
@@ -156,6 +157,7 @@ class NuScenes_interactive(data_set_template):
 
             path = pd.Series(np.zeros(0, np.ndarray), index = [])
             agent_types = pd.Series(np.zeros(0, str), index = [])
+            agent_sizes = pd.Series(np.zeros(0, np.ndarray), index = [])
             pred_points = pd.Series(np.zeros(0, np.ndarray), index = [])
 
             t = np.arange(scene_length) * nuscenes_dt
@@ -230,6 +232,7 @@ class NuScenes_interactive(data_set_template):
                     elif agent_category.startswith('human'):    
                         agent_types[agent_name] = 'P'
 
+                    agent_sizes[agent_name] = np.array([agent_data['size'][1], agent_data['size'][0]]) # length, width
 
                     agent_traj = np.ones((scene_length, 2)) * np.nan
                     agent_traj[frame_idx:frame_idx + len(translations),:] = translations[:,:2]
@@ -246,6 +249,7 @@ class NuScenes_interactive(data_set_template):
             path['tar'] = ego_translations[:,:2] * np.array([[1, -1]]) # Align with Images
             pred_points['tar'] = ego_predictions
             agent_types['tar'] = 'V'
+            agent_sizes['tar'] = np.array([5.0, 2.0]) # length, width
 
             domain = pd.Series(np.zeros(7, object), index = ['location', 'scene', 'image_id', 'graph_id',
                                                              'pred_agents', 'pred_timepoints', 'splitting'])
@@ -270,6 +274,7 @@ class NuScenes_interactive(data_set_template):
             self.num_samples += 1
             self.Path.append(path)
             self.Type_old.append(agent_types)
+            self.Size_old.append(agent_sizes)
             self.T.append(t)
             self.Domain_old.append(domain)
         
