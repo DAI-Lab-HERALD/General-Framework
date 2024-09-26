@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 from FJMP.fjmp_metrics import return_circle_list, return_collision_threshold
+from FJMP.fjmp_utils import sign_func
 
 avg_agent_length = {
             0: 4.0,
@@ -227,7 +228,8 @@ def get_obj_feats(train, data, idx, dataset, num_timesteps_in, num_timesteps_out
         # This ensures that the random agent chosen is same for loaded graph
         # processed on lanelet2-compatible machine and agent processed on other machine.
         if train:
-            orig_idx =  [0]*data['trajs'].shape[0]
+            # orig_idx =  [0]*data['trajs'].shape[0]
+            orig_idx = 0
             while True:
                 # Is the present timestep available for this agent?
                 if num_timesteps_in - 1 in data['steps'][orig_idx]:
@@ -254,6 +256,8 @@ def get_obj_feats(train, data, idx, dataset, num_timesteps_in, num_timesteps_out
         orig = data['trajs'][orig_idx][num_timesteps_in - 1].copy().astype(np.float32)
         pre = data['trajs'][orig_idx][num_timesteps_in - 2] - orig 
         theta = np.pi - np.arctan2(pre[1], pre[0])
+        
+        assert np.isfinite(theta), " theta is not finite"
 
         # rotation matrix for rotating scene
         rot = np.asarray([
@@ -287,7 +291,22 @@ def get_obj_feats(train, data, idx, dataset, num_timesteps_in, num_timesteps_out
             post_traj = traj[future_mask]
             post_vel = vel[future_mask]
             post_agenttype = agenttype[future_mask]
-            post_psirad = np.nan_to_num(psirad[future_mask]) * post_agenttype # 0 out psirad if not a car
+
+#             object_type_dict = {
+#     'V':0,
+#     'P':1,
+#     'M':2,
+#     'B':3,
+#     'other': -1,
+#     '0': -1
+# }
+
+            # Added to adapt to the general framework intreface in which cars are being encoded as agenttype 0
+            filter = np.zeros_like(post_agenttype)
+            filter[post_agenttype == 0] = 1
+
+            # post_psirad = np.nan_to_num(psirad[future_mask]) * post_agenttype # 0 out psirad if not a car
+            post_psirad = np.nan_to_num(psirad[future_mask]) * filter # 0 out psirad if not a car
             gt_pred[post_step] = post_traj
             gt_vel[post_step] = post_vel
             gt_psirad[post_step] = post_psirad
@@ -331,7 +350,13 @@ def get_obj_feats(train, data, idx, dataset, num_timesteps_in, num_timesteps_out
 
             # recalculate yaw angles
             feat_agenttype[step] = agenttype
-            feat_shape[step] = np.nan_to_num(shape) * feat_agenttype[step] # 0 out if not a car 
+            # feat_shape[step] = np.nan_to_num(shape) * feat_agenttype[step] # 0 out if not a car
+             
+            # Added to adapt to the general framework intreface in which cars are being encoded as agenttype 0
+            filter = np.zeros_like(feat_agenttype[step])
+            filter[feat_agenttype[step] == 0] = 1
+
+            feat_shape[step] = np.nan_to_num(shape) * filter # 0 out if not a car 
             
             # only vehicles have a yaw angle
             # apply rotation transformation to the yaw angle
@@ -420,8 +445,7 @@ def get_obj_feats(train, data, idx, dataset, num_timesteps_in, num_timesteps_out
         data['ig_labels_sparse'] = ig_labels_sparse
 
 
-    assert theta <= (2 * math.pi)
-    assert theta >= 0
+    theta = np.clip(0,theta,np.pi * 2)
     assert not np.any(np.isnan(ctrs))
     assert not np.any(np.isnan(feats))
     assert not np.any(np.isnan(feat_locs))

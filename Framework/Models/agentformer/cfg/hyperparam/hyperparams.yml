@@ -24,7 +24,7 @@ pred_cfg: hyperparams_pre
 pred_epoch: 100
 qnet_mlp: [512, 256]
 share_eps: true
-train_w_mean: true
+train_w_mean: false
 
 map_encoder:
   model_id: map_cnn

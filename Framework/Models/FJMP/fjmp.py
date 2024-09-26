@@ -135,7 +135,10 @@ class FJMP(torch.nn.Module):
         # ctrs gets copied once for each agent in scene, whereas actor_ctrs only contains one per scene
         # same data, but different format so that it is compatible with LaneGCN L2A/A2A function     
         actor_ctrs = gpu(data["ctrs"])
-        lane_graph = graph_gather(to_long(gpu(data["graph"])), self.config)
+        if not any(graph is None for graph in data["graph"]):
+            lane_graph = graph_gather(to_long(gpu(data["graph"])), self.config)
+        else:
+            lane_graph = None
         # unique index assigned to each scene
         scene_idxs = torch.Tensor([idx for idx in data['idx']])
 

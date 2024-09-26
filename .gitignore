@@ -64,6 +64,7 @@ Framework/Models/*GP*
 Framework/Data_sets/*multiModal*
 Processing/
 processing.py
+Framework/Data_sets/Interaction/data
 
 # Jupyter Notebook
 .ipynb_checkpoints

@@ -321,7 +321,7 @@ class fjmp_rowe(model_template):
 
 
 
-    def extract_batch_data(self, X, T, C, Pred_agents, Y = None, graph = None, Sample_id = None, Agent_id = None):
+    def extract_batch_data(self, X, T, S, C, Pred_agents, Y = None, graph = None, Sample_id = None, Agent_id = None):
         # X.shape:   bs x num_agents x num_timesteps_is x 2
         # Y.shape:   bs x num_agents x num_timesteps_is x 2
         # T.shape:   bs x num_agents 
@@ -337,7 +337,8 @@ class fjmp_rowe(model_template):
         
         data = {}
         data_feats, data_ctrs, data_orig, data_theta, data_rot = [], [], [], [], []
-        data_feat_locs, data_feat_vels, data_feat_psirads, data_feat_agenttypes, data_feat_agentcategories = [], [], [], [], []
+        data_feat_locs, data_feat_vels, data_feat_psirads = [], [], [],
+        data_feat_agenttypes, data_feat_agentcategories, data_feat_shapes =  [], [], []
         data_gt_preds, data_gt_vels, data_gt_psirads, data_has_preds, data_has_obss = [], [], [], [], []
         data_ig_labels_sparse, data_ig_labels_dense, data_ig_labels_m2i = [], [], []
         data_graphs = []
@@ -348,6 +349,8 @@ class fjmp_rowe(model_template):
             C[~np.isfinite(X).all(-1).all(-1)] = 0
             # Make predicted agents have category 2
             C[Pred_agents] = 2
+
+        
 
         for b in range(X.shape[0]):
             if Y is not None:
@@ -376,6 +379,8 @@ class fjmp_rowe(model_template):
 
             data['agentcategories'] = [C[b,c] * np.ones((len(data['steps'][c]), 2)) for c in range(len(C[b]))]
 
+            data['shapes'] = [S[b,s] * np.ones((len(data['steps'][s]), 2)) for s in range(len(S[b]))]
+
             data['track_ids'] = [Agent_id[b,id] * np.ones((len(data['steps'][id]), 1)) for id in range(len(Agent_id[b]))]
 
 
@@ -389,29 +394,32 @@ class fjmp_rowe(model_template):
             # define scales as the 2^i where i is the number of scales - 1
             # scales = [2**(i+1) for i in range(self.model_kwargs['num_scales']-1)]
             # graph_b = self.add_node_connections(graph=graph[b], scales = scales, device = self.device)
-            graph_b = dict(graph[b])
+            if graph is not None:
+                graph_b = dict(graph[b])
 
-            # process lane centerline in same way as agent trajectories
-            centerlines_b = [np.matmul(data['rot'], (centerline - data['orig'].reshape(-1, 2)).T).T for centerline in graph_b['centerlines']]
-            left_boundary_b = [np.matmul(data['rot'], (left_boundary - data['orig'].reshape(-1, 2)).T).T for left_boundary in graph_b['left_boundaries']]
-            right_boundary_b = [np.matmul(data['rot'], (right_boundary - data['orig'].reshape(-1, 2)).T).T for right_boundary in graph_b['right_boundaries']]
-            
-            ctrs_b = [np.asarray((centerline[:-1] + centerline[1:]) / 2.0, np.float32) for centerline in centerlines_b]
-            ctrs_b = np.concatenate(ctrs_b, axis=0)
+                # process lane centerline in same way as agent trajectories
+                centerlines_b = [np.matmul(data['rot'], (centerline - data['orig'].reshape(-1, 2)).T).T for centerline in graph_b['centerlines']]
+                left_boundary_b = [np.matmul(data['rot'], (left_boundary - data['orig'].reshape(-1, 2)).T).T for left_boundary in graph_b['left_boundaries']]
+                right_boundary_b = [np.matmul(data['rot'], (right_boundary - data['orig'].reshape(-1, 2)).T).T for right_boundary in graph_b['right_boundaries']]
+                
+                ctrs_b = [np.asarray((centerline[:-1] + centerline[1:]) / 2.0, np.float32) for centerline in centerlines_b]
+                ctrs_b = np.concatenate(ctrs_b, axis=0)
 
-            feats_b = [np.asarray(centerline[1:] - centerline[:-1], np.float32) for centerline in centerlines_b]
-            feats_b = np.concatenate(feats_b, axis=0)
+                feats_b = [np.asarray(centerline[1:] - centerline[:-1], np.float32) for centerline in centerlines_b]
+                feats_b = np.concatenate(feats_b, axis=0)
 
-            graph_b['centerlines'] = centerlines_b
-            graph_b['left_boundaries'] = left_boundary_b
-            graph_b['right_boundaries'] = right_boundary_b
-            graph_b['ctrs'] = ctrs_b
-            graph_b['feats'] = feats_b
+                graph_b['centerlines'] = centerlines_b
+                graph_b['left_boundaries'] = left_boundary_b
+                graph_b['right_boundaries'] = right_boundary_b
+                graph_b['ctrs'] = ctrs_b
+                graph_b['feats'] = feats_b
 
-            graph_b = from_numpy(graph_b)
-            graph_b['left'] = graph_b['left'][0]
-            graph_b['right'] = graph_b['right'][0]
-            
+                graph_b = from_numpy(graph_b)
+                graph_b['left'] = graph_b['left'][0]
+                graph_b['right'] = graph_b['right'][0]
+            else:
+                graph_b = None
+
             data['graph'] = graph_b
 
             data_feats.append(torch.tensor(data['feats']))#.to(self.device))
@@ -423,7 +431,10 @@ class fjmp_rowe(model_template):
             data_feat_vels.append(torch.tensor(data['feat_vels']))#.to(self.device))
             data_feat_psirads.append(torch.tensor(data['feat_psirads']))#.to(self.device))
             data_feat_agenttypes.append(torch.tensor(data['feat_agenttypes']))#.to(self.device))
-            data_feat_agentcategories.append(torch.tensor(data['feat_agentcategories']))#.to(self.device))
+            if 'feat_agentcategories' in data.keys():
+                data_feat_agentcategories.append(torch.tensor(data['feat_agentcategories']))#.to(self.device))
+            if 'feat_shapes' in data.keys():
+                data_feat_shapes.append(torch.tensor(data['feat_shapes']))#.to(self.device))
             data_gt_preds.append(torch.tensor(data['gt_preds']))#.to(self.device))
             data_gt_vels.append(torch.tensor(data['gt_vels']))#.to(self.device))
             data_gt_psirads.append(torch.tensor(data['gt_psirads']))#.to(self.device))
@@ -431,7 +442,8 @@ class fjmp_rowe(model_template):
             data_has_obss.append(torch.tensor(data['has_obss']))#.to(self.device))
             data_ig_labels_sparse.append(torch.tensor(data['ig_labels_sparse']))#.to(self.device))
             data_ig_labels_dense.append(torch.tensor(data['ig_labels_dense']))#.to(self.device))
-            data_ig_labels_m2i.append(torch.tensor(data['ig_labels_m2i']))#.to(self.device))
+            if 'ig_labels_m2i' in data.keys():
+                data_ig_labels_m2i.append(torch.tensor(data['ig_labels_m2i']))#.to(self.device))
             data_graphs.append(data['graph'])
 
         data['idx'] = Sample_id.tolist()
@@ -444,7 +456,10 @@ class fjmp_rowe(model_template):
         data['feat_vels'] = data_feat_vels
         data['feat_psirads'] = data_feat_psirads
         data['feat_agenttypes'] = data_feat_agenttypes
-        data['feat_agentcategories'] = data_feat_agentcategories
+        if 'feat_agentcategories' in data.keys():
+            data['feat_agentcategories'] = data_feat_agentcategories
+        if 'feat_shapes' in data.keys():
+            data['feat_shapes'] = data_feat_shapes
         data['gt_preds'] = data_gt_preds
         data['gt_vels'] = data_gt_vels
         data['gt_psirads'] = data_gt_psirads
@@ -452,7 +467,8 @@ class fjmp_rowe(model_template):
         data['has_obss'] = data_has_obss
         data['ig_labels_sparse'] = data_ig_labels_sparse
         data['ig_labels_dense'] = data_ig_labels_dense
-        data['ig_labels_m2i'] = data_ig_labels_m2i
+        if 'ig_labels_m2i' in data.keys():
+            data['ig_labels_m2i'] = data_ig_labels_m2i
         data['graph'] = data_graphs
 
 
@@ -535,7 +551,7 @@ class fjmp_rowe(model_template):
                 # X.shape:   bs x num_agents x num_timesteps_is x 2
                 # Y.shape:   bs x num_agents x num_timesteps_is x 2
                 # T.shape:   bs x num_agents 
-                data = self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
+                data = self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
                 # get data dictionary for processing batch
@@ -595,7 +611,7 @@ class fjmp_rowe(model_template):
                                                                                         val_split_size = 0.1, return_categories=True)
                 
 
-                data = self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
+                data = self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
                 # get data dictionary for processing batch
@@ -758,7 +774,7 @@ class fjmp_rowe(model_template):
             # tot_log = self.num_val_samples // (self.batch_size * hvd.size())            
             while not prediction_done:
                 X, T, S, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['batch_size'], return_categories=True)
-                data =  self.extract_batch_data(X=X, T=T, C=C, Pred_agents = Pred_agents, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
+                data =  self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
         
                 dd = self.model.process(data)
                 

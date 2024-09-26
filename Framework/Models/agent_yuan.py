@@ -28,6 +28,7 @@ class agent_yuan(model_template):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = True
         
+        seed = self.model_kwargs['seed']
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
@@ -56,7 +57,7 @@ class agent_yuan(model_template):
         # training as possible. However, this comes at a decrease in performance, so for best possible
         # results, switching to self.batch_size = 1 would likely be advisable.
         
-        self.batch_size = 1
+        self.batch_size = self.model_kwargs['batch_size']
         
         self.sample_number = 20
         
@@ -570,8 +571,13 @@ class agent_yuan(model_template):
         return 'path_all_wi_pov'
     
     def get_name(self = None):
-        names = {'print': 'AgentFormer',
-                 'file': 'agent_form',
+        kwargs_str = ''
+
+        kwargs_str += 'seed' + str(self.model_kwargs['seed']) + '_num_samples' + str(self.model_kwargs['sample_number'])
+        model_str = 'AgentFormer' + kwargs_str
+
+        names = {'print': model_str,
+                 'file': model_str,
                  'latex': r'\emph{AF}'}
         return names
         

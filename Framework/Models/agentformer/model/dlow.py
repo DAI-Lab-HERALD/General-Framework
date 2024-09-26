@@ -145,7 +145,7 @@ class DLow(nn.Module):
         return self.main(mean=self.train_w_mean)
 
     def inference(self, mode, sample_num, need_weights=False):
-        self.main(mean=True, need_weights=need_weights, sample_num = sample_num)
+        self.main(mean=False, need_weights=need_weights, sample_num = sample_num)
         res = self.data[f'infer_dec_motion']
         if mode == 'recon':
             res = res[:, :, 0]

@@ -163,11 +163,12 @@ class FJMPFeatureEncoder(nn.Module):
         else:
             out = self.downsample(out)
 
-        # get feature embeddings for each lane node
-        nodes, node_idcs, node_ctrs = self.map_net(lane_graph)
+        if lane_graph is not None:
+            # get feature embeddings for each lane node
+            nodes, node_idcs, node_ctrs = self.map_net(lane_graph)
 
-        # L2A mechanism
-        out = self.l2a(out, actor_idcs, actor_ctrs, nodes, node_idcs, node_ctrs)
+            # L2A mechanism
+            out = self.l2a(out, actor_idcs, actor_ctrs, nodes, node_idcs, node_ctrs)
         # A2A mechanism
         out = self.a2a(out, actor_idcs, actor_ctrs)
 
