@@ -216,7 +216,7 @@ class CoR_left_turns(data_set_template):
             suc_pairs = np.concatenate((suc_pairs, np.array([[connect_id, out_target_id]])))
 
         # Build graph
-        graph = pd.Series([])
+        graph = pd.Series([], dtype=object)
         graph['num_nodes'] = num_nodes
         graph['lane_idcs'] = np.array(lane_idcs)
         graph['pre_pairs'] = pre_pairs

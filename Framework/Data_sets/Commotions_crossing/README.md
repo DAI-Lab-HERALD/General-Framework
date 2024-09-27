@@ -1,4 +1,4 @@
-The COMMOTIONS Urban Interactions Driving Simulator Study Dataset can be downloaded at [OSF](https://osf.io/jmn7h) as the Data.zip file.
+The COMMOTIONS Urban Interactions Driving Simulator Study Dataset can be downloaded at [OSF](https://osf.io/eazg5/) as the Data.zip file.
 
 This file has to be extracted into this /data/ folder, which then should include the folders subx with x ranging from 1 to 80, each containing the .txt log files for the simulated agents.
 
