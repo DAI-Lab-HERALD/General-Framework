@@ -527,7 +527,7 @@ class agent_yuan(model_template):
         prediction_done = False
         while not prediction_done:
             batch += 1
-            print('Predict trajectron: Batch {}'.format( batch))
+            print('Predict AgentFormer: Batch {}'.format( batch))
             
             # check if problem was already solved in saved data
             X, T, _, img, img_m_per_px, _, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', 1)
@@ -542,9 +542,9 @@ class agent_yuan(model_template):
             
             for i in range(splits):
                 # Rewrite random generators
-                np.random.seed(i)
-                torch.manual_seed(i)
-                torch.cuda.manual_seed_all(i)
+                np.random.seed(i + batch * splits)
+                torch.manual_seed(i + batch * splits)
+                torch.cuda.manual_seed_all(i + batch * splits)
                 
                 Index = np.arange(i * self.sample_number, min((i + 1) * self.sample_number, num_samples_path_pred_max))
                 with torch.no_grad():
