@@ -29,16 +29,17 @@ def correct_time(T):
 
 pd.options.mode.chained_assignment = None
 
-participants = os.listdir('data')
+participants = [p for p in os.listdir('Data') if p[:3] == 'sub']
 
 columns = ['participant', 'participant_track']
 Final_data = pd.DataFrame(np.zeros((len(participants) * 2, len(columns)), object), columns = columns)
 
 for i, participant in enumerate(participants):
     print('Participant ' + str(i))
+
     
-    participant_logs = os.listdir('data/' + participant)
-    participant_log = [pd.read_csv('data/' + participant + '/' + p, sep = '\t') 
+    participant_logs = os.listdir('Data' + os.sep + participant)
+    participant_log = [pd.read_csv('Data' + os.sep + participant + os.sep + p, sep = '\t') 
                        for p in participant_logs if p[:7] == 'subject' and p[-5:] == '2.txt'][0]
     participant_track = participant_log[['simTime', 'x', 'y', 'offset']].rename(columns={"simTime": "t"})
 
@@ -53,9 +54,9 @@ for i, participant in enumerate(participants):
     
     for j, name in enumerate(crossing_logs):
         # Look for laterals distance 
-        track = pd.read_csv('data/' + participant + '/' + name, sep = '\t')[['%simTime', 'x_r', 'y_r', 'offset_p', 
-                                                                             'leaderID_r', 'followerID_r']]
-        
+        track = pd.read_csv('Data' + os.sep + participant + os.sep + name, sep = '\t')[['%simTime', 'x_r', 'y_r', 'offset_p', 
+                                                                                        'leaderID_r', 'followerID_r']]
+
         track = track.rename(columns={"%simTime": "t", "x_r": "x", "y_r": "y", 'offset_p': 'offset',
                                       "leaderID_r": "leaderID", "followerID_r": "followerID"}) 
 
@@ -91,8 +92,8 @@ for i, participant in enumerate(participants):
     frame_max = 0
     
     for j, name in enumerate(crossing_logs):
-        track = pd.read_csv('data/' + participant + '/' + name, sep = '\t')[['%simTime', 'x_r', 'y_r', 'offset_p',
-                                                                             'leaderID_r', 'followerID_r']]
+        track = pd.read_csv('Data' + os.sep + participant + os.sep + name, sep = '\t')[['%simTime', 'x_r', 'y_r', 'offset_p', 
+                                                                                        'leaderID_r', 'followerID_r']]
         
         track = track.rename(columns={"%simTime": "t", "x_r": "x", "y_r": "y", 'offset_p': 'offset',
                                       "leaderID_r": "leaderID", "followerID_r": "followerID"}) 

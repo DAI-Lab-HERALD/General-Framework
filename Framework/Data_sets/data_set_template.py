@@ -518,6 +518,7 @@ class data_set_template():
                          self.T,
                          self.Domain_old,
                          self.num_samples] = Loaded_data
+                        self.Size_old = None
                     else:
                         assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
                         [self.Path,
@@ -543,18 +544,19 @@ class data_set_template():
                         Loaded_data = np.load(test_file, allow_pickle=True)
                         if len(Loaded_data) == 5:
                             [self.Path,
-                            self.Type_old,
-                            self.T,
-                            self.Domain_old,
-                            self.num_samples] = Loaded_data
+                             self.Type_old,
+                             self.T,
+                             self.Domain_old,
+                             self.num_samples] = Loaded_data
+                            self.Size_old = None
                         else:
                             assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
                             [self.Path,
-                            self.Type_old,
-                            self.Size_old,
-                            self.T,
-                            self.Domain_old,
-                            self.num_samples] = Loaded_data
+                             self.Type_old,
+                             self.Size_old,
+                             self.T,
+                             self.Domain_old,
+                             self.num_samples] = Loaded_data
                     
                 else:
                     # Check that no other save files exists
@@ -2515,7 +2517,7 @@ class data_set_template():
         else:
             # check npy files in data directory
             directory = os.path.dirname(self.data_file)
-            files = os.path.listdir(directory)
+            files = os.listdir(directory)
 
             # Filter files for this specific dataset
             data_file = self.data_file[:-4] + path_file_adjust
