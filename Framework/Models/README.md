@@ -591,17 +591,16 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   '''
   
   ...
-  
   if return_categories:
     if mode == 'pred':
-      return X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+      return X,    T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
     else:
-      return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
+      return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
   else:
     if mode == 'pred':
-      return X, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+      return X,    T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
     else:
-      return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, epoch_done
+      return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
 
 ```
 ```
