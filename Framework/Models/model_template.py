@@ -3001,6 +3001,8 @@ class model_template():
                 # Collapse agents further
                 paths_true_comp = paths_true_comp.reshape(-1, num_features)
                 paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
+
+                print(np.unique(paths_pred_comp, axis = 0).shape, flush = True)
                 
                 if not nto in self.KDE_joint_data[subgroup] or self.prediction_overwrite:
                     # Only use select number of samples for training kde
