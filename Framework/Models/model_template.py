@@ -3001,12 +3001,11 @@ class model_template():
                 # Collapse agents further
                 paths_true_comp = paths_true_comp.reshape(-1, num_features)
                 paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
-
-                print(np.unique(paths_pred_comp, axis = 0).shape, flush = True)
                 
                 if not nto in self.KDE_joint_data[subgroup] or self.prediction_overwrite:
                     # Only use select number of samples for training kde
-                    use_preds = np.arange(len(paths_pred_comp))
+                    # use_preds = np.arange(len(paths_pred_comp))
+                    use_preds = np.unique(paths_pred_comp, axis = 0, return_index = True)[1]
                     np.random.seed(0)
                     np.random.shuffle(use_preds)
                     max_preds = min(3000, len(use_preds))
@@ -3198,7 +3197,8 @@ class model_template():
                     
                     if not agent in self.KDE_indep_data[subgroup][nto] or self.prediction_overwrite:
                         # Only use select number of samples for training kde
-                        use_preds = np.arange(len(paths_pred_agent_comp))
+                        # use_preds = np.arange(len(paths_pred_agent_comp))
+                        use_preds = np.unique(paths_pred_agent_comp, axis = 0, return_index = True)[1]
                         np.random.seed(0)
                         np.random.shuffle(use_preds)
                         max_preds = min(3000, len(use_preds))
