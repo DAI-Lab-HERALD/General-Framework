@@ -406,6 +406,8 @@ class data_set_template():
             self.Type_old = []
             self.T = []
             self.Domain_old = []
+            if hasattr(self, 'Size_old'):
+                self.Size_old = []
             
             # Delete num_timesteps_per_sample
             if hasattr(self, 'num_overall_timesteps_per_sample'):
