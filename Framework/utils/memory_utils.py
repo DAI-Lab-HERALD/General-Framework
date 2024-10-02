@@ -1,6 +1,7 @@
 import os
 import psutil
 import subprocess
+import numpy as np
 
 def convert_memory_to_bytes(memory_str):
     """ Convert memory string (e.g., '4G', '1024M') to bytes. """
@@ -23,6 +24,7 @@ def get_total_memory(print_output = True):
     """ Get memory allocated to the job, considering different schedulers. """
     # Check for Slurm
     if 'SLURM_JOB_ID' in os.environ:
+        slurm_keywords = ['MinMemoryCPU', 'MinMemoryNode']
         if print_output:
             print("Detecting usage of SLURM")
         try:
@@ -30,8 +32,10 @@ def get_total_memory(print_output = True):
             result = subprocess.run(['scontrol', 'show', 'job', job_id], capture_output=True, text=True)
             job_info = result.stdout
             for line in job_info.splitlines():
-                if 'MinMemoryCPU' in line:
-                    mem_allocated = line.split('MinMemoryCPU=')[1].split(' ')[0]
+                keys_in_line = np.array([key in line for key in slurm_keywords])
+                if any(keys_in_line):
+                    keyword = slurm_keywords[np.where(keys_in_line)[0][0]] + '='
+                    mem_allocated = line.split(keyword)[1].split(' ')[0]
                     mem_allocated = convert_memory_to_bytes(mem_allocated)
                     if mem_allocated is None:
                         print("memroy failed to be extracted from this line:")
