@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import torch
 from data_set_template import data_set_template
 from scenario_gap_acceptance import scenario_gap_acceptance
 import os
@@ -27,9 +28,9 @@ class HighD_lane_change(data_set_template):
         self.scenario = scenario_gap_acceptance()
     
     def path_data_info(self = None):
-        return ['x', 'y']
+        return ['x', 'y', 'v_x', 'v_y', 'a_x', 'a_y']
         
-    def _create_path_sample(self, data_i, tar_track, ego_track, pre_event_frame):
+    def _create_path_sample(self, data_i, tar_track, ego_track, tar_id, ego_id, pre_event_frame):
         # Find overlapping frames
         frame_min = max(tar_track.index.min(), ego_track.index.min())
         frame_max = min(tar_track.index.max(), ego_track.index.max())
@@ -56,12 +57,19 @@ class HighD_lane_change(data_set_template):
         # Save those paths
         path = pd.Series(np.zeros(0, np.ndarray), index = [])
         agent_types = pd.Series(np.zeros(0, str), index = [])
+        sizes = pd.Series(np.zeros(0, np.ndarray), index = [])
         
         path['tar'] = np.stack([tar_track.x.to_numpy(), tar_track.y.to_numpy()], axis = -1)
         path['ego'] = np.stack([ego_track.x.to_numpy(), ego_track.y.to_numpy()], axis = -1)
         
         agent_types['tar'] = 'V'
         agent_types['ego'] = 'V'
+
+        tar_ind = np.where(self.Data.id == tar_id)[0][0]
+        ego_ind = np.where(self.Data.id == ego_id)[0][0]
+
+        sizes['tar'] = np.array([self.Data.iloc[tar_ind].width, self.Data.iloc[tar_ind].height])
+        sizes['ego'] = np.array([self.Data.iloc[ego_ind].width, self.Data.iloc[ego_ind].height])
         
         # Get corresponding time points
         t = np.array(ego_track.index / 25)
@@ -70,49 +78,192 @@ class HighD_lane_change(data_set_template):
         v_1_id = ego_track.precedingId.loc[pre_event_frame]
         if v_1_id != 0:
             v_1_ind = np.where(self.Data.id == v_1_id)[0][0]
-            v_1_track = self.Data.iloc[v_1_ind].track[['frame', 'x', 'y', 'laneId', 'followingId']].copy(deep = True).set_index('frame')
+            v_1_track = self.Data.iloc[v_1_ind].track[['frame', 'x', 'y', 'xVelocity', 'yVelocity', 
+                                                       'xAcceleration', 'yAcceleration']].copy(deep = True).set_index('frame')
             v_1_track = v_1_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['v_1'] = np.stack([v_1_track.x.to_numpy(), v_1_track.y.to_numpy()], axis = -1)
+            path['v_1'] = v_1_track.to_numpy()
             agent_types['v_1'] = 'V'
+            sizes['v_1'] = np.array([self.Data.iloc[v_1_ind].width, self.Data.iloc[v_1_ind].height])
         
         v_2_id = ego_track.followingId.loc[pre_event_frame]    
         if v_2_id != 0:
             v_2_ind = np.where(self.Data.id == v_2_id)[0][0]
-            v_2_track = self.Data.iloc[v_2_ind].track[['frame', 'x', 'y']].copy(deep = True).set_index('frame')
+            v_2_track = self.Data.iloc[v_2_ind].track[['frame', 'x', 'y', 'xVelocity', 'yVelocity', 
+                                                       'xAcceleration', 'yAcceleration']].copy(deep = True).set_index('frame')
             v_2_track = v_2_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['v_2'] = np.stack([v_2_track.x.to_numpy(), v_2_track.y.to_numpy()], axis = -1)
+            path['v_2'] = v_2_track.to_numpy()
             agent_types['v_2'] = 'V'
+            sizes['v_2'] = np.array([self.Data.iloc[v_2_ind].width, self.Data.iloc[v_2_ind].height])
         
         v_3_id = tar_track.precedingId.loc[pre_event_frame]
         if v_3_id != 0:
             v_3_ind = np.where(self.Data.id == v_3_id)[0][0]
-            v_3_track = self.Data.iloc[v_3_ind].track[['frame', 'x', 'y']].copy(deep = True).set_index('frame')
+            v_3_track = self.Data.iloc[v_3_ind].track[['frame', 'x', 'y', 'xVelocity', 'yVelocity', 
+                                                       'xAcceleration', 'yAcceleration']].copy(deep = True).set_index('frame')
             v_3_track = v_3_track.reindex(np.arange(frame_min, frame_max + 1))
-            path['v_3'] = np.stack([v_3_track.x.to_numpy(), v_3_track.y.to_numpy()], axis = -1)
+            path['v_3'] = v_3_track.to_numpy()
             agent_types['v_3'] = 'V'
+            sizes['v_3'] = np.array([self.Data.iloc[v_3_ind].width, self.Data.iloc[v_3_ind].height])
         
-        domain = pd.Series(np.zeros(4, object), index = ['location', 'image_id', 'drivingDirection', 'laneMarkings'])
+        domain = pd.Series(np.zeros(5, object), index = ['location', 'image_id', 'graph_id', 'drivingDirection', 'laneMarkings'])
         domain.location         = data_i.locationId
         domain.image_id         = data_i.recordingId
+        domain.graph_id         = data_i.recordingId
         domain.drivingDirection = data_i.drivingDirection
         domain.laneMarkings     = data_i.laneMarkings
         
         self.Path.append(path)
         self.Type_old.append(agent_types)
+        self.Size_old.append(sizes)
         self.T.append(t)
         self.Domain_old.append(domain)
         self.num_samples = self.num_samples + 1   
         
         
+    def get_sceneGraph(self, recording_id):
+        Data_record = self.Data[self.Data.recordingId == recording_id].copy()
+        
+        # get the combined lane markings
+        lane_markings = []
+        lane_markings_token = []
+        for j in range(len(Data_record)):
+            lane_marking = Data_record.iloc[j].laneMarkings
+            lane_token = np.mean(lane_marking)
+
+            lane_markings.append(lane_marking)
+            lane_markings_token.append(lane_token)
+        
+        # Get unique lane_tokens
+        unique_tokens, unique_index = np.unique(lane_markings_token, return_index = True)
+        lane_markings = [lane_markings[i] for i in unique_index]
+
+        # Check for each unique token if the outer lane is a merging lane
+        has_merge_lane = []
+        for _, lane_token in enumerate(unique_tokens):
+            use_id = np.where(lane_markings_token == lane_token)[0]
+            has_merge_lane.append(Data_record.iloc[use_id].numMerges.sum() > 0)
+
+
+        # prepare the sceneGraph
+        num_nodes = 0
+        lane_idcs = []
+        pre_pairs = np.zeros((0,2), int)
+        suc_pairs = np.zeros((0,2), int)
+        left_pairs = np.zeros((0,2), int)
+        right_pairs = np.zeros((0,2), int)
+
+        left_boundaries = []
+        right_boundaries = []
+        centerlines = []
+
+        lane_type = []
+
+        segment_id = 0
+        # Go throught the different lane markers
+        for k, lane_marking in enumerate(lane_markings):
+            has_merge = has_merge_lane[k]
+            # Lanes go from right to left (from drivers perspective)
+            diff_sign = np.sign(np.diff(lane_marking))
+
+            # diff sign shoul dbe identical
+            assert len(np.unique(diff_sign)) == 1
+            diff_sign = diff_sign[0]
+
+            # If diff_sign is positive, the lane goes from left to right
+            if diff_sign > 0:
+                x_start = -10
+                x_end = 460
+            else:
+                x_start = 460
+                x_end = -10
+            
+            # get number of splits needed for lane segments a little under 50 m long
+            num_splits = int(np.ceil((np.abs(x_end - x_start) / 50)))
+            len_splits = (x_end - x_start) / num_splits
+            num_points = 1 + int(np.ceil(np.abs(len_splits) / 1.1))
+
+            num_lanes = len(lane_marking) - 1
+
+            right_y  = lane_marking[:-1]
+            left_y   = lane_marking[1:]
+            center_y = 0.5 * (right_y + left_y)
+
+            # get lane_segments
+            for i in range(num_splits):
+                x_start_i = x_start + i * len_splits
+                x_end_i = x_start + (i + 1) * len_splits
+
+                y_base = np.ones((num_lanes, num_points))
+                x_base = np.tile(np.linspace(x_start_i, x_end_i, num_points)[np.newaxis], (num_lanes, 1))
+
+                left_pts   = np.stack([x_base, y_base * left_y[:,np.newaxis]], axis = -1)
+                center_pts = np.stack([x_base, y_base * center_y[:,np.newaxis]], axis = -1)
+                right_pts  = np.stack([x_base, y_base * right_y[:,np.newaxis]], axis = -1)
+
+                # Add the lane segments
+                for j in range(num_lanes):
+                    centerlines.append(center_pts[j])
+                    left_boundaries.append(left_pts[j])
+                    right_boundaries.append(right_pts[j])
+
+                    lane_type.append(('VEHICLE', False))
+
+                    # Append lane_idc
+                    lane_idcs += [segment_id] * (len(center_pts) - 1)
+                    num_nodes += len(center_pts) - 1
+
+                    # Get the connections:
+                    # left (j, j+1)
+                    # right (j, j-1)
+                    # suc (i, i+1)
+                    # pre (i, i-1)
+                    if j < num_lanes - 1:
+                        left_pairs = np.vstack([left_pairs, [segment_id, segment_id + 1]])
+                    if j > 0:
+                        # Exclude merge lanes, where vehicles should not drive into
+                        if not (has_merge and j == 1):
+                            right_pairs = np.vstack([right_pairs, [segment_id, segment_id - 1]])
+                    
+                    if i < num_splits - 1:
+                        suc_pairs = np.vstack([suc_pairs, [segment_id, segment_id + num_lanes]])
+                    if i > 0:
+                        pre_pairs = np.vstack([pre_pairs, [segment_id, segment_id - num_lanes]])
+
+
+
+                    segment_id += 1
+
+        graph = pd.Series([])
+        graph['num_nodes'] = num_nodes
+        graph['lane_idcs'] = np.array(lane_idcs)
+        graph['pre_pairs'] = pre_pairs
+        graph['suc_pairs'] = suc_pairs
+        graph['left_pairs'] = left_pairs
+        graph['right_pairs'] = right_pairs
+        graph['left_boundaries'] = right_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['centerlines'] = centerlines
+        graph['lane_type'] = lane_type
+
+
+        # Get available gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        graph = self.add_node_connections(graph, device = device)
+
+        return graph
+    
+
     def create_path_samples(self):     
         self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                   'HighD_highways' + os.sep + 'HighD_processed.pkl')
+                                   'HighD_highways' + os.sep + 'highD_processed.pkl')
         
         self.Data = self.Data.reset_index(drop = True)
         # analize raw dara 
         num_samples_max = len(self.Data)
         self.Path = []
         self.Type_old = []
+        self.Size_old = []
         self.T = []
         self.Domain_old = []
         
@@ -125,9 +276,12 @@ class HighD_lane_change(data_set_template):
         # Create Images
         self.Images = pd.DataFrame(np.zeros((0, 1), np.ndarray), columns = ['Image'])
         self.Target_MeterPerPx = 0.5
+
+        # set up the scenegraph
+        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                              'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
+        self.SceneGraphs = pd.DataFrame(np.zeros((1, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
         
-        max_width = 0
-        max_height = 0
         data_path = self.path + os.sep + 'Data_sets' + os.sep + 'HighD_highways' + os.sep + 'data' + os.sep
         potential_image_files = os.listdir(data_path)
         
@@ -151,16 +305,12 @@ class HighD_lane_change(data_set_template):
             img_new = img.resize((width_new, height_new), Image.LANCZOS)
             
             self.Images.loc[img_id] = list(np.array(img_new)[np.newaxis])
-            max_width = max(width_new, max_width)
-            max_height = max(height_new, max_height)
-            
-        # pad images to max size
-        for loc_id in self.Images.index:
-            img = self.Images.loc[loc_id].Image
-            img_pad = np.pad(img, ((0, max_height - img.shape[0]),
-                                   (0, max_width  - img.shape[1]),
-                                   (0,0)), 'constant', constant_values=0)
-            self.Images.loc[loc_id].Image = img_pad           
+
+            # Add the scenegraph
+            graph = self.get_sceneGraph(img_id)
+            self.SceneGraphs.loc[img_id] = graph
+
+
         
         # extract raw samples
         self.num_samples = 0
@@ -191,8 +341,8 @@ class HighD_lane_change(data_set_template):
                 # Get ego vehicle
                 ego_id = tar_track.leftFollowingId.loc[pre_event_frame]
                 ego_ind = np.where(self.Data.id == ego_id)[0][0]
-                ego_track = self.Data.iloc[ego_ind].track[['frame', 'x', 'y', 'xVelocity', 'laneId', 
-                                                           'followingId', 'precedingId']].copy(deep = True).set_index('frame') 
+                ego_track = self.Data.iloc[ego_ind].track[['frame', 'x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration', 
+                                                           'laneId', 'followingId', 'precedingId']].copy(deep = True).set_index('frame') 
                 
                 has_intention = False
                 # check if tar has lane change intention (i.e., we observe a later lane change)
@@ -246,7 +396,7 @@ class HighD_lane_change(data_set_template):
                 if not has_intention:
                     continue
                     
-                self._create_path_sample(data_i, tar_track, ego_track, pre_event_frame)   
+                self._create_path_sample(data_i, tar_track, ego_track, data_i.id, ego_id, pre_event_frame)   
                 
                 
             # Check for accepted gaps
@@ -263,8 +413,8 @@ class HighD_lane_change(data_set_template):
                     continue
                 
                 ego_ind = np.where(self.Data.id == ego_id)[0][0]
-                ego_track = self.Data.iloc[ego_ind].track[['frame', 'x', 'y', 'laneId', 
-                                                           'followingId', 'precedingId']].copy(deep = True).set_index('frame')
+                ego_track = self.Data.iloc[ego_ind].track[['frame', 'x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration', 
+                                                           'laneId', 'followingId', 'precedingId']].copy(deep = True).set_index('frame')
                 
                 pre_event_frame = track_i.frame.iloc[pre_event_ind]
                 tar_track = track_i.set_index('frame')
@@ -275,10 +425,11 @@ class HighD_lane_change(data_set_template):
                     continue
                 
                 # Find overlapping frames
-                self._create_path_sample(data_i, tar_track, ego_track, pre_event_frame)
+                self._create_path_sample(data_i, tar_track, ego_track, data_i.id, ego_id, pre_event_frame)
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
+        self.Size_old = pd.DataFrame(self.Size_old)
         self.T = np.array(self.T+[()], tuple)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
         
@@ -478,9 +629,8 @@ class HighD_lane_change(data_set_template):
     
     
     def _fill_round_about_path(self, pos, t, domain):
-        v_x = pos[:,0]
-        v_y = pos[:,1]
-        
+        v_x = pos[...,0]
+        v_y = pos[...,1]
         v_rewrite = np.isnan(v_x)
         if v_rewrite.any():
             useful = np.invert(v_rewrite)
@@ -495,7 +645,7 @@ class HighD_lane_change(data_set_template):
         return np.stack([v_x, v_y], axis = -1)
     
     
-    def fill_empty_path(self, path, t, domain, agent_types):
+    def fill_empty_path(self, path, t, domain, agent_types, size):
         if isinstance(path.v_1, float):
             assert str(path.v_1) == 'nan'
         else:
@@ -538,40 +688,46 @@ class HighD_lane_change(data_set_template):
                             (self.Data.frame_max > tar_frames[0]) & 
                             (self.Data.drivingDirection == domain.drivingDirection))[0]
         
-        Pos = np.ones((len(Neighbor), len(tar_frames) + 1,2)) * np.nan
+        num_data = len(self.path_data_info())
+        Pos = np.ones((len(Neighbor), len(tar_frames) + 1,num_data)) * np.nan
+        Sizes = np.ones((len(Neighbor), 2)) * np.nan
         for i, n in enumerate(Neighbor):
-            track_n = self.Data.iloc[n].track
-            Pos[i,:,0] = np.interp(frames_help, np.array(track_n.frame), track_n.x, left = np.nan, right = np.nan)
-            Pos[i,:,1] = np.interp(frames_help, np.array(track_n.frame), track_n.y, left = np.nan, right = np.nan)
+            track_n = self.Data.iloc[n].track.set_index('frame')
+            Pos[i] = track_n.reindex(frames_help)[['x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration']].to_numpy()
+            Sizes[i,0] = self.Data.iloc[n].width
+            Sizes[i,1] = self.Data.iloc[n].height
         
-        Pos = Pos[np.isfinite(Pos[:,1:n_I + 1]).any((1,2))]
+        # Past available 
+        Past_available = np.isfinite(Pos[:,1:n_I + 1]).any((1,2))
+        Pos = Pos[Past_available]
+        Sizes = Sizes[Past_available]
+
+        # Distance to the existing agents
         D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
+        Close_enough = (D_help > 0.5) & (D_help < 100)
+        Pos = Pos[Close_enough]
+        Sizes = Sizes[Close_enough]
         
-        
-        
-        Pos = Pos[(D_help > 0.5) & (D_help < 100)]
-        
+        # Distance to target agent
         D = np.nanmin(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
-        Pos = Pos[np.argsort(D)]
+        D_argsort = np.argsort(D)
+        Pos = Pos[D_argsort]
+        Sizes = Sizes[D_argsort]
         
+        # Cut of furthest agents
         if self.max_num_addable_agents is not None:
             Pos = Pos[:self.max_num_addable_agents]
-            
+            Sizes = Sizes[:self.max_num_addable_agents]
+        
         for i, pos in enumerate(Pos):
             name = 'v_{}'.format(i + 4)
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
-                if u.all():
-                    path[name] = pos
-                else:
-                    frames = frames_help[u]
-                    p = pos[u].T
-                    path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
-                                           interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
-                    
+                path[name] = self._fill_round_about_path(pos[1:], t, domain)
                 agent_types[name] = 'V'    
+                size[name] = Sizes[i]
                     
-        return path, agent_types 
+        return path, agent_types, size 
     
     
     def provide_map_drawing(self, domain):
@@ -603,4 +759,4 @@ class HighD_lane_change(data_set_template):
         return True 
     
     def includes_sceneGraphs(self = None):
-        return False
+        return True

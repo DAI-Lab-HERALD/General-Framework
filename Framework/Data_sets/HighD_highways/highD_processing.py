@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from os import path
 
 pd.options.mode.chained_assignment=None
@@ -7,9 +8,11 @@ n=1
 
 ### Prepare to get situation data, adjust values and position reference
 
+local_path = path.dirname(path.realpath(__file__))
+
 print('Preprocessing Data')
-while path.exists('data/{}_recordingMeta.csv'.format(str(n).zfill(2))):
-    Meta_data=pd.read_csv('data/{}_recordingMeta.csv'.format(str(n).zfill(2)))
+while path.exists(local_path + os.sep + 'data' + os.sep + '{}_recordingMeta.csv'.format(str(n).zfill(2))):
+    Meta_data=pd.read_csv(local_path + os.sep + 'data' + os.sep + '{}_recordingMeta.csv'.format(str(n).zfill(2)))
     local_data=Meta_data[['id', 'locationId', 'numVehicles', 'speedLimit',
                           'upperLaneMarkings', 'lowerLaneMarkings']].copy(deep=True)
     upper_Lane=np.array(local_data['upperLaneMarkings'][0].split(';')).astype('float')    
@@ -45,16 +48,16 @@ Final_out = []
 for n in range(1, 1 + len(Scenario)):
     print('Processing Scenario {}/{}'.format(str(n).zfill(2),len(Scenario)))
     # Load recoding data
-    Track_data = pd.read_csv('data/{}_tracks.csv'.format(str(n).zfill(2)))
+    Track_data = pd.read_csv(local_path + os.sep + 'data' + os.sep + '{}_tracks.csv'.format(str(n).zfill(2)))
     Track_data = Track_data[['frame', 'id', 'x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration',
                              'precedingId', 'followingId', 'leftPrecedingId', 'leftAlongsideId','leftFollowingId',
                              'rightPrecedingId', 'rightAlongsideId','rightFollowingId', 'laneId']]
     
-    Track_meta_data = pd.read_csv('data/{}_tracksMeta.csv'.format(str(n).zfill(2)))
+    Track_meta_data = pd.read_csv(local_path + os.sep + 'data' + os.sep + '{}_tracksMeta.csv'.format(str(n).zfill(2)))
     scenario = Scenario.iloc[n - 1]
     
     # Set up final data container for each vehicle
-    Final = Track_meta_data[['id','width','height','class','numLaneChanges', 'drivingDirection']].copy(deep=True)
+    Final = Track_meta_data[['id','width','height','class', 'numLaneChanges', 'drivingDirection']].copy(deep=True)
     Final['numMerges']       = '0'
     Final['locationId']      = scenario['locationId']
     Final['recordingId']     = scenario['id']
@@ -68,9 +71,17 @@ for n in range(1, 1 + len(Scenario)):
     
     num_lane_markers = len(scenario['upperLaneMarkings'])
     # get lane markers in upper lanes (where vehicles go from right to left)
-    upper_Lane_Markers = - scenario['upperLaneMarkings']
+    upper_Lane_Markers = scenario['upperLaneMarkings']
     # get lane markers in lower lanes (where vehicles go from left to right)
-    lower_Lane_Markers = - scenario['lowerLaneMarkings']
+    lower_Lane_Markers = scenario['lowerLaneMarkings']
+
+    # Switsch y coordinate system
+    # Transform into standard coordinate system
+    Track_data['y']             = -Track_data['y'] 
+    Track_data['yVelocity']     = -Track_data['yVelocity']
+    Track_data['yAcceleration'] = -Track_data['yAcceleration']
+    upper_Lane_Markers          = -upper_Lane_Markers
+    lower_Lane_Markers          = -lower_Lane_Markers
     
     # Prepare lane markings and track for final output
     max_frame = 0
@@ -81,8 +92,7 @@ for n in range(1, 1 + len(Scenario)):
         local_track['x'] = local_track['x'] + 0.5 * final['width']
         local_track['y'] = local_track['y'] + 0.5 * final['height']
         
-        # Transform into standard coordinate system
-        local_track['y'] = -local_track['y'] 
+
         
         max_frame = max(max_frame, local_track['frame'].max())
         final['frame_min'] = local_track['frame'].min()
@@ -140,4 +150,4 @@ for n in range(1, 1 + len(Scenario)):
    
 print('Save Data')
 Final_out = pd.concat(Final_out)
-Final_out.to_pickle("highD_processed.pkl")
+Final_out.to_pickle(local_path + os.sep + "highD_processed.pkl")

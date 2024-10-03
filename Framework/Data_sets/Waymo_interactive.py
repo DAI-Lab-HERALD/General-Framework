@@ -192,7 +192,10 @@ class Waymo_interactive(data_set_template):
             self.Size_old.append(agent_sizes)
             self.T.append(t)
             self.Domain_old.append(domain)
-        
+            
+            # Chcek if data can be saved
+            self.check_created_paths_for_saving()
+    
         self.check_created_paths_for_saving(last = True) 
 
         # deletet cached data

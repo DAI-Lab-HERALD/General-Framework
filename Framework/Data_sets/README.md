@@ -709,7 +709,7 @@ As mentioned in a previous [chapter](#importing-the-raw-data), it is possible th
 Besides filling in missing positions in provided trajectories, it might also be possible to add further agents to the situation, which might not have been included in the scenario yet. However, it should be made sure that those agents are actually present in the scene during the timesteps used as model input. Generally, in a carefully thought-out dataset class, all agents should have been added during *self.create_path_samples()* already. It must also be noted that those agents added here will not be included in the set of agents used for evaluating predictions. Consequently, it should only be agents here that either are already included in another sample in such a role that their future can be predicted, or agent classes that are not really desired to be predicted.
 
 ```
-  def fill_empty_path(self, path, t, domain, agent_types):
+  def fill_empty_path(self, path, t, domain, agent_types, size):
     r'''
     After extracting the trajectories of a sample at the given input and output timesteps, it might
     be possible that an agent's trajectory is only partially recorded over this timespan, resulting
@@ -723,6 +723,9 @@ Besides filling in missing positions in provided trajectories, it might also be 
     during the *input* timesteps. As those might still be influencing the future behavior of the agents
     already included in  **path**, they can be added here. Consequntly,
     math:`N_{agents, full} \geq N_{agents}` will be the case.
+
+    It must be noted that the Framework is able to deal with versions of this function which either include
+    or do not include the *size* argument.
         
     Parameters
     ----------
@@ -738,22 +741,33 @@ Besides filling in missing positions in provided trajectories, it might also be 
       A pandas series of lenght :math:`N_{info}`, that records the metadata for the considered
       sample. Its entries contain at least all the columns of **self.Domain_old**. 
     agent_types : pandas.Series 
-      A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for
-      the considered sample. The indices should correspond to the columns in **self.Type_old** created
-      in self.create_path_samples() and should include at least the relevant agents described in
+      A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
+      sample by using a single letter string. The indices should correspond to the columns in **self.Type_old** 
+      created in self.create_path_samples() and should include at least the relevant agents described in 
       self.create_sample_paths. Consequently, the column names are identical to those of **path**.
+    size : pandas.Series (optional)
+      A pandas series with :math:`(N_{agents})` entries, that records the size of the agents for the considered
+      sample in a numpy array (np.array([length, width])). The indices should correspond to the columns in **self.Type_old** 
+      created in self.create_path_samples() and should include at least the relevant agents described in 
+      self.create_sample_paths. Consequently, the column names are identical to those of **path**.
+      If the dataset does not record sizes, this will be *None*.
+
 
     Returns
     -------
     path_full : pandas.Series
       A pandas series with :math:`(N_{agents, full})` entries,
       where each entry is itself a numpy array of shape :math:`\{|t| \times 2 \}`.
-      All columns of **path** should be included here. For those agents where trajectories are recorded, those
-      trajectories should also no longer contain np.nan as a position value.
+      All columns of **path** should be included here. For those agents where trajectories are recorded, those trajectories 
+      can also no longer contain np.nan as a position value.
     agent_types_full : pandas.Series 
-      A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the
-      considered sample. The indices should correspond to the columns in **path_full** and include all columns
-      of **agent_types**.
+      A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
+      sample. The indices should correspond to the columns in **path_full** and include all columns of **agent_types**.
+    size_full : pandas.Series (optional)
+      A pandas series with :math:`(N_{agents, full})` entries, that records the size of the agents for the considered
+      sample in a numpy array (np.array([length, width])). The indices should correspond to the columns in **path_full** 
+      and include all columns of **size**. Returning this is optional. if it is not returned, defualt agent sizes are assumed
+      for added agents.
     '''
 
     ...

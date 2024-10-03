@@ -6,6 +6,7 @@ import torch
 import psutil
 import networkx as nx
 from data_interface import data_interface
+from inspect import signature
 from utils.memory_utils import get_total_memory, get_used_memory
 
 class data_set_template():
@@ -1416,8 +1417,6 @@ class data_set_template():
         mat_right = torch.zeros((num_lanes, num_lanes), device = device, dtype = torch.float)
         mat_right[graph['right_pairs'][:, 0], graph['right_pairs'][:, 1]] = 1
 
-        assert (mat_left == mat_right.T).all(), 'Left and right are not symmetric.'
-
         # Extend mat left and mat right to include the predecessors and successors of the left and right lanes
         mat_left = (torch.matmul(mat_left, pre) + torch.matmul(mat_left, suc) + mat_left) > 0.5
         mat_right = (torch.matmul(mat_right, pre) + torch.matmul(mat_right, suc) + mat_right) > 0.5
@@ -2412,7 +2411,24 @@ class data_set_template():
                 helper_T = np.concatenate([input_T, output_T])
                 
                 # complete partially available paths
-                helper_path, agent_types = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
+                fill_sig = signature(self.fill_empty_path)
+                num_inputs = len(fill_sig.parameters) # self does not count
+                if num_inputs == 4:
+                    filled_data = self.fill_empty_path(helper_path, helper_T, domain, agent_types)
+                elif num_inputs == 5:
+                    if size_given:
+                        filled_data = self.fill_empty_path(helper_path, helper_T, domain, agent_types, size)
+                    else:
+                        filled_data = self.fill_empty_path(helper_path, helper_T, domain, agent_types, None)
+                else:
+                    raise ValueError("The self.fill_empty_path() function does not have the correct number of inputs")
+
+                if len(filled_data) == 2:
+                    helper_path, agent_types = filled_data
+                elif len(filled_data) == 3:
+                    helper_path, agent_types, size = filled_data
+                else:
+                    raise ValueError("The filled data does not have the correct number of outputs (either 2 or 3)")
 
                 # Update size with default values if new agents were added
                 if size_given:
@@ -3334,13 +3350,6 @@ class data_set_template():
 
         return loc_Graph_cut
 
-
-
-
-
-        
-        
-      
     def return_batch_sceneGraphs(self, domain, X, radius, SceneGraphs, Graphs_Index, print_progress=False):
         if self.includes_sceneGraphs():
             if print_progress:    
@@ -4185,7 +4194,7 @@ class data_set_template():
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
-    def fill_empty_path(self, path, t, domain, agent_types):
+    def fill_empty_path(self, path, t, domain, agent_types, size = None):
         r'''
         After extracting the trajectories of a sample at the given input and output timesteps, it might be possible
         that an agent's trajectory is only partially recorded over this timespan, resulting in the position values being np.nan
@@ -4215,9 +4224,16 @@ class data_set_template():
             sample. Its entries contain at least all the columns of **self.Domain_old**. 
         agent_types : pandas.Series 
             A pandas series with :math:`(N_{agents})` entries, that records the type of the agents for the considered
-            sample. The indices should correspond to the columns in **self.Type_old** created in self.create_path_samples()
-            and should include at least the relevant agents described in self.create_sample_paths. Consequently, the 
-            column names are identical to those of **path**.
+            sample by using a single letter string. The indices should correspond to the columns in **self.Type_old** 
+            created in self.create_path_samples() and should include at least the relevant agents described in 
+            self.create_sample_paths. Consequently, the column names are identical to those of **path**.
+        size : pandas.Series
+            A pandas series with :math:`(N_{agents})` entries, that records the size of the agents for the considered
+            sample in a numpy array (np.array([length, width])). The indices should correspond to the columns in **self.Type_old** 
+            created in self.create_path_samples() and should include at least the relevant agents described in 
+            self.create_sample_paths. Consequently, the column names are identical to those of **path**.
+            If the dataset does not record sizes, this will be *None*.
+
 
         Returns
         -------
@@ -4229,6 +4245,12 @@ class data_set_template():
         agent_types_full : pandas.Series 
             A pandas series with :math:`(N_{agents, full})` entries, that records the type of the agents for the considered
             sample. The indices should correspond to the columns in **path_full** and include all columns of **agent_types**.
+        size_full : pandas.Series (optional)
+            A pandas series with :math:`(N_{agents, full})` entries, that records the size of the agents for the considered
+            sample in a numpy array (np.array([length, width])). The indices should correspond to the columns in **path_full** 
+            and include all columns of **size**. Returning this is optional. if it is not returned, defualt agent sizes are assumed
+            for added agents.
+
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
