@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 import re
+import torch
 
 from av2.geometry.interpolate import compute_midpoint_line
 from lanelet2.projection import UtmProjector
@@ -14,6 +15,10 @@ filename_pattern = re.compile(r'^(\w+)_(\w+).csv$')
 projector = UtmProjector(lanelet2.io.Origin(0, 0))
 traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
                                             lanelet2.traffic_rules.Participants.Vehicle)
+
+
+cross_dist = 10
+cross_angle =  1 * np.pi
 # from FJMP
 
 def read_interaction_data(file_path):
@@ -256,6 +261,12 @@ def get_lane_graph(file_path):
     for key in ['pre', 'suc']:
         graph[key] += dilated_nbrs(graph[key][0], graph['num_nodes'], num_scales)
 
+    graph = preprocess(graph, cross_dist, cross_angle)
+
+    # delete ctrs from graph
+    del graph['ctrs']
+    del graph['feats']
+
     return graph
 
 ### FROM LANE_GCN
@@ -274,3 +285,144 @@ def dilated_nbrs(nbr, num_nodes, num_scales):
         nbr['v'] = coo.col.astype(np.int64)
         nbrs.append(nbr)
     return nbrs
+
+
+# This function mines the left/right neighbouring nodes
+def preprocess(graph, cross_dist, cross_angle=None):
+    # like pre and sec, but for left and right nodes
+    left, right = dict(), dict()
+
+    lane_idcs = graph['lane_idcs']
+    # for each lane node lane_idcs returns the corresponding lane id
+    num_nodes = len(lane_idcs)
+    # indexing starts from 0, makes sense
+    num_lanes = lane_idcs[-1].item() + 1
+
+    # distances between all node centres
+    dist = torch.tensor(graph['ctrs']).unsqueeze(1) - torch.tensor(graph['ctrs']).unsqueeze(0)
+    dist = torch.sqrt((dist ** 2).sum(2))
+    
+    
+    # allows us to index through all pairs of lane nodes
+    # if num_nodes == 3: [0, 0, 0, 1, 1, 1, 2, 2, 2]
+    hi = torch.arange(num_nodes).long().to(dist.device).view(-1, 1).repeat(1, num_nodes).view(-1)
+    # if num_nodes == 3: [0, 1, 2, 0, 1, 2, 0, 1, 2]
+    wi = torch.arange(num_nodes).long().to(dist.device).view(1, -1).repeat(num_nodes, 1).view(-1)
+    # if num_nodes == 3: [0, 1, 2]
+    row_idcs = torch.arange(num_nodes).long().to(dist.device)
+
+    # find possible left and right neighouring nodes
+    if cross_angle is not None:
+        # along lane
+        f1 = torch.tensor(graph['feats'][hi])
+        if len(f1.shape) == 1:
+            f1 = f1.unsqueeze(0)
+        # cross lane
+        f2 = torch.tensor(graph['ctrs'][wi] - graph['ctrs'][hi])
+        if len(f2.shape) == 1:
+            f2 = f2.unsqueeze(0)
+        t1 = torch.atan2(f1[:, 1], f1[:, 0])
+        t2 = torch.atan2(f2[:, 1], f2[:, 0])
+        dt = t2 - t1
+        m = dt > 2 * np.pi
+        dt[m] = dt[m] - 2 * np.pi
+        m = dt < -2 * np.pi
+        dt[m] = dt[m] + 2 * np.pi
+        mask = torch.logical_and(dt > 0, dt < cross_angle)
+        left_mask = mask.logical_not()
+        mask = torch.logical_and(dt < 0, dt > -cross_angle)
+        right_mask = mask.logical_not()
+
+    pre_suc_valid = False 
+    if len(graph['pre_pairs'].shape) == 2 and len(graph['suc_pairs'].shape) == 2:
+        pre_suc_valid = True
+    # lanewise pre and suc connections
+    if pre_suc_valid:
+        pre = torch.tensor(graph['pre_pairs']).new().float().resize_(num_lanes, num_lanes).zero_()
+        pre[graph['pre_pairs'][:, 0], graph['pre_pairs'][:, 1]] = 1
+        suc = torch.tensor(graph['suc_pairs']).new().float().resize_(num_lanes, num_lanes).zero_()
+        suc[graph['suc_pairs'][:, 0], graph['suc_pairs'][:, 1]] = 1
+
+    # find left lane nodes
+    pairs = graph['left_pairs']
+    if len(pairs) > 0 and pre_suc_valid:
+        mat = torch.tensor(pairs).new().float().resize_(num_lanes, num_lanes).zero_()
+        mat[pairs[:, 0], pairs[:, 1]] = 1
+        mat = (torch.matmul(mat, pre) + torch.matmul(mat, suc) + mat) > 0.5
+
+        left_dist = dist.clone()
+        mask = mat[lane_idcs[hi], lane_idcs[wi]].logical_not()
+        left_dist[hi[mask], wi[mask]] = 1e6
+        if cross_angle is not None:
+            left_dist[hi[left_mask], wi[left_mask]] = 1e6
+
+        min_dist, min_idcs = left_dist.min(1)
+        mask = min_dist < cross_dist
+        ui = row_idcs[mask]
+        vi = min_idcs[mask]
+        f1 = torch.tensor(graph['feats'][ui])
+        if len(f1.shape) == 1:
+            f1 = f1.unsqueeze(0)
+        f2 = torch.tensor(graph['feats'][vi])
+        if len(f2.shape) == 1:
+            f2 = f2.unsqueeze(0)
+        t1 = torch.atan2(f1[:, 1], f1[:, 0])
+        t2 = torch.atan2(f2[:, 1], f2[:, 0])
+        dt = torch.abs(t1 - t2)
+        m = dt > np.pi
+        dt[m] = torch.abs(dt[m] - 2 * np.pi)
+        m = dt < 0.25 * np.pi
+
+        ui = ui[m]
+        vi = vi[m]
+
+        left['u'] = ui.cpu().numpy().astype(np.int16)
+        left['v'] = vi.cpu().numpy().astype(np.int16)
+    else:
+        left['u'] = np.zeros(0, np.int16)
+        left['v'] = np.zeros(0, np.int16)
+
+    # find right lane nodes
+    pairs = graph['right_pairs']
+    if len(pairs) > 0 and pre_suc_valid:
+        mat = torch.tensor(pairs).new().float().resize_(num_lanes, num_lanes).zero_()
+        mat[pairs[:, 0], pairs[:, 1]] = 1
+        mat = (torch.matmul(mat, pre) + torch.matmul(mat, suc) + mat) > 0.5
+
+        right_dist = dist.clone()
+        mask = mat[lane_idcs[hi], lane_idcs[wi]].logical_not()
+        right_dist[hi[mask], wi[mask]] = 1e6
+        if cross_angle is not None:
+            right_dist[hi[right_mask], wi[right_mask]] = 1e6
+
+        min_dist, min_idcs = right_dist.min(1)
+        mask = min_dist < cross_dist
+        ui = row_idcs[mask]
+        vi = min_idcs[mask]
+        if len(ui) == 1:
+            f1 = torch.tensor(graph['feats'][[ui]])
+        else:
+            f1 = torch.tensor(graph['feats'][ui])
+        if len(vi) == 1:
+            f2 = torch.tensor(graph['feats'][[vi]])
+        else:
+            f2 = torch.tensor(graph['feats'][vi])
+        t1 = torch.atan2(f1[:, 1], f1[:, 0])
+        t2 = torch.atan2(f2[:, 1], f2[:, 0])
+        dt = torch.abs(t1 - t2)
+        m = dt > np.pi
+        dt[m] = torch.abs(dt[m] - 2 * np.pi)
+        m = dt < 0.25 * np.pi
+
+        ui = ui[m]
+        vi = vi[m]
+
+        right['u'] = ui.cpu().numpy().astype(np.int16)
+        right['v'] = vi.cpu().numpy().astype(np.int16)
+    else:
+        right['u'] = np.zeros(0, np.int16)
+        right['v'] = np.zeros(0, np.int16)
+
+    graph['left'] = [left]
+    graph['right'] = [right]
+    return graph

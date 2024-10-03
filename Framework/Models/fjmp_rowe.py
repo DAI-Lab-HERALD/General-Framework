@@ -414,6 +414,9 @@ class fjmp_rowe(model_template):
                 graph_b['ctrs'] = ctrs_b
                 graph_b['feats'] = feats_b
 
+
+                del graph_b['lane_type']
+
                 graph_b = from_numpy(graph_b)
                 graph_b['left'] = graph_b['left'][0]
                 graph_b['right'] = graph_b['right'][0]
@@ -801,17 +804,30 @@ class fjmp_rowe(model_template):
                 num_samples_path_pred_max = int(sample_number * splits)
                 Pred = np.zeros((X.shape[0], X.shape[1], num_samples_path_pred_max, self.num_timesteps_out, 2))
 
-                for i in range(splits):
-                    res = self.model.forward(dd["scene_idxs"], dgl_graph, stage_1_graph, ig_dict, dd['batch_idxs'], dd["batch_idxs_edges"], dd["actor_ctrs"], prop_ground_truth=0.)
+                # for i in range(splits):
+                #     res = self.model.forward(dd["scene_idxs"], dgl_graph, stage_1_graph, ig_dict, dd['batch_idxs'], dd["batch_idxs_edges"], dd["actor_ctrs"], prop_ground_truth=0.)
 
 
-                    Index = np.arange(i * sample_number, min((i + 1) * sample_number, num_samples_path_pred_max))
+                #     Index = np.arange(i * sample_number, min((i + 1) * sample_number, num_samples_path_pred_max))
 
-                    predicted_agents = np.isfinite(X)[:,:,0,0]
+                #     predicted_agents = np.isfinite(X)[:,:,0,0]
 
-                    pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
-                    pred[predicted_agents] = res["loc_pred"].detach().cpu().numpy().transpose(0, 2, 1, 3)
-                    Pred[:, :,Index] = pred
+                #     pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
+                #     pred[predicted_agents] = res["loc_pred"].detach().cpu().numpy().transpose(0, 2, 1, 3)
+                #     Pred[:, :,Index] = pred
+
+                res = self.model.forward(dd["scene_idxs"], dgl_graph, stage_1_graph, ig_dict, dd['batch_idxs'], dd["batch_idxs_edges"], dd["actor_ctrs"], prop_ground_truth=0.)
+
+
+                # Index = np.arange(i * sample_number, min((i + 1) * sample_number, num_samples_path_pred_max))
+
+                predicted_agents = np.isfinite(X)[:,:,0,0]
+
+                pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
+                pred[predicted_agents] = res["loc_pred"].detach().cpu().numpy().transpose(0, 2, 1, 3)
+                pred = np.tile(pred, (1, 1, splits, 1, 1))
+                Pred = pred
+                # Pred[:, :,Index] = pred
                                 
                 torch.cuda.empty_cache()
 

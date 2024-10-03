@@ -178,11 +178,6 @@ class Interaction_interactive(data_set_template):
             map_path = file_path + '/maps/' + name.split('.')[0][:-6] + '.osm'
             data_collection = read_interaction_data(data_path)
 
-            domain = pd.Series(np.zeros(3, object), index = ['graph_id', 'location', 'splitting'])#, 'category'])
-            
-            domain.graph_id = int(graph_id)
-            domain.location = data_collection['city']
-            domain.splitting = 'train'
 
                 # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
                 # categories = []
@@ -263,6 +258,13 @@ class Interaction_interactive(data_set_template):
 
                     t = np.arange(0, 4, 0.1)
 
+
+                    domain = pd.Series(np.zeros(3, object), index = ['graph_id', 'location', 'splitting'])#, 'category'])
+                    
+                    domain.graph_id = int(graph_id)
+                    domain.location = data_collection['city']
+                    domain.splitting = 'train'
+
                     self.Path.append(path)
                     self.Type_old.append(agent_types)
                     self.Size_old.append(agent_sizes)
@@ -291,11 +293,6 @@ class Interaction_interactive(data_set_template):
 
             data_collection = read_interaction_data(data_path)
 
-            domain = pd.Series(np.zeros(3, object), index = ['graph_id', 'location', 'splitting'])#, 'category'])
-            
-            domain.graph_id = int(graph_id)
-            domain.location = data_collection['city']
-            domain.splitting = 'test'
 
                 # categories = [i[0,0] for i in data_collection['agentcategories'] if i[0,0] in [1, 2, 3]]
                 # categories = []
@@ -374,6 +371,12 @@ class Interaction_interactive(data_set_template):
 
                     t = np.arange(0, 4, 0.1)
 
+                    domain = pd.Series(np.zeros(3, object), index = ['graph_id', 'location', 'splitting'])#, 'category'])
+                    
+                    domain.graph_id = int(graph_id)
+                    domain.location = data_collection['city']
+                    domain.splitting = 'test'
+
                     self.Path.append(path)
                     self.Type_old.append(agent_types)
                     self.Size_old.append(agent_sizes)
@@ -406,13 +409,15 @@ class Interaction_interactive(data_set_template):
         self.SceneGraphs = pd.DataFrame(self.SceneGraphs)
 
     
+
+    
     def fill_empty_path(self, path, t, domain, agent_types):
         for agent in path.index:
             if isinstance(path[agent], float):
                 assert str(path[agent]) == 'nan'
             else:
                 if agent_types[agent] == 'P':
-                    path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel') # TODO: Should this be 'pos' instead, Anna?
+                    path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel') 
                 else:
                     path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel')
         
