@@ -77,16 +77,8 @@ class evaluation_template():
             [_, _, _, _, _, _, Output_A_local, Output_T_E_local, _] = np.load(data_file, allow_pickle = True)
 
             ind_used = self.data_set.Domain.Index_saved.iloc[self.Index_curr]
-            Output_A_local = Output_A_local.iloc[ind_used]
-            Output_T_E_local = Output_T_E_local[ind_used]
-
-            # Find the respective index
-            used_index = np.where(self.data_set.Domain.file_index == file_index)[0]
-            
-            index_transfer = self.data_set.get_indices_1D(self.Index_curr, used_index)
-
-            Output_A_full   = Output_A_local.iloc[index_transfer]
-            Output_T_E_full = Output_T_E_local[index_transfer]
+            Output_A_full   = Output_A_local.iloc[ind_used] # Shape len(Index_curr) x num_behaviors
+            Output_T_E_full = Output_T_E_local[ind_used]    # Shape len(Index_curr)
         
         if self.get_output_type()[:5] == 'class':
             # Get label predictions
