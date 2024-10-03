@@ -775,6 +775,38 @@ Besides filling in missing positions in provided trajectories, it might also be 
     return path_full, agent_types_full
 ```
 
+As a helper function, one can use the following method allready implemented:
+```
+  def extrapolate_path(self, path, t, mode = 'pos'):
+    r'''
+    This function inter- and extrapolates the path data to the desired time points, 
+    with the desired mode. The mode can be either 'pos' for assuming constant positions,
+    or 'vel' for assuming constant velocities, or 'vel_turn' for assuming constant 
+    longitudinal velocities and constant turning rates.
+
+    Parameters
+    ----------
+    path : np.ndarray
+      The path data to be inter- and extrapolated as an array with shape 
+      :math:`\{\vert T_i \vert{\times} N_{data}\}`. Some time points may be missing.
+    t : np.ndarray
+      The time points of the path data with length :math:`\vert T_i \vert`.
+    mode : str, optional
+      The mode of the extrapolation, i.e. 'pos', 'vel', or 'vel_turn'. The default is 'pos'.
+      Depending on available information, the model might overwrite this.
+
+    Returns
+    -------
+    path_new : np.ndarray
+      The inter- and extrapolated path data with shape :math:`\{\vert T \vert{\times} N_{data}\}`.
+      It should no longer contain any missing values.
+    '''
+
+    ...
+
+    return path_new
+```
+
 
 ## Providing visulaization
 One important aspect of the framework is its ability to visualize ground truth and predicted trajectories. While it would be possible to just display these, putting them on a background might help with better understanding and easier analysis. While for datasets with images, those images can be taken as a background, it must be noted that those might not always be available. 

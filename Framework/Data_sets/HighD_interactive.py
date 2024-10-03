@@ -150,8 +150,8 @@ class HighD_interactive(data_set_template):
         graph['suc_pairs'] = suc_pairs
         graph['left_pairs'] = left_pairs
         graph['right_pairs'] = right_pairs
-        graph['left_boundaries'] = right_boundaries # The use of * -1 mirrors everything, switching sides
-        graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['left_boundaries']  = left_boundaries 
+        graph['right_boundaries'] = right_boundaries 
         graph['centerlines'] = centerlines
         graph['lane_type'] = lane_type
 
@@ -182,7 +182,7 @@ class HighD_interactive(data_set_template):
         # set up the scenegraph
         sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
                               'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
-        self.SceneGraphs = pd.DataFrame(np.zeros((1, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
         
         data_path = self.path + os.sep + 'Data_sets' + os.sep + 'HighD_highways' + os.sep + 'data' + os.sep
         potential_image_files = os.listdir(data_path)
@@ -252,8 +252,6 @@ class HighD_interactive(data_set_template):
                 else:
                     self.check_created_paths_for_saving(force_save = True)
 
-    
-        self.check_created_paths_for_saving(last = True) 
             
         # Treat recording as location due to slight misalignments
         image_files = [file for file in potential_image_files if file[-4:] == '.png']
@@ -280,13 +278,11 @@ class HighD_interactive(data_set_template):
             graph = self.get_sceneGraph(img_id)
             self.SceneGraphs.loc[img_id] = graph
 
-
-        self.Path = pd.DataFrame(self.Path)
-        self.Type_old = pd.DataFrame(self.Type_old)
-        self.Size_old = pd.DataFrame(self.Size_old)
-        self.T = np.array(self.T+[()], tuple)[:-1]
-        self.Domain_old = pd.DataFrame(self.Domain_old)
-        
+        # sort sceneGraphs and Images by index
+        self.SceneGraphs = self.SceneGraphs.sort_index()
+        self.Images = self.Images.sort_index()
+    
+        self.check_created_paths_for_saving(last = True) 
         
     def calculate_distance(self, path, t, domain):
         r'''
@@ -357,27 +353,11 @@ class HighD_interactive(data_set_template):
         '''
         return None
     
-    
-    def _fill_round_about_path(self, pos, t, domain):
-        v_x = pos[...,0]
-        v_y = pos[...,1]
-        v_rewrite = np.isnan(v_x)
-        if v_rewrite.any():
-            useful = np.invert(v_rewrite)
-            if useful.sum() > 2:
-                v_x = interp.interp1d(t[useful], v_x[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
-                v_y = interp.interp1d(t[useful], v_y[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
-            else:   
-                v_x = np.interp(t, t[useful], v_x[useful], left = v_x[useful][0], right = v_x[useful][-1])
-                v_y = np.interp(t, t[useful], v_y[useful], left = v_y[useful][0], right = v_y[useful][-1])
-                
-            assert not np.isnan(v_x).any()
 
-        return np.stack([v_x, v_y], axis = -1)
-    
     def fill_empty_path(self, path, t, domain, agent_types, size = None):
         for agent in path.index:
-            path[agent] = self._fill_round_about_path(path[agent], t, domain)
+            if isinstance(path[agent], np.ndarray):
+                path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel')
         return path, agent_types 
     
     def provide_map_drawing(self, domain):

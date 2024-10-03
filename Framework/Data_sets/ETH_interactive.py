@@ -177,17 +177,7 @@ class ETH_interactive(data_set_template):
             if isinstance(path[agent], float):
                 assert str(path[agent]) == 'nan'
             else:
-                x = path[agent][:,0]
-                y = path[agent][:,1]
-                
-                rewrite = np.isnan(x)
-                if not rewrite.any():
-                    continue
-                useful = np.invert(rewrite)
-                x = np.interp(t,t[useful],x[useful])
-                y = np.interp(t,t[useful],y[useful])
-            
-                path[agent] = np.stack([x, y], axis = -1)
+                path[agent] = self.extrapolate_path(path[agent], t, mode = 'pos')
         
         return path, agent_types
             

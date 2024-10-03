@@ -240,8 +240,8 @@ class HighD_lane_change(data_set_template):
         graph['suc_pairs'] = suc_pairs
         graph['left_pairs'] = left_pairs
         graph['right_pairs'] = right_pairs
-        graph['left_boundaries'] = right_boundaries # The use of * -1 mirrors everything, switching sides
-        graph['right_boundaries'] = left_boundaries # The use of * -1 mirrors everything, switching sides
+        graph['left_boundaries']  = left_boundaries 
+        graph['right_boundaries'] = right_boundaries 
         graph['centerlines'] = centerlines
         graph['lane_type'] = lane_type
 
@@ -280,7 +280,7 @@ class HighD_lane_change(data_set_template):
         # set up the scenegraph
         sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
                               'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
-        self.SceneGraphs = pd.DataFrame(np.zeros((1, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
         
         data_path = self.path + os.sep + 'Data_sets' + os.sep + 'HighD_highways' + os.sep + 'data' + os.sep
         potential_image_files = os.listdir(data_path)
@@ -628,38 +628,21 @@ class HighD_lane_change(data_set_template):
         return Dist
     
     
-    def _fill_round_about_path(self, pos, t, domain):
-        v_x = pos[...,0]
-        v_y = pos[...,1]
-        v_rewrite = np.isnan(v_x)
-        if v_rewrite.any():
-            useful = np.invert(v_rewrite)
-            if useful.sum() > 2:
-                v_x = interp.interp1d(t[useful], v_x[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
-                v_y = interp.interp1d(t[useful], v_y[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
-            else:   
-                v_x = np.interp(t, t[useful], v_x[useful], left = v_x[useful][0], right = v_x[useful][-1])
-                v_y = np.interp(t, t[useful], v_y[useful], left = v_y[useful][0], right = v_y[useful][-1])
-                
-            assert not np.isnan(v_x).any()
-        return np.stack([v_x, v_y], axis = -1)
-    
-    
     def fill_empty_path(self, path, t, domain, agent_types, size):
         if isinstance(path.v_1, float):
             assert str(path.v_1) == 'nan'
         else:
-            path.v_1 = self._fill_round_about_path(path.v_1, t, domain)
+            path.v_1 = self.extrapolate_path(path.v_1, t, mode = 'vel')
             
         if isinstance(path.v_2, float):
             assert str(path.v_2) == 'nan'
         else:
-            path.v_2 = self._fill_round_about_path(path.v_2, t, domain)
+            path.v_2 = self.extrapolate_path(path.v_2, t, mode = 'vel')
             
         if isinstance(path.v_3, float):
             assert str(path.v_3) == 'nan'
         else:
-            path.v_3 = self._fill_round_about_path(path.v_3, t, domain)
+            path.v_3 = self.extrapolate_path(path.v_3, t, mode = 'vel')
         
         
         n_I = self.num_timesteps_in_real
@@ -703,27 +686,27 @@ class HighD_lane_change(data_set_template):
         Sizes = Sizes[Past_available]
 
         # Distance to the existing agents
-        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
+        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1,...,:2] - help_pos[:,np.newaxis,:n_I,...,:2]) ** 2).sum(-1)), -1).min(0)
         Close_enough = (D_help > 0.5) & (D_help < 100)
         Pos = Pos[Close_enough]
         Sizes = Sizes[Close_enough]
         
         # Distance to target agent
-        D = np.nanmin(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1), -1)
+        D = np.nanmin(((Pos[:,1:n_I + 1,...,:2] - tar_pos[:,:n_I,...,:2]) ** 2).sum(-1), -1)
         D_argsort = np.argsort(D)
         Pos = Pos[D_argsort]
         Sizes = Sizes[D_argsort]
         
         # Cut of furthest agents
         if self.max_num_addable_agents is not None:
-            Pos = Pos[:self.max_num_addable_agents]
+            Pos = Pos[:self.max_num_addable_agents, 1:]
             Sizes = Sizes[:self.max_num_addable_agents]
         
         for i, pos in enumerate(Pos):
             name = 'v_{}'.format(i + 4)
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
-                path[name] = self._fill_round_about_path(pos[1:], t, domain)
+                path[name] = self.extrapolate_path(pos, t, mode='vel')
                 agent_types[name] = 'V'    
                 size[name] = Sizes[i]
                     

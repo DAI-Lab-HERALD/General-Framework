@@ -294,154 +294,228 @@ class data_set_template():
             raise AttributeError("*last = True* was passed more than once during self.create_path_samples().")
         
         num_samples = len(self.Path)
-        if (np.mod(num_samples, 100) == 0) or (not hasattr(self, 'num_overall_timesteps_per_sample')):
-        
-            # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
-            if not isinstance(self.Path, pd.core.frame.DataFrame):
-                assert isinstance(self.Path, list), "Path should be a list."
-                # Transform to dataframe
-                Path_check = pd.DataFrame(self.Path)
-            else:
-                Path_check = self.Path
-                
-            # Get the memory needed to save data right now
-            # Count the number of timesteps in each sample
-            num_timesteps = np.array([len(t) for t in self.T])
+        if num_samples > 0:
+            if (np.mod(num_samples, 100) == 0) or (not hasattr(self, 'num_overall_timesteps_per_sample')):
             
-            # Get the number of saved agents for each sample
-            num_agents = (~Path_check.isnull()).sum(axis=1)
-        
-            num_overall_timesteps = (num_timesteps * num_agents).sum()
-            self.num_overall_timesteps_per_sample = num_overall_timesteps / num_samples
-        
-        assert hasattr(self, 'num_overall_timesteps_per_sample'), "The number of overall timesteps per sample should be defined."
-        
-        # Get the needed memory per timestep
-        memory_per_timestep = 1 + 8 * len(self.path_data_info())
-        memory_used = num_samples * self.num_overall_timesteps_per_sample * memory_per_timestep
-        
-        # Get the currently available RAM space
-        available_memory = self.total_memory - get_used_memory()
-
-        # As data needs to be manipulated after loading, check if more than 25% of the memory is used
-        if force_save or last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
-            # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
-            if not isinstance(self.Path, pd.core.frame.DataFrame):
-                assert isinstance(self.Path, list), "Path should be a list."
-                # Transform to dataframe
-                Path_check = pd.DataFrame(self.Path)
-            else:
-                Path_check = self.Path
-                
-            if not isinstance(self.Type_old, pd.core.frame.DataFrame):
-                assert isinstance(self.Type_old, list), "Type_old should be a list."
-                # Transform to dataframe
-                Type_old_check = pd.DataFrame(self.Type_old)
-            else:
-                Type_old_check = self.Type_old
-                
-            if not isinstance(self.T, np.ndarray):
-                assert isinstance(self.T, list), "T should be a list."
-                # Transform to array
-                T_check = np.array(self.T) 
-            else:
-                T_check = self.T
-                
-            if not isinstance(self.Domain_old, pd.core.frame.DataFrame):
-                assert isinstance(self.Domain_old, list), "Domain_old should be a list."
-                # Transform to dataframe
-                Domain_old_check = pd.DataFrame(self.Domain_old)
-            else:
-                Domain_old_check = self.Domain_old
-
-            # Check is self.Size_old exists
-            if hasattr(self, 'Size_old'):
-                if not isinstance(self.Size_old, pd.core.frame.DataFrame):
-                    assert isinstance(self.Size_old, list), "Size_old should be a list."
+                # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
+                if not isinstance(self.Path, pd.core.frame.DataFrame):
+                    assert isinstance(self.Path, list), "Path should be a list."
                     # Transform to dataframe
-                    Size_old_check = pd.DataFrame(self.Size_old)
+                    Path_check = pd.DataFrame(self.Path)
                 else:
-                    Size_old_check = self.Size_old
-            else:
-                Size_old_check = None
-                if last:
-                    self.Size_old = None
+                    Path_check = self.Path
+                    
+                # Get the memory needed to save data right now
+                # Count the number of timesteps in each sample
+                num_timesteps = np.array([len(t) for t in self.T])
                 
-            # Check if some saved original data is allready available
+                # Get the number of saved agents for each sample
+                num_agents = (~Path_check.isnull()).sum(axis=1)
+            
+                num_overall_timesteps = (num_timesteps * num_agents).sum()
+                self.num_overall_timesteps_per_sample = num_overall_timesteps / num_samples
+            
+            assert hasattr(self, 'num_overall_timesteps_per_sample'), "The number of overall timesteps per sample should be defined."
+            
+            # Get the needed memory per timestep
+            memory_per_timestep = 1 + 8 * len(self.path_data_info())
+            memory_used = num_samples * self.num_overall_timesteps_per_sample * memory_per_timestep
+            
+            # Get the currently available RAM space
+            available_memory = self.total_memory - get_used_memory()
+
+            # As data needs to be manipulated after loading, check if more than 25% of the memory is used
+            if force_save or last or (memory_used > 0.25 * self.available_memory_creation) or (available_memory < 100 * 2**20):
+                # Check if the four attributes from self.create_path_samples are lists or dataframe/arrays
+                if not isinstance(self.Path, pd.core.frame.DataFrame):
+                    assert isinstance(self.Path, list), "Path should be a list."
+                    # Transform to dataframe
+                    Path_check = pd.DataFrame(self.Path)
+                else:
+                    Path_check = self.Path
+                    
+                if not isinstance(self.Type_old, pd.core.frame.DataFrame):
+                    assert isinstance(self.Type_old, list), "Type_old should be a list."
+                    # Transform to dataframe
+                    Type_old_check = pd.DataFrame(self.Type_old)
+                else:
+                    Type_old_check = self.Type_old
+                    
+                if not isinstance(self.T, np.ndarray):
+                    assert isinstance(self.T, list), "T should be a list."
+                    # Transform to array
+                    T_check = np.array(self.T) 
+                else:
+                    T_check = self.T
+                    
+                if not isinstance(self.Domain_old, pd.core.frame.DataFrame):
+                    assert isinstance(self.Domain_old, list), "Domain_old should be a list."
+                    # Transform to dataframe
+                    Domain_old_check = pd.DataFrame(self.Domain_old)
+                else:
+                    Domain_old_check = self.Domain_old
+
+                # Check is self.Size_old exists
+                if hasattr(self, 'Size_old'):
+                    if not isinstance(self.Size_old, pd.core.frame.DataFrame):
+                        assert isinstance(self.Size_old, list), "Size_old should be a list."
+                        # Transform to dataframe
+                        Size_old_check = pd.DataFrame(self.Size_old)
+                    else:
+                        Size_old_check = self.Size_old
+                else:
+                    Size_old_check = None
+                    if last:
+                        self.Size_old = None
+                    
+                # Check if some saved original data is allready available
+                file_path_test = self.file_path + '--all_orig_paths'
+                file_path_test_name = os.path.basename(file_path_test)
+                file_path_test_directory = os.path.dirname(file_path_test)
+                # Find files in same directory that start with file_path_test
+                files = [f for f in os.listdir(file_path_test_directory) if f.startswith(file_path_test_name)]
+                if len(files) > 0:
+                    # Find the number that is attached to this file
+                    file_number = np.array([int(f[len(file_path_test_name)+1:-4]) for f in files], int).max() + 1
+                    if file_number > 999:
+                        raise AttributeError("Too many files have been saved.")
+                else:
+                    file_number = 0
+                    
+                if last:
+                    # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
+                    path_addition = '_LLL.npy'
+                else:
+                    path_addition = '_' + str(file_number).zfill(3) + '.npy'
+                file_path_save = file_path_test + path_addition   
+
+                num_samples_check = len(Path_check)
+                
+                # Check the samples
+                self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check, Size_old_check)
+
+                # Sparsify the data
+                Path_check_sparse = self.get_sparse_path_data(Path_check)
+                
+                # Save the results
+                os.makedirs(os.path.dirname(file_path_save), exist_ok=True)
+
+                if Size_old_check is None:
+                    test_data = np.array([Path_check_sparse, Type_old_check, T_check, Domain_old_check, num_samples_check], object)
+                else:
+                    test_data = np.array([Path_check_sparse, Type_old_check, Size_old_check, T_check, Domain_old_check, num_samples_check], object)
+                np.save(file_path_save, test_data)
+                
+                # Reset the data to empty lists
+                self.Path = []
+                self.Type_old = []
+                self.T = []
+                self.Domain_old = []
+                if hasattr(self, 'Size_old'):
+                    self.Size_old = []
+                
+                # Delete num_timesteps_per_sample
+                if hasattr(self, 'num_overall_timesteps_per_sample'):
+                    del self.num_overall_timesteps_per_sample
+
+                # Check if images need to be saved
+                if hasattr(self, 'map_split_save'):
+                    if self.map_split_save:
+                        if self.includes_images():
+                            self.check_image_samples(self.Images)
+
+                            image_file = self.file_path + '--Images' + path_addition
+                            image_data = np.array([self.Images, 0], object)
+                            np.save(image_file, image_data)
+
+                            # reset self Images
+                            image_columns = ['Image', 'Target_MeterPerPx']
+                            self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
+                    
+                        if self.includes_sceneGraphs(): 
+                            self.check_sceneGraph_samples(self.SceneGraphs)
+                            
+                            sceneGraph_file = self.file_path + '--SceneGraphs' + path_addition
+                            sceneGraph_data = np.array([self.SceneGraphs, 0], object)
+                            np.save(sceneGraph_file, sceneGraph_data)
+                            
+                            # reset self SceneGraphs
+                            sceneGraph_columns = self.SceneGraphs.columns  
+                            self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
+
+        else:
+            # This can only happen when calling last = True
+            assert last, "Calling the function without any data should only be possible with last = True."
+
+            # Find the number of files allready saved
             file_path_test = self.file_path + '--all_orig_paths'
             file_path_test_name = os.path.basename(file_path_test)
             file_path_test_directory = os.path.dirname(file_path_test)
             # Find files in same directory that start with file_path_test
             files = [f for f in os.listdir(file_path_test_directory) if f.startswith(file_path_test_name)]
-            if len(files) > 0:
-                # Find the number that is attached to this file
-                file_number = np.array([int(f[len(file_path_test_name)+1:-4]) for f in files], int).max() + 1
-                if file_number > 999:
-                    raise AttributeError("Too many files have been saved.")
-            else:
-                file_number = 0
-                
-            if last:
-                # During loading of files, check for existence of last file. If not there, rerun the whole extraction procedure
-                path_addition = '_LLL.npy'
-            else:
-                path_addition = '_' + str(file_number).zfill(3) + '.npy'
-            file_path_save = file_path_test + path_addition   
-
-            num_samples_check = len(Path_check)
+            assert len(files) > 0, "slef.create_path_samples() does not produce any samples."
             
-            # Check the samples
-            self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check, Size_old_check)
-            
-            # Save the results
-            os.makedirs(os.path.dirname(file_path_save), exist_ok=True)
+            # Find the number that is attached to this file
+            file_number_overwrite = np.array([int(f[len(file_path_test_name)+1:-4]) for f in files], int).max()
+            file_overwrite_old = file_path_test + '_' + str(file_number_overwrite).zfill(3) + '.npy'
+            file_overwrite_new = file_path_test + '_LLL.npy'
 
-            if Size_old_check is None:
-                test_data = np.array([Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check], object)
-            else:
-                test_data = np.array([Path_check, Type_old_check, Size_old_check, T_check, Domain_old_check, num_samples_check], object)
-            np.save(file_path_save, test_data)
-            
-            # Reset the data to empty lists
-            self.Path = []
-            self.Type_old = []
-            self.T = []
-            self.Domain_old = []
-            if hasattr(self, 'Size_old'):
-                self.Size_old = []
-            
-            # Delete num_timesteps_per_sample
-            if hasattr(self, 'num_overall_timesteps_per_sample'):
-                del self.num_overall_timesteps_per_sample
-
-            # Check if images need to be saved
-            if hasattr(self, 'map_split_save'):
-                if self.map_split_save:
-                    if self.includes_images():
-                        self.check_image_samples(self.Images)
-
-                        image_file = self.file_path + '--Images' + path_addition
-                        image_data = np.array([self.Images, 0], object)
-                        np.save(image_file, image_data)
-
-                        # reset self Images
-                        image_columns = ['Image', 'Target_MeterPerPx']
-                        self.Images = pd.DataFrame(np.zeros((0, len(image_columns)), object), index = [], columns = image_columns)
-                
-                    if self.includes_sceneGraphs(): 
-                        self.check_sceneGraph_samples(self.SceneGraphs)
-                        
-                        sceneGraph_file = self.file_path + '--SceneGraphs' + path_addition
-                        sceneGraph_data = np.array([self.SceneGraphs, 0], object)
-                        np.save(sceneGraph_file, sceneGraph_data)
-                        
-                        # reset self SceneGraphs
-                        sceneGraph_columns = self.SceneGraphs.columns  
-                        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), index = [], columns = sceneGraph_columns)
+            # Rename the file
+            os.rename(file_overwrite_old, file_overwrite_new)
 
         if last:
             self.saved_last_orig_paths = True
                 
+
+    def get_sparse_path_data(self, Path):
+        # Make saving of Path_check more efficient
+        Path_helper = pd.DataFrame(np.zeros((0, 3 + len(self.path_data_info())), object), 
+                                   columns = ['sample_index', 'agent_index', 'time_index'] + self.path_data_info())
+        num_samples = len(Path)
+        for i in range(num_samples):
+            path_sample = Path.iloc[i]
+            # Get non-nan values
+            path_sample_non_nan = path_sample.isna()
+            agent_id = np.where(~path_sample_non_nan)[0]
+
+            path_useful = np.stack(path_sample[~path_sample_non_nan].tolist(), axis = 0) # num_agents x num_timesteps x n_data
+
+            useful_agents, useful_timesteps = np.where(np.isfinite(path_useful).any(-1))
+
+            num_timesteps = len(useful_timesteps)
+            locs = len(Path_helper) + np.arange(num_timesteps)
+
+            Path_helper = Path_helper.reindex(np.concatenate([Path_helper.index, locs]))
+            Path_helper.loc[locs, 'sample_index'] = i
+            Path_helper.loc[locs, 'agent_index'] = agent_id[useful_agents]
+            Path_helper.loc[locs, 'time_index'] = useful_timesteps
+            Path_helper.loc[locs, self.path_data_info()] = path_useful[useful_agents, useful_timesteps]
+        
+        return Path_helper
+
+    def get_dense_path_sample(self, Path_sparse, sample_index, agent_name_array, num_timesteps):
+        path_sparse = Path_sparse[Path_sparse['sample_index'] == sample_index]
+
+        # Transform sparse data to dense data
+        path_data_sparse = path_sparse[self.path_data_info()].to_numpy().astype(np.float32) # num_useful x n_data
+        path_data_dense = np.full((len(agent_name_array), num_timesteps, len(self.path_data_info())), np.nan, dtype = np.float32)
+        agent_ind, time_ind = path_sparse[['agent_index', 'time_index']].to_numpy().astype(int).T
+        path_data_dense[agent_ind, time_ind] = path_data_sparse
+
+        # Map onto pandas series
+        used_agents = np.isfinite(path_data_dense).any((1,2))
+        used_agents_name = agent_name_array[used_agents]
+        path_data_dense_used = list(path_data_dense[used_agents])
+
+        # Transform to pandads series
+        path = pd.Series(path_data_dense_used, index = used_agents_name)
+        
+        # Add missing agents
+        path = path.reindex(agent_name_array)
+
+        return path
+
+
     def get_number_of_saved_samples(self):
         r'''
         This function returns the number of samples that have been saved so far
@@ -490,7 +564,33 @@ class data_set_template():
         # Find files in same directory that start with file_path_test
         num_files = len([f for f in os.listdir(test_file_directory) if f.startswith(os.path.basename(test_file_tester))])
         return num_files
-          
+    
+
+    def extract_loaded_data(self, Loaded_data):
+        if len(Loaded_data) == 5:
+            [Path, Type_old, T, Domain_old, num_samples] = Loaded_data
+            Size_old = None
+        else:
+            assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
+            [Path, Type_old, Size_old, T, Domain_old, num_samples] = Loaded_data
+
+        # Make backwards compatible:
+        # Check if Path is sparse
+        sparse_columns = ['sample_index', 'agent_index', 'time_index'] + self.path_data_info()
+        dense_columns = Type_old.columns
+
+        sparse = all([col in Path.columns for col in sparse_columns])
+        dense = all([col in Path.columns for col in dense_columns])
+
+        # Ensure that always one of the two is true
+        assert sparse != dense, "Path data should be either sparse or dense."
+
+        if dense:
+            Path = self.get_sparse_path_data(Path)
+        
+        return Path, Type_old, Size_old, T, Domain_old, num_samples
+
+
 
     def load_raw_data(self):
         if not self.raw_data_loaded:
@@ -515,21 +615,7 @@ class data_set_template():
                 if self.number_original_path_files == 1:
                     # Allready load samples for higher efficiency
                     Loaded_data = np.load(test_file, allow_pickle=True)
-                    if len(Loaded_data) == 5:
-                        [self.Path,
-                         self.Type_old,
-                         self.T,
-                         self.Domain_old,
-                         self.num_samples] = Loaded_data
-                        self.Size_old = None
-                    else:
-                        assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
-                        [self.Path,
-                         self.Type_old,
-                         self.Size_old,
-                         self.T,
-                         self.Domain_old,
-                         self.num_samples] = Loaded_data
+                    self.Path, self.Type_old, self.Size_old, self.T, self.Domain_old, self.num_samples = self.extract_loaded_data(Loaded_data)
             else:
                 if not all([hasattr(self, attr) for attr in ['create_path_samples']]):
                     raise AttributeError("The raw data cannot be loaded.")
@@ -545,21 +631,7 @@ class data_set_template():
                     # If there is only one file, load the data
                     if self.number_original_path_files == 1:
                         Loaded_data = np.load(test_file, allow_pickle=True)
-                        if len(Loaded_data) == 5:
-                            [self.Path,
-                             self.Type_old,
-                             self.T,
-                             self.Domain_old,
-                             self.num_samples] = Loaded_data
-                            self.Size_old = None
-                        else:
-                            assert len(Loaded_data) == 6, "The loaded data should have 5 or 6 elements."
-                            [self.Path,
-                             self.Type_old,
-                             self.Size_old,
-                             self.T,
-                             self.Domain_old,
-                             self.num_samples] = Loaded_data
+                        self.Path, self.Type_old, self.Size_old, self.T, self.Domain_old, self.num_samples = self.extract_loaded_data(Loaded_data)
                     
                 else:
                     # Check that no other save files exists
@@ -582,6 +654,8 @@ class data_set_template():
                 
                     # save the results
                     os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+
+                    self.Path = self.get_sparse_path_data(self.Path)
                     
                     if self.Size_old is None:
                         test_data = np.array([self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples], object)
@@ -591,10 +665,7 @@ class data_set_template():
                     np.save(test_file, test_data)
                 
                 # Check if data needs to be saved:
-                if not hasattr(self, 'map_split_save'):
-                    self.map_split_save = False
-                
-                if not self.map_split_save:
+                if (not hasattr(self, 'map_split_save')) or (not self.map_split_save):
                     # Save the image data
                     if self.includes_images():
                         if not hasattr(self, 'Images'):
@@ -1699,7 +1770,7 @@ class data_set_template():
         else:
             return None
 
-    def extract_time_points(self, Path, T, Domain_old, num_samples, path_file):
+    def extract_time_points(self, Path, Type, T, Domain_old, num_samples, path_file):
         # Replace in path file --all_orig_paths with --all_time_points
         time_file = path_file.replace('--all_orig_paths', '--all_time_points')
 
@@ -1726,13 +1797,14 @@ class data_set_template():
             local_t_decision = []
             local_t_crit = []
 
+            agent_name_array = np.array(Type.columns)
             for i_sample in range(num_samples):
                 if np.mod(i_sample, 100) == 0:
                     print('path ' + str(i_sample).rjust(len(str(num_samples))) + '/{} divided'.format(num_samples))
 
-                path = Path.iloc[i_sample]
                 domain = Domain_old.iloc[i_sample]
                 t = np.array(T[i_sample])
+                path = self.get_dense_path_sample(Path, i_sample, agent_name_array, len(t))
 
                 # Get the corresponding class
                 d_class, in_position, behavior, t_D_class, t_class = self.classify_path(path, t, domain)
@@ -1859,6 +1931,7 @@ class data_set_template():
                         # Get the allready loaded data
                         Path_loaded = self.Path
                         T_loaded = self.T
+                        Type_loaded = self.Type
                         Domain_old_loaded = self.Domain_old
                         num_samples_loaded = self.num_samples
                     else:
@@ -1875,17 +1948,7 @@ class data_set_template():
                         
                         # Load the data
                         Loaded_data = np.load(path_file, allow_pickle=True)
-                        if len(Loaded_data) == 5:
-                            [Path_loaded, _,
-                            T_loaded,
-                            Domain_old_loaded,
-                            num_samples_loaded] = Loaded_data
-                        else:
-                            assert len(Loaded_data) == 6, "The loaded data does not have the correct shape"
-                            [Path_loaded, _, _,
-                            T_loaded, 
-                            Domain_old_loaded,
-                            num_samples_loaded] = Loaded_data
+                        Path_loaded, Type_loaded, _, T_loaded, Domain_old_loaded, num_samples_loaded = self.extract_loaded_data(Loaded_data)
                 
                     # Load extracted time points
                     [
@@ -1897,7 +1960,7 @@ class data_set_template():
                         local_T_class,
                         local_t_start,
                         local_t_decision,
-                        local_t_crit] = self.extract_time_points(Path_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file)
+                        local_t_crit] = self.extract_time_points(Path_loaded, Type_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file)
                 
 
                 
@@ -2169,7 +2232,7 @@ class data_set_template():
             local_T_class,
             local_t_start,
             local_t_decision,
-            local_t_crit] = self.extract_time_points(Path, T, Domain_old, num_samples, path_file)
+            local_t_crit] = self.extract_time_points(Path, Type_old, T, Domain_old, num_samples, path_file)
         
         # Check if size is used
         size_given = Size_old is not None
@@ -2197,7 +2260,7 @@ class data_set_template():
         
         # set number of maximum agents
         if self.max_num_agents is not None:
-            min_num_agents = len(Path.columns)
+            min_num_agents = len(Type_old.columns)
             self.max_num_addable_agents = max(0, self.max_num_agents - min_num_agents)
             max_num_agent_local = self.max_num_addable_agents + min_num_agents
         else:
@@ -2229,6 +2292,7 @@ class data_set_template():
 
         predicted_saving_length = 0
 
+        agent_name_array = np.array(Type_old.columns)
         for i in range(local_num_samples):
             # print progress
             if np.mod(i, 1) == 0:
@@ -2237,8 +2301,8 @@ class data_set_template():
 
             # load extracted data
             i_path = local_id[i]
-            path = Path.iloc[i_path]
             t = local_t[i]
+            path = self.get_dense_path_sample(Path, i_path, agent_name_array, len(t))
 
             behavior = local_behavior[i]
             t_start = local_t_start[i]
@@ -2558,9 +2622,331 @@ class data_set_template():
                 overwrite_old_ending = overwrite_old + ending
                 overwrite_new_ending = overwrite_new + ending
                 os.rename(overwrite_old_ending, overwrite_new_ending)
+        
 
+
+    # get extrapolation functions
+    def extrapolate_path(self, path, t, mode = 'pos'):
+        r'''
+        This function inter- and extrapolates the path data to the desired time points, 
+        with the desired mode. The mode can be either 'pos' for assuming constant positions,
+        or 'vel' for assuming constant velocities, or 'vel_turn' for assuming constant 
+        longitudinal velocities and constant turning rates.
+
+        Parameters
+        ----------
+        path : np.ndarray
+            The path data to be inter- and extrapolated as an array with shape 
+            :math:`\{\vert T_i \vert{\times} N_{data}\}`. Some time points may be missing.
+        t : np.ndarray
+            The time points of the path data with length :math:`\vert T_i \vert`.
+        mode : str, optional
+            The mode of the extrapolation, i.e. 'pos', 'vel', or 'vel_turn'. The default is 'pos'.
+            Depending on available information, the model might overwrite this.
+
+        Returns
+        -------
+        path_new : np.ndarray
+            The inter- and extrapolated path data with shape :math:`\{\vert T \vert{\times} N_{data}\}`.
+            It should no longer contain any missing values.
+        '''
+        
+        # Initialize new path
+        path_new = path.copy()
+
+        # Find missing values
+        missing_values = np.isnan(path).all(axis = -1)
+        if not missing_values.any():
+            return path
+        
+        # assert that either all variables are nan or none
+        assert (missing_values == np.isnan(path).any(-1)).all(), "There are missing values in the path data"
+
+        # Find existing values indices
+        useful_index = np.where(~missing_values)[0]
+
+        # Check if there is something to extrapolate from
+        if len(useful_index) == 0:
+            raise ValueError("There are no useful time points in the path data")
+        elif len(useful_index) == 1:
+            # If we only have one datastep, some modes required specific information to work
+
+            # Check if we can extract velocities from one data point, if not, 
+            # assume zero velocity and switch mode accordingly
+            if mode in ['vel', 'vel_turn']:
+                if not (np.in1d(['v', 'theta'], self.path_data_info()).all() or
+                        np.in1d(['v_x', 'v_y'], self.path_data_info()).all()):
+                    mode = 'pos'
+
+            # Check if we can extract a turning rate from one data point, if not,
+            # assume zero turning rate and switch mode accordingly
+            if mode == 'vel_turn':
+                if not 'd_theta' in self.path_data_info():
+                    mode = 'vel'
+
+        # Find useful values
+        path_useful = path[~missing_values]
+        t_useful    = t[~missing_values]
+
+        # Prepare angle values, which are somewhat sketchy, by mapping onto 0 to 2 * pi
+        if 'theta' in self.path_data_info():
+            i_theta = self.path_data_info().index('theta')
+            path_useful[:, i_theta] = np.mod(path_useful[:, i_theta], 2 * np.pi)
+
+            # Check if d_theta is available
+            if 'd_theta' in self.path_data_info():
+                i_d_theta = self.path_data_info().index('d_theta')
+            else:
+                i_d_theta = None
+
+            # Go through each gap, and if the gap is larger than np.pi, subtract 2 * np.pi from consecutive values
+            # If the gap is smaller than - np.pi, add 2 * np.pi to consecutive values
+            for i in range(1, len(useful_index) - 1):
+                # find gapse
+                if useful_index[i+1] - useful_index[i] > 1:
+                    theta_gap = path_useful[i+1, i_theta] - path_useful[i, i_theta]
+                    # check gap size
+                    if i_d_theta is not None:
+                        d_theta_mean = np.mean(path_useful[i:i+2, i_d_theta])
+                        # if d_theta_mean > 0 and gap < -np.pi/4, add 2 * np.pi to consecutive values
+                        # if d_theta_mean < 0 and gap > np.pi/4, subtract 2 * np.pi from consecutive values
+                        if (d_theta_mean > 0) and (theta_gap < -np.pi/4):
+                            path_useful[i+1:, i_theta] += 2 * np.pi
+                        elif (d_theta_mean < 0) and (theta_gap > np.pi/4):
+                            path_useful[i+1:, i_theta] -= 2 * np.pi
+                    else:
+                        # if the gap is larger than np.pi, subtract 2 * np.pi from consecutive values
+                        # If the gap is smaller than - np.pi, add 2 * np.pi to consecutive values
+                        if theta_gap > np.pi:
+                            path_useful[i+1:, i_theta] -= 2 * np.pi
+                        elif theta_gap < -np.pi:
+                            path_useful[i+1:, i_theta] += 2 * np.pi
+        
+        if mode == 'pos':
+            # extrapolate with constant position
+            # extrapolate as constant values: x, y, theta
+            # extrapolate as zeros: v_x, v_y, a_x, a_y, v, a, d_theta
+            constant_values = np.array(['x', 'y', 'theta'])
+            zero_values     = np.array(['v_x', 'v_y', 'a_x', 'a_y', 'v', 'a', 'd_theta'])
+
+            constant_index = np.where(np.in1d(self.path_data_info(), constant_values))[0]
+            zero_index     = np.where(np.in1d(self.path_data_info(), zero_values))[0]
+
+            for i in constant_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = path_useful[0,i], right = path_useful[-1,i])
+            for i in zero_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = 0.0, right = 0.0)
+            
+        elif mode == 'vel':
+            # Extrapolate with constant velocity
+            # Extrapolate based on last velocity: x, y
+            # extrapolate as constant values: theta, v_x, v_y, v
+            # extrapolate as zeros: a_x, a_y, a, d_theta
+            
+            constant_values = np.array(['theta', 'v_x', 'v_y', 'v'])
+            zero_values     = np.array(['a_x', 'a_y', 'a', 'd_theta'])
+
+            constant_index = np.where(np.in1d(self.path_data_info(), constant_values))[0]
+            zero_index     = np.where(np.in1d(self.path_data_info(), zero_values))[0]
+
+            for i in constant_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = path_useful[0,i], right = path_useful[-1,i])
+            for i in zero_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = 0.0, right = 0.0)
+
+            # Find the first and last velocities 
+            # Get v_x
+            if 'v_x' in self.path_data_info():
+                i_v_x = self.path_data_info().index('v_x')
+                v_x_start = path_useful[0, i_v_x]
+                v_x_end   = path_useful[-1, i_v_x]
+            elif np.in1d(['v', 'theta'], self.path_data_info()).all():
+                i_v = self.path_data_info().index('v')
+                i_theta = self.path_data_info().index('theta')
+                v_x_start = path_useful[0, i_v] * np.cos(path_useful[0, i_theta])
+                v_x_end   = path_useful[-1, i_v] * np.cos(path_useful[-1, i_theta])
+            else:
+                v_x_start = (path_useful[1,0] - path_useful[0,0]) / (t_useful[1] - t_useful[0])
+                v_x_end   = (path_useful[-1,0] - path_useful[-2,0]) / (t_useful[-1] - t_useful[-2])
+            
+            # get v_y
+            if 'v_y' in self.path_data_info():
+                i_v_y = self.path_data_info().index('v_y')
+                v_y_start = path_useful[0, i_v_y]
+                v_y_end   = path_useful[-1, i_v_y]
+            elif np.in1d(['v', 'theta'], self.path_data_info()).all():
+                i_v = self.path_data_info().index('v')
+                i_theta = self.path_data_info().index('theta')
+                v_y_start = path_useful[0, i_v] * np.sin(path_useful[0, i_theta])
+                v_y_end   = path_useful[-1, i_v] * np.sin(path_useful[-1, i_theta])
+            else:
+                v_y_start = (path_useful[1,1] - path_useful[0,1]) / (t_useful[1] - t_useful[0])
+                v_y_end   = (path_useful[-1,1] - path_useful[-2,1]) / (t_useful[-1] - t_useful[-2])
+            
+            v_start = np.array([[v_x_start, v_y_start]])
+            v_end   = np.array([[v_x_end, v_y_end]])
+            
+            # Interpolate first
+            path_new[:,0] = np.interp(t, t_useful, path_useful[:,0], left = np.nan, right = np.nan)
+            path_new[:,1] = np.interp(t, t_useful, path_useful[:,1], left = np.nan, right = np.nan)
+
+            # Extraploate with the velocities
+            path_new[:useful_index[0], :2]  = path_new[useful_index[[0]], :2] + v_start * (t[:useful_index[0]][:, np.newaxis] - t[useful_index[0]])
+            path_new[useful_index[-1]:, :2] = path_new[useful_index[[-1]],:2] + v_end * (t[useful_index[-1]:][:, np.newaxis] - t[useful_index[-1]])
+
+
+        elif mode == 'vel_turn':
+            assert 'theta' in self.path_data_info(), "The angle theta is needed for the turning maneuver"
+            i_theta = self.path_data_info().index('theta')
+            # Extrapolate as turinging maneuver with constant velocity
+            # Extrapolate linearly: theta
+            # extrapolate as constant values: v, d_theta
+            # extrapolate as zeros: a
+            # Fit accordingly: x, y, v_x, v_y, a_x, a_y
+            constant_values = np.array(['v', 'd_theta'])
+            zero_values     = np.array(['a'])
+            fit_values      = np.array(['x', 'y', 'v_x', 'v_y', 'a_x', 'a_y'])
+            
+            constant_index = np.where(np.in1d(self.path_data_info(), constant_values))[0]
+            zero_index     = np.where(np.in1d(self.path_data_info(), zero_values))[0]
+            fit_index      = np.where(np.in1d(self.path_data_info(), fit_values))[0]
+
+            for i in constant_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = path_useful[0,i], right = path_useful[-1,i])
+            for i in zero_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = 0.0, right = 0.0)
+
+            # Find the first and last angle change
+            if 'd_theta' in self.path_data_info():
+                i_d_theta = self.path_data_info().index('d_theta')
+                d_theta_start = path_useful[0, i_d_theta]
+                d_theta_end   = path_useful[-1, i_d_theta]
+            else:
+                d_theta_start = (path_useful[1, i_theta] - path_useful[0, i_theta]) / (t_useful[1] - t_useful[0])
+                d_theta_end   = (path_useful[-1, i_theta] - path_useful[-2, i_theta]) / (t_useful[-1] - t_useful[-2])
+
+            # Get the first and last absolute velocities
+            if 'v' in self.path_data_info():
+                i_v = self.path_data_info().index('v')
+                v_start = path_useful[0, i_v]
+                v_end   = path_useful[-1, i_v]
+            elif np.in1d(['v_x', 'v_y'], self.path_data_info()).all():
+                i_v_x = self.path_data_info().index('v_x')
+                i_v_y = self.path_data_info().index('v_y')
+                v_start = np.sqrt(path_useful[0, i_v_x]**2 + path_useful[0, i_v_y]**2)
+                v_end   = np.sqrt(path_useful[-1, i_v_x]**2 + path_useful[-1, i_v_y]**2)
+            else:
+                # Approximate v_x and v_y based on pos
+                v_x_start = (path_useful[1,0] - path_useful[0,0]) / (t_useful[1] - t_useful[0])
+                v_y_start = (path_useful[1,1] - path_useful[0,1]) / (t_useful[1] - t_useful[0])
+                v_x_end   = (path_useful[-1,0] - path_useful[-2,0]) / (t_useful[-1] - t_useful[-2])
+                v_y_end   = (path_useful[-1,1] - path_useful[-2,1]) / (t_useful[-1] - t_useful[-2])
+                v_start = np.sqrt(v_x_start**2 + v_y_start**2)
+                v_end   = np.sqrt(v_x_end**2 + v_y_end**2)
+            
+            # Interpolate first
+            path_new[:,i_theta] = np.interp(t, t_useful, path_useful[:,i_theta], left = np.nan, right = np.nan)
+            for i in fit_index:
+                path_new[:, i] = np.interp(t, t_useful, path_useful[:,i], left = np.nan, right = np.nan)
+
+            # Extrapolate the past
+            past_index = np.arange(useful_index[0]) 
+            if len(past_index) > 0:
+                theta_past = path_new[useful_index[0], i_theta] + d_theta_start * (t[past_index] - t[useful_index[0]])
+                path_new[past_index, i_theta] = theta_past
+
+                # get velocities
+                v_x_past = v_start * np.cos(theta_past)
+                if 'v_x' in self.path_data_info():
+                    i_v_x = self.path_data_info().index('v_x')
+                    path_new[past_index, i_v_x] = v_x_past
+                v_y_past = v_start * np.sin(theta_past)
+                if 'v_y' in self.path_data_info():
+                    i_v_y = self.path_data_info().index('v_y')
+                    path_new[past_index, i_v_y] = v_y_past
+
+                # get accelerations
+                if 'a_x' in self.path_data_info():
+                    i_a_x = self.path_data_info().index('a_x')
+                    path_new[past_index, i_a_x] = - v_start * d_theta_start * np.sin(theta_past)
+                if 'a_y' in self.path_data_info():
+                    i_a_y = self.path_data_info().index('a_y')
+                    path_new[past_index, i_a_y] = v_start * d_theta_start * np.cos(theta_past)
+
+                # Get positions
+                if np.abs(d_theta_start) < 1e-4:
+                    # Use constant velocity
+                    v_x_start = v_start * np.cos(path_useful[0, i_theta])
+                    v_y_start = v_start * np.sin(path_useful[0, i_theta])
+                    path_new[past_index, 0] = path_new[useful_index[0], 0] + v_x_start * (t[past_index] - t[useful_index[0]])
+                    path_new[past_index, 1] = path_new[useful_index[0], 1] + v_y_start * (t[past_index] - t[useful_index[0]])
+                else:
+                    # Find curvature
+                    curvature = d_theta_start / v_start
+
+                    # use circle equation to get the center
+                    center_x = path_useful[0, 0] - np.sin(path_useful[0, i_theta]) / curvature
+                    center_y = path_useful[0, 1] + np.cos(path_useful[0, i_theta]) / curvature
+                    
+                    # Get the positions by rearranging the circle equation
+                    path_new[past_index, 0] = center_x + np.cos(theta_past) / curvature
+                    path_new[past_index, 1] = center_y + np.sin(theta_past) / curvature
+
+            # Extrapolate the future
+            future_index = np.arange(useful_index[-1] + 1, len(t))
+            if len(future_index) > 0:
+                path_new[future_index, i_theta] = path_new[useful_index[-1], i_theta] + d_theta_end * (t[future_index] - t[useful_index[-1]])
+
+                # Get velocities
+                v_x_future = v_end * np.cos(path_new[future_index, i_theta])
+                if 'v_x' in self.path_data_info():
+                    i_v_x = self.path_data_info().index('v_x')
+                    path_new[future_index, i_v_x] = v_x_future
+                v_y_future = v_end * np.sin(path_new[future_index, i_theta])
+                if 'v_y' in self.path_data_info():
+                    i_v_y = self.path_data_info().index('v_y')
+                    path_new[future_index, i_v_y] = v_y_future
+                
+                # Get accelerations
+                if 'a_x' in self.path_data_info():
+                    i_a_x = self.path_data_info().index('a_x')
+                    path_new[future_index, i_a_x] = - v_end * d_theta_end * np.sin(path_new[future_index, i_theta])
+                if 'a_y' in self.path_data_info():
+                    i_a_y = self.path_data_info().index('a_y')
+                    path_new[future_index, i_a_y] = v_end * d_theta_end * np.cos(path_new[future_index, i_theta])
+
+                # Get positions
+                if np.abs(d_theta_end) < 1e-4:
+                    # Use constant velocity
+                    v_x_end = v_end * np.cos(path_useful[-1, i_theta])
+                    v_y_end = v_end * np.sin(path_useful[-1, i_theta])
+                    path_new[future_index, 0] = path_new[useful_index[-1], 0] + v_x_end * (t[future_index] - t[useful_index[-1]])
+                    path_new[future_index, 1] = path_new[useful_index[-1], 1] + v_y_end * (t[future_index] - t[useful_index[-1]])
+                else:
+                    # Find curvature
+                    curvature = d_theta_end / v_end
+                    
+                    # use circle equation to get the center
+                    center_x = path_useful[-1, 0] - np.sin(path_useful[-1, i_theta]) / curvature
+                    center_y = path_useful[-1, 1] + np.cos(path_useful[-1, i_theta]) / curvature
+                    
+                    # Get the positions by rearranging the circle equation
+                    path_new[future_index, 0] = center_x + np.cos(path_new[future_index, i_theta]) / curvature
+                    path_new[future_index, 1] = center_y + np.sin(path_new[future_index, i_theta]) / curvature   
+
+        else:
+            raise ValueError("The mode is not known")
+
+        # Move theta values back to -pi to pi
+        if 'theta' in self.path_data_info():
+            i_theta = self.path_data_info().index('theta')
+            path_new[:, i_theta] = np.mod(path_new[:, i_theta] + np.pi, 2 * np.pi) - np.pi
+
+        assert np.isfinite(path_new).all(), "There are non-finite values in the path data"
     
-    
+        return path_new
+
+
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
         # Get the dataset file
         data_file = self.data_file[:-4] + path_file_adjust
@@ -2880,21 +3266,7 @@ class data_set_template():
                 else:
                     # Load the data
                     Loaded_data = np.load(path_file, allow_pickle=True)
-                    if len(Loaded_data) == 5:
-                        [Path_loaded,
-                        Type_old_loaded,
-                        T_loaded,
-                        Domain_old_loaded,
-                        num_samples_loaded] = Loaded_data
-                        Size_old_loaded = None
-                    else:
-                        assert len(Loaded_data) == 6, "The loaded data has the wrong length."
-                        [Path_loaded,
-                        Type_old_loaded,
-                        Size_old_loaded,
-                        T_loaded,
-                        Domain_old_loaded,
-                        num_samples_loaded] = Loaded_data
+                    Path_loaded, Type_old_loaded, Size_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded = self.extract_loaded_data(Loaded_data)
 
                 # Get the currently available RAM space
                 self.available_memory_data_extraction = self.total_memory - get_used_memory()
@@ -3006,6 +3378,21 @@ class data_set_template():
             return "the dataset is too unbalanced for a reasonable training process."
 
         return None
+
+
+
+
+
+
+
+    ##############################################################################################################
+    ##############################################################################################################
+    ###                                                                                                        ###
+    ###                                        Framework interactions                                          ###
+    ###                                                                                                        ###
+    ##############################################################################################################
+    ##############################################################################################################
+
 
     # %% Implement information sharing with other modules
     def change_result_directory(self, filepath, new_path_addon, new_file_addon, file_type = '.npy'):

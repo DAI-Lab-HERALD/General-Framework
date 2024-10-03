@@ -273,25 +273,14 @@ class Argoverse_Interactive(data_set_template):
 
 
     def fill_empty_path(self, path, t, domain, agent_types):
-
         for agent in path.index:
             if isinstance(path[agent], float):
                 assert str(path[agent]) == 'nan'
             else:
-                path_new = []
-                for j in range(path[agent].shape[-1]):
-                    data = path[agent][:,j]
-                    rewrite = np.isnan(data)
-                    if not rewrite.any():
-                        path_new.append(data)
-                        continue
-                        
-                    useful = ~rewrite
-                    data = interp.interp1d(t[useful], data[useful], fill_value = 'extrapolate', assume_sorted = True)(t)
-                    path_new.append(data)
-
-                path[agent] = np.stack(path_new, axis = -1)
-        
+                if agent_types[agent] == 'P':
+                    path[agent] = self.extrapolate_path(path[agent], t, mode = 'pos')
+                else:
+                    path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel')
         return path, agent_types
     
 

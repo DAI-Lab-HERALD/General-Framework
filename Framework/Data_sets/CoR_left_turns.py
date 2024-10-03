@@ -444,6 +444,11 @@ class CoR_left_turns(data_set_template):
         
     
     def fill_empty_path(self, path, t, domain, agent_types):
+        for agent in path.index:
+            if isinstance(path[agent], float):
+                assert str(path[agent]) == 'nan'
+            else:
+                path[agent] = self.extrapolate_path(path[agent], t, mode = 'vel_turn')
         return path, agent_types
     
     def provide_map_drawing(self, domain):

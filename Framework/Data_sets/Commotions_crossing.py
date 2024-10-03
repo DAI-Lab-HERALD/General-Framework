@@ -499,30 +499,12 @@ class Commotions_crossing(data_set_template):
         if isinstance(path.v_1, float):
             assert str(path.v_1) == 'nan'
         else:
-            v_1_x = path.v_1[...,0]
-            v_1_good = np.isfinite(v_1_x)
-            if not all(v_1_good):
-                D = path.v_1[...,1] - path.ego[...,1]
-                index = np.arange(len(D))
-                D = np.interp(index, index[v_1_good], D[v_1_good], left = D[v_1_good][0], right = D[v_1_good][-1])
-                v_1_y = path.ego[...,1] + D
-                v_1_x = np.interp(index, index[v_1_good], v_1_x[v_1_good], left = v_1_x[v_1_good][0], right = v_1_x[v_1_good][-1])
-                
-                path.v_1 = np.stack([v_1_x, v_1_y], axis = -1)
+            path.v_1 = self.extrapolate_path(path.v_1, t, mode = 'vel')
                 
         if isinstance(path.v_2, float):
             assert str(path.v_2) == 'nan'
         else:
-            v_2_x = path.v_2[...,0]
-            v_2_good = np.isfinite(v_2_x)
-            if not all(v_2_good):
-                D = path.v_2[...,1] - path.ego[...,1]
-                index = np.arange(len(D))
-                D = np.interp(index, index[v_2_good], D[v_2_good], left = D[v_2_good][0], right = D[v_2_good][-1])
-                v_2_y = path.ego[...,1] + D
-                v_2_x = np.interp(index, index[v_2_good], v_2_x[v_2_good], left = v_2_x[v_2_good][0], right = v_2_x[v_2_good][-1])
-                
-                path.v_2 = np.stack([v_2_x, v_2_y], axis = -1)     
+            path.v_2 = self.extrapolate_path(path.v_2, t, mode = 'vel')    
         return path, agent_types
     
     def provide_map_drawing(self, domain):
