@@ -1271,7 +1271,7 @@ class model_template():
 
                 self.img, self.img_m_per_px, self.use_batch_extraction = self.extract_images(self.data_set.X_orig[Data_index_needed, ..., :2].astype(np.float32), 
                                                                                                 Img_needed_inside, domain_needed)
-                self.img_needed_sample = np.where(Img_needed)[0]
+                self.img_needed_sample, self.img_needed_agent = np.where(Img_needed)
 
             else:
                 self.img = None
@@ -1510,16 +1510,23 @@ class model_template():
         Pred_agents_train = self.Pred_agents[I_train]
         
         if self.img is not None:
-            image_ind = self.data_set.get_indices_1D(I_train, self.img_needed_sample)
-
-            img_needed          = self.img[image_ind]
-            img_m_per_px_needed = self.img_m_per_px[image_ind]
-
             if self.predict_single_agent:
                 Img_needed = np.zeros(X_train.shape[:2], bool)
                 Img_needed[:,0] = True
             else:
                 Img_needed = T_train != '0'
+                
+            sample_needed, agent_needed = np.where(Img_needed)
+            sample_needed = I_train[sample_needed]
+
+            ind_needed = sample_needed + 1j * agent_needed
+            ind_given = self.img_needed_sample + 1j * self.img_needed_agent
+
+            # Find at which places in img_needed_sample one can find ind_advance
+            image_ind = self.data_set.get_indices_1D(ind_needed, ind_given)
+
+            img_needed          = self.img[image_ind]
+            img_m_per_px_needed = self.img_m_per_px[image_ind]
 
             img_train          = np.zeros((*Img_needed.shape, self.target_height, self.target_width, img_needed.shape[-1]), np.uint8)
             img_m_per_px_train = np.ones(Img_needed.shape, np.float32) * np.nan
@@ -1934,8 +1941,14 @@ class model_template():
                     raise MemoryError('Not enough memory to extract images even with batches. Consider using grey scale images or a smaller resolution.' +
                                       '\nNote, however, that other errors might have caused this as well.')
             else:
-                # Find at which places in self.img_needed_sample one can find ind_advance
-                image_ind = self.data_set.get_indices_1D(ind_advance, self.img_needed_sample)
+                sample_needed, agent_needed = np.where(Img_needed)
+                sample_needed = ind_advance[sample_needed]
+
+                ind_needed = sample_needed + 1j * agent_needed
+                ind_given = self.img_needed_sample + 1j * self.img_needed_agent
+
+                # Find at which places in img_needed_sample one can find ind_advance
+                image_ind = self.data_set.get_indices_1D(ind_needed, ind_given)
 
                 img_needed          = self.img[image_ind]
                 img_m_per_px_needed = self.img_m_per_px[image_ind]
@@ -3001,11 +3014,15 @@ class model_template():
                 # Collapse agents further
                 paths_true_comp = paths_true_comp.reshape(-1, num_features)
                 paths_pred_comp = paths_pred_comp.reshape(-1, num_features)
+
+                assert np.isfinite(paths_true_comp).all(), 'There are nan values in the true data.'
+                assert np.isfinite(paths_pred_comp).all(), 'There are nan values in the predicted data.'
                 
                 if not nto in self.KDE_joint_data[subgroup] or self.prediction_overwrite:
                     # Only use select number of samples for training kde
                     # use_preds = np.arange(len(paths_pred_comp))
                     use_preds = np.unique(paths_pred_comp, axis = 0, return_index = True)[1]
+                    print('        Number of unique samples: {}/{}'.format(len(use_preds), len(paths_pred_comp)), flush = True)
                     np.random.seed(0)
                     np.random.shuffle(use_preds)
                     max_preds = min(3000, len(use_preds))
@@ -3182,6 +3199,7 @@ class model_template():
                     agent = Agents[nto_index, i_agent_orig]
                     assert len(np.unique(agent)) == 1
                     agent = agent[0]
+                    print('            Agent ' + agent + ' ({:3.0f}/{:3.0f})'.format(i_agent + 1, len(pred_agents_id)), flush = True)
 
                     # Get agent
                     paths_true_agent = paths_true[:,:,i_agent]
@@ -3194,11 +3212,15 @@ class model_template():
                     # Collapse agents further
                     paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
                     paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+
+                    assert np.isfinite(paths_true_agent_comp).all(), 'There are nan values in the true data.'
+                    assert np.isfinite(paths_pred_agent_comp).all(), 'There are nan values in the predicted data.'
                     
                     if not agent in self.KDE_indep_data[subgroup][nto] or self.prediction_overwrite:
                         # Only use select number of samples for training kde
                         # use_preds = np.arange(len(paths_pred_agent_comp))
                         use_preds = np.unique(paths_pred_agent_comp, axis = 0, return_index = True)[1]
+                        print('            Number of unique samples: {}/{}'.format(len(use_preds), len(paths_pred_agent_comp)), flush = True)
                         np.random.seed(0)
                         np.random.shuffle(use_preds)
                         max_preds = min(3000, len(use_preds))
