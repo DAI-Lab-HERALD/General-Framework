@@ -66,6 +66,8 @@ class agent_yuan(model_template):
             
     def extract_data_batch(self, X, T, Pred_agents, Y = None, img = None, img_m_per_px = None, num_steps = 10):  
         # Determine if this is training
+        X = X[...,:2]
+        Y = Y[...,:2]
         train = Y is not None
         
         Data = []
