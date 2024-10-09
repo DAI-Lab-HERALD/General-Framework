@@ -1892,9 +1892,16 @@ class model_template():
         S = self.S[ind_advance]
         Pred_agents = self.Pred_agents[ind_advance]
 
+        
+        # Debugging for Annas problem. TODO: Delete
+        print('self.ID shape: ', self.ID.shape)
+        print('self.ID[:5]:, ', self.ID[:5, 0, 0])
+
         # Get the corresponding sample_ids 
         Sample_id = self.ID[ind_advance,:,0]
         Agent_id  = self.ID[ind_advance,:,1]
+        
+        print('Sample_id[:5]:, ', Sample_id[:5])
 
         # Prepare the output arrays
         X = np.full((len(ind_advance), self.ID.shape[1], self.data_set.X_orig.shape[-2], self.data_set.X_orig.shape[-1]), np.nan, np.float32)
