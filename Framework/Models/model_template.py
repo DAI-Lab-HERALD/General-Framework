@@ -1865,9 +1865,20 @@ class model_template():
         
         # Get the final indices to be returned
         ind_advance = Ind_advance[0][Ind_candidates[:batch_size]]
-
+        
+        # Debugging for Annas problem. TODO: Delete
+        print('Ind_advance shape: ', Ind_advance[0].shape)
+        print('Ind_advance[:5]:, ', Ind_advance[0][:5])
+        
+        print('')
+        print('Ind_candidates shape: ', Ind_candidates.shape)
+        print('Ind_candidates[:5]:, ', Ind_candidates[:5])
+        
         # Sort ind_advance
         ind_advance = np.sort(ind_advance)
+        
+        # Debugging for Annas problem. TODO: Delete
+        print('ind_advance[:5]:, ', ind_advance[:5]) 
         
         # check if epoch is completed, if so, shuffle and reset index
         epoch_done, Ind_advance = self._update_available_samples(Ind_advance, ind_advance) 
