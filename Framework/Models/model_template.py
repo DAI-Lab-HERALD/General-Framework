@@ -1901,7 +1901,7 @@ class model_template():
         Sample_id = self.ID[ind_advance,:,0]
         Agent_id  = self.ID[ind_advance,:,1]
         
-        print('Sample_id[:5]:, ', Sample_id[:5])
+        print('Sample_id[:5]:, ', Sample_id[:5, 0])
 
         # Prepare the output arrays
         X = np.full((len(ind_advance), self.ID.shape[1], self.data_set.X_orig.shape[-2], self.data_set.X_orig.shape[-1]), np.nan, np.float32)
