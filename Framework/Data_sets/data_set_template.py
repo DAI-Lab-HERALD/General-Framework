@@ -2217,6 +2217,10 @@ class data_set_template():
         domain_files = [test_file_directory + os.sep + f for f in os.listdir(test_file_directory) 
                         if (f.startswith(os.path.basename(self.data_file[:-4])) and f.endswith('_domain.npy'))]
         domain_files = [f for f in domain_files if self.data_file[:-4] == f[:-19]]
+        
+        # sort domain_files to ensure consistency
+        domain_files = np.sort(domain_files).tolist()
+        
         num_files = len(domain_files)
         return domain_files, num_files
     

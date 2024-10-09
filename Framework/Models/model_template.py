@@ -1866,27 +1866,9 @@ class model_template():
         
         # Get the final indices to be returned
         ind_advance = Ind_advance[0][Ind_candidates[:batch_size]]
-        
-        # Debugging for Annas problem. TODO: Delete
-        print('Available files: ')
-        for i_file, file in enumerate(self.data_set.Files):
-            file_name = os.path.basename(file)
-            print('File (index {}): '.format(i_file), file_name)
-        print('UNique file index order: ', np.unique(self.data_set.Domain.file_index, return_index = True)[1])
-        print('Domain file index[:5]: ', self.data_set.Domain.file_index.iloc[:5])
-        print('File index used: ', File_index_advance[0])
-        print('Ind_advance shape: ', Ind_advance[0].shape)
-        print('Ind_advance[:5]:, ', Ind_advance[0][:5])
-        
-        print('')
-        print('Ind_candidates shape: ', Ind_candidates.shape)
-        print('Ind_candidates[:5]:, ', Ind_candidates[:5])
-        
+
         # Sort ind_advance
         ind_advance = np.sort(ind_advance)
-        
-        # Debugging for Annas problem. TODO: Delete
-        print('ind_advance[:5]:, ', ind_advance[:5]) 
         
         # check if epoch is completed, if so, shuffle and reset index
         epoch_done, Ind_advance = self._update_available_samples(Ind_advance, ind_advance) 
@@ -1900,19 +1882,9 @@ class model_template():
         S = self.S[ind_advance]
         Pred_agents = self.Pred_agents[ind_advance]
 
-        
-        # Debugging for Annas problem. TODO: Delete
-        print('self.ID shape: ', self.ID.shape)
-        unique_id = np.unique(self.ID[:,0,0])
-        print('num unique ids: ', len(unique_id))
-        print('min/max unique ids: ', unique_id.min(), unique_id.max())
-        print('self.ID[:5]:, ', self.ID[:5, 0, 0])
-
         # Get the corresponding sample_ids 
         Sample_id = self.ID[ind_advance,:,0]
         Agent_id  = self.ID[ind_advance,:,1]
-        
-        print('Sample_id[:5]:, ', Sample_id[:5, 0])
 
         # Prepare the output arrays
         X = np.full((len(ind_advance), self.ID.shape[1], self.data_set.X_orig.shape[-2], self.data_set.X_orig.shape[-1]), np.nan, np.float32)
