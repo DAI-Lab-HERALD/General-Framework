@@ -1869,8 +1869,8 @@ class model_template():
         
         # Debugging for Annas problem. TODO: Delete
         print('Available files: ')
-        for i_file, file in enumerate(self.data_set.Domain.Files):
-            full_file = self.data_set.Domain.Files[File_index_advance[0]]
+        for i_file, file in enumerate(self.data_set.Files):
+            full_file = self.data_set.Files[File_index_advance[0]]
             file_name = os.path.basename(full_file)
             print('File (index {}): '.format(i_file), file_name)
         print('Domain file index[:5]: ', self.data_set.Domain.file_index.iloc[:5])
