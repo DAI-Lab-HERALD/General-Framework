@@ -1816,23 +1816,24 @@ class model_template():
             raise TypeError("Unknown mode.")
         
         # Get data needed for selecting batch from available
-        Sample_id_advance  = self.ID[Ind_advance[0],0,0]
+        Sample_id_advance = self.ID[Ind_advance[0],0,0]
+        Domain_advance = self.data_set.Domain.iloc[Sample_id_advance]
         N_O_advance = N_O[Ind_advance[0]]   # Number of timesteps
 
 
         Use_candidate = np.ones(len(Ind_advance[0]), bool)
         if not ignore_map and self.has_map:
             # Check for file index and image id
-            Image_id_advance = self.data_set.Domain.image_id.iloc[Sample_id_advance].to_numpy() # Image id
+            Image_id_advance = Domain_advance.image_id.to_numpy() # Image id
             Use_candidate &= Image_id_advance == Image_id_advance[0]
 
         # For large dataset, check for file index as well
         if not self.data_set.data_in_one_piece:
-            File_index_advance = self.data_set.Domain.file_index.iloc[Sample_id_advance].to_numpy() # File index
+            File_index_advance = Domain_advance.file_index.to_numpy() # File index
             Use_candidate &= File_index_advance == File_index_advance[0]
         else:
             # sort by dataset
-            Scenario_advance = self.data_set.Domain.Scenario.iloc[Sample_id_advance].to_numpy() # Scenario
+            Scenario_advance = Domain_advance.Scenario.to_numpy() # Scenario
             Use_candidate &= Scenario_advance == Scenario_advance[0]
 
         
@@ -1867,6 +1868,13 @@ class model_template():
         ind_advance = Ind_advance[0][Ind_candidates[:batch_size]]
         
         # Debugging for Annas problem. TODO: Delete
+        print('Available files: ')
+        for i_file, file in enumerate(self.data_set.Domain.Files):
+            full_file = self.data_set.Domain.Files[File_index_advance[0]]
+            file_name = os.path.basename(full_file)
+            print('File (index {}): '.format(i_file), file_name)
+        print('Domain file index[:5]: ', self.data_set.Domain.file_index.iloc[:5])
+        print('File index used: ', File_index_advance[0])
         print('Ind_advance shape: ', Ind_advance[0].shape)
         print('Ind_advance[:5]:, ', Ind_advance[0][:5])
         
