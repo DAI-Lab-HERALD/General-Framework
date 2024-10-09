@@ -1872,6 +1872,7 @@ class model_template():
         for i_file, file in enumerate(self.data_set.Files):
             file_name = os.path.basename(file)
             print('File (index {}): '.format(i_file), file_name)
+        print('UNique file index order: ', np.unique(self.data_set.Domain.file_index, return_index = True)[1])
         print('Domain file index[:5]: ', self.data_set.Domain.file_index.iloc[:5])
         print('File index used: ', File_index_advance[0])
         print('Ind_advance shape: ', Ind_advance[0].shape)
