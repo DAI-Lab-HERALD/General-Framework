@@ -1903,6 +1903,9 @@ class model_template():
         
         # Debugging for Annas problem. TODO: Delete
         print('self.ID shape: ', self.ID.shape)
+        unique_id = np.unique(self.ID[:,0,0])
+        print('num unique ids: ', len(unique_id))
+        print('min/max unique ids: ', unique_id.min(), unique_id.max())
         print('self.ID[:5]:, ', self.ID[:5, 0, 0])
 
         # Get the corresponding sample_ids 
