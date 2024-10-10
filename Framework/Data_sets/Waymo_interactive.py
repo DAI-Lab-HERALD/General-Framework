@@ -7,7 +7,7 @@ import os
 import shutil
 
 from data_set_template import data_set_template
-from scenario_none import scenario_none
+from scenario_none_pov import scenario_none_pov
 
 from trajdata import UnifiedDataset, MapAPI
 from trajdata.data_structures.agent import AgentType
@@ -46,7 +46,7 @@ class Waymo_interactive(data_set_template):
         return False
     
     def set_scenario(self):
-        self.scenario = scenario_none()
+        self.scenario = scenario_none_pov()
     
     def path_data_info(self = None):
         return ['x', 'y', 'v_x', 'v_y', 'theta']
@@ -163,7 +163,7 @@ class Waymo_interactive(data_set_template):
 
             # Get agent names
             assert scene_agents[0,0] == 'ego'
-            Index = ['tar'] + ['v_' + str(i) for i in range(1, len(scene_agents))]
+            Index = ['ego'] + ['v_' + str(i) for i in range(1, len(scene_agents))]
             
             # Set path and agent types
             path = pd.Series(list(trajectories), dtype = object, index = Index)

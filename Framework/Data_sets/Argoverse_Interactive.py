@@ -8,7 +8,7 @@ from scipy import interpolate as interp
 from tqdm import tqdm
 
 from data_set_template import data_set_template
-from scenario_none import scenario_none
+from scenario_none_pov import scenario_none_pov
 
 class Argoverse_Interactive(data_set_template):
     object_type_dict = {
@@ -65,7 +65,7 @@ class Argoverse_Interactive(data_set_template):
     
 
     def set_scenario(self):
-        self.scenario = scenario_none()
+        self.scenario = scenario_none_pov()
 
     
     def get_focal_track(self, data):
@@ -166,8 +166,8 @@ class Argoverse_Interactive(data_set_template):
                 agent_types = pd.Series(np.zeros(0, str), index = [])     
 
                 
-                path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-                agent_types['AV'] = 'V'       
+                path['ego'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
+                agent_types['ego'] = 'V'       
 
                 path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
@@ -222,8 +222,8 @@ class Argoverse_Interactive(data_set_template):
                 agent_types = pd.Series(np.zeros(0, str), index = [])
 
 
-                path['AV'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
-                agent_types['AV'] = 'V'  
+                path['ego'] = np.concatenate([data_collection['trajs'][-1], data_collection['vels'][-1], data_collection['psirads'][-1]], axis = 1)
+                agent_types['ego'] = 'V'  
 
                 path, agent_types, categories = self.sort_tracks(data_collection, path, agent_types, categories)
 
