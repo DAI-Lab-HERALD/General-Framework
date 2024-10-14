@@ -665,7 +665,7 @@ class HighD_lane_change(data_set_template):
                                        'HighD_highways' + os.sep + 'HighD_processed.pkl')
             self.Data = self.Data.reset_index(drop = True) 
             
-        frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames])
+        frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames]).astype(int)
         # search for vehicles
         Neighbor = np.where((self.Data.frame_min < tar_frames[-1]) &
                             (self.Data.frame_max > tar_frames[0]) & 
@@ -676,6 +676,7 @@ class HighD_lane_change(data_set_template):
         Sizes = np.ones((len(Neighbor), 2)) * np.nan
         for i, n in enumerate(Neighbor):
             track_n = self.Data.iloc[n].track.set_index('frame')
+            track_n.index = track_n.index.astype(int)
             Pos[i] = track_n.reindex(frames_help)[['x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration']].to_numpy()
             Sizes[i,0] = self.Data.iloc[n].width
             Sizes[i,1] = self.Data.iloc[n].height
@@ -699,8 +700,11 @@ class HighD_lane_change(data_set_template):
         
         # Cut of furthest agents
         if self.max_num_addable_agents is not None:
-            Pos = Pos[:self.max_num_addable_agents, 1:]
+            Pos = Pos[:self.max_num_addable_agents]
             Sizes = Sizes[:self.max_num_addable_agents]
+
+        # Remove extra timestep
+        Pos = Pos[:,1:]
         
         for i, pos in enumerate(Pos):
             name = 'v_{}'.format(i + 4)

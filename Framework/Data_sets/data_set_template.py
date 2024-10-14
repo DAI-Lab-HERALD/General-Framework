@@ -180,7 +180,7 @@ class data_set_template():
                     if not len(agent_path.shape) == 2:
                         raise TypeError("Path is expected to be consisting of np.ndarrays with two dimension.")
                     if not agent_path.shape[1] == len(path_info):
-                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x len(self.path_data_info())).")
+                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x {}).".format(len(self.path_data_info())))
                         
                     # test if input tuples have right length
                     if test_length != len(agent_path):
@@ -478,7 +478,7 @@ class data_set_template():
             path_sample_non_nan = path_sample.isna()
             agent_id = np.where(~path_sample_non_nan)[0]
 
-            path_useful = np.stack(path_sample[~path_sample_non_nan].tolist(), axis = 0) # num_agents x num_timesteps x n_data
+            path_useful = np.stack(path_sample[~path_sample_non_nan].tolist(), axis = 0).astype(np.float32) # num_agents x num_timesteps x n_data
 
             useful_agents, useful_timesteps = np.where(np.isfinite(path_useful).any(-1))
 
@@ -1334,6 +1334,32 @@ class data_set_template():
         assert np.all(np.diff(scales) > 0)
         assert scales[0] > 1
 
+        ##################################################################################
+        #              Make checks on the graph data                                     #
+        ##################################################################################
+
+        unique_lane_segments = list(np.unique(graph.lane_idcs))
+        num_segments = len(unique_lane_segments)
+
+        if len(graph.pre_pairs) > 0:
+            assert graph.pre_pairs.max() < num_segments
+        if len(graph.suc_pairs) > 0:
+            assert graph.suc_pairs.max() < num_segments
+        if len(graph.left_pairs) > 0:
+            assert graph.left_pairs.max() < num_segments
+        if len(graph.right_pairs) > 0:
+            assert graph.right_pairs.max() < num_segments
+        
+        assert graph.lane_idcs.max() < num_segments
+
+        assert len(graph.left_boundaries) == num_segments
+        assert len(graph.right_boundaries) == num_segments
+        assert len(graph.centerlines) == num_segments
+        assert len(graph.lane_type) == num_segments
+
+        assert len(graph.lane_idcs) == graph.num_nodes
+
+
 
         ##################################################################################
         # Add node connections                                                           #
@@ -1344,8 +1370,7 @@ class data_set_template():
 
         node_idcs = []
 
-        unique_lane_segments = list(np.unique(graph.lane_idcs))
-        for lane_segment in unique_lane_segments:  
+        for i, lane_segment in enumerate(unique_lane_segments):  
             lane_ind = np.where(graph.lane_idcs == lane_segment)[0]
             node_idcs.append(lane_ind)
 

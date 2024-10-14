@@ -5,13 +5,42 @@ from data_set_template import data_set_template
 from scenario_gap_acceptance import scenario_gap_acceptance
 import os
 from PIL import Image
-from scipy import interpolate as interp
+
+# Map import
+import copy
+import torch
+import lanelet2
+from av2.geometry.interpolate import compute_midpoint_line
+from lanelet2.projection import UtmProjector
+from pyproj import Proj, transform
+
+
+traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
+                                              lanelet2.traffic_rules.Participants.Vehicle)
+
+
+
 
 
 def rotate_track(track, angle, center):
     Rot_matrix = np.array([[np.cos(angle), np.sin(angle)],[-np.sin(angle), np.cos(angle)]])
     tar_tr = track[['x','y']].to_numpy()
     track[['x','y']] = np.dot(Rot_matrix,(tar_tr - center).T).T
+
+    if 'v_x' in track.columns:
+        tar_vel = track[['v_x','v_y']].to_numpy()
+        track[['v_x','v_y']] = np.dot(Rot_matrix, tar_vel.T).T
+
+    if 'a_x' in track.columns:
+        tar_acc = track[['a_x','a_y']].to_numpy()
+        track[['a_x','a_y']] = np.dot(Rot_matrix, tar_acc.T).T
+    return track
+
+def rotate_track_array(track, angle, center):
+    Rot_matrix = np.array([[np.cos(angle), np.sin(angle)],[-np.sin(angle), np.cos(angle)]])
+    tar_tr = track[:,0:2]
+    track[:,0:2] = np.dot(Rot_matrix,(tar_tr - center).T).T
+
     return track
 
 
@@ -30,12 +59,160 @@ class RounD_round_about(data_set_template):
     germany. In 2020 IEEE 23rd International Conference on Intelligent Transportation 
     Systems (ITSC) (pp. 1-6). IEEE.
     '''
-    def set_scenario(self):
-        self.scenario = scenario_gap_acceptance()
+
+    def get_lane_graph(self, map_path, UtmOrigin):
+        # Transfer UTm Origin into lattiude and longitude
+        utm_zone = 32
+        utm_proj = Proj(proj='utm', zone=utm_zone, ellps='WGS84', south= False)
+        wgs84_proj = Proj(proj='latlong', datum='WGS84')
+        longitude, latitude = transform(utm_proj, wgs84_proj, UtmOrigin[0,0], UtmOrigin[0,1])
+
+        # Load map
+        projector = UtmProjector(lanelet2.io.Origin(latitude, longitude))
+        map = lanelet2.io.load(map_path, projector)
+        routing_graph = lanelet2.routing.RoutingGraph(map, traffic_rules)
+
+        # build node features
+        lane_ids = []
+        centerlines, left_boundaries, right_boundaries = [], [], []
+        lane_type = []
+        for ll in map.laneletLayer:
+            # Check lanelet type
+            if ll.attributes['subtype'] == 'road' or ll.attributes['subtype'] == 'highway':
+                lane_type_val = 'VEHICLE'
+                is_intersection = False
+            elif ll.attributes['subtype'] == 'crosswalk':
+                lane_type_val = 'PEDESTRIAN'
+                is_intersection = True
+            elif ll.attributes['subtype'] == 'walkway':
+                lane_type_val = 'PEDESTRIAN'
+                is_intersection = False
+            elif ll.attributes['subtype'] == 'bicycle_lane':
+                lane_type_val = 'BICYCLE'
+                is_intersection = False
+            elif ll.attributes['subtype'] == 'emergency_lane':
+                continue
+            else:
+                print('Unknown lanelet type: {}'.format(ll.attributes['subtype']))
+                continue
+            
+            # Get boundaries
+            left_boundary = np.zeros((len(ll.leftBound), 2))
+            right_boundary  = np.zeros((len(ll.rightBound), 2))
+
+            for i in range(len(ll.leftBound)):
+                left_boundary[i][0] = copy.deepcopy(ll.leftBound[i].x)
+                left_boundary[i][1] = copy.deepcopy(ll.leftBound[i].y)
+
+            for i in range(len(ll.rightBound)):
+                right_boundary[i][0] = copy.deepcopy(ll.rightBound[i].x)
+                right_boundary[i][1] = copy.deepcopy(ll.rightBound[i].y)
+            
+            # computes centerline with min(max(M,N), 10) data points per lanelet
+            distance = min(np.linalg.norm(left_boundary[0] - left_boundary[-1]), np.linalg.norm(right_boundary[0] - right_boundary[-1]))
+            num_points = max(int(distance) + 1, left_boundary.shape[0], right_boundary.shape[0])
+            centerline, _ = compute_midpoint_line(left_boundary, right_boundary, num_points)
+            centerline = copy.deepcopy(centerline)  
+
+
+
+            # Get the lane marker types
+            lane_type.append((lane_type_val, is_intersection))
+            
+            # num_segs = len(centerline) - 1
+            lane_ids.append(ll.id)
+            centerlines.append(centerline)
+            left_boundaries.append(left_boundary)
+            right_boundaries.append(right_boundary)
         
-        unique_map = [0, 1, 2]
+
+        # node indices (when nodes are concatenated into one array)
+        lane_idcs = []
+        num_nodes = 0 
+        for i, lane_id in enumerate(lane_ids):
+            num_nodes_i = len(centerlines[i]) - 1
+            num_nodes += num_nodes_i
+            lane_idcs += [i] * num_nodes_i
+
+        # Get connections
+        pre_pairs, suc_pairs, left_pairs, right_pairs = [], [], [], []
+        for i, lane_id in enumerate(lane_ids):
+            lane = map.laneletLayer[lane_id]
+
+            # compute lane_id pairs of predecessor [u,v]
+            if len(routing_graph.previous(lane)) > 0:
+                for prev_lane in routing_graph.previous(lane):
+                    if prev_lane.id in lane_ids:
+                        j = lane_ids.index(prev_lane.id)
+                        pre_pairs.append([i, j])
+
+            # compute lane_id pairs of successor [u,v]
+            if len(routing_graph.following(lane)) > 0:
+                for foll_lane in routing_graph.following(lane):
+                    if foll_lane.id in lane_ids:
+                        j = lane_ids.index(foll_lane.id)
+                        suc_pairs.append([i, j])
+
+            # compute lane_id pairs of left [u,v]
+            if routing_graph.left(lane) is not None:
+                if routing_graph.left(lane).id in lane_ids:
+                    j = lane_ids.index(routing_graph.left(lane).id)
+                    left_pairs.append([i, j])
+
+            # compute lane_id pairs of right [u,v]
+            if routing_graph.right(lane) is not None:
+                if routing_graph.right(lane).id in lane_ids:
+                    j = lane_ids.index(routing_graph.right(lane).id)
+                    right_pairs.append([i, j])
         
-        Loc_data_pix = pd.DataFrame(np.zeros((len(unique_map),4),float), columns = ['xCenter', 'yCenter', 'r', 'R'])
+        pre_pairs = np.asarray(pre_pairs, np.int64)
+        suc_pairs = np.asarray(suc_pairs, np.int64)
+        left_pairs = np.asarray(left_pairs, np.int64)
+        right_pairs = np.asarray(right_pairs, np.int64)
+
+        if len(pre_pairs) == 0:
+            pre_pairs = np.zeros((0, 2), np.int64)
+        
+        if len(suc_pairs) == 0:
+            suc_pairs = np.zeros((0, 2), np.int64)
+
+        if len(left_pairs) == 0:
+            left_pairs = np.zeros((0, 2), np.int64)
+
+        if len(right_pairs) == 0:
+            right_pairs = np.zeros((0, 2), np.int64)
+
+        graph = pd.Series([])
+        graph['num_nodes'] = num_nodes
+        graph['lane_idcs'] = np.array(lane_idcs)
+        graph['centerlines'] = centerlines
+        graph['left_boundaries'] = left_boundaries
+        graph['right_boundaries'] = right_boundaries
+        graph['pre_pairs'] = pre_pairs
+        graph['suc_pairs'] = suc_pairs
+        graph['left_pairs'] = left_pairs
+        graph['right_pairs'] = right_pairs
+        graph['lane_type'] = lane_type
+
+        # Get available gpu
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        graph = self.add_node_connections(graph, device = device)
+        return graph
+
+
+
+    def analyze_maps(self):
+        if not hasattr(self, 'Data'):
+            self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
+                                    'RounD_round_about' + os.sep + 'RounD_processed.pkl')
+            
+        unique_rec = np.unique(self.Data[['recordingId','locationId']], axis = 0)
+        self.Rec_loc = pd.Series(unique_rec[:,1], index = unique_rec[:,0])
+        
+        unique_location = [0, 1, 2]
+        
+        Loc_data_pix = pd.DataFrame(np.zeros((len(unique_location),4),float), columns = ['xCenter', 'yCenter', 'r', 'R'])
         
         Loc_data_pix.xCenter.iloc[0] = 801.0
         Loc_data_pix.yCenter.iloc[0] = -465.0
@@ -53,35 +230,44 @@ class RounD_round_about(data_set_template):
         Loc_data_pix.r.iloc[2] = 48.0
         
         
-        self.Loc_rec = {0: 2, 1: 0, 2: 1}
         self.Loc_scale = {}
-        self.Loc_data = Loc_data_pix.copy(deep=True)
-        for locId in unique_map:
-            rec_id = self.Loc_rec[locId]
+        self.Loc_data = pd.DataFrame(np.zeros((len(self.Rec_loc), 4),float), index = self.Rec_loc.index, columns = Loc_data_pix.columns)
+        for rec_Id in self.Rec_loc.index:
+            loc_Id = self.Rec_loc[rec_Id]
             Meta_data=pd.read_csv(self.path + os.sep + 'Data_sets' + os.sep + 
                                   'RounD_round_about' + os.sep + 
-                                  'data' + os.sep + '{}_recordingMeta.csv'.format(str(rec_id).zfill(2)))
-            self.Loc_scale[locId] = Meta_data['orthoPxToMeter'][0] * 10
-            self.Loc_data.iloc[locId] = Loc_data_pix.iloc[locId] * self.Loc_scale[locId] 
+                                  'data' + os.sep + '{}_recordingMeta.csv'.format(str(rec_Id).zfill(2)))
+            self.Loc_scale[rec_Id] = Meta_data['orthoPxToMeter'][0] * 10
+            self.Loc_data.loc[rec_Id] = Loc_data_pix.iloc[loc_Id] * self.Loc_scale[rec_Id] 
+
+
+    def set_scenario(self):
+        self.scenario = scenario_gap_acceptance()
+        self.analyze_maps()
+
     
     def path_data_info(self = None):
-        return ['x', 'y']
+        return ['x', 'y', 'v_x', 'v_y', 'a_x', 'a_y']
     
     def _create_path_sample(self, tar_track, ego_track, other_agents, frame_min, frame_max, 
-                            v_1_id, v_2_id, v_3_id, v_4_id,
-                            original_angle, Rot_center, data_i):
+                            ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
+                            original_angle, Rot_center, data_i, SceneGraphs_unturned):
         
         tar_track_l = tar_track.loc[frame_min:frame_max].copy(deep = True)
         ego_track_l = ego_track.loc[frame_min:frame_max].copy(deep = True)
         
         path = pd.Series(np.empty(0, np.ndarray), index = [])
         agent_types = pd.Series(np.zeros(0, str), index = [])
+        sizes = pd.Series(np.empty(0, np.ndarray), index = [])
         
-        path['ego'] = np.stack([ego_track_l.x, ego_track_l.y], axis = -1)
-        path['tar'] = np.stack([tar_track_l.x, tar_track_l.y], axis = -1)
+        path['tar'] = tar_track_l.to_numpy()[:,:6]
+        path['ego'] = ego_track_l.to_numpy()[:,:6]
     
-        agent_types['ego'] = 'V'
         agent_types['tar'] = 'V'
+        agent_types['ego'] = 'V'
+        
+        sizes['tar'] = np.array([data_i.length, data_i.width])
+        sizes['ego'] = np.array([self.Data.loc[ego_id].length, self.Data.loc[ego_id].width])
         
         if v_1_id >= 0:
             v_1_track = other_agents.loc[v_1_id].track.loc[frame_min:frame_max]
@@ -90,14 +276,11 @@ class RounD_round_about(data_set_template):
                 frame_min_v1 = v_1_track.index.min()
                 frame_max_v1 = v_1_track.index.max()
                 
-                v1x = np.ones(frame_max + 1 - frame_min) * np.nan
-                v1x[frame_min_v1 - frame_min : frame_max_v1 + 1 - frame_min] = v_1_track.x
+                v_1_track_l = v_1_track.loc[frame_min_v1:frame_max_v1]
                 
-                v1y = np.ones(frame_max + 1 - frame_min) * np.nan
-                v1y[frame_min_v1 - frame_min : frame_max_v1 + 1 - frame_min] = v_1_track.y
-                
-                path['v_1'] = np.stack([v1x, v1y], axis = -1)
+                path['v_1'] = v_1_track_l.to_numpy()[:,:6]
                 agent_types['v_1'] = 'V'
+                sizes['v_1'] = np.array([self.Data.loc[v_1_id].length, self.Data.loc[v_1_id].width])
             
         if v_2_id >= 0:
             v_2_track = other_agents.loc[v_2_id].track.loc[frame_min:frame_max]
@@ -106,14 +289,11 @@ class RounD_round_about(data_set_template):
                 frame_min_v2 = v_2_track.index.min()
                 frame_max_v2 = v_2_track.index.max()
                 
-                v2x = np.ones(frame_max + 1 - frame_min) * np.nan
-                v2x[frame_min_v2 - frame_min : frame_max_v2 + 1 - frame_min] = v_2_track.x
+                v_2_track_l = v_2_track.loc[frame_min_v2:frame_max_v2]
                 
-                v2y = np.ones(frame_max + 1 - frame_min) * np.nan
-                v2y[frame_min_v2 - frame_min : frame_max_v2 + 1 - frame_min] = v_2_track.y
-                
-                path['v_2'] = np.stack([v2x, v2y], axis = -1)
+                path['v_2'] = v_2_track_l.to_numpy()[:,:6]
                 agent_types['v_2'] = 'V'
+                sizes['v_2'] = np.array([self.Data.loc[v_2_id].length, self.Data.loc[v_2_id].width])
             
         if v_3_id >= 0:
             v_3_track = other_agents.loc[v_3_id].track.loc[frame_min:frame_max]
@@ -121,15 +301,12 @@ class RounD_round_about(data_set_template):
             if len(v_3_track) > 0:
                 frame_min_v3 = v_3_track.index.min()
                 frame_max_v3 = v_3_track.index.max()
+
+                v_3_track_l = v_3_track.loc[frame_min_v3:frame_max_v3]
                 
-                v3x = np.ones(frame_max + 1 - frame_min) * np.nan
-                v3x[frame_min_v3 - frame_min : frame_max_v3 + 1 - frame_min] = v_3_track.x
-                
-                v3y = np.ones(frame_max + 1 - frame_min) * np.nan
-                v3y[frame_min_v3 - frame_min : frame_max_v3 + 1 - frame_min] = v_3_track.y
-                
-                path['v_3'] = np.stack([v3x, v3y], axis = -1)
+                path['v_3'] = v_3_track_l.to_numpy()[:,:6]
                 agent_types['v_3'] = 'V'
+                sizes['v_3'] = np.array([self.Data.loc[v_3_id].length, self.Data.loc[v_3_id].width])
     
         if v_4_id >= 0:
             v_4_track = other_agents.loc[v_4_id].track.loc[frame_min:frame_max]
@@ -138,28 +315,45 @@ class RounD_round_about(data_set_template):
                 frame_min_v4 = v_4_track.index.min()
                 frame_max_v4 = v_4_track.index.max()
                 
-                v4x = np.ones(frame_max + 1 - frame_min) * np.nan
-                v4x[frame_min_v4 - frame_min : frame_max_v4 + 1 - frame_min] = v_4_track.x
+                v_4_track_l = v_4_track.loc[frame_min_v4:frame_max_v4]
                 
-                v4y = np.ones(frame_max + 1 - frame_min) * np.nan
-                v4y[frame_min_v4 - frame_min : frame_max_v4 + 1 - frame_min] = v_4_track.y
-                
-                path['v_4'] = np.stack([v4x, v4y], axis = -1)
+                path['v_4'] = v_4_track_l.to_numpy()[:,:6]
                 agent_types['v_4'] = 'P'
+                sizes['v_4'] = np.array([0.5, 0.5])
 
         t = np.array(tar_track_l.index / 25)
         
-        domain = pd.Series(np.zeros(7, object), index = ['location', 'image_id', 'track_id', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain = pd.Series(np.zeros(8, object), index = ['location', 'image_id', 'graph_id', 'track_id', 'rot_angle', 'x_center', 'y_center', 'class'])
         domain.location  = data_i.locationId
-        domain.image_id  = data_i.locationId
+        domain.image_id  = data_i.recordingId
+        domain.graph_id  = len(self.Domain_old)
         domain.track_id  = data_i.trackId
         domain.rot_angle = original_angle
         domain.x_center  = Rot_center[0,0]
         domain.y_center  = Rot_center[0,1]
         domain['class']  = data_i['class']
+
+        # Get local SceneGraph, by rotating the respective positions and boundaries
+        graph = SceneGraphs_unturned.loc[domain.location].copy(deep = True)
+        centerlines_new = []
+        left_boundaries_new = []
+        right_boundaries_new = []
+        for i in range(len(graph.centerlines)):
+            c = graph.centerlines[i].copy()
+            l = graph.left_boundaries[i].copy()
+            r = graph.right_boundaries[i].copy()
+            centerlines_new.append(rotate_track_array(c, original_angle, Rot_center))
+            left_boundaries_new.append(rotate_track_array(l, original_angle, Rot_center))
+            right_boundaries_new.append(rotate_track_array(r, original_angle, Rot_center)) 
+    
+        graph.centerlines = centerlines_new
+        graph.left_boundaries = left_boundaries_new
+        graph.right_boundaries = right_boundaries_new
+        self.SceneGraphs.loc[domain.graph_id] = graph
         
         self.Path.append(path)
         self.Type_old.append(agent_types)
+        self.Size_old.append(sizes)
         self.T.append(t)
         self.Domain_old.append(domain)
         self.num_samples = self.num_samples + 1
@@ -174,81 +368,109 @@ class RounD_round_about(data_set_template):
         num_samples_max = len(self.Data)
         self.Path = []
         self.Type_old = []
+        self.Size_old = []
         self.T = []
         self.Domain_old = []
         
+        # Get images
         self.Images = pd.DataFrame(np.zeros((len(self.Loc_data), 1), object), 
                                    index = self.Loc_data.index, columns = ['Image'])
         
-        max_width = 0
-        max_height = 0
+        # Get scenegraphs
+        sceneGraph_columns = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
+                              'left_boundaries', 'right_boundaries', 'centerlines', 'lane_type', 'pre', 'suc', 'left', 'right']  
+        SceneGraphs_unturned = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
+        self.SceneGraphs = pd.DataFrame(np.zeros((0, len(sceneGraph_columns)), object), columns = sceneGraph_columns)
+        
         
         self.Target_MeterPerPx = 0.5 # TODO: Maybe change this?
-        for loc_id in self.Loc_data.index:
-            rec_id = self.Loc_rec[loc_id]
+        for rec_Id in self.Loc_data.index:
+            ## Get Image
             img_file = (self.path + os.sep + 'Data_sets' + os.sep + 
                         'RounD_round_about' + os.sep + 'data' + os.sep + 
-                        str(rec_id).zfill(2) + '_background.png')
+                        str(rec_Id).zfill(2) + '_background.png')
             
+            # open image
             img = Image.open(img_file)
-            
-            img_scaleing = self.Loc_scale[loc_id] / self.Target_MeterPerPx
+
+            # rescale image
+            img_scaleing = self.Loc_scale[rec_Id] / self.Target_MeterPerPx
             
             height_new = int(img.height * img_scaleing)
             width_new  = int(img.width * img_scaleing)
             
             img_new = img.resize((width_new, height_new), Image.LANCZOS)
             
-            self.Images.loc[loc_id].Image = np.array(img_new)
-            max_width = max(width_new, max_width)
-            max_height = max(height_new, max_height)
-            
-        # pad images to max size
-        for loc_id in self.Loc_data.index:
-            img = self.Images.loc[loc_id].Image
-            img_pad = np.pad(img, ((0, max_height - img.shape[0]),
-                                   (0, max_width  - img.shape[1]),
-                                   (0,0)), 'constant', constant_values=0)
-            self.Images.Image.loc[loc_id] = img_pad            
+            # save image
+            self.Images.loc[rec_Id].Image = np.array(img_new)
+
+
+        location_to_lanelet_file = {0: '0_neuweiler', 
+                                    1: '1_kackertstrasse', 
+                                    2: '2_thiergarten'}
         
-        
-        
+        # Go though unique locations
+        unique_loc = np.unique(self.Rec_loc)
+        for loc_Id in unique_loc:
+            ## Get SceneGraph
+            lanelet_file = (self.path + os.sep + 'Data_sets' + os.sep + 
+                            'RounD_round_about' + os.sep + 'maps' + os.sep + 
+                            'lanelets' + os.sep + location_to_lanelet_file[loc_Id] + os.sep +
+                            'location' + str(loc_Id) + '.osm')
+            rec_Id = self.Rec_loc[self.Rec_loc == loc_Id].index[0]
+
+            # Get the UTM origin
+            meta_file = (self.path + os.sep + 'Data_sets' + os.sep +
+                         'RounD_round_about' + os.sep + 'data' + os.sep + 
+                         str(rec_Id).zfill(2) + '_recordingMeta.csv')
+            meta_data = pd.read_csv(meta_file).iloc[0]
+            origin = np.array([[meta_data.xUtmOrigin, meta_data.yUtmOrigin]])
+
+            # load lanelet map
+            SceneGraphs_unturned.loc[loc_Id] = self.get_lane_graph(lanelet_file, origin)
             
         # extract raw samples
         self.num_samples = 0
         for i in range(num_samples_max):
+
             # to keep track:
             if np.mod(i,100) == 0:
                 print('trajectory ' + str(i).rjust(len(str(num_samples_max))) + '/{} analized'.format(num_samples_max))
                 print('found cases: ' + str(self.num_samples))
                 print('')
             data_i = self.Data.iloc[i]
+            # Get location information
+            loc_data = self.Loc_data.iloc[data_i.recordingId]
+
             # assume i is the tar vehicle, which has to be a motor vehicle
             if data_i['class'] in ['bicycle', 'pedestrian', 'trailer']:
                 continue
             
-            tar_track = data_i.track[['frame','xCenter','yCenter']].rename(columns={"xCenter": "x", "yCenter": "y"}).copy(deep = True)
-            Rot_center = np.array([[self.Loc_data.iloc[data_i.locationId].xCenter, self.Loc_data.iloc[data_i.locationId].yCenter]])
+            tar_track = data_i.track[['frame','xCenter','yCenter','xVelocity','yVelocity','xAcceleration','yAcceleration']]
+            tar_track = tar_track.rename(columns={"xCenter": "x", "yCenter": "y",
+                                                  "xVelocity" : "v_x", "yVelocity" : "v_y",
+                                                  "xAcceleration" : "a_x", "yAcceleration" : "a_y"}).copy(deep = True)
+            Rot_center = np.array([[loc_data.xCenter, loc_data.yCenter]])
             
-            tar_track['r'] = np.sqrt((tar_track.x - self.Loc_data.iloc[data_i.locationId].xCenter) ** 2 + 
-                                     (tar_track.y - self.Loc_data.iloc[data_i.locationId].yCenter) ** 2)
+            tar_track['r'] = np.sqrt((tar_track.x - loc_data.xCenter) ** 2 + 
+                                     (tar_track.y - loc_data.yCenter) ** 2)
             
             # exclude trajectory driving over the middle
-            if any(tar_track['r'] < self.Loc_data.iloc[data_i.locationId].r):
+            if any(tar_track['r'] < loc_data.r):
                 continue
             
             # check if tar_track goes through round_about or use shortcut around it
-            if not any(tar_track['r'] <= self.Loc_data.iloc[data_i.locationId].R):
+            if not any(tar_track['r'] <= loc_data.R):
                 continue
             
             # Exclude vehicles that already startinside the round about
-            if tar_track['r'].iloc[0] <= self.Loc_data.iloc[data_i.locationId].R + 10:
+            if tar_track['r'].iloc[0] <= loc_data.R + 10:
                 continue
             
             # frame where target vehicle approaches roundd about
-            frame_entry = np.where(tar_track['r'] < self.Loc_data.iloc[data_i.locationId].R + 10)[0][0]
+            frame_entry = np.where(tar_track['r'] < loc_data.R + 10)[0][0]
             
-            tar_frame_A = tar_track['frame'].iloc[np.where(tar_track['r'] < self.Loc_data.iloc[data_i.locationId].R)[0][0]]
+            tar_frame_A = tar_track['frame'].iloc[np.where(tar_track['r'] < loc_data.R)[0][0]]
 
             # angle along this route
             original_angle = np.angle((tar_track.x.iloc[0] - tar_track.x.iloc[frame_entry]) + 
@@ -266,17 +488,19 @@ class RounD_round_about(data_set_template):
             for j in range(len(other_agents)):
                 track_i = other_agents['track'].iloc[j] 
                 
-                track_i = track_i[['frame','xCenter','yCenter']].rename(columns={"xCenter": "x", "yCenter": "y"}).copy(deep = True)
+                track_i = track_i[['frame','xCenter','yCenter','xVelocity','yVelocity','xAcceleration','yAcceleration']]
+                track_i = track_i.rename(columns={"xCenter": "x", "yCenter": "y",
+                                                  "xVelocity" : "v_x", "yVelocity" : "v_y",
+                                                  "xAcceleration" : "a_x", "yAcceleration" : "a_y"}).copy(deep = True)
                 
                 track_i = rotate_track(track_i, original_angle, Rot_center)
                 
-                track_i = track_i.set_index('frame').loc[tar_track.index[0]: tar_track.index[-1]]
+                track_i = track_i.set_index('frame').reindex(np.arange(tar_track.index[0], tar_track.index[-1] + 1))
+
+                track_i['r']     = np.sqrt(track_i.x ** 2 + track_i.y ** 2)
+                track_i['angle'] = np.angle(track_i.x + track_i.y * 1j)
                 
                 other_agents['track'].iloc[j] = track_i
-                
-                other_agents['track'].iloc[j]['r'] = np.sqrt(track_i.x ** 2 + track_i.y ** 2)
-                
-                other_agents['track'].iloc[j]['angle'] = np.angle(track_i.x + track_i.y * 1j)
             
             # Looking for ego_vehicle. Two conditions:
             # - Actually cross (if ego vehicle leaves before, it has no need for predictions)
@@ -297,14 +521,14 @@ class RounD_round_about(data_set_template):
                 if tr_j.index[0] > tar_frame_A:
                     continue
                 
-                contested = ((tr_j.r.to_numpy() <= self.Loc_data.iloc[data_i.locationId].R) &
+                contested = ((tr_j.r.to_numpy() <= loc_data.R) &
                              (tr_j.angle.to_numpy() > 0) & 
                              (tr_j.angle.to_numpy() < np.pi / 6))
                 K = np.where(contested[1:] & (contested[:-1] == False))[0] + 1
                 
                 for k in K:
                     frame_C = tr_j.index[0] + k
-                    if tr_j.r.to_numpy()[k - 1] > self.Loc_data.iloc[data_i.locationId].R:
+                    if tr_j.r.to_numpy()[k - 1] > loc_data.R:
                         continue
                     
                     # Check if target vehicle was there to have closed the gap
@@ -329,7 +553,7 @@ class RounD_round_about(data_set_template):
             
             for j in range(len(other_agents)):
                 tr_j = other_agents['track'].iloc[j] 
-                interested = ((tr_j.r.to_numpy() <= self.Loc_data.iloc[data_i.locationId].R) &
+                interested = ((tr_j.r.to_numpy() <= loc_data.R) &
                               (tr_j.angle.to_numpy() > - np.pi / 6) & 
                               (tr_j.angle.to_numpy() < np.pi / 6))
                 K = np.where(interested[1:] & (interested[:-1] == False))[0] + 1
@@ -350,7 +574,7 @@ class RounD_round_about(data_set_template):
                         else:
                             in_RA.append([other_agents.trackId.iloc[j], frame_E])
                     else:
-                        if tr_j.r.to_numpy()[k - 1] > self.Loc_data.iloc[data_i.locationId].R and tr_j.angle.to_numpy()[k - 1] > 0:
+                        if tr_j.r.to_numpy()[k - 1] > loc_data.R and tr_j.angle.to_numpy()[k - 1] > 0:
                             # moved into round about
                             frame_A = tr_j.index[0] + k
                             entered_RA.append([other_agents.trackId.iloc[j], frame_A])
@@ -406,7 +630,7 @@ class RounD_round_about(data_set_template):
                     for j in range(len(other_ped)):
                         track_p = other_ped.iloc[j].track.loc[frame_min:frame_max]
                         tar_track_help = tar_track.copy(deep = True)
-                        distance_to_cross = np.sqrt((track_p.x - self.Loc_data.iloc[data_i.locationId].R - 5) ** 2 +
+                        distance_to_cross = np.sqrt((track_p.x - loc_data.R - 5) ** 2 +
                                                     (track_p.y - tar_track_help.iloc[frame_entry].y) ** 2)
                         distance_to_tar = np.sqrt((track_p.x - tar_track_help.x) ** 2 + (track_p.y - tar_track_help.y) ** 2)
                         
@@ -422,8 +646,8 @@ class RounD_round_about(data_set_template):
             
                 # Collect path data
                 self._create_path_sample(tar_track, ego_track, other_agents, frame_min, frame_max, 
-                                         v_1_id, v_2_id, v_3_id, v_4_id,
-                                         original_angle, Rot_center, data_i)
+                                         ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
+                                         original_angle, Rot_center, data_i, SceneGraphs_unturned)
                 
                 
             # Assume rejected gap
@@ -462,7 +686,7 @@ class RounD_round_about(data_set_template):
                     for j in range(len(other_ped)):
                         track_p = other_ped.iloc[j].track.loc[frame_min:frame_max]
                         tar_track_help = tar_track.copy(deep = True)
-                        distance_to_cross = np.sqrt((track_p.x - self.Loc_data.iloc[data_i.locationId].R - 5) ** 2 +
+                        distance_to_cross = np.sqrt((track_p.x - loc_data.R - 5) ** 2 +
                                                     (track_p.y - tar_track_help.iloc[frame_entry].y) ** 2)
                         distance_to_tar = np.sqrt((track_p.x - tar_track_help.x) ** 2 + (track_p.y - tar_track_help.y) ** 2)
                         
@@ -477,11 +701,12 @@ class RounD_round_about(data_set_template):
             
                 # Collect path data
                 self._create_path_sample(tar_track, ego_track, other_agents, frame_min, frame_max, 
-                                         v_1_id, v_2_id, v_3_id, v_4_id,
-                                         original_angle, Rot_center, data_i)
+                                         ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
+                                         original_angle, Rot_center, data_i, SceneGraphs_unturned)
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)
+        self.Size_old = pd.DataFrame(self.Size_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
     
@@ -521,7 +746,7 @@ class RounD_round_about(data_set_template):
         tar_a = np.angle(tar_x + tar_y * 1j)
         
         # From location data
-        R = self.Loc_data.R[domain.location]
+        R = self.Loc_data.R[domain.image_id]
         
         ego_frame_0 = np.nanargmin(np.abs(ego_a) + (ego_r > R) * 2 * np.pi, axis = 1)
         ego_a_change_n, ego_a_change_t = np.where((ego_a[:,1:] < np.pi * 0.5) & 
@@ -578,7 +803,7 @@ class RounD_round_about(data_set_template):
         ego_a = np.angle(ego_x + ego_y * 1j)
         
         # From location data
-        R = self.Loc_data.R[domain.location]
+        R = self.Loc_data.R[domain.image_id]
         
         ego_frame_0 = np.nanargmin(np.abs(ego_a) + (ego_r > R) * 2 * np.pi)
         ego_a_change = np.where((ego_a[1:] < np.pi * 0.5) & (ego_a[:-1] > np.pi * 0.5))[0] + 1
@@ -687,7 +912,7 @@ class RounD_round_about(data_set_template):
         
         
         # From location data
-        R = self.Loc_data.R[domain.location]
+        R = self.Loc_data.R[domain.image_id]
         
         ego_frame_0 = np.nanargmin(np.abs(ego_a) + (ego_r > R) * 2 * np.pi)
         ego_a_change = np.where((ego_a[1:] < np.pi * 0.5) & (ego_a[:-1] > np.pi * 0.5))[0] + 1
@@ -800,73 +1025,39 @@ class RounD_round_about(data_set_template):
         Dist = pd.Series([D1, D2, D3, Le, Lt], index = ['D_1', 'D_2', 'D_3', 'L_e', 'L_t'])
         return Dist
     
-    def _fill_round_about_path(self, pos, t, domain, R):
-        v_x = pos[:,0]
-        v_y = pos[:,1]
-        
-        v_rewrite = np.isnan(v_x)
-        if v_rewrite.any():
-            v_r = np.sqrt(v_x ** 2 + v_y ** 2)
-            v_a = np.angle(v_x + v_y * 1j)
-            
-            useful = np.invert(v_rewrite)
-            # assume whole missing stuff is only outside the roundabout
-            useful_r = useful.copy()
-            if useful.sum() == 1:
-                if useful[0]:
-                    v_r[1] = v_r[0] + 10 * self.dt
-                    useful_r[1] = True
-                elif useful[-1]:
-                    v_r[-2] = v_r[-1] + 10 * self.dt
-                    useful_r[-2] = True
-                else:
-                    raise TypeError("Vehicle is way, way, way to fast")
-            v_r = interp.interp1d(t[useful_r], v_r[useful_r], fill_value = 'extrapolate', assume_sorted = True)(t)
-            v_a = np.interp(t, t[useful], v_a[useful], left = v_a[useful][0], right = v_a[useful][-1])
-                
-            v_x = np.cos(v_a) * v_r
-            v_y = np.sin(v_a) * v_r
-            
-            assert not np.isnan(v_x).any()
-        return np.stack([v_x, v_y], axis = -1)
     
-    def fill_empty_path(self, path, t, domain, agent_types):
-        R = self.Loc_data.R[domain.location]
+    def fill_empty_path(self, path, t, domain, agent_types, size):
+        R = self.Loc_data.R[domain.image_id]
         # check vehicle v_1 (in front of ego)
         if isinstance(path.v_1, float):
             assert str(path.v_1) == 'nan'
         else:
-            path.v_1 = self._fill_round_about_path(path.v_1, t, domain, R)
+            path.v_1 = self.self.extrapolate_path(path.v_1, t, mode='vel_turn')
             
         if isinstance(path.v_2, float):
             assert str(path.v_2) == 'nan'
         else:
-            path.v_2 = self._fill_round_about_path(path.v_2, t, domain, R)
+            path.v_2 = self.self.extrapolate_path(path.v_2, t, mode='vel_turn')
             
         if isinstance(path.v_3, float):
             assert str(path.v_3) == 'nan'
         else:
-            path.v_3 = self._fill_round_about_path(path.v_3, t, domain, R)
+            path.v_3 = self.self.extrapolate_path(path.v_3, t, mode='vel_turn')
             
         
         # check vehicle v_4 (pedestrian)
         if isinstance(path.v_4, float):
             assert str(path.v_4) == 'nan'
         else:
-            v_4_x = path.v_4[:,0]
-            v_4_y = path.v_4[:,1]
-            
-            v_4_rewrite = np.isnan(v_4_x)
+            v_4_rewrite = np.isnan(path.v_4[:,0])
             if v_4_rewrite.any():
-                v_4_x = np.interp(t,t[np.invert(v_4_rewrite)],v_4_x[np.invert(v_4_rewrite)])
-                v_4_y = np.interp(t,t[np.invert(v_4_rewrite)],v_4_y[np.invert(v_4_rewrite)])
-                path.v_4 = np.stack([v_4_x, v_4_y], axis = -1)
+                path.v_4 = self.extrapolate_path(path.v_4, t, mode = 'pos')
                 
         
         # look for other participants
         n_I = self.num_timesteps_in_real
 
-        tar_pos = path.tar[np.newaxis]
+        tar_pos = path.tar[np.newaxis, :, :2] # shape (1, n_I, 2)
         
         help_pos = []
         for agent in path.index:
@@ -877,11 +1068,11 @@ class RounD_round_about(data_set_template):
                 continue
             help_pos.append(path[agent])
             
-        help_pos = np.stack(help_pos, axis = 0)
+        help_pos = np.stack(help_pos, axis = 0)[..., :2] # shape (n_non_tar, n_I, 2)
         
         tar_frames = 25 * (t + domain.t_0)
         
-        
+        # Load data if necessary
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
                                        'RounD_round_about' + os.sep + 'RounD_processed.pkl')
@@ -890,57 +1081,73 @@ class RounD_round_about(data_set_template):
         
         Neighbor = self.Data.iloc[domain.track_id].otherVehicles
         Neighbor_type = np.array(self.Data.iloc[Neighbor]['class'])
-        frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames])
+        frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames]).astype(int)
+
+        num_data = len(self.path_data_info())
         # search for vehicles
-        Pos = np.ones((len(Neighbor), len(frames_help), 2)) * np.nan
+        Pos = np.ones((len(Neighbor), len(frames_help), num_data)) * np.nan
+        Size = np.ones((len(Neighbor), 2)) * np.nan
         for i, n in enumerate(Neighbor):
-            track_n = self.Data.iloc[n].track.rename(columns={"xCenter": "x", "yCenter": "y"}).copy(deep = True)
-            track_n = rotate_track(track_n, domain.rot_angle, 
-                                   np.array([[domain.x_center, domain.y_center]]))
-            Pos[i,:,0] = np.interp(frames_help, np.array(track_n.frame), track_n.x, left = np.nan, right = np.nan)
-            Pos[i,:,1] = np.interp(frames_help, np.array(track_n.frame), track_n.y, left = np.nan, right = np.nan)
+            track_n = self.Data.iloc[n].track.set_index('frame')
+            track_n.index = track_n.index.astype(int)
+            track_n = track_n.reindex(frames_help)[['xCenter', 'yCenter', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration']]
+            track_n = track_n.rename(columns={"xCenter": "x", "yCenter": "y",
+                                              "xVelocity" : "v_x", "yVelocity" : "v_y",
+                                              "xAcceleration" : "a_x", "yAcceleration" : "a_y"}).copy(deep = True)
+            track_n = rotate_track(track_n, domain.rot_angle, np.array([[domain.x_center, domain.y_center]]))
+            Pos[i] = track_n.to_numpy()[:,:6]
+
+            if Neighbor_type[i] == 'pedestrian':
+                Size[i] = 0.5
+            else:
+                Size[i] = [self.Data.iloc[n].length, self.Data.iloc[n].width]
         
-        
+        # GET EXISTING VEHICLES
         actually_there = np.isfinite(Pos[:,1:n_I + 1]).any((1,2))
         Neighbor_type = Neighbor_type[actually_there]
         Pos           = Pos[actually_there]
+        Size          = Size[actually_there]
 
-        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
+        # Filter out vehicles to far away
+        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1,:2] - help_pos[:,np.newaxis,:n_I]) ** 2).sum(-1)), -1).min(0)
         actually_interesting = (D_help > 0.1) & (D_help < 100)
         Neighbor_type = Neighbor_type[actually_interesting]
         Pos           = Pos[actually_interesting]
+        Size          = Size[actually_interesting]
         
         # filter out nonmoving vehicles
-        actually_moving = (np.nanmax(Pos, 1) - np.nanmin(Pos, 1)).max(1) > 0.1
+        actually_moving = (np.nanmax(Pos, 1) - np.nanmin(Pos, 1))[...,:2].max(1) > 0.1
         Neighbor_type = Neighbor_type[actually_moving]
         Pos           = Pos[actually_moving]
+        Size          = Size[actually_moving]
         
         # Find cars that could influence tar vehicle
-        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
+        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1,:2] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
         Neighbor_type = Neighbor_type[D < 75]
         Pos           = Pos[D < 75]
+        Size          = Size[D < 75]
         D             = D[D < 75]
         
         # sort by closest vehicle
         Pos           = Pos[np.argsort(D)]
         Neighbor_type = Neighbor_type[np.argsort(D)]
+        Size          = Size[np.argsort(D)]
         
         if self.max_num_addable_agents is not None:
             Pos           = Pos[:self.max_num_addable_agents]
             Neighbor_type = Neighbor_type[:self.max_num_addable_agents]
+            Size          = Size[:self.max_num_addable_agents]
+
+        # Remove extra timestep
+        Pos = Pos[:,1:]
         
         for i, pos in enumerate(Pos):
             name = 'v_{}'.format(i + 5)
                 
             u = np.isfinite(pos[:,0])
             if u.sum() > 1:
-                if u.all():
-                    path[name] = pos[1:]
-                else:
-                    frames = frames_help[u]
-                    p = pos[u].T
-                    path[name] = np.stack([interp.interp1d(frames, p[0], fill_value = 'extrapolate', assume_sorted = True)(tar_frames),
-                                           interp.interp1d(frames, p[1], fill_value = 'extrapolate', assume_sorted = True)(tar_frames)], axis = -1)
+                path[name] = self.extrapolate_path(pos, t, mode='vel')
+                size[name] = Size[i]
                 
                 if Neighbor_type[i] == 'pedestrian':
                     agent_types[name] = 'P'
@@ -948,12 +1155,12 @@ class RounD_round_about(data_set_template):
                     agent_types[name] = 'V'
             
             
-        return path, agent_types
+        return path, agent_types, size
             
     
     def provide_map_drawing(self, domain):
-        R = self.Loc_data.R[domain.location]
-        r = self.Loc_data.r[domain.location]
+        R = self.Loc_data.R[domain.image_id]
+        r = self.Loc_data.r[domain.image_id]
         
         x = np.arange(-1,1,501)[:,np.newaxis]
         unicircle_upper = np.concatenate((x, np.sqrt(1 - x ** 2)), axis = 1)
@@ -983,4 +1190,4 @@ class RounD_round_about(data_set_template):
         return True 
     
     def includes_sceneGraphs(self = None):
-        return False
+        return True
