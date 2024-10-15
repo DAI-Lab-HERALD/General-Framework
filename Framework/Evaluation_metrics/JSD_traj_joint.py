@@ -46,9 +46,12 @@ class JSD_traj_joint(evaluation_template):
         \{\{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \, | \; \forall t \in T_{O,s}\} \, | \; \forall\, j \}
     
     '''
-    
+    def set_default_kwargs(self):
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):       
         Path_true, Path_pred, Pred_steps = self.get_true_and_predicted_paths() 
@@ -273,15 +276,29 @@ class JSD_traj_joint(evaluation_template):
     
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'JSD (Trajectories, joint predictions)',
-                 'file': 'JSD_traj_joint',
-                 'latex': r'\emph{JSD$_{\text{Traj}, joint}$}'}
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+            
+        names = {'print': 'JSD (Trajectories, joint predictions' + P_p + ')',
+                 'file': 'JSD_traj_joint' + P_f,
+                 'latex': r'\emph{JSD$_{' + P_l + r'\text{Traj}, joint}$}'}
         return names
     
     

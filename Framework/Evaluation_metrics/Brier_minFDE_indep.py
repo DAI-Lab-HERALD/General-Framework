@@ -34,6 +34,9 @@ class Brier_minFDE_indep(evaluation_template):
     def set_default_kwargs(self):
         if 'num_preds' not in self.metric_kwargs:
             self.metric_kwargs['num_preds'] = None
+            
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
 
     def setup_method(self):
         self.set_default_kwargs()
@@ -88,7 +91,11 @@ class Brier_minFDE_indep(evaluation_template):
         return options[2]  
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
@@ -104,10 +111,19 @@ class Brier_minFDE_indep(evaluation_template):
             N_f = str(self.metric_kwargs['num_preds'])
             N_l = str(self.metric_kwargs['num_preds']) + ', '
         
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+        
 
-        names = {'print': 'Brier min FDE (' + N_p + 'independent prediction)',
-                'file': 'Brier minFDE' + N_f + '_indep',
-                'latex': r'\emph{Brier min FDE$_{' + N_l + r'indep}$ [m]}'}
+        names = {'print': 'Brier min FDE (' + N_p + 'independent prediction' + P_p + ')',
+                'file': 'Brier minFDE' + N_f + '_indep' + P_f,
+                'latex': r'\emph{Brier min FDE$_{' + N_l + P_l + r'indep}$ [m]}'}
         return names
     
     

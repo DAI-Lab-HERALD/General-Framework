@@ -25,6 +25,9 @@ class ADE_ML_indep(evaluation_template):
     def set_default_kwargs(self):
         if 'num_preds' not in self.metric_kwargs:
             self.metric_kwargs['num_preds'] = None
+            
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
 
     def setup_method(self):
         self.set_default_kwargs()
@@ -70,15 +73,39 @@ class ADE_ML_indep(evaluation_template):
         return options[2]
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'ADE_ML (independent prediction)',
-                 'file': 'ADE_ML_indep',
-                 'latex': r'\emph{ADE$_{ML, indep}$ [m]}'}
+        self.set_default_kwargs()
+        if self.metric_kwargs['num_preds'] == None:
+            N_p = ''
+            N_f = ''
+            N_l = ''
+        else:
+            N_p = str(self.metric_kwargs['num_preds']) + ' samples, '
+            N_f = str(self.metric_kwargs['num_preds'])
+            N_l = str(self.metric_kwargs['num_preds']) + ', '
+        
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+            
+            
+        names = {'print': 'ADE_ML (' + N_p + 'independent prediction' + P_p + ')',
+                'file': 'ADE_ML' + N_f + '_indep' + P_f,
+                'latex': r'\emph{ADE$_{ML, ' + N_l + P_l + r'indep}$ [m]}'}
         return names
     
     def is_log_scale(self = None):

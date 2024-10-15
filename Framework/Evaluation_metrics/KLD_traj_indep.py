@@ -34,9 +34,12 @@ class KLD_traj_indep(evaluation_template):
         \{\{x_{pred,i,p,j} (t), y_{pred,i,p,j} (t)\} \vert \forall t \in T_{O,s}\}
     
     '''
-    
+    def set_default_kwargs(self):
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
         _, _, Pred_steps = self.get_true_and_predicted_paths()
@@ -84,15 +87,29 @@ class KLD_traj_indep(evaluation_template):
         return options[3]  
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'KLD (Trajectories, independent predictions)',
-                 'file': 'KLD_traj_indep',
-                 'latex': r'\emph{KLD$_{\text{Traj}, indep}$}'}
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+            
+        names = {'print': 'KLD (Trajectories, independent prediction' + P_p + ')',
+                 'file': 'KLD_traj_indep' + P_f,
+                 'latex': r'\emph{KLD$_{' + P_l + r'\text{Traj}, indep}$}'}
         return names
     
     

@@ -20,6 +20,9 @@ class minADE_joint(evaluation_template):
     def set_default_kwargs(self):
         if 'num_preds' not in self.metric_kwargs:
             self.metric_kwargs['num_preds'] = None
+            
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
 
     def setup_method(self):
         self.set_default_kwargs()
@@ -55,7 +58,11 @@ class minADE_joint(evaluation_template):
         return options[1]  
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
@@ -71,10 +78,19 @@ class minADE_joint(evaluation_template):
             N_f = str(self.metric_kwargs['num_preds'])
             N_l = str(self.metric_kwargs['num_preds']) + ', '
         
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+        
 
-        names = {'print': 'min ADE (' + N_p + 'joint prediction)',
-                'file': 'minADE' + N_f + '_joint',
-                'latex': r'\emph{min ADE$_{' + N_l + r'joint}$ [m]}'}
+        names = {'print': 'min ADE (' + N_p + 'joint prediction' + P_p + ')',
+                'file': 'minADE' + N_f + '_joint' + P_f,
+                'latex': r'\emph{min ADE$_{' + N_l + P_l + r'joint}$ [m]}'}
         return names
     
     

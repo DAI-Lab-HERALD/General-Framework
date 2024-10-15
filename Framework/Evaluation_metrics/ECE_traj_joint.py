@@ -30,9 +30,12 @@ class ECE_traj_joint(evaluation_template):
     For each prediction timestep in :math:`T_{O,i}`, :math:`x` and :math:`y` are the actual observed positions, while 
     :math:`x_{pred}` and :math:`y_{pred}` are those predicted by a model.
     '''
-    
+    def set_default_kwargs(self):
+        if 'include_pov' not in self.metric_kwargs:
+            self.metric_kwargs['include_pov'] = True
+
     def setup_method(self):
-        pass
+        self.set_default_kwargs()
      
     def evaluate_prediction_method(self):
         # Get likelihood of having higher probability
@@ -109,15 +112,29 @@ class ECE_traj_joint(evaluation_template):
             
     
     def get_output_type(self = None):
-        return 'path_all_wi_pov'
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            return 'path_all_wi_pov'
+        else:
+            return 'path_all_wo_pov'
     
     def get_opt_goal(self = None):
         return 'minimize'
     
     def get_name(self = None):
-        names = {'print': 'ECE (Trajectories, joint predictions)',
-                 'file': 'ECE_traj_joint',
-                 'latex': r'\emph{ECE$_{\text{Traj}, joint}$}'}
+        self.set_default_kwargs()
+        if self.metric_kwargs['include_pov']:
+            P_p = ''
+            P_f = ''
+            P_l = ''
+        else:
+            P_p = ', exclude POV'
+            P_f = 'nP'
+            P_l = 'nP, '
+            
+        names = {'print': 'ECE (Trajectories, joint prediction' + P_p + ')',
+                 'file': 'ECE_traj_joint' + P_f,
+                 'latex': r'\emph{ECE$_{' + P_l + r'\text{Traj}, joint}$}'}
         return names
     
     
