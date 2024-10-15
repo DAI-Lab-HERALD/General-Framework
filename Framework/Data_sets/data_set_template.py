@@ -395,7 +395,7 @@ class data_set_template():
                 self.check_path_samples(Path_check, Type_old_check, T_check, Domain_old_check, num_samples_check, Size_old_check)
 
                 # Sparsify the data
-                Path_check_sparse = self.get_sparse_path_data(Path_check)
+                Path_check_sparse = self.get_sparse_path_data(Path_check, T_check)
                 
                 # Save the results
                 os.makedirs(os.path.dirname(file_path_save), exist_ok=True)
@@ -467,29 +467,54 @@ class data_set_template():
             self.saved_last_orig_paths = True
                 
 
-    def get_sparse_path_data(self, Path):
-        # Make saving of Path_check more efficient
+    def get_sparse_path_data(self, Path, T):
+        # Check identical length of inputs
+        assert len(Path) == len(T), "Input lengths should be the same"
+        # Prepare sparse pandas dataframe
         Path_helper = pd.DataFrame(np.zeros((0, 3 + len(self.path_data_info())), object), 
                                    columns = ['sample_index', 'agent_index', 'time_index'] + self.path_data_info())
-        num_samples = len(Path)
-        for i in range(num_samples):
-            path_sample = Path.iloc[i]
-            # Get non-nan values
-            path_sample_non_nan = path_sample.isna()
-            agent_id = np.where(~path_sample_non_nan)[0]
-
-            path_useful = np.stack(path_sample[~path_sample_non_nan].tolist(), axis = 0).astype(np.float32) # num_agents x num_timesteps x n_data
-
-            useful_agents, useful_timesteps = np.where(np.isfinite(path_useful).any(-1))
-
-            num_timesteps = len(useful_timesteps)
-            locs = len(Path_helper) + np.arange(num_timesteps)
-
+        
+        # Get num timesteps
+        num_timesteps = np.array([len(t) for t in T])
+        unique_num_timesteps = np.unique(num_timesteps)
+        
+        # Go through unique number of timesteps
+        for num_timesteps in unique_num_timesteps:
+            used_samples = np.where(num_timesteps == num_timesteps)[0]
+            
+            # Get the paths with this specific number of timesteps
+            Path_samples = Path.iloc[used_samples]
+            Path_samples_non_nan = Path_samples.isna()
+            
+            # Get the actually existing agents
+            Sample_id, Agent_id = np.where(Path_samples_non_nan) # num_agents
+            Sample_id_global = used_samples[Sample_id]
+            
+            # TODO: Check this line for potential correction
+            Paths_useful = np.stack(list(Path_samples.values[Sample_id, Agent_id]), axis = 0) # num_agents x num_timesteps x num_data
+            
+            # Get existing timesteps of existing agents 
+            useful_agents, useful_timesteps = np.where(np.isfinite(Paths_useful).any(-1))
+            
+            # Transform useful_agents_id onto oringinal sample/agent ids
+            sample_id = Sample_id_global[useful_agents]
+            agent_id  = Agent_id[useful_agents]
+            
+            # get num recordings
+            num_recordings = len(useful_timesteps)
+            locs = len(Path_helper) + np.arange(num_recordings)
+            
+            # Initialize new columns
             Path_helper = Path_helper.reindex(np.concatenate([Path_helper.index, locs]))
-            Path_helper.loc[locs, 'sample_index'] = i
-            Path_helper.loc[locs, 'agent_index'] = agent_id[useful_agents]
+            
+            # Write in the specific indices
+            Path_helper.loc[locs, ]
+            Path_helper.loc[locs, 'sample_index'] = sample_id
+            Path_helper.loc[locs, 'agent_index'] = agent_id
             Path_helper.loc[locs, 'time_index'] = useful_timesteps
-            Path_helper.loc[locs, self.path_data_info()] = path_useful[useful_agents, useful_timesteps]
+            
+            # Write in the specific data
+            Path_helper.loc[locs, self.path_data_info()] = Paths_useful[useful_agents, useful_timesteps]
         
         return Path_helper
 
@@ -586,7 +611,7 @@ class data_set_template():
         assert sparse != dense, "Path data should be either sparse or dense."
 
         if dense:
-            Path = self.get_sparse_path_data(Path)
+            Path = self.get_sparse_path_data(Path, T)
         
         return Path, Type_old, Size_old, T, Domain_old, num_samples
 
@@ -655,7 +680,7 @@ class data_set_template():
                     # save the results
                     os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
 
-                    self.Path = self.get_sparse_path_data(self.Path)
+                    self.Path = self.get_sparse_path_data(self.Path, self.T)
                     
                     if self.Size_old is None:
                         test_data = np.array([self.Path, self.Type_old, self.T, self.Domain_old, self.num_samples], object)
