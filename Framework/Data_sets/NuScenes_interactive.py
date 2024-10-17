@@ -282,6 +282,7 @@ class NuScenes_interactive(data_set_template):
         self.Type_old = pd.DataFrame(self.Type_old)
         self.T = np.array(self.T+[()], np.ndarray)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
+        self.Size_old = pd.DataFrame(self.Size_old)
         
     
 
