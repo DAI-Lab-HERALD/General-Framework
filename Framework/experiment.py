@@ -1645,8 +1645,9 @@ class Experiment():
         
         output = model.predict_actual(Index)
         
-        output_path_pred = model.transform_output(output, Index, model.get_output_type(), 'path_all_wi_pov')[1]
-        
+        output_pred = model.transform_output(output, Index, model.get_output_type(), 'path_all_wi_pov')
+        output_path_pred = output_pred[1]
+        output_path_pred_probs = output_pred[2]
         
         ind_pp = np.array([name for name in output_path_pred.columns 
                            if isinstance(output_path_pred.iloc[0][name], np.ndarray)])
@@ -1654,9 +1655,13 @@ class Experiment():
         use_input = np.in1d(ind_p, ind_pp)
         
         opp = np.stack(output_path_pred[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x n_p x n_O x 2
+        opp_probs = np.stack(output_path_pred_probs[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x (n_p + 1)
+        # Remove ground truth predictions
+        opp = opp[:, :, :-1]
 
         # Combine identical samples and number path predicted into one dimension
         opp = opp.transpose(0,2,1,3,4).reshape(opp.shape[0] * opp.shape[2], opp.shape[1], opp.shape[3], opp.shape[4])
+        opp_probs = opp_probs.transpose(0,2,1).reshape(opp.shape[0] * opp.shape[2], opp.shape[1])
 
         max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)),
                                     np.max(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
@@ -1670,9 +1675,12 @@ class Experiment():
         # Ensure that opp is not longer than 3000 samples
         if len(opp) > 3000:
             np.random.seed(0)
-            np.random.shuffle(opp)
-            opp = opp[:3000]
-        return [opp, ind_pp, min_v, max_v]
+            used = np.arange(len(opp))
+            np.random.shuffle(used)
+            used = used[:3000]
+            opp = opp[used]
+            opp_probs = opp_probs[used]
+        return [opp, opp_probs, ind_pp, min_v, max_v]
             
     
     def _draw_background(self, ax, data_set, img, domain):
@@ -1812,7 +1820,7 @@ class Experiment():
         # Overwrite number of predictions
         model.num_samples_path_pred = max(1, 3000 - len(opp))
         # Run the actual prediction
-        Pred_index, Output_path_pred = model.predict_actual(sample_ind[[0]])
+        Pred_index, Output_path_pred, _ = model.predict_actual(sample_ind[[0]])
 
         # Concatenate old predictions with new ones
         for i, agent in enumerate(ind_pp):
@@ -1831,7 +1839,7 @@ class Experiment():
         if joint:
             model._get_joint_KDE_pred_probabilities(Pred_index, Output_path_pred)
             Lp = model.Log_prob_joint_pred[0, :opp.shape[0], np.newaxis] # num_preds x 1
-            Lp = np.repeat(Lp, opp.shape[1], axis = 1)
+            Lp = np.repeat(Lp, opp.shape[1], axis = 1) # num_preds x num_agents
         else:
             model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
             # Only consider the likelihoods of trajectories in opp
@@ -1892,7 +1900,7 @@ class Experiment():
              output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set, Output_A, Domain)
             
                                                                         
-            [opp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p)
+            [opp, Lp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p)
             
 
 
@@ -1908,8 +1916,9 @@ class Experiment():
             # Get likelihoods of the given samples, based on 3000 predictions
             if likelihood_visualization:
                 # Only available for path prediction models
-                if model.get_output_type() == 'path_all_wi_pov':
-                    Lp = self._get_path_likelihoods(data_set, model, sample_ind, opp, ind_pp, joint = joint_likelihoods)
+                if not np.isfinite(Lp).all():
+                    if model.get_output_type() == 'path_all_wi_pov':
+                        Lp = self._get_path_likelihoods(data_set, model, sample_ind, opp, ind_pp, joint = joint_likelihoods)
             
 
 

@@ -213,6 +213,192 @@ After training or loading a trained model, one then has to make predictions. Her
     ...
 ```
 
+This function can schematically be written as
+```
+  def predict_method(self):
+    prediction_done = False
+    while not prediction_done:
+      # Get batch wise data
+      batch_size = ...
+      X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', batch_size)
+
+      # Use model to make predictions Pred
+      Pred = ...
+      
+      # save predictions
+      self.save_predicted_batch_data(Pred, Sample_id, Agent_id)
+```
+
+
+## Predicting likelihoods
+Some common metrics like do not only require the predictions by the model, but also their respective (log) likelihoods according to the underlying distribution. While the framework provides an advanced KDE-based method for their estimation, some models are also capable to produce those values. For the framework to interact with them, it is then necessary to define the following two functions.
+
+
+```
+  def provides_likelihoods(self):
+    r'''
+    This function returns the information of wheter the model can provide likelihoods associated
+    with predicted trajectories. 
+
+    WARNING: If the underlying probability density is not normalized, the metrics based on these
+    likelihoods will become meaningless! Please keep this in mind.
+        
+    Returns
+    -------
+    can_make_prob_prediction : bool
+      The boolean value depicting the ability of the model to calculate log likelihoods.
+    '''
+    
+    ...
+
+    return can_make_prob_prediction
+      
+  def calculate_log_likelihoods(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 
+      r'''
+      Given an batch of input, the model calculates the predicted probability density function. This is 
+      then applied to the provided ground truth trajectories.
+
+      WARNING: If the underlying probability density is not normalized, the metrics based on these
+      likelihoods will become meaningless! Please keep this in mind.
+      
+      Parameters
+      -------
+      X : np.ndarray
+          This is the past observed data of the agents, in the form of a
+          :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
+          values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
+          *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
+          the position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
+          will always correspond to the output of the *path_data_info()* of the data_set from which this batch data
+          was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
+      Y : np.ndarray
+          This is the future observed data of the agents, in the form of a
+          :math:`\{N_{samples} \times N_{agents} \times N_{O} \times N_{data}\}` dimensional numpy array with float values. 
+          If an agent is fully or or some timesteps partially not observed, then this can include np.nan values. 
+          This value is not returned for **mode** = *'pred'*.
+      T : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+          the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
+          If an agent is not observed at all, the value will instead be '0'.
+      S : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It the sizes of the agents,
+          where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+          (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+          instead be np.nan.
+      C : np.ndarray 
+          This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+          category of agent observed, where the categories are dataset specific. If the dataset does not include such
+          information, it will be set to None.
+      img : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+          It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
+          of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
+          at its current position, and are rotated so that the agent is right now driving to the right. 
+          If an agent is not observed at prediction time, 0 values are returned.
+      img_m_per_px : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
+          the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+      graph : np.ndarray
+          This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+          
+              num_nodes         - number of nodes in the scene graph.
+      
+              lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                                  with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+      
+              pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                                  first value of the pair is the source lane index and the second value is source's
+                                  predecessor lane index.
+      
+              suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                                  first value of the pair is the source lane index and the second value is source's
+                                  successor lane index.
+      
+              left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                                  first value of the pair is the source lane index and the second value is source's
+                                  left neighbor lane index.
+      
+              right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                                  first value of the pair is the source lane index and the second value is source's
+                                  right neighbor lane index.
+      
+              left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                  :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                  of points needed to describe the left boundary in travel direction of the current lane.
+                                  Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                        
+              right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                  :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                  of points needed to describe the right boundary in travel direction of the current lane.
+      
+              centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                                  :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                                  of points needed to describe the middle between the left and right boundary in travel
+                                  direction of the current lane.
+      
+              lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                                  where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
+                                  entry is a boolean, which is true if the lane segment is part of an intersection.
+
+              pre               - predecessor nodes of each node in the scene graph;
+                                  list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                  dilation as per the implementation in LaneGCN. 
+                                  Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                  'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                  predecessor.
+      
+              suc               - successor nodes of each node in the scene graph;
+                                  list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                                  dilation as per the implementation in LaneGCN. 
+                                  Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                                  'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                                  successor.
+      
+              left              - left neighbor nodes of each node in the scene graph;
+                                  list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                  node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                  its left neighbor.
+      
+              right             - right neighbor nodes of each node in the scene graph;
+                                  list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                                  node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                                  its right neighbor.
+
+      Pred_agents : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes boolean value, and is true
+          if it expected by the framework that a prediction will be made for the specific agent.
+          
+          If only one agent has to be predicted per sample, for **img** and **img_m_per_px**, :math:`N_{agents} = 1` will
+          be returned instead, and the agent to predicted will be the one mentioned first in **X** and **T**.
+      num_steps : int
+          This is the number of future timesteps provided in the case of traning in expected in the case of prediction. In the 
+          former case, it has the value :math:`N_{O}`.
+      Sample_id : np.ndarray
+          This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+          in the dataset this sample was extracted.
+      Agent_id : np.ndarray
+          This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+          original agent in the dataset this agent was extracted (for corresponding string names see self.data_set.Agents).
+          
+          
+      Returns
+      -------
+      GT_log_probs : np.ndarray
+          This is a :math:`\{N_{samples} \times M_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, with 
+          the model assigned log likelihoods. Here, :math:`M_{agents} = N_{agents}` if **self.predict_single_agent** = *False* (i. e., 
+          the model expects marginal likelihoods), while joint likelihoods are expected for the case of **self.predict_single_agent** = 
+          *True*, (resulting in :math:`M_{agents} = 1`). In the former cases, this can include np.nan values for non predicted agents.
+      
+      '''
+
+      ...
+
+      return GT_log_probs          
+```
+
+It is important to note that those metrics often assume normalized probability density functions. If this cannot be guaranteed by the model, the resulting metric comparisons might be meaningless.
+
+
 ## Making predictions for adversarial attacks
 If [adversarial attacks](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Perturbation_methods) are created for the prediction model, it is necessary to write a function that makes predictions on batches. However, if one wants to test the model on a perturbed dataset, this function is not needed.
 
@@ -491,7 +677,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
     (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
     instead be np.nan.
-  C : np.ndarray
+  C : np.ndarray, optional
     Optional return provided when return_categories = True. 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
     category of agent observed, where the categories are dataset specific.
@@ -579,10 +765,10 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
   num_steps : int
     This is the number of future timesteps provided in the case of training and expected in the case of prediction.
     In the former case, it has the value :math:`N_{O}`.
-  Sample_id : np.ndarray, optional
+  Sample_id : np.ndarray
     This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
     in the dataset this sample was extracted.
-  Agent_id : np.ndarray, optional
+  Agent_id : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
     original agent in the dataset this agent was extracted (for corresponding string names see self.data_set.Agents).
   epoch_done : bool
@@ -604,7 +790,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
 
 ```
 ```
-def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None):
+def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None, Log_probs = None):
   r'''
   This function allows the saving of predicted trajectories to be later used for model evaluation. It should
   only be used during the *predict_method()* part of a trajectory prediction model.
@@ -616,10 +802,10 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
     :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array
     with float values. If an agent is not to be predicted, then this can include np.nan values.
     The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
-  Sample_id : np.ndarray, optional
+  Sample_id : np.ndarray
     This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which
     original sample in the dataset this sample was extracted.
-  Agent_id : np.ndarray, optional
+  Agent_id : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those
     indicate from which original agent in the dataset this agent was extracted.
   Pred_agents : np.ndarray, optional
@@ -628,6 +814,15 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
     
     This input does not have to be provided if the model can only predict one single agent at the same time and
     is therefore incapable of joint predictions. In this case, None is assumed as the value.
+  Log_probs : np.ndarray, optional
+    This is a :math:`\{N_{samples} \times M_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, 
+    with the model assigned log likelihoods. Here, :math:`M_{agents} = N_{agents}` if **self.predict_single_agent** = *False* 
+    (i. e., the model expects marginal likelihoods), while joint likelihoods are expected for the case of 
+    **self.predict_single_agent** = *True*, (resulting in :math:`M_{agents} = 1`). In the former cases, this can include 
+    np.nan values for non predicted agents.
+    
+    This input does not have to be provided if the model does not predict likelihoods, but is expected otherwise, i. e., if the 
+    model has the function *self.provides_likelihoods()* and it is defined to return *True*.
 
   Returns
   -------

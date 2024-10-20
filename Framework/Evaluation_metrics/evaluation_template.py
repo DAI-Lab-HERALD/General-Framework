@@ -98,6 +98,7 @@ class evaluation_template():
         else:
             Agents = np.array(self.data_set.Agents)
             self.Output_path_pred = Output_pred[1][Agents]
+            self.Output_path_pred_probs = Output_pred[2][Agents]
         
         return True
     
@@ -696,33 +697,76 @@ class evaluation_template():
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
         
-        if joint_agents:
-            self.model._get_joint_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
-                                                         self.get_output_type() == 'path_all_wo_pov')
+        # Get useful samples
+        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
+                                                   self.get_output_type() == 'path_all_wo_pov')
+        Pred_step = self.model.Pred_step
+        Pred_agent = Pred_step.any(-1)
+        
+        # Test the provided probabilities
+        Output_path_probs = self.Output_path_pred_probs[self.data_set.Agents].to_numpy()
+        
+        # Adjust sorting
+        agents_id = self.model.Pred_agent_id
+        sample_id = np.tile(np.arange(len(agents_id))[:,np.newaxis], (1, agents_id.shape[1]))
+        Output_path_probs = Output_path_probs[sample_id, agents_id]
+        
+        Output_path_probs_useful = np.stack(list(Output_path_probs.values[Pred_agent]), axis = 0) # num_pred_agents x num_preds
+        
+        use_given_values = np.isfinite(Output_path_probs_useful).all()
+        
+        if use_given_values:
+            Output_path_probs_array = np.full((*agents_id.shape, Output_path_probs_useful.shape[-1]), np.nan, np.float32)
+            Output_path_probs_array[Pred_agent] = Output_path_probs_useful # Num_samples x num_agents x num_preds
             
-            KDE_pred_log_prob_true = self.model.Log_prob_joint_true[:,:,np.newaxis]
-            KDE_pred_log_prob_pred = self.model.Log_prob_joint_pred[:,:,np.newaxis]
+            Diff = np.abs(Output_path_probs_array[:,[0]] - Output_path_probs_array)
+            
+            joint_samples_given = np.nanmax(Diff) < 1e-3
+            
+            Output_path_probs_array = Output_path_probs_array.transpose(0,2,1) # num_Samples x num_preds x num_agents
+            
+            if joint_agents:
+                if joint_samples_given:
+                    # First agent shoudl always be defined
+                    KDE_pred_log_prob = Output_path_probs_array[...,[0]]
+                else:
+                    # For marginal predictin models, assume independence, so we can add stuff together
+                    KDE_pred_log_prob = np.nansum(Output_path_probs_array, axis = -1, keepdims=True)
+            
+            else:
+                if joint_samples_given:
+                    # Assume equal contribution from each sample
+                    KDE_pred_log_prob = Output_path_probs_array / Pred_agent.sum(-1)[:,np.newaxis, np.newaxis]
+                else:
+                    KDE_pred_log_prob = Output_path_probs_array
+            
+            # Divide into log probs of predictions and ground truths
+            KDE_pred_log_prob_pred = KDE_pred_log_prob[:,:-1]
+            KDE_pred_log_prob_true = KDE_pred_log_prob[:,[-1]]
             
         else:
-            self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
-                                                         self.get_output_type() == 'path_all_wo_pov')
-            
-            KDE_pred_log_prob_true = self.model.Log_prob_indep_true
-            KDE_pred_log_prob_pred = self.model.Log_prob_indep_pred
+            if joint_agents:
+                self.model._get_joint_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
+                                                                self.get_output_type() == 'path_all_wo_pov')
+                    
+                KDE_pred_log_prob_true = self.model.Log_prob_joint_true[:,:,np.newaxis] # num_samples x 1 x 1
+                KDE_pred_log_prob_pred = self.model.Log_prob_joint_pred[:,:,np.newaxis] # num_Samples x num_preds x 1
+                
+            else:
+                self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
+                                                            self.get_output_type() == 'path_all_wo_pov')
+                
+                KDE_pred_log_prob_true = self.model.Log_prob_indep_true # num_samples x 1 x num_agents
+                KDE_pred_log_prob_pred = self.model.Log_prob_indep_pred # num_Samples x num_preds x num_agents
 
         # Get the KDE probabilities corresponding to the selected trajectory samples        
         if not hasattr(self, 'pred_idx'):
             self.pred_index = np.arange(self.data_set.num_samples_path_pred)
 
         KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[:, self.pred_idx]
-        
-        # Get useful samples
-        self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
-                                                   self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step
 
         # Get samples where a prediction is actually useful
-        Use_samples = Pred_step.any(-1).any(-1)
+        Use_samples = Pred_agent.any(-1)
 
         KDE_pred_log_prob_true = KDE_pred_log_prob_true[Use_samples]
         KDE_pred_log_prob_pred = KDE_pred_log_prob_pred[Use_samples]
