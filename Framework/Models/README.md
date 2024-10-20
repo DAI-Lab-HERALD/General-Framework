@@ -231,7 +231,7 @@ This function can schematically be written as
 
 
 ## Predicting likelihoods
-Some common metrics like do not only require the predictions by the model, but also their respective (log) likelihoods according to the underlying distribution. While the framework provides an advanced KDE-based method for their estimation, some models are also capable to produce those values. For the framework to interact with them, it is then necessary to define the following two functions.
+Some common metrics like do not only require the predictions by the model, but also their respective (log) likelihoods according to the underlying distribution. While the framework provides an [advanced KDE-based method for their estimation](https://github.com/anna-meszaros/ROME/tree/main/rome), some models are also capable to produce those values. For the framework to interact with them, it is then necessary to define the following two functions.
 
 
 ```
