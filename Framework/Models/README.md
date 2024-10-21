@@ -253,7 +253,7 @@ Some common metrics like do not only require the predictions by the model, but a
 
     return can_make_prob_prediction
       
-  def calculate_log_likelihoods(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 
+  def calculate_log_likelihoods(self, X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 
       r'''
       Given an batch of input, the model calculates the predicted probability density function. This is 
       then applied to the provided ground truth trajectories.

@@ -2032,14 +2032,14 @@ class model_template():
                 C = None
             if mode == 'pred':
                 if self.predict_path_probs:
-                    self.batch_data = [X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
+                    self.batch_data = [X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
                 return X,    T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
                 if self.predict_path_probs:
-                    self.batch_data = [X, T, S, None, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
+                    self.batch_data = [X, Y, T, S, None, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
                 return X,    T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
@@ -3470,7 +3470,7 @@ class model_template():
         
         raise AttributeError('Has to be overridden in actual model.')
         
-    def calculate_log_likelihoods(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 
+    def calculate_log_likelihoods(self, X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 
         r'''
         Given an batch of input, the model calculates the predicted probability density function. This is 
         then applied to the provided ground truth trajectories.
