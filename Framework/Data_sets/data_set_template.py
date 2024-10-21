@@ -475,16 +475,17 @@ class data_set_template():
                                    columns = ['sample_index', 'agent_index', 'time_index'] + self.path_data_info())
         
         # Get num timesteps
-        num_timesteps = np.array([len(t) for t in T])
-        unique_num_timesteps = np.unique(num_timesteps)
+        Num_timesteps = np.array([len(t) for t in T])
+        unique_num_timesteps = np.unique(Num_timesteps)
         
         # Go through unique number of timesteps
-        for num_timesteps in unique_num_timesteps:
-            used_samples = np.where(num_timesteps == num_timesteps)[0]
+        for i, num_timesteps in enumerate(unique_num_timesteps):
+            print('Unique timesteps iteration: {:4.0f}/{}'.format(i, len(unique_num_timesteps)))
+            used_samples = np.where(num_timesteps == Num_timesteps)[0]
             
             # Get the paths with this specific number of timesteps
             Path_samples = Path.iloc[used_samples]
-            Path_samples_non_nan = Path_samples.isna()
+            Path_samples_non_nan = ~Path_samples.isna()
             
             # Get the actually existing agents
             Sample_id, Agent_id = np.where(Path_samples_non_nan) # num_agents
@@ -508,7 +509,6 @@ class data_set_template():
             Path_helper = Path_helper.reindex(np.concatenate([Path_helper.index, locs]))
             
             # Write in the specific indices
-            Path_helper.loc[locs, ]
             Path_helper.loc[locs, 'sample_index'] = sample_id
             Path_helper.loc[locs, 'agent_index'] = agent_id
             Path_helper.loc[locs, 'time_index'] = useful_timesteps
