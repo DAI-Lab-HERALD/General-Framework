@@ -480,7 +480,6 @@ class data_set_template():
         
         # Go through unique number of timesteps
         for i, num_timesteps in enumerate(unique_num_timesteps):
-            print('Unique timesteps iteration: {:4.0f}/{}'.format(i, len(unique_num_timesteps)))
             used_samples = np.where(num_timesteps == Num_timesteps)[0]
             
             # Get the paths with this specific number of timesteps
