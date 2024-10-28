@@ -237,12 +237,19 @@ class JSD_traj_indep(evaluation_template):
     
     def plot_results(self, Path_in, Path_out, Log, Pred_step, ax, x_lim, y_lim, max_samples):
         # Combine samples and predictions
-        Path_out = Path_out.reshape(-1, *Path_out.shape[2:])
-        Log      = Log.reshape(-1, *Log.shape[2:])
+        # Path_out.shape = num_samples x num_preds x num_agents x n_O x 2
+        # Log.shape      = num_samples x num_preds x num_agents
+
+        num_samples, num_preds = Path_out.shape[:2]
+
+        # For each sample, select one prediction randomly
+        I = np.random.randint(num_preds, size = num_samples) # shape = num_samples
+        Path_out = Path_out[np.arange(num_samples), I]
+        Log      = Log[np.arange(num_samples), I]
         
         # Path_in.shape  = num_agents x n_I x 2
-        # Path_out.shape = (n_samples * n_preds) x num_agents x n_O x 2
-        # Log.shape      = (n_samples * n_preds) x num_agents
+        # Path_out.shape = n_samples x num_agents x n_O x 2
+        # Log.shape      = n_samples x num_agents
         
         # plot input
         for i in range(Path_in.shape[0]):
