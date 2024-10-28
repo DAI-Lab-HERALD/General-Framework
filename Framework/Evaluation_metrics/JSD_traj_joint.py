@@ -255,7 +255,7 @@ class JSD_traj_joint(evaluation_template):
         Log_plot  = Log[Indices]
         Path_plot = Path_out[Indices]
         
-        I_sort = np.argsort(Log_plot)
+        I_sort = np.argsort(Log_plot[:,0])
         
         Log_plot  = Log_plot[I_sort]
         Path_plot = Path_plot[I_sort]
