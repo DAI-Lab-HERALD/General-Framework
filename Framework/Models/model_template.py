@@ -929,6 +929,7 @@ class model_template():
         '''
         Returns scene graph data 
         '''
+        # X.shape = (num_samples, num_agents, 2)
         # try/except is unreliable, so we have to check preemtively if enough memory is available
         available_memory = self.data_set.total_memory - get_used_memory()
 
@@ -1309,15 +1310,12 @@ class model_template():
 
                 # Get the needed agent data
                 Data_index_needed = Data_index_array[self.Pred_agents]
-                X_last_all[self.Pred_agents] = X_last[Data_index_needed]
-
-                # Get the nan mean values over the agents
-                X_last_mean = np.nanmean(X_last_all, 1) # num_samples, 2
+                X_last_all[self.Pred_agents] = X_last[Data_index_needed] 
 
                 if hasattr(self, 'sceneGraph_radius'):
-                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_mean, self.sceneGraph_radius)
+                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_all, self.sceneGraph_radius)
                 else:
-                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_mean)
+                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_all)
                 self.graph_needed_sample = np.arange(len(self.ID))
             else:
                 self.graph = None
@@ -1991,11 +1989,11 @@ class model_template():
 
             if self.use_graph_batch_extraction:
                 domain = self.data_set.Domain.iloc[Sample_id]
-                X_last_mean = np.nanmean(X[...,-1,:2], 1)
+                X_last_all = X[...,-1,:2] # num_samples x num_agents x 2
                 if hasattr(self, 'sceneGraph_radius'):
-                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_mean, self.sceneGraph_radius)
+                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all, self.sceneGraph_radius)
                 else:
-                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_mean)
+                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all)
 
                 if unsuccesful:
                     MemoryError('Not enough memory to extract graphs even with batches.' )

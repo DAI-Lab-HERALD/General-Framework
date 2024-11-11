@@ -3651,10 +3651,10 @@ class data_set_template():
 
     def cut_sceneGraph(self, loc_Graph, X, radius):
         # loc_Graph: SceneGraph of the location, as a pandas dataframe
-        # X: Position of the agent in the location, with shape 2
+        # X: Position of the agents in the location, with shape num_agents x 2
         # radius: Radius of the scene graph, in meters
 
-        X_a = X[np.newaxis, :]
+        X_a = X[np.newaxis, :] # shape = (1, num_agents, 2)
 
         # Get contents of loc_Graph
         num_nodes = loc_Graph.num_nodes + 0 # Number of nodes in the scene graph
@@ -3672,20 +3672,19 @@ class data_set_template():
         Keep_nodes = np.zeros(num_nodes, bool)
 
         for lane_id in range(len(left_boundaries)):
-            left_pts = left_boundaries[lane_id]
-            right_pts = right_boundaries[lane_id]
-            centerline_pts = centerlines[lane_id]
+            left_pts = left_boundaries[lane_id] # shape = (num_points, 2)
+            right_pts = right_boundaries[lane_id] # shape = (num_points, 2)
+            centerline_pts = centerlines[lane_id] # shape = (num_points, 2)
 
-            # Get remaining points
-            dist_left = np.linalg.norm(left_pts - X_a, axis = 1)
-            dist_right = np.linalg.norm(right_pts - X_a, axis = 1)
-            dist_center = np.linalg.norm(centerline_pts - X_a, axis = 1)
+            # Get distance to agents (nanmin over the agents)
+            dist_left   = np.nanmin(np.linalg.norm(left_pts[:,np.newaxis] - X_a, axis = -1), axis = 1)
+            dist_right  = np.nanmin(np.linalg.norm(right_pts[:,np.newaxis] - X_a, axis = -1), axis = 1)
+            dist_center = np.nanmin(np.linalg.norm(centerline_pts[:,np.newaxis] - X_a, axis = -1), axis = 1)
 
             # Check if the agent is within the radius
             keep_left = dist_left < radius
             keep_right = dist_right < radius
             keep_center = dist_center < radius
-
 
             # Check if the agent is to be kept at all
             if keep_center.sum() < 2:
