@@ -280,7 +280,7 @@ class fjmp_rowe(model_template):
         self.max_t_O_train = 100
         self.predict_single_agent = False
         self.can_use_map = False
-        self.can_use_graph = True
+        self.can_use_graph = False#True
 
         seed = self.model_kwargs["seed"]
         random.seed(seed)
@@ -296,20 +296,37 @@ class fjmp_rowe(model_template):
         data_old = data.copy()
         assert np.array_equal(self.input_data_type[:2], ['x', 'y']), "Input data type does not start with ['x', 'y']"
 
-        data = np.concatenate([data[...,:2], np.zeros(data.shape[:3] + (3,))], axis = -1)
+        data = np.concatenate([data[...,:2], np.full(data.shape[:3] + (3,), np.nan)], axis = -1)
+        missing_timesteps_start = np.isfinite(data[...,:2]).all(-1).argmax(-1) # Num agents x num samples 
+        missing_timesteps_end = missing_timesteps_start + np.isfinite(data[...,:2]).all(-1).sum(-1)
+
         if 'v_x' in self.input_data_type:
             v_x_id = self.input_data_type.index('v_x')
             data[...,2] = data_old[...,v_x_id]
         else:
+            for (missing_timestep_start, missing_timestep_end) in np.unique(np.stack([missing_timesteps_start, missing_timesteps_end], -1).reshape(-1,2), axis = 0):
+                if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                    mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                    data[mask, missing_timestep_start:missing_timestep_end, 2] = np.gradient(data[mask, missing_timestep_start:missing_timestep_end, 0], axis = -1)
+                elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                    mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                    data[mask, missing_timestep_start, 2] = 0
             # Use differentation along 'x' axis to get v_x
-            data[...,2] = np.gradient(data[...,0], axis = -1)
+            # data[...,2] = np.gradient(data[...,0], axis = -1)
         
         if 'v_y' in self.input_data_type:
             v_y_id = self.input_data_type.index('v_y')
             data[...,3] = data_old[...,v_y_id]
         else:
+            for (missing_timestep_start, missing_timestep_end) in np.unique(np.stack([missing_timesteps_start, missing_timesteps_end], -1).reshape(-1,2), axis = 0):
+                if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                    mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                    data[mask, missing_timestep_start:missing_timestep_end, 3] = np.gradient(data[mask, missing_timestep_start:missing_timestep_end, 1], axis = -1)
+                elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                    mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                    data[mask, missing_timestep_start, 3] = 0
             # Use differentation along 'y' axis to get v_y
-            data[...,3] = np.gradient(data[...,1], axis = -1)
+            # data[...,3] = np.gradient(data[...,1], axis = -1)
         
         if 'theta' in self.input_data_type:
             theta_id = self.input_data_type.index('theta')
@@ -317,6 +334,8 @@ class fjmp_rowe(model_template):
         else:
             # Use atan2 between v_y and v_x to get theta
             data[...,4] = np.arctan2(data[...,3], data[...,2])
+
+        assert (np.isfinite(data).all(-1) == np.isfinite(data).any(-1)).all(), "Rearranging input data failed"
         return data
 
 
@@ -554,6 +573,18 @@ class fjmp_rowe(model_template):
                 # X.shape:   bs x num_agents x num_timesteps_is x 2
                 # Y.shape:   bs x num_agents x num_timesteps_is x 2
                 # T.shape:   bs x num_agents 
+
+                # X[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+                # T[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = '0'
+                # Y[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+
+                # if S is not None:
+                #     S[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+
+                # if C is not None:
+                #     C[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = 4
+
+
                 data = self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
@@ -570,7 +601,6 @@ class fjmp_rowe(model_template):
                     stage_1_graph = None
 
                 dd = {key:gpu(_data) for key,_data in dd.items()}
-                print("Batch number of samples: ", dd['batch_size'])
               
                 ig_dict = {}
                 ig_dict["ig_labels"] = dd["ig_labels"] 
@@ -614,6 +644,16 @@ class fjmp_rowe(model_template):
                                                                                         val_split_size = 0.1, return_categories=True)
                 
 
+                # X[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+                # T[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = '0'
+                # Y[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+
+                # if S is not None:
+                #     S[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
+
+                # if C is not None:
+                #     C[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = 4
+
                 data = self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=Y, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id) # TODO check if correct
 
                 # graph_id = self.data_set.Domain.graph_id.iloc[Sample_id].values
@@ -630,7 +670,6 @@ class fjmp_rowe(model_template):
                     stage_1_graph = None
 
                 dd = {key:gpu(_data) for key,_data in dd.items()}
-                print("Batch number of samples: ", dd['batch_size'])
               
                 ig_dict = {}
                 ig_dict["ig_labels"] = dd["ig_labels"] 
@@ -777,6 +816,16 @@ class fjmp_rowe(model_template):
             # tot_log = self.num_val_samples // (self.batch_size * hvd.size())            
             while not prediction_done:
                 X, T, S, C, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['batch_size'], return_categories=True)
+                
+                # X[np.isnan(X).any((2,3))] = np.nan
+                # T[np.isnan(X).any((2,3))] = '0'
+
+                # if S is not None:
+                #     S[np.isnan(X).any((2,3))] = np.nan
+
+                # if C is not None:
+                #     C[np.isnan(X).any((2,3))] = 4
+                
                 data =  self.extract_batch_data(X=X, T=T, S=S, C=C, Pred_agents = Pred_agents, Y=None, graph=graph, Sample_id=Sample_id, Agent_id=Agent_id)
         
                 dd = self.model.process(data)
