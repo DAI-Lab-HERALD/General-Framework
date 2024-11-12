@@ -972,6 +972,77 @@ class data_interface(object):
                 (self.num_timesteps_out_real == 12) and
                 (self.dt == 0.5) and 
                 (self.t0_type in ['all', 'all_1'])):
+
+                # Get recorded agents
+                if self.data_in_one_piece:
+                    Recorded_agents = np.zeros(Needed_agents.shape, bool)
+                    # Get the number of timesteps in each sample
+                    N_O_data = np.array([len(output_T) for output_T in self.Output_T])
+                    
+                    # Go through unique number of output timesteps
+                    for n_o in np.unique(N_O_data):
+                        use_samples = np.where(N_O_data == n_o)[0]
+                        use_recorded = self.Recorded.iloc[use_samples]
+
+                        # Get the non nan cells
+                        use_rec_index, use_rec_agent = np.where(use_recorded.notna())
+
+                        # Get agent that are fully observed
+                        Allowable = np.stack(use_recorded.to_numpy()[use_rec_index, use_rec_agent], 0).all(-1)
+                        Recorded_agents[use_samples[use_rec_index], use_rec_agent] = Allowable
+                    
+                    # Get correct type 
+                    if self.agents_to_predict != 'all':
+                        Correct_type_agents = self.Type.to_numpy() == self.agents_to_predict
+                    else:
+                        Correct_type_agents = np.ones(Needed_agents.shape, bool)
+                else:
+                    Recorded_agents     = np.zeros((len(self.Domain), len(self.Agents)), bool)
+                    Correct_type_agents = np.zeros((len(self.Domain), len(self.Agents)), bool)
+                    
+                    for file_index in range(len(self.Files)):
+                        used = self.Domain.file_index == file_index
+                        used_index = np.where(used)[0]
+                        
+                        # Get corresponding agent files
+                        agent_file = self.Files[file_index] + '_AM.npy'
+                        data_file = self.Files[file_index] + '_data.npy'
+                        
+                        # Load the agent files
+                        Agent_data = np.load(agent_file, allow_pickle=True)
+                        if len(Agent_data) == 3:
+                            [Type_local, Recorded_local, _] = Agent_data
+                        else:
+                            assert len(Agent_data) == 4, 'Agent data should have 3 or 4 entries.'
+                            [Type_local, _, Recorded_local, _] = Agent_data
+
+                        # Load Output_T
+                        [_, _, _, _, Output_T, _, _, _, _] = np.load(data_file, allow_pickle=True)
+
+                        
+                        # Get the corresponding indices
+                        ind_saved = self.Domain[used].Index_saved
+                        Type_local     = Type_local.loc[ind_saved]
+                        Recorded_local = Recorded_local.loc[ind_saved]
+                        Output_T       = Output_T[ind_saved]
+
+                        # Get the agent indices
+                        agent_index = self.get_indices_1D(Type_local.columns.to_numpy(), np.array(self.Agents))
+
+                        # Get the number of timesteps in each sample
+                        N_O_data = np.array([len(output_T) for output_T in Output_T])
+                        
+                        # Go through unique number of output timesteps
+                        for n_o in np.unique(N_O_data):
+                            use_samples = np.where(N_O_data == n_o)[0]
+                            use_recorded = Recorded_local.iloc[use_samples]
+
+                            # Get the non nan cells
+                            use_rec_index, use_rec_agent = np.where(use_recorded.notna())
+
+                            # Get agent that are fully observed
+                            Allowable = np.stack(use_recorded.to_numpy()[use_rec_index, use_rec_agent], 0).all(-1)
+                            Recorded_agents[used_index[use_samples[use_rec_index]], agent_index[use_rec_agent]] = Allowable
                 
                 # Get predefined predicted agents for NuScenes
                 Pred_agents_N = np.zeros(Needed_agents.shape, bool)
@@ -990,8 +1061,8 @@ class data_interface(object):
 
                     Pred_agents_N[i_sample, i_agents] = pa
                 
-                self.Pred_agents_eval_all = Pred_agents_N
-                self.Pred_agents_pred_all = Pred_agents_N | Needed_agents
+                self.Pred_agents_eval_all = (Pred_agents_N & Recorded_agents)
+                self.Pred_agents_pred_all = (Pred_agents_N & Recorded_agents) | Needed_agents
             
             
         if not hasattr(self, 'Not_pov_agent'):
