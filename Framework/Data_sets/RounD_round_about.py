@@ -88,7 +88,7 @@ class RounD_round_about(data_set_template):
                 lane_type_val = 'PEDESTRIAN'
                 is_intersection = False
             elif ll.attributes['subtype'] == 'bicycle_lane':
-                lane_type_val = 'BICYCLE'
+                lane_type_val = 'BIKE'
                 is_intersection = False
             elif ll.attributes['subtype'] == 'emergency_lane':
                 continue

@@ -4475,8 +4475,9 @@ class data_set_template():
                                 direction of the current lane.
         
             lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
-                                where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the second
-                                entry is a boolean, which is true if the lane segment is part of an intersection.
+                                where the first element is a string that is either *'VEHILCE'*, *'BIKE'*, '*PEDESTRIAN*', 
+                                or '*BUS*', and the second entry is a boolean, which is true if the lane segment is part of 
+                                an intersection.
 
             pre               - predecessor nodes of each node in the scene graph;
                                 list of dictionaries where the length of the list is equal to the number of scales for the neighbor
