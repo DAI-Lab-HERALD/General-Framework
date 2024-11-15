@@ -1655,19 +1655,22 @@ class Experiment():
         use_input = np.in1d(ind_p, ind_pp)
         
         opp = np.stack(output_path_pred[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x n_p x n_O x 2
-        opp_probs = np.stack(output_path_pred_probs[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x (n_p + 1)
+        opp_probs = np.stack(output_path_pred_probs[ind_pp].to_numpy().tolist(), 0).astype(float) # n_samples x n_a x (n_p + 1)
+        if len(opp_probs.shape) == 2:
+            assert opp_probs.shape[:2] == opp.shape[:2]
+            opp_probs = opp_probs[...,np.newaxis].repeat(opp.shape[2] + 1, axis = -1)
         # Remove ground truth predictions
-        opp = opp[:, :, :-1]
+        opp_probs = opp_probs[:, :, :-1]
 
         # Combine identical samples and number path predicted into one dimension
         opp = opp.transpose(0,2,1,3,4).reshape(opp.shape[0] * opp.shape[2], opp.shape[1], opp.shape[3], opp.shape[4])
-        opp_probs = opp_probs.transpose(0,2,1).reshape(opp.shape[0] * opp.shape[2], opp.shape[1])
+        opp_probs = opp_probs.transpose(0,2,1).reshape(opp.shape[0], opp.shape[1])
 
-        max_v = np.nanmax(np.stack([np.max(opp, axis = (0,1,2)),
-                                    np.max(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
+        max_v = np.nanmax(np.stack([np.nanmax(opp, axis = (0,1,2)),
+                                    np.max(ip[use_input,...,:2], axis = (0,1))], axis = 0), axis = 0)
         
-        min_v = np.nanmin(np.stack([np.min(opp, axis = (0,1,2)),
-                                    np.min(ip[use_input], axis = (0,1))], axis = 0), axis = 0)
+        min_v = np.nanmin(np.stack([np.nanmin(opp, axis = (0,1,2)),
+                                    np.min(ip[use_input,...,:2], axis = (0,1))], axis = 0), axis = 0)
 
         max_v = np.ceil(max_v)
         min_v = np.floor(min_v)
@@ -1888,7 +1891,7 @@ class Experiment():
             Output_A_file = np.load(file, allow_pickle = True)[6]
             ind = Domain.Index_saved.iloc[Index_file]
 
-            Output_A.iloc[Index_file] = Output_A_file.iloc[ind]
+            Output_A.iloc[Index_file] = Output_A_file.iloc[ind].to_numpy()
 
         sample_inds = self._select_testing_samples(data_set, load_all, Output_A, plot_similar_futures, Index)
 

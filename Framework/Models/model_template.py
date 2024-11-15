@@ -1990,6 +1990,7 @@ class model_template():
             if self.use_graph_batch_extraction:
                 domain = self.data_set.Domain.iloc[Sample_id]
                 X_last_all = X[...,-1,:2] # num_samples x num_agents x 2
+                X_last_all[~Pred_agents] = np.nan # Only consider pred agents
                 if hasattr(self, 'sceneGraph_radius'):
                     graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all, self.sceneGraph_radius)
                 else:
@@ -3465,7 +3466,7 @@ class model_template():
             The boolean value depicting the ability of the model to calculate log likelihoods.
       
         '''
-        
+        return False #TODO: Remove
         raise AttributeError('Has to be overridden in actual model.')
         
     def calculate_log_likelihoods(self, X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id): 

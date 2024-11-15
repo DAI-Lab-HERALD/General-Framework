@@ -706,12 +706,13 @@ class evaluation_template():
         # Test the provided probabilities
         Output_path_probs = self.Output_path_pred_probs[self.data_set.Agents].to_numpy()
         
+        
         # Adjust sorting
         agents_id = self.model.Pred_agent_id
         sample_id = np.tile(np.arange(len(agents_id))[:,np.newaxis], (1, agents_id.shape[1]))
         Output_path_probs = Output_path_probs[sample_id, agents_id]
         
-        Output_path_probs_useful = np.stack(list(Output_path_probs.values[Pred_agent]), axis = 0) # num_pred_agents x num_preds
+        Output_path_probs_useful = np.stack(list(Output_path_probs[Pred_agent]), axis = 0).astype(np.float32) # num_pred_agents x num_preds
         
         use_given_values = np.isfinite(Output_path_probs_useful).all()
         
