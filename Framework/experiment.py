@@ -1591,7 +1591,7 @@ class Experiment():
         return model
         
     
-    def _get_data_sample(self, sample_ind, data_set, Output_A, Domain):
+    def _get_data_sample(self, sample_ind, data_set, model, Output_A, Domain):
         
         domain           = Domain.loc[sample_ind]
         output_A         = Output_A.loc[sample_ind]
@@ -1631,13 +1631,23 @@ class Experiment():
         else:
             img = None
 
+        if data_set.includes_sceneGraphs():
+            if hasattr(model, 'sceneGraph_radius'):
+                radius = model.sceneGraph_radius
+            else:
+                radius = None
+            graph = data_set.return_batch_sceneGraphs(domain.iloc[[0]], ip[np.newaxis, :, -1], radius) 
+            graph = graph[0]
+        else:
+            graph = None
+
         # Ensure that op is not longer than 3000 samples
         if len(op) > 3000:
             np.random.seed(0)
             np.random.shuffle(op)
             op = op[:3000]
             
-        return [op, ip, ind_p, output_A, output_T_E, img, domain]
+        return [op, ip, ind_p, output_A, output_T_E, img, graph, domain]
     
     
     def _get_data_sample_pred(self, model, Index, ip, ind_p):
@@ -1686,7 +1696,7 @@ class Experiment():
         return [opp, opp_probs, ind_pp, min_v, max_v]
             
     
-    def _draw_background(self, ax, data_set, img, domain):
+    def _draw_background(self, ax, data_set, img, graph, domain):
         # Load line segments of data_set 
         map_lines_solid, map_lines_dashed = data_set.provide_map_drawing(domain = domain.iloc[0])
         
@@ -1711,6 +1721,13 @@ class Experiment():
         if data_set.includes_images():
             height, width, _ = list(np.array(img.shape) * data_set.get_Target_MeterPerPx(domain.iloc[0]))
             ax.imshow(img, extent=[-width/2, width/2, -height/2, height/2], interpolation='nearest')
+
+        if data_set.includes_sceneGraphs():
+            # Draw only centerlines 
+            centerlines = graph.centerlines
+
+            for centerline in centerlines:
+                ax.plot(centerline[:,0], centerline[:,1], 'k', linewidth = 2)
         
         # Draw boundaries
         ax.add_collection(map_solid)
@@ -1900,7 +1917,7 @@ class Experiment():
         for sample_name, sample_ind in sample_inds: 
 
             [op, ip, ind_p,  
-             output_A, output_T_E, img, domain] = self._get_data_sample(sample_ind, data_set, Output_A, Domain)
+             output_A, output_T_E, img, graph, domain] = self._get_data_sample(sample_ind, data_set, model, Output_A, Domain)
             
                                                                         
             [opp, Lp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p)
@@ -1929,7 +1946,7 @@ class Experiment():
             fig, ax = plt.subplots(figsize = (10,8))            
             
             # plot map
-            self._draw_background(ax, data_set, img, domain)
+            self._draw_background(ax, data_set, img, graph, domain)
             
             # plot inputs
             colors = sns.color_palette("bright", len(ind_p))
