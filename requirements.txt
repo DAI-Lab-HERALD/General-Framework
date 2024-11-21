@@ -4,6 +4,7 @@ attrdict==2.0.1
 ax_platform==0.3.3
 dill==0.3.6
 easydict==1.10
+einops==0.8.0
 glob2==0.7
 google-auth-oauthlib==0.4.2
 google-pasta==0.2.0
@@ -14,6 +15,7 @@ ncls==0.0.67
 networkx==3.1
 numpy==1.23.5
 nuscenes_devkit==1.1.9
+omegaconf==2.3.0
 opencv_contrib_python==4.7.0.72
 opencv_contrib_python_headless==4.8.0.76
 opencv_python==4.7.0.72

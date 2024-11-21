@@ -2,7 +2,9 @@
 In the framework, the following models are currently implemented:
 | Model | Input/Output | Description | Has kwargs |
 | :------------ |:---------------| :----- | :----- |
-| [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer based CVAE network. | No |
+| [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer with split agent and time attention. | No |
+| [AutoBot-Ego](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_unitraj.py) | Trajectories / Trajectories | A transformer with split agent and time attention (Joint predictions). | Yes |
+| [AutoBot-Joint](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_girgis.py) | Trajectories / Trajectories | A transformer based CVAE network. | Yes |
 | [Commotions](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/commotions_markkula.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Gap acceptance classifications | Combinations of optimal planning and evidence accumulation. | Yes |
 | [Deep Belief Network](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN.py) | Trajectories / Classifications | A simple deep belief network, i.e., a chain of random boltzmann machines. | No |
 | [Deep Belief Netowrk - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/DBN_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
@@ -10,9 +12,11 @@ In the framework, the following models are currently implemented:
 | [Logistic Regression](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos.py) | Trajectories / Classifications | Simple logistic regression | No |
 | [Logistic Regression - General](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/logit_theofilatos_general.py) | [Class distances](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) / Classifications | See above. | No |
 | [Motion Indeterminacy Diffusion](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/mid_gu.py) | Trajectories / Trajectories | Denoising Diffusion | Yes |
+| [MTR](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/mtr_unitraj.py) | Trajectories / Trajectories | Transformer with global intention clustering | Yes |
 | [PECNet](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/pecnet_mangalam.py) | Trajectories / Trajectories | Goal prediction followed by socially compliant trajectory inference. | Yes |
 | [Trajectron++](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajectron_salzmann_old.py) | Trajectories / Trajectories | LSTM based CVAE network. | Yes |
 | [TrajFlow](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/trajflow_meszaros.py) | Trajectories / Trajectories | Normalizing flow inside LSTM based autoencoder. | Yes |
+| [WayFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/watformer_unitraj.py) | Trajectories / Trajectories | Attention networks | Yes |
 
 
 

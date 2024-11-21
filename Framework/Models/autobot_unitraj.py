@@ -17,6 +17,17 @@ from torch.distributions import MultivariateNormal
 
 
 class autobot_unitraj(model_template):
+    '''
+    This is the version of Autobot-Ego. The code was taken from its implementation
+    in the Unitraj prediction framework 
+    (https://github.com/vita-epfl/UniTraj/tree/main/unitraj/models/autobot).
+    
+    The original paper is cited as:
+        
+    Girgis, R., Golemo, F., Codevilla, F., Weiss, M., D'Souza, J. A., Kahou, S. E., ... & Pal, C. 
+    Latent Variable Sequential Set Transformers for Joint Multi-Agent Motion Prediction. 
+    In International Conference on Learning Representations.
+    '''
     def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the model

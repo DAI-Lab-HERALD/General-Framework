@@ -15,6 +15,15 @@ from torch.distributions import Laplace
 
 
 class autobot_girgis(model_template):
+    '''
+    This is the version of Autobot-Joint, the joint prediction version of AutoBot. 
+    The code was taken from https://github.com/roggirg/AutoBots/tree/master, and
+    the work should be cited as:
+        
+    Girgis, R., Golemo, F., Codevilla, F., Weiss, M., D'Souza, J. A., Kahou, S. E., ... & Pal, C. 
+    Latent Variable Sequential Set Transformers for Joint Multi-Agent Motion Prediction. 
+    In International Conference on Learning Representations.
+    '''
     def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the model

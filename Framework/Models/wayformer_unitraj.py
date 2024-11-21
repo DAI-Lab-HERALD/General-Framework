@@ -17,6 +17,16 @@ from torch.distributions import MultivariateNormal
 
 
 class wayformer_unitraj(model_template):
+    '''
+    This is the version of Wayformer, implemented in the Unitraj prediction framework 
+    (https://github.com/vita-epfl/UniTraj/tree/main/unitraj/models/wayformer).
+    
+    The original paper is cited as:
+        
+    Nayakanti, N., Al-Rfou, R., Zhou, A., Goel, K., Refaat, K. S., & Sapp, B. (2023, May). 
+    Wayformer: Motion forecasting via simple & efficient attention networks. 
+    In 2023 IEEE International Conference on Robotics and Automation (ICRA) (pp. 2980-2987).
+    '''
     def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the model
