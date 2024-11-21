@@ -105,12 +105,13 @@ class model_template():
                 
                 self.pred_loc_file = self.model_file[:-4] + '--Predictions.npy'
                         
-            self.setup_method()
-            
             # Set trained to flase, this prevents a prediction on an untrained model
             self.trained = False
             self.extracted_data = False
             self.depict_results = False
+
+            # Initialize actual model
+            self.setup_method()
         else:
             self.depict_results = True
         
