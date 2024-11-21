@@ -2516,7 +2516,7 @@ class data_set_template():
                         
                         # If an agent does not move at all, then mark the first timestep as unrecorded
                         if available_pos.all():
-                            distances = np.linalg.norm(helper_path[agent][1:,:2] - helper_path[agent][:-1,:2], axis=-1)
+                            distances = np.linalg.norm(helper_path[agent][1:self.num_timesteps_in_real,:2] - helper_path[agent][:self.num_timesteps_in_real-1,:2], axis=-1)
                             if np.all(distances < 1e-2):
                                 available_pos[self.num_timesteps_in_real - 1] = False
                             
