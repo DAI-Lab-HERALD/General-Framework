@@ -450,9 +450,13 @@ class InD_direction(data_set_template):
             t = np.array(track_i.frame / 25)
             
             # collect domain data
-            domain = pd.Series(np.zeros(10, object), index = ['location', 'image_id', 'graph_id', 'rot_angle', 'x_center', 'y_center', 
+            domain = pd.Series(np.zeros(11, object), index = ['location', 'splitting', 'image_id', 'graph_id', 'rot_angle', 'x_center', 'y_center', 
                                                              'behavior', 'class', 'neighbor_veh', 'neighbor_ped'])
             domain.location    = agent_i.locationId
+            if np.mod(i,5) == 0:
+                domain.splitting = 'test'
+            else:
+                domain.splitting = 'train'
             domain.image_id    = agent_i.recordingId
             domain.graph_id    = len(self.Domain_old)
             domain.rot_angle   = angle

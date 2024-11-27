@@ -251,7 +251,7 @@ class RounD_round_about(data_set_template):
     
     def _create_path_sample(self, tar_track, ego_track, other_agents, frame_min, frame_max, 
                             ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
-                            original_angle, Rot_center, data_i, SceneGraphs_unturned):
+                            original_angle, Rot_center, data_i, SceneGraphs_unturned, path_id):
         
         tar_track_l = tar_track.loc[frame_min:frame_max].copy(deep = True)
         ego_track_l = ego_track.loc[frame_min:frame_max].copy(deep = True)
@@ -323,8 +323,12 @@ class RounD_round_about(data_set_template):
 
         t = np.array(tar_track_l.index / 25)
         
-        domain = pd.Series(np.zeros(8, object), index = ['location', 'image_id', 'graph_id', 'track_id', 'rot_angle', 'x_center', 'y_center', 'class'])
+        domain = pd.Series(np.zeros(9, object), index = ['location', 'splitting', 'image_id', 'graph_id', 'track_id', 'rot_angle', 'x_center', 'y_center', 'class'])
         domain.location  = data_i.locationId
+        if np.mod(path_id, 5) == 0:
+            domain.splitting = 'test'
+        else:
+            domain.splitting = 'train'
         domain.image_id  = data_i.recordingId
         domain.graph_id  = len(self.Domain_old)
         domain.track_id  = data_i.trackId
@@ -647,7 +651,7 @@ class RounD_round_about(data_set_template):
                 # Collect path data
                 self._create_path_sample(tar_track, ego_track, other_agents, frame_min, frame_max, 
                                          ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
-                                         original_angle, Rot_center, data_i, SceneGraphs_unturned)
+                                         original_angle, Rot_center, data_i, SceneGraphs_unturned, i)
                 
                 
             # Assume rejected gap
@@ -702,7 +706,7 @@ class RounD_round_about(data_set_template):
                 # Collect path data
                 self._create_path_sample(tar_track, ego_track, other_agents, frame_min, frame_max, 
                                          ego_id, v_1_id, v_2_id, v_3_id, v_4_id,
-                                         original_angle, Rot_center, data_i, SceneGraphs_unturned)
+                                         original_angle, Rot_center, data_i, SceneGraphs_unturned, i)
         
         self.Path = pd.DataFrame(self.Path)
         self.Type_old = pd.DataFrame(self.Type_old)

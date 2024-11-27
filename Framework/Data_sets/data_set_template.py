@@ -2129,15 +2129,15 @@ class data_set_template():
         # Determine the number of input timesteps (used and max required)
         if isinstance(num_timesteps, tuple):
             # Refers to sctual input data
-            num_timesteps_real = min(99, num_timesteps[0])
-            num_timesteps_need = max(num_timesteps_real, min(99, num_timesteps[1]))
+            num_timesteps_real = int(min(99, num_timesteps[0]))
+            num_timesteps_need = min(99, max(num_timesteps_real, num_timesteps[1]))
 
         # If only one value is given, assume that the required number of steps is identical
         elif isinstance(num_timesteps, int):
-            num_timesteps_real = min(99, num_timesteps)  # Refers to sctual input data
+            num_timesteps_real = int(min(99, num_timesteps))  # Refers to sctual input data
             num_timesteps_need = min(99, num_timesteps)  # Restrictions on t0
             
-        return int(num_timesteps_real), int(num_timesteps_need)
+        return num_timesteps_real, num_timesteps_need
     
     def set_extraction_parameters(self, t0_type, T0_type_compare, max_num_agents):
         assert isinstance(t0_type, str), "Prediction time method has to be a string."

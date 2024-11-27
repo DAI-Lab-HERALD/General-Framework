@@ -30,6 +30,8 @@ class splitting_template():
                     error_str = 'self.transform_str_to_number should return a list of integers.'
                     assert all((isinstance(x, np.int64) or isinstance(x, int)) for x in rep_numbers), error_str
                     self.repetition += rep_numbers
+                else:
+                    raise AttributeError('This splitting method cannot process string repetitions.')
             else:
                 raise TypeError('Repetitions must be integers or strings.')
         
