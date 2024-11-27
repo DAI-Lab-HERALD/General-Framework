@@ -20,7 +20,7 @@ CONTEXT_ENCODER:
 
 MOTION_DECODER:
   NAME: MTRDecoder
-  NUM_MOTION_MODES: 6
+  NUM_MOTION_MODES: 64
   D_MODEL: 512
   NUM_DECODER_LAYERS: 6
   NUM_ATTN_HEAD: 8
@@ -37,9 +37,9 @@ MOTION_DECODER:
   NMS_DIST_THRESH: 2.5
 
 # train
-max_epochs: 200 #40
+max_epochs: 40 
 learning_rate: 0.0001
-learning_rate_sched: [ 110, 120, 130, 140 ] # [ 22, 24, 26, 28 ]
+learning_rate_sched: [22, 24, 26, 28]
 optimizer: AdamW
 scheduler: lambdaLR
 grad_clip_norm: 1000.0

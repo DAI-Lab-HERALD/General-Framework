@@ -40,22 +40,28 @@ class MotionTransformer(nn.Module):
 
         self.motion_decoder = MTRDecoder(in_channels=self.context_encoder.num_out_channels, config=self.model_cfg.MOTION_DECODER)
 
-    def forward(self, batch):
+    def forward(self, batch, eval = False):
         enc_dict = self.context_encoder(batch)
         out_dict = self.motion_decoder(enc_dict)
 
-        mode_probs, out_dists = out_dict['pred_list'][-1]
         output = {}
 
         if self.training:
+            mode_probs, out_dists = out_dict['pred_list'][-1]
             output['predicted_probability'] = mode_probs  # #[B, c]
             output['predicted_trajectory'] = out_dists  # [B, c, T, 5] to be able to parallelize code
         else:
             output['predicted_probability'] = out_dict['pred_scores']  # #[B, c]
             output['predicted_trajectory'] = out_dict['pred_trajs']  # [B, c, T, 5] to be able to parallelize code
 
-        loss, tb_dict, disp_dict = self.motion_decoder.get_loss()
-        return output, loss
+        if eval:
+            mode_probs = output['predicted_probability']
+            if mode_probs.min() < 0 or mode_probs.max() > 1:
+                output['predicted_probability'] = torch.softmax(mode_probs, dim=-1)
+            return output
+        else:
+            loss, _, _ = self.motion_decoder.get_loss()
+            return output, loss
 
     def get_loss(self):
         loss, tb_dict, disp_dict = self.motion_decoder.get_loss()

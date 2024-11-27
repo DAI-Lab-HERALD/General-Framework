@@ -111,7 +111,8 @@ class model_template():
             self.depict_results = False
 
             # Initialize actual model
-            self.setup_method()
+            if not self.simply_load_results:
+                self.setup_method()
         else:
             self.depict_results = True
         

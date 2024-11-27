@@ -598,6 +598,10 @@ class mtr_unitraj(model_template):
             np.save(intermediate_file, [Weights_saved, self.train_loss, epoch])
         
         # Save model
+        Weights = list(self.model.parameters())
+        Weights_saved = []
+        for weigths in Weights:
+            Weights_saved.append(weigths.detach().cpu().numpy())
         self.weights_saved = Weights_saved
         
 
@@ -635,7 +639,7 @@ class mtr_unitraj(model_template):
 
     def predict_method(self):
         prediction_done = False
-        self.model.eval()
+        # self.model.eval()
         self.model.to(self.device)
 
         # Get range for stds
