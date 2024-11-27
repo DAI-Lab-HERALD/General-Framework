@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from splitting_template import splitting_template
+from no_split import no_split
 
 
 
@@ -64,6 +65,51 @@ class Dataset_split(splitting_template):
             return list(np.where(rep_str == Situation)[0])
         else:
             return []
+    
+    def alternative_train_split_file(self):
+        # If there is only one dataset that is part of the training set, 
+        # the model might allready be trained using no split
+
+        # Check if this is a connected dataset
+        if len(self.data_set.Datasets) > 1:
+            return None
+    
+        # Check how many datasets are part of the training set
+        Situations = self.Domain['Scenario']
+        Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
+
+        Situation_type_train = Situation_type[self.Train_index]
+
+        if len(np.unique(Situation_type_train)) > 1:
+            return None
+        
+        # Get training dataset
+        Dataset_used = Situation[self.Train_index[0]]
+        data_set_used = None
+        for data_set in self.data_set.Datasets:
+            data_set_name = data_set.get_name()['print']
+            # Check if Dataset_used starts with data_set_name
+            if Dataset_used.startswith(data_set_name):
+                data_set_used = data_set
+                break
+        
+        assert data_set_used is not None
+
+        # Get the corresponding splitting method
+        split_alternative = no_split(data_set_used, 
+                                     test_part = self.test_part,
+                                     repetition = (0), 
+                                     train_pert = self.train_pert, 
+                                     test_pert = self.test_pert, 
+                                     train_on_test = False 
+                                     )
+        
+        # Do the actual test
+        split_alternative.set_file_name()
+
+        return split_alternative.file_name
+
+        
         
         
 

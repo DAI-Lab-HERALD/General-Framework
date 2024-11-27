@@ -54,10 +54,14 @@ class splitting_template():
         self.train_pert    = train_pert
         self.test_pert     = test_pert
         self.train_on_test = train_on_test
-       
-    def split_data(self):
+
+
+    def set_file_name(self):
         self.split_file = self.data_set.change_result_directory(self.data_set.data_file, 'Splitting', 
                                                                 self.get_name()['file'] + self.get_rep_str())
+       
+    def split_data(self):
+        self.set_file_name()
         
         # Reset and reassmble the dataset
         self.data_set.reset(deep = False)
@@ -90,6 +94,7 @@ class splitting_template():
             
             os.makedirs(os.path.dirname(self.split_file), exist_ok=True)
             np.save(self.split_file, save_data)
+
         
         # Check if the dataset needs to be adjusted because of perturbations
         self.check_perturbations()
@@ -101,6 +106,12 @@ class splitting_template():
             _, return_index = np.unique(combined_index, return_index = True)
             return_index = np.sort(return_index)
             self.Train_index = combined_index[return_index]
+
+        # Check if there are alternative split file names to check for trained models
+        if hasattr(self, 'alternative_train_split_file'):
+            self.split_file_option = self.alternative_train_split_file()
+        else:
+            self.split_file_option = None
     
     def check_perturbations(self):
         # Overwrite the respective File location for the perturbed data

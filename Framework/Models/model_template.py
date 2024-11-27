@@ -6,6 +6,7 @@ import warnings
 import scipy as sp
 import importlib
 import psutil
+import shutil
 from utils.memory_utils import get_total_memory, get_used_memory
 
 from rome.ROME import ROME
@@ -115,8 +116,40 @@ class model_template():
                 self.setup_method()
         else:
             self.depict_results = True
+    
+    def train_actual(self):
+        # creates /overrides self.weights_saved
+        self.train_method() 
+        #0 is there to avoid some numpy load and save errros
+        save_data = np.array(self.weights_saved + [0], object) 
         
+        os.makedirs(os.path.dirname(self.model_file), exist_ok=True)
+        np.save(self.model_file, save_data)
         
+        if self.save_params_in_csv():
+            for i, param in enumerate(self.weights_saved):
+                param_name = [name for name in vars(self) if np.array_equal(getattr(self, name), param)][0]
+                if i == 0:
+                    np.savetxt(self.model_file[:-4] + '.txt', param,
+                            fmt       = '%10.5f',
+                            delimiter = ', ',
+                            header    = param_name + ':',
+                            footer    = '\n \n',
+                            comments  = '')
+                else:
+                    with open(self.model_file[:-4] + '.txt', 'a') as f:
+                        np.savetxt(f, param,
+                                fmt       = '%10.5f',
+                                delimiter = ', ',
+                                header    = param_name + ':',
+                                footer    = '\n \n',
+                                comments  = '')
+        
+        if self.provides_epoch_loss() and hasattr(self, 'train_loss'):
+            self.loss_file = self.model_file[:-4] + '--train_loss.npy'
+            assert isinstance(self.train_loss, np.ndarray), "The train loss should be a numpy array."
+            assert len(self.train_loss.shape) == 2, "The train loss should be a 2D numpy array."
+            np.save(self.loss_file, self.train_loss.astype(np.float32))
     
     def train(self):
         assert not self.simply_load_results, 'This model instance is nonly for loading results.'
@@ -126,38 +159,52 @@ class model_template():
             self.load_method()
         
         else:
-            # creates /overrides self.weights_saved
-            self.train_method() 
-            #0 is there to avoid some numpy load and save errros
-            save_data = np.array(self.weights_saved + [0], object) 
+            # Check if the model maybe is saved under different file name
+            if (not self.is_data_transformer) and (self.splitter.split_file_option is not None):
+                # Get the corresponding model file
+                model_file_option = self.data_set.change_result_directory(self.splitter.split_file_option,
+                                                                          'Models', self.get_name()['file'])
+                
+                if '_pert=' in model_file_option:
+                    pert_split = model_file_option.split('_pert=')
+                    model_file_option = pert_split[0] + '_pert=' + pert_split[1][0] + pert_split[1][2:]
+                    
+                    # If model is trained on unperturbed data, remove perturbation name from model file
+                    if pert_split[1][0] == '0':
+                        if '--Pertubation_' in model_file_option:
+                            pert_name_split = model_file_option.split('--Pertubation_')
+                            model_file_option = pert_name_split[0] + pert_name_split[1][3:]
+                
+                # Check if that model exists
+                if os.path.isfile(model_file_option) and not self.model_overwrite:
+                    self.weights_saved = list(np.load(model_file_option, allow_pickle = True)[:-1])
+                    self.load_method()
+
+                    # Copy model file
+                    os.makedirs(os.path.dirname(self.model_file), exist_ok=True)
+                    shutil.copyfile(model_file_option, self.model_file)
+
+
+                    # Copy csv and train loss files
+                    if self.save_params_in_csv():
+                        csv_file_old = self.model_file[:-4] + '.txt'
+                        csv_file_new = model_file_option[:-4] + '.txt'
+                        if os.path.isfile(csv_file_old):
+                            shutil.copyfile(csv_file_old, csv_file_new)
+
+                    if self.provides_epoch_loss():
+                        loss_file_old = self.model_file[:-4] + '--train_loss.npy'
+                        loss_file_new = self.model_file[:-4] + '--train_loss.npy'
+                        if os.path.isfile(loss_file_old):
+                            shutil.copyfile(loss_file_old, loss_file_new)
+                
+                
+                else:
+                    self.train_actual()
             
-            os.makedirs(os.path.dirname(self.model_file), exist_ok=True)
-            np.save(self.model_file, save_data)
-            
-            if self.save_params_in_csv():
-                for i, param in enumerate(self.weights_saved):
-                    param_name = [name for name in vars(self) if np.array_equal(getattr(self, name), param)][0]
-                    if i == 0:
-                        np.savetxt(self.model_file[:-4] + '.txt', param,
-                                   fmt       = '%10.5f',
-                                   delimiter = ', ',
-                                   header    = param_name + ':',
-                                   footer    = '\n \n',
-                                   comments  = '')
-                    else:
-                        with open(self.model_file[:-4] + '.txt', 'a') as f:
-                            np.savetxt(f, param,
-                                       fmt       = '%10.5f',
-                                       delimiter = ', ',
-                                       header    = param_name + ':',
-                                       footer    = '\n \n',
-                                       comments  = '')
-            
-            if self.provides_epoch_loss() and hasattr(self, 'train_loss'):
-                self.loss_file = self.model_file[:-4] + '--train_loss.npy'
-                assert isinstance(self.train_loss, np.ndarray), "The train loss should be a numpy array."
-                assert len(self.train_loss.shape) == 2, "The train loss should be a 2D numpy array."
-                np.save(self.loss_file, self.train_loss.astype(np.float32))
+            else:
+                self.train_actual()
+                
            
         self.trained = True
         
