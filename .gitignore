@@ -42,7 +42,6 @@ HRI_presentation.py
 rndSeed*
 
 # C extensions
-*.so
 *.m
 
 # ignore visualization tools
