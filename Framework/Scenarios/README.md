@@ -62,7 +62,7 @@ To this end, the following function is used:
 Here, <I_i> are the string names of the information, that have to be calculated by the [dataset.calculate_additional_distances function](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). If no such information is required, one has to return None instead of an empty list.
 
 ## Define safe actions
-Another important aspect of the framework is its ability to classify predictions as still useful, e.g., if an agent could still react upon those predictions and change their behavior in a safe manner. 
+Another important aspect of the framework is its ability to classify predictions as still useful, e.g., if an agent could still react upon those predictions and change their behavior in a safe manner. However, if *self.pov_agent() is None* would return *True*, this function is not needed.
 
 Going with the example of gap acceptance, for a prediction to be useful, it would have to be made at a point where the ego vehicle can still react in time to a predicted future where the target agent decides to accept the gap and move onto the contested space before the ego agent. Such a reaction of the ego agent could be to brake and come to a stop before the contested space, however, as this takes space and time, the prediction must be made at a suitably early point in time. 
 
