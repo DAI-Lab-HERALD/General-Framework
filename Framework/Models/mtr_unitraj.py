@@ -17,8 +17,13 @@ try:
     from MTR_unitraj.model.ops.attention import attention_cuda
 except:
     from setuptools import setup
-    from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+    from torch.utils.cpp_extension import BuildExtension, CUDAExtension, CUDA_HOME
 
+    if CUDA_HOME is not None:
+        os.environ['CUDA_HOME'] = CUDA_HOME
+        print("CUDA_HOME is set to:", CUDA_HOME)
+    else:
+        print("CUDA_HOME is not found. Make sure CUDA is installed correctly.")
 
     # Helper function to create CUDAExtension
     def make_cuda_ext(name, module, sources):
@@ -335,7 +340,23 @@ class mtr_unitraj(model_template):
             # Use atan2 between v_y and v_x to get theta
             data[...,4] = np.arctan2(data[...,3], data[...,2])
 
-        assert (np.isfinite(data).all(-1) == np.isfinite(data).any(-1)).all(), "Rearranging input data failed"
+        # Ensure position data is there
+        missing_position = np.isnan(data[...,:2]).any(-1)
+        data[missing_position] = np.nan
+
+        # Check if there is additional data missing at available position data
+        finite_data = np.isfinite(data)
+        any_finite = finite_data.any(-1)
+        num_any_finite = any_finite.sum()
+        num_all_finite = finite_data.all(-1).sum()
+        if num_any_finite != num_all_finite:
+            print('    Autobot: Rearranging input data failed')
+            failed_cases = (num_any_finite - num_all_finite) / num_any_finite
+            print('    Autobot: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases))
+
+            # Check if positions are always available
+            assert np.isfinite(data[any_finite][...,:2]).all(), "There are finite values in v_x or v_y where x or y is nan"
+
         return data
 
 
@@ -639,7 +660,7 @@ class mtr_unitraj(model_template):
 
     def predict_method(self):
         prediction_done = False
-        # self.model.eval()
+        self.model.eval()
         self.model.to(self.device)
 
         # Get range for stds

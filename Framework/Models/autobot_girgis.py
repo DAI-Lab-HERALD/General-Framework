@@ -205,7 +205,23 @@ class autobot_girgis(model_template):
             # Use atan2 between v_y and v_x to get theta
             data[...,4] = np.arctan2(data[...,3], data[...,2])
 
-        assert (np.isfinite(data).all(-1) == np.isfinite(data).any(-1)).all(), "Rearranging input data failed"
+        # Ensure position data is there
+        missing_position = np.isnan(data[...,:2]).any(-1)
+        data[missing_position] = np.nan
+
+        # Check if there is additional data missing at available position data
+        finite_data = np.isfinite(data)
+        any_finite = finite_data.any(-1)
+        num_any_finite = any_finite.sum()
+        num_all_finite = finite_data.all(-1).sum()
+        if num_any_finite != num_all_finite:
+            print('    Autobot: Rearranging input data failed')
+            failed_cases = (num_any_finite - num_all_finite) / num_any_finite
+            print('    Autobot: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases))
+
+            # Check if positions are always available
+            assert np.isfinite(data[any_finite][...,:2]).all(), "There are finite values in v_x or v_y where x or y is nan"
+
         return data
 
 
@@ -384,13 +400,13 @@ class autobot_girgis(model_template):
             self.train_loss = np.ones((8, self.model_kwargs['max_epochs'])) * np.nan
 
         for epoch in range(1, self.model_kwargs['max_epochs'] + 1):
-            print('    Autobot: Training epoch {}'.format(epoch))
+            print('    Autobot: Training epoch {}'.format(epoch), flush=True)
 
             if epoch <= completed_epochs:
                 scheduler.step()
                 continue
 
-            batch_size = 1
+            batch_size = 4
             batch_size_train = self.model_kwargs['train_batch_size']
 
             epoch_done = False
@@ -402,7 +418,6 @@ class autobot_girgis(model_template):
             optimizer.zero_grad()
             accumulated_batch_size = 0
             while not epoch_done:
-                ind_batch += 1
 
 
                 X, Y, T, _, _, _, graph, Pred_agents, num_steps, Sample_id, _, epoch_done = self.provide_batch_data('train', batch_size, val_split_size=0.0)
@@ -455,6 +470,9 @@ class autobot_girgis(model_template):
                         assert False
 
                 if epoch_done or (accumulated_batch_size >= batch_size_train):
+                    ind_batch += 1
+                    print('    Autobot: Training epoch {} - batch {}'.format(epoch, ind_batch), flush=True)
+
                     # Clip gradient vis norms with self.cfg['grad_clip_norm]
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg['grad_clip_norm'])
 
