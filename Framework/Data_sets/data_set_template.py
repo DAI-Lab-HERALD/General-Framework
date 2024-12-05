@@ -1722,10 +1722,8 @@ class data_set_template():
             T = np.zeros(len(self.Behaviors), float)
             T_D = np.empty(len(self.Behaviors), object)
             for i, beh in enumerate(self.Behaviors):
-                Dist_dt = (Dist[beh][n_dt:] - Dist[beh]
-                           [:-n_dt]) / (t[n_dt:] - t[:-n_dt])
-                Dist_dt = np.concatenate(
-                    (np.tile(Dist_dt[[0]], (n_dt)), Dist_dt), axis=0)
+                Dist_dt = (Dist[beh][n_dt:] - Dist[beh][:-n_dt]) / (t[n_dt:] - t[:-n_dt])
+                Dist_dt = np.concatenate((np.tile(Dist_dt[[0]], (n_dt)), Dist_dt), axis=0)
 
                 T_D[i] = Dist[beh] / np.maximum(- Dist_dt, 1e-7)
                 if not in_position.any():
@@ -1733,8 +1731,7 @@ class data_set_template():
                 else:
                     Dt_in_pos = T_D[i][in_position]
 
-                    time_change = np.where(
-                        (Dt_in_pos[1:] <= 0) & (Dt_in_pos[:-1] > 0))[0]
+                    time_change = np.where((Dt_in_pos[:-1] > 0) & (Dt_in_pos[1:] <= 0))[0]
                     if len(time_change) == 0:
                         if Dt_in_pos[0] <= 0:
                             T[i] = Dt_in_pos[0] + t_position[0]
@@ -1810,11 +1807,14 @@ class data_set_template():
             Dist = self.calculate_distance(path_extra_dim, t, domain)
             Dist = self.decrease_dist_dim(Dist)
             
-            Dist_oth = self.calculate_additional_distances(path, t, domain)
-            for index in self.extra_input:
-                assert index in Dist_oth.index, "A required extracted input is missing."
+            if len(self.extra_input) > 0:
+                Dist_oth = self.calculate_additional_distances(path, t, domain)
+                for index in self.extra_input:
+                    assert index in Dist_oth.index, "A required extracted input is missing."
 
-            Pred = pd.concat([Dist, Dist_oth])
+                Pred = pd.concat([Dist, Dist_oth])
+            else:
+                Pred = Dist
             return Pred
         else:
             return None
@@ -4641,7 +4641,7 @@ class data_set_template():
             For each column, it returns an array of lenght :math:`|t|` with the distance to the classification marker.
 
             These columns should contain the minimum required distances set in self.scenario.can_provide_general_input().
-            If self.can_provide_general_input() == False, one should return None instead.
+            If *self.scenario.can_provide_general_input() in [None, []]*, one should return None instead.
         '''
         raise AttributeError('Has to be overridden in actual data-set class.')
 
