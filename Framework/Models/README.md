@@ -867,7 +867,7 @@ def get_classification_data(self, train = True, return_categories = False):
     where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
     (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
     instead be np.nan.
-  C : np.ndarray
+  C : np.ndarray, optional
     Optional return provided when return_categories = True. 
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
     category of agent observed, where the categories are dataset specific.
@@ -939,6 +939,46 @@ def save_predicted_classifications(self, class_names, P, DT = None):
 
   '''
 ```
+### Combined models
+
+  def classify_data(self, Pred, Sample_id, Agent_id):
+    r'''
+    This function classifies the predicted data into the categories of the dataset. It is only useful if the dataset
+    includes categories. The function will return the categories of the predicted data.
+
+    Parameters
+    ----------
+    Pred : np.ndarray
+      This is the predicted future observed data of the agents, in the form of a
+      :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+      If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+      The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+    Sample_id : np.ndarray
+      This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+      in the dataset this sample was extracted.
+    Agent_id : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+      original agent in the dataset this agent was extracted.
+
+    Returns
+    -------
+    P_hot : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{preds} \times N_{classes}\}` dimensional numpy array, which for each 
+      class contains the probability that it was observed in the sample. As this are observed values, 
+      per row, the sum of the values will be 1 (i. e., one-hot encoded). 
+
+      If classification is not possible (not all required agents available, or no categories in the dataset),
+      then all values in the row will be np.nan.
+    
+    class_names : list
+      This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+      class.
+    '''
+
+    ...
+
+    return P_hot, class_names
+
 ## Model attributes
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:

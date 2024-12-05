@@ -644,6 +644,77 @@ class data_interface(object):
 
         return SceneGraphs
     
+    def classify_data(self, Paths, Domain, num_paths, num_timesteps):
+        r'''
+        Classify the data into the different scenarios.
+
+        Parameters
+        ----------
+        Paths : pandas.DataFrame
+            Paths of the agents. Has shape num_samples x num_agents, which can
+            contain if available a trajectory in form of a numpy array of shape
+            num_paths x num_timesteps x 2.
+        Domain : pandas.DataFrame
+            Domain of the data. Contains anxillieary information. length is num_samples.
+
+        Returns
+        -------
+        P : numpy.ndarray
+            Probability of the different scenarios. Shape is num_samples x num_paths x num_classes.
+            Uses a one-hot encoding.
+        class_names : list
+            Names of the classes.
+        
+        '''
+
+        # get class names
+        class_names = self.Behaviors
+        P = np.full((len(Paths), len(class_names)), np.nan, float)
+
+        # get unique datasets in the domain
+        for data_set in self.Datasets.values():
+            data_set_name = data_set.Domain.Scenario
+            assert len(np.unique(data_set_name)) == 1, 'Data set should only have one name.'
+            data_set_name = data_set_name.iloc[0]
+
+            # Get predictions from this dataset
+            use = Domain.Scenario == data_set_name
+
+            if not use.any():
+                continue
+
+            # get old num path predicts
+            num_samples_path_pred_old = data_set.num_samples_path_pred
+            data_set.num_samples_path_pred = num_paths
+            
+            use_index = np.where(use.to_numpy())[0]
+            beh_index = np.arange(len(data_set.Behaviors))[np.newaxis] # [1 x num_classes_use]
+            t = np.arange(1, num_timesteps + 1) * self.dt
+
+            # Get the index of the dataset behviors in class names
+            class_index = self.get_indices_1D(data_set.Behaviors, class_names)
+
+            for i in use_index:
+                path = Paths.iloc[i]
+                domain = Domain.iloc[i]
+                try:
+                    # Get the class of the path
+                    T_class = data_set.path_to_class_and_time_sample(path, t, domain) # [num_paths x num_classes_use]
+                    Used_class = T_class.argmin(axis=-1, keepdims=True) # [num_paths x 1]
+                    output_A = beh_index == Used_class # [num_paths x num_classes_use]
+                    output_A = output_A.astype(float)
+
+                    # save the output
+                    P[i] = 0.0
+                    P[i, :, class_index] = output_A
+                except:
+                    print('Error in classifying path in dataset ' + data_set_name + '.')
+                
+
+            # reset num_samples_path_pred
+            data_set.num_samples_path_pred = num_samples_path_pred_old
+        
+        return P, class_names
     
     
     def transform_outputs(self, output, model_pred_type, metric_pred_type):

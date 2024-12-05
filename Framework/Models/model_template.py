@@ -2092,6 +2092,65 @@ class model_template():
             else:
                 return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
     
+    def classify_data(self, Pred, Sample_id, Agent_id):
+        r'''
+        This function classifies the predicted data into the categories of the dataset. It is only useful if the dataset
+        includes categories. The function will return the categories of the predicted data.
+
+        Parameters
+        ----------
+        Pred : np.ndarray
+            This is the predicted future observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
+            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+            The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
+        Sample_id : np.ndarray
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
+            in the dataset this sample was extracted.
+        Agent_id : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array with integer values. Those indicate from which 
+            original agent in the dataset this agent was extracted.
+
+        Returns
+        -------
+        P_hot : np.ndarray
+            This is a :math:`\{N_{samples} \times N_{preds} \times N_{classes}\}` dimensional numpy array, which for each 
+            class contains the probability that it was observed in the sample. As this are observed values, 
+            per row, the sum of the values will be 1 (i. e., one-hot encoded). 
+
+            If classification is not possible (not all required agents available, or no categories in the dataset),
+            then all values in the row will be np.nan.
+        
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        '''
+
+        # Get domain
+        Domain = self.data_set.Domain.iloc[Sample_id] # (N_samples)
+
+        # Transform Preds to pandas data Frame
+        # Set up the pandas data frame
+        Pred_df = pd.DataFrame(np.empty((len(Pred), len(self.data_set.Agents)), object), 
+                               columns = self.data_set.Agents)
+        Domain.index = Pred_df.index
+
+        # Fill the data frame
+        useful = np.isfinite(Pred).all(-1).any(-1).any(-1) # (N_samples x N_agents)
+        sample_id = np.arange(Pred.shape[0])[:,np.newaxis].repeat(Pred.shape[1], axis = 1)
+        sample_id = sample_id[useful]
+        agents_id = Agent_id[useful]
+
+        # Fill in the data
+        pred_list = list(Pred[useful])
+        Pred_df.values[sample_id, agents_id] = pred_list
+
+        P_hot, class_names = self.data_set.classify_data(Pred_df, Domain, Pred.shape[-3], Pred.shape[-2]) # 
+
+        P_hot = P_hot.reshape(len(Sample_id), -1, P_hot.shape[-1])
+
+        return P_hot, class_names
+
     
     def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = None, Log_probs = None):
         r'''
@@ -2224,7 +2283,7 @@ class model_template():
             where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
             (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
             instead be np.nan.
-        C : np.ndarray
+        C : np.ndarray, optional
             Optional return provided when return_categories = True. 
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
             category of agent observed, where the categories are dataset specific.
@@ -2328,6 +2387,8 @@ class model_template():
                 return X, T, S, agent_names, D, dist_names, class_names, P, DT
             else:
                 return X, T, S, agent_names, D, dist_names, class_names
+            
+
             
 
     
