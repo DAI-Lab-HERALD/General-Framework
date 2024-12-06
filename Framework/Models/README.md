@@ -940,7 +940,7 @@ def save_predicted_classifications(self, class_names, P, DT = None):
   '''
 ```
 ### Combined models
-
+```
   def classify_data(self, Pred, Sample_id, Agent_id):
     r'''
     This function classifies the predicted data into the categories of the dataset. It is only useful if the dataset
@@ -978,7 +978,7 @@ def save_predicted_classifications(self, class_names, P, DT = None):
     ...
 
     return P_hot, class_names
-
+```
 ## Model attributes
 
 Meanwhile, the following model attributes set by the framework are useful or give needed requirements:
