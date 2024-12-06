@@ -238,7 +238,7 @@ class HighD_direction(data_set_template):
 
             track_start = np.concatenate([[0], lane_change[0] + 1, [len(track_i)]])
             
-            for i, i_start in enumerate(track_start):
+            for i, i_start in enumerate(track_start[:-1]):
                 # Check if the current lane holds for at least 1s (25 frames)
                 if track_start[i + 1] - i_start < 25:
                     continue
