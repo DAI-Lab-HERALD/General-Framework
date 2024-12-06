@@ -864,12 +864,13 @@ class data_interface(object):
             Output_path   = self.Output_path
             Output_T      = self.Output_T
             Output_T_pred = self.Output_T_pred
+            Output_A      = self.Output_A
             assert file_index == 0, 'Only one file index is available.'
 
             input_path_type = self.Input_data_type[0]
         else:
             file = self.Files[file_index] + '_data.npy'
-            [_, Input_path, _, Output_path, Output_T, Output_T_pred, _, _, _] = np.load(file, allow_pickle=True)
+            [_, Input_path, _, Output_path, Output_T, Output_T_pred, Output_A, _, _] = np.load(file, allow_pickle=True)
             
             # Get the required inidices
             ind = self.Domain[self.Domain.file_index == file_index].Index_saved
@@ -878,6 +879,7 @@ class data_interface(object):
             
             Output_T      = Output_T[ind]
             Output_T_pred = Output_T_pred[ind]
+            Output_A      = Output_A.loc[ind][self.Behaviors].fillna(False)
 
             input_path_type_index = self.Domain[self.Domain.file_index == file_index].data_type_index
             assert len(np.unique(input_path_type_index)) == 1, 'Different data types should not occur in a single file.'
@@ -887,6 +889,8 @@ class data_interface(object):
         # Get the number of prediction time steps
         self.N_O_data_orig = np.array([len(Output_T[i_sample]) for i_sample in range(len(Output_T))], int)
         self.N_O_pred_orig = np.array([len(Output_T_pred[i_sample]) for i_sample in range(len(Output_T_pred))], int)
+
+        self.Output_A_file = Output_A
 
         # Useful agents
         Used_agents = Input_path.notna()

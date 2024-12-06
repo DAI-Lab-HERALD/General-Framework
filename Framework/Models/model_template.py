@@ -1674,7 +1674,8 @@ class model_template():
         return epoch_done, Ind_advance
     
     
-    def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, ignore_graph = False, return_categories = False):
+    def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, ignore_graph = False, 
+                           return_categories = False, return_classifications = False):
         ## NOTE: Method has been adjusted for large datasets
         r'''
         This function provides trajectroy data an associated metadata for the training of model
@@ -1699,6 +1700,11 @@ class model_template():
         return_categories : bool, optional
             This indicates if the categories (**C**, see below) of the samples should be returned. 
             The default is *False*.
+        return_classifications : bool, optional
+            This indicates if the behavior probabilities (**P**, see below) of the samples should be returned.
+            If the underlying datasets do not include behavior classifications, None is returned instead. 
+            Given that this encodes future behavior, if **mode** = *'pred'*, the framework will ignore this value.
+            The default is *False*. 
 
 
         Returns
@@ -1725,10 +1731,20 @@ class model_template():
             where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
             (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
             instead be np.nan.
-        C : np.ndarray
+        C : np.ndarray, optional
             Optional return provided when return_categories = True. 
             This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
             category of agent observed, where the categories are dataset specific.
+        P : np.ndarray, optional
+            Optional return provided when return_classifications = True.
+            This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array. It includes float values that indicate
+            the probability of the agent to belong to a specific class. The classes are dataset specific. Given that this is the 
+            ground truth, each row should be a one-hot encoded vector. If the dataset does not include behavior classifications,
+            None is returned instead.
+        class_names : list, optional
+            Optional return provided when return_classifications = True.
+            This is a list of length :math:`N_{classes}` of strings that indicate the names of the classes. If the dataset does 
+            not include behavior classifications, None is returned instead.
         img : np.ndarray
             This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
             It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
@@ -1833,6 +1849,9 @@ class model_template():
         self.val_split_size = val_split_size
         
         self.prepare_batch_generation()
+
+        if mode == 'pred':
+            return_classifications = False
         
         if mode == 'pred':
             assert self.model_mode == 'pred', 'During prediction, testing set should be called.'
@@ -1964,6 +1983,12 @@ class model_template():
 
             X[data_index_mask] = self.data_set.X_orig[data_index]
             Y[data_index_mask] = self.data_set.Y_orig[data_index, :num_steps]
+
+            if return_classifications:
+                Output_A = self.data_set.Output_A.iloc[Sample_id[:,0]] 
+                P = Output_A.to_numpy().astype(np.float32)
+                class_names = self.data_set.Behaviors
+
         else:
 
             # Get the corresponding domain_files
@@ -1988,6 +2013,11 @@ class model_template():
 
             X[data_index_mask] = self.data_set.X_orig[data_index].astype(np.float32)
             Y[data_index_mask] = self.data_set.Y_orig[data_index, :num_steps].astype(np.float32)
+
+            if return_classifications:
+                Output_A = self.data_set.Output_A_file.iloc[Sample_id_used[:,0]]
+                P = Output_A.to_numpy().astype(np.float32)
+                class_names = self.data_set.Behaviors
 
         # Check if images need to be extracted
         if hasattr(self, 'use_batch_extraction') and (not ignore_map) and self.has_map:
@@ -2081,16 +2111,22 @@ class model_template():
             if mode == 'pred':
                 if self.predict_path_probs:
                     self.batch_data = [X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
-                return X,    T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+                return     X,    T, S, C,                 img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                if return_classifications:
+                    return X, Y, T, S, C, P, class_names, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                else:
+                    return X, Y, T, S, C,                 img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
                 if self.predict_path_probs:
                     self.batch_data = [X, Y, T, S, None, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
-                return X,    T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
+                return     X,    T, S,                    img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
-                return X, Y, T, S, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                if return_classifications:
+                    return X, Y, T, S,    P, class_names, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
+                else:
+                    return X, Y, T, S,                    img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
     
     def classify_data(self, Pred, Sample_id, Agent_id):
         r'''
