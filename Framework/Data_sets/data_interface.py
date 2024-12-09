@@ -947,10 +947,14 @@ class data_interface(object):
             
             # Get the unique scenario id for every sample
             Scenario = self.Domain.Scenario_type.to_numpy()
-            Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
+            if len(self.unique_scenarios) > 1:
+                Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
+            else:
+                Scenario_id = np.zeros(len(Scenario), int)
             
             # Get needed agents for all cases
             Needed_agents = needed_agents_bool[Scenario_id]
+            
             
                 
             if self.agents_to_predict == 'predefined':
@@ -1154,7 +1158,10 @@ class data_interface(object):
             
             # Get the unique scenario id for every sample
             Scenario = self.Domain.Scenario_type.to_numpy()
-            Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
+            if len(self.unique_scenarios) > 1:
+                Scenario_id = self.get_indices_1D(Scenario, self.unique_scenarios)
+            else:
+                Scenario_id = np.zeros(len(Scenario), int)
             
             # Get pov boolean for each agent
             Pov_agent = pov_agents_bool[Scenario_id]
