@@ -27,7 +27,7 @@ optimizer: AdamW #According to PyTorch naming
 scheduler: multistep # plateau, multistep
 ewc_lambda: 2000
 grad_clip_norm: 5
-train_batch_size: 32 #32 #128
+train_batch_size: 128 #32 #128
 eval_batch_size: 128 #32 #128
 
 # data related
