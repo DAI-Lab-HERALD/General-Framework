@@ -947,8 +947,8 @@ class model_template():
         # Check if enough memory is available
         if required_memory < 0.4 * available_memory:
             # Only use the input positions
-            X = X[..., :2]
-            centre = X[Img_needed, -1,:]
+            X = X[..., :2].copy()
+            centre = X[Img_needed, -1,:].copy()
             x_rel = centre - X[Img_needed, -2,:]
             rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
 
@@ -2068,7 +2068,7 @@ class model_template():
 
             if self.use_graph_batch_extraction:
                 domain = self.data_set.Domain.iloc[Sample_id]
-                X_last_all = X[...,-1,:2] # num_samples x num_agents x 2
+                X_last_all = X[...,-1,:2].copy() # num_samples x num_agents x 2
                 X_last_all[~Pred_agents] = np.nan # Only consider pred agents
                 if hasattr(self, 'sceneGraph_radius'):
                     graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all, self.sceneGraph_radius)

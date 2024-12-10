@@ -280,7 +280,7 @@ class fjmp_rowe(model_template):
         self.max_t_O_train = 100
         self.predict_single_agent = False
         self.can_use_map = False
-        self.can_use_graph = False#True
+        self.can_use_graph = True
 
         seed = self.model_kwargs["seed"]
         random.seed(seed)
