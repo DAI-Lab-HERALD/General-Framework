@@ -630,6 +630,37 @@ For a given sample, the extracted images are centered around the last observed p
     return T_all
 ```
 ```
+def get_batch_number(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+  r'''
+  This function provides trajectroy data an associated metadata for the training of model
+  during prediction and training.
+
+  Parameters
+  ----------
+  mode : str
+    This discribes the type of data needed. *'pred'* will indicate that this is for predictions,
+    while during training, *'train'* and *'val'* indicate training and validation set respectively.
+  batch_size : int
+    The number of samples to be selected.
+  val_split_size : float, optional
+    The part of the overall training set that is set aside for model validation during the
+    training process. The default is *0.0*.
+  ignore_map : bool, optional
+    This indicates if image data is not needed, even if available in the dataset 
+    and processable by the model. The default is *False*.
+
+
+  Returns
+  -------
+  num_batches : int
+    The number of batches that would be generated under the given settings
+  '''
+
+  ...
+
+  return num_batches
+```
+```
 def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, 
                        return_categories = False, return_classifications = False):
   r'''

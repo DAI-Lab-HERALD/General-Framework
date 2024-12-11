@@ -1673,6 +1673,126 @@ class model_template():
         
         return epoch_done, Ind_advance
     
+
+    def get_batch_number(self, mode, batch_size, val_split_size = 0.0, ignore_map = False):
+
+        r'''
+        This function provides trajectroy data an associated metadata for the training of model
+        during prediction and training.
+
+        Parameters
+        ----------
+        mode : str
+            This discribes the type of data needed. *'pred'* will indicate that this is for predictions,
+            while during training, *'train'* and *'val'* indicate training and validation set respectively.
+        batch_size : int
+            The number of samples to be selected.
+        val_split_size : float, optional
+            The part of the overall training set that is set aside for model validation during the
+            training process. The default is *0.0*.
+        ignore_map : bool, optional
+            This indicates if image data is not needed, even if available in the dataset 
+            and processable by the model. The default is *False*.
+
+
+        Returns
+        -------
+        num_batches : int
+            The number of batches that would be generated under the given settings
+        '''
+
+        epoch_done = False
+        num_batches = 0
+        while not epoch_done:
+            num_batches += 1
+    
+            self.prepare_batch_generation()
+            
+            if mode == 'pred':
+                I_pred = np.where(np.in1d(self.ID[:,0,0], self.Index_test))[0]
+                Ind_advance = I_pred
+                N_O = self.N_O_pred
+                
+            elif mode == 'val':
+                I_train = self._extract_useful_training_samples()
+                num_train = int(len(I_train) * (1 - val_split_size))
+                Ind_advance = I_train[num_train:]
+                N_O = np.minimum(self.N_O_data, self.max_t_O_train)
+                
+            elif mode == 'train':
+                I_train = self._extract_useful_training_samples()
+                num_train = int(len(I_train) * (1 - val_split_size))
+                Ind_advance = I_train[:num_train]
+                N_O = np.minimum(self.N_O_data, self.max_t_O_train)
+            
+            else:
+                raise TypeError("Unknown mode.")
+            
+            # Get data needed for selecting batch from available
+            Sample_id_advance = self.ID[Ind_advance,0,0]
+            Domain_advance = self.data_set.Domain.iloc[Sample_id_advance]
+            N_O_advance = N_O[Ind_advance]   # Number of timesteps
+
+            Use_candidate = np.ones(len(Ind_advance), bool)
+            if not ignore_map and self.has_map:
+                # Check for file index and image id
+                Image_id_advance = Domain_advance.image_id.to_numpy() # Image id
+                Use_candidate &= Image_id_advance == Image_id_advance[0]
+
+            # For large dataset, check for file index as well
+            if not self.data_set.data_in_one_piece:
+                File_index_advance = Domain_advance.file_index.to_numpy() # File index
+                Use_candidate &= File_index_advance == File_index_advance[0]
+            else:
+                # sort by dataset
+                Scenario_advance = Domain_advance.Scenario.to_numpy() # Scenario
+                Use_candidate &= Scenario_advance == Scenario_advance[0]
+
+            
+            # Check for predicted agent type
+            if self.predict_single_agent:
+                T_advance = self.T[Ind_advance,0]
+                Use_candidate &= (T_advance == T_advance[0])
+
+            # Check for number of timesteps
+            if mode == 'train':
+                Use_candidate_N_O = (N_O_advance == N_O_advance[0]) & Use_candidate
+                if Use_candidate_N_O.sum() < batch_size:
+                    N_O_advance_possible = N_O_advance[Use_candidate & (N_O_advance >= N_O_advance[0])]
+                    N_O_possible, N_O_counts = np.unique(N_O_advance_possible, return_counts = True)
+                    N_O_cum = np.cumsum(N_O_counts)
+                    
+                    if N_O_cum[-1] > batch_size:
+                        needed_length = np.where(N_O_cum > batch_size)[0][0]
+                        Use_candidate_N_O = (N_O_advance >= N_O_advance[0]) & (N_O_advance <= N_O_possible[needed_length])
+                    else:
+                        Use_candidate_N_O = (N_O_advance >= N_O_advance[0])
+            else:
+                Use_candidate_N_O = N_O_advance == N_O_advance[0]
+
+            Use_candidate &= Use_candidate_N_O
+                
+                
+            # Find in remaining samples those whose type corresponds to that of the first
+            Ind_candidates = np.where(Use_candidate)[0]
+            
+            # Get the final indices to be returned
+            ind_advance = Ind_advance[Ind_candidates[:batch_size]]
+
+            # Sort ind_advance
+            ind_advance = np.sort(ind_advance)
+            
+            # check if epoch is completed, if so, shuffle and reset index
+            Ind_advance = np.setdiff1d(Ind_advance, ind_advance)
+
+            # Check if epoch is completed
+            epoch_done = len(Ind_advance) == 0
+
+        return num_batches
+
+
+
+
     
     def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map = False, ignore_graph = False, 
                            return_categories = False, return_classifications = False):
