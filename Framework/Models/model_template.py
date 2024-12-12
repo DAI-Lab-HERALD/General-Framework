@@ -39,10 +39,12 @@ class model_template():
                     self.device = torch.device('cuda', index=0) 
                     torch.cuda.set_device(0)
                 else:
-                    warnings.warn('''No GPU could be found. Program is proccessed on the CPU.
+                    if look_for_gpu:
+                        warnings.warn('''No GPU could be found. Program is proccessed on the CPU.
                                   
-                    This might lead either to a model failure or significantly decreased
-                    training and prediction speed.''')
+                        This might lead either to a model failure or significantly decreased
+                        training and prediction speed.''')
+                        
                     self.device = torch.device('cpu')
             
             
