@@ -79,3 +79,9 @@ Framework/Data_sets/Commotions_crossing/Data/_log data docs/.~lock.Demographic s
 *.osgb
 *.fbx
 *.osm
+Framework/Models/TrajFlow_jointPreTrainInter/dag_utils.py
+Framework/Models/TrajFlow_jointPreTrainInter/flowModels.py
+/Framework/Models/TrajFlow_jointPreTrainInter
+/Framework/Models/TrajFlow_multiTask
+Framework/Models/trajflow_meszaros_jointPreTrainInter.py
+Framework/Models/trajflow_meszaros_multiTask.py

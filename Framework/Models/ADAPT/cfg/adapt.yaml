@@ -1,0 +1,23 @@
+# common
+model_name: adapt
+num_modes: 10
+
+# === Common Hyperparameters ===
+hidden_size: 128
+batch_size: 64
+epoch: 2 #36
+learning_rate: 1e-4
+
+# ===  Architecture Parameters ===
+layer_num: 3
+multi_agent: True
+
+# === Data Augmentations Applied ===
+static_agent_drop: True
+scaling: True
+
+# === Model Saving/Loading Parameters ===
+use_checkpoint: True
+
+# === Map Parameters ===
+max_distance: 50.0
