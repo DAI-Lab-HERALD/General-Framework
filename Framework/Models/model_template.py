@@ -29,7 +29,13 @@ class model_template():
         if data_set is not None:
             # Load gpu
             if self.requires_torch_gpu():
-                if torch.cuda.is_available():
+                # Check special settings
+                look_for_gpu = True
+                if 'gpu' in model_kwargs.keys():
+                    if model_kwargs['gpu'] == False:
+                        look_for_gpu = False
+                
+                if torch.cuda.is_available() and look_for_gpu:
                     self.device = torch.device('cuda', index=0) 
                     torch.cuda.set_device(0)
                 else:
