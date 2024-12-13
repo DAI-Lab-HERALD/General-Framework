@@ -7,10 +7,20 @@ def save_model(args, i_epoch, model, optimizer, scheduler):
     assert args.model_save_path is not None
     path = os.path.join(args.model_save_path, "checkpoint.pt")
 
-    checkpoint = {"epoch": i_epoch,
-                  "state_dict": model.module.state_dict(),
-                  "optimizer": optimizer.state_dict(),
-                  "scheduler": scheduler.state_dict()}
+    try:
+        checkpoint = {"epoch": i_epoch,
+                    "state_dict": model.module.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict()}
+    except:
+
+        checkpoint = {"epoch": i_epoch,
+                    "state_dict": model.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict()}
+    
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
     torch.save(checkpoint, path)
 
     if (i_epoch + 1) % 6 == 0:

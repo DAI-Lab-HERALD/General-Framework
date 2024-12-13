@@ -1,6 +1,6 @@
 # common
 model_name: adapt
-num_modes: 10
+num_modes: 6 # hardcoded in the model
 
 # === Common Hyperparameters ===
 hidden_size: 128

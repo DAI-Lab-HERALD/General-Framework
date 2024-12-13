@@ -12,6 +12,7 @@ from model_template import model_template
 
 from ADAPT.model.adapt import ADAPT
 from ADAPT.utils.get_model import save_model
+from ADAPT.utils.utils import rotate
 
 
 
@@ -123,6 +124,8 @@ class adapt_aydemir(model_template):
             
             else:
                 self.cfg[key] = self.model_kwargs[key]
+
+            
         
 
         
@@ -183,7 +186,11 @@ class adapt_aydemir(model_template):
             random_scale = 1.0
             if self.cfg['scaling']:
                 random_scale = 0.75 + random.random()*0.5
-            target_agents = np.where(Pred_agents[i])[0]
+
+            if Y is None:
+                target_agents = [0]
+            else:
+                target_agents = np.where(Pred_agents[i])[0]
 
             for j in target_agents:
                 sample_id_i = Sample_id[i].copy()
@@ -238,7 +245,8 @@ class adapt_aydemir(model_template):
                 tensor[:, :, 8] = np.tile(np.arange(X.shape[1]), (X.shape[2]-1, 1)).T # agent_id
                 tensor[:, :, 9] = np.tile((np.arange(X.shape[2]-1)+1), (X.shape[1], 1)) # timestep
 
-                tensor[:, :, :4] *= random_scale
+                if Y is not None:
+                    tensor[:, :, :4] *= random_scale
 
                 if Y is not None:
                     complete_trajectory = np.concatenate([X[i, :, :, :2], Y[i, :, :, :2]], axis=1)
@@ -262,11 +270,12 @@ class adapt_aydemir(model_template):
 
                     complete_trajectory_mask = complete_trajectory_mask[~drop]
                     moving = moving[~drop]
+                    missing_agent_mask = missing_agent_mask[~drop]
 
                     batch[entries]['consider'] = torch.tensor(np.where(complete_trajectory_mask & moving.numpy())[0])
 
                 else:
-                    batch[entries]['consider'] = torch.tensor(np.where(Pred_agents[i]))
+                    batch[entries]['consider'] = torch.tensor(np.where(Pred_agents[i])[0])
 
 
                 batch[entries]['cent_x'] = X[i, j, -1, 0].copy()
@@ -275,7 +284,7 @@ class adapt_aydemir(model_template):
                 batch[entries]['angle'] = angle
 
                 existing_timestep_mask = ~np.isnan(tensor).any(-1)
-                batch[entries]['agent_data'] = [torch.tensor(tensor[ag][existing_timestep_mask[ag]]).float() for ag in range(tensor.shape[0])]
+                batch[entries]['agent_data'] = [torch.tensor(tensor[ag][existing_timestep_mask[ag]]).float() for ag in range(tensor.shape[0]) if len(torch.tensor(tensor[ag][existing_timestep_mask[ag]]).float())>0]
 
                 lane_list = []
                 hist_len = X.shape[2] 
@@ -308,8 +317,10 @@ class adapt_aydemir(model_template):
                     lane_vector[:,-17] = point_pre_pre[:, 0]
                     lane_vector[:,-18] = point_pre_pre[:, 1]
 
-                    lane_vector[:, -4:] *= random_scale
-                    lane_vector[:, -18:-16] *= random_scale
+                    if Y is not None:
+                        lane_vector[:, -4:] *= random_scale
+                        lane_vector[:, -18:-16] *= random_scale
+
                     lane_list.append(torch.tensor(lane_vector).float())
 
                 batch[entries]['lane_data'] = lane_list
@@ -324,14 +335,22 @@ class adapt_aydemir(model_template):
                     batch[entries]['label_is_valid'] = batch[entries]['label_is_valid'].transpose(1, 0) # shape should be timestep x agents
 
 
-                assert batch[entries]['consider'][-1] <= batch[entries]['labels'].shape[1] - 1
+                    assert batch[entries]['consider'][-1] <= batch[entries]['labels'].shape[1] - 1
+
+                else:
+                    missing_agent_mask = np.isnan(X[i,:,:,:2]).all(-1).all(-1) # shape should be agents
+
+                    batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float()
+                    batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float()
+                    batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float()
 
                 dpos = tensor[:, -1, 2:4] - tensor[:, -1, :2]
                 degree = torch.atan2(torch.tensor(dpos[:,1]), torch.tensor(dpos[:,0])).numpy()
-                x = tensor[:, -1, 2]
-                y = tensor[:, -1, 3]
-                pre_x = tensor[:, -1, 0]
-                pre_y = tensor[:, -1, 1]
+                degree = degree[~missing_agent_mask]
+                x = tensor[~missing_agent_mask, -1, 2]
+                y = tensor[~missing_agent_mask, -1, 3]
+                pre_x = tensor[~missing_agent_mask, -1, 0]
+                pre_y = tensor[~missing_agent_mask, -1, 1]
                 info = torch.tensor(
                     np.array([degree, x, y, pre_x, pre_y]))#.unsqueeze(dim=0)
                 batch[entries]['meta_info'] = info.transpose(1, 0).float()
@@ -357,7 +376,10 @@ class adapt_aydemir(model_template):
     
 
     def train_method(self):
-        self.cfg['device'] = 0
+        if self.device == 'cpu':
+            self.cfg['device'] = 'cpu'
+        else:
+            self.cfg['device'] = 0
         # dist.init_process_group("nccl", rank=0, world_size=0)
 
         
@@ -436,6 +458,8 @@ class adapt_aydemir(model_template):
 
             save_model(self.cfg, step, self.model, optimizer, scheduler)
 
+        self.weights_saved = []
+
         #     dist.barrier()
         # dist.destroy_process_group()
 
@@ -466,6 +490,11 @@ class adapt_aydemir(model_template):
 
     def load_method(self):
 
+        if self.device == 'cpu':
+            self.cfg['device'] = 'cpu'
+        else:
+            self.cfg['device'] = 0
+
         self.model = ADAPT(self.cfg)
 
         if self.cfg['use_checkpoint']:
@@ -486,11 +515,11 @@ class adapt_aydemir(model_template):
                 ind_batch = ind_batch + 1
                 print('    ADAPT: Predicting batch {}'.format(ind_batch))
 
-                X, _, _, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.model_kwargs['eval_batch_size'])
+                X, _, _, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.cfg['batch_size'])
 
                 batch_data = self.extract_data(X, None, graph, Pred_agents, Sample_id, Agent_id)
                 # TODO
-                pred_trajectory, pred_probs, multi_out = self.model.module(batch_data, True)
+                pred_trajectory, pred_probs, multi_out = self.model(batch_data, True)
 
 
                 # map proposals to Predictions according to Pred_agents
@@ -500,20 +529,17 @@ class adapt_aydemir(model_template):
                 splits = int(np.ceil((self.num_samples_path_pred / sample_number)))
                 
                 num_samples_path_pred_max = int(sample_number * splits)
-                Pred = np.zeros((X.shape[0], X.shape[1], num_samples_path_pred_max, self.num_timesteps_out, 2))
-
-
-                predicted_agents = np.isfinite(X)[:,:,0,0]
+                Pred = np.zeros((X.shape[0], X.shape[1], num_samples_path_pred_max, self.num_timesteps_out, 2)) # Shape (batch_size, num_agents, num_paths, num_steps_out, 2)
 
                 pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
-                pred[predicted_agents] = multi_out.detach().cpu().numpy() # Shape (batch_size, num_modes, num_paths, num_agents, num_steps_out, 2)
 
-                # TODO check if pred_probs can be saved
+                for i in range(X.shape[0]):
+                    mul_out_x, mul_out_y = rotate(multi_out[i][0][:,:,:,0], multi_out[i][0][:,:,:,1], -batch_data[i]['angle']) # in original code, when handling data they seem to rotate by angle when normalizing
+                    multi_out[i][0][:,:,:,0] = mul_out_x
+                    multi_out[i][0][:,:,:,1] = mul_out_y
+                    pred[i, Pred_agents[i]] = multi_out[i][0].detach().cpu().numpy() + np.array([batch_data[i]['cent_x'], batch_data[i]['cent_y']])
 
-                # Rotate the predicted paths back TODO check if necessary or if model outputs global preds
-                
-                
-                # Translate the predicted paths back TODO check if necessary or if model outputs global preds
+                # pred_probs are save in multi_out[batch][1]
 
 
                 pred = np.tile(pred, (1, 1, splits, 1, 1))

@@ -44,7 +44,7 @@ class ADAPT(nn.Module):
         if validate:
             batch_init(mapping)
 
-        outputs = torch.zeros(batch_size, 6, 30, 2, device=self.device)
+        outputs = torch.zeros(batch_size, 6, mapping[0]["labels"].shape[0], 2, device=self.device)
         multi_outputs = []
         probs = torch.zeros(batch_size, 6, device=self.device)
         losses = torch.zeros(batch_size, device=self.device)
