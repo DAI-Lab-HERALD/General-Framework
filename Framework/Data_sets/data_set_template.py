@@ -3432,6 +3432,67 @@ class data_set_template():
 
         return None
 
+        
+    
+    def change_agent_name(self, old_name, new_name, domain_file):
+        assert isinstance(old_name, str), "The old name has to be a string."
+        assert isinstance(new_name, str), "The new name has to be a string."
+        
+        agent_file = domain_file[:-10] + 'AM.npy'
+        data_file = domain_file[:-10] + 'data.npy'
+    
+        # Load the data
+        data_data = np.load(data_file, allow_pickle=True)
+        [_, Input_path, _, Output_path, _, Output_T_pred, _, _, _] = data_data
+        
+        if old_name in Input_path.columns:
+            print(old_name + " column is in the input data. Replace it with " + new_name + ".")
+            assert old_name in Output_path.columns, "The AV column is missing in the output data."
+            
+            # rename old_name columns to new_name column
+            Input_path = Input_path.rename(columns = {old_name: new_name})
+            Output_path = Output_path.rename(columns = {old_name: new_name})
+            
+            data_data[1] = Input_path
+            data_data[3] = Output_path
+            
+            np.save(data_file, data_data)
+        
+        domain_data = np.load(domain_file, allow_pickle=True) 
+        [_, _, _, Agents, _] = domain_data # Agents is a list
+        if old_name in Agents:
+            print(old_name + " is in the Agents list. Replace it with " + new_name + ".")
+            # Replace old_name with new_name
+            Agents[Agents.index(old_name)] = new_name
+            domain_data[3] = Agents
+            np.save(domain_file, domain_data)
+        
+        
+
+        Agent_data = np.load(agent_file, allow_pickle=True)
+        if len(Agent_data) == 3:
+            [Type, Recorded, _] = Agent_data
+            Size = None
+        else:
+            assert len(Agent_data) == 4, "The loaded data has the wrong length."
+            [Type, Size, Recorded, _] = Agent_data
+        
+        if old_name in Type.columns:
+            print(old_name + " column is in the Type data. Replace it with " + new_name + ".")
+            assert old_name in Recorded.columns, "The AV column is missing in the Recorded data."
+            
+            Type = Type.rename(columns = {old_name: new_name})
+            Recorded = Recorded.rename(columns = {old_name: new_name})
+            
+            Agent_data[0] = Type
+            Agent_data[-2] = Recorded
+            
+            if Size is not None:
+                assert old_name in Size.columns, "The AV column is missing in the Size data."
+                Size = Size.rename(columns = {old_name: new_name})
+                Agent_data[1] = Size
+            
+            np.save(agent_file, Agent_data)
 
 
 
