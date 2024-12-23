@@ -194,6 +194,7 @@ class adapt_aydemir(model_template):
 
             for j in target_agents:
                 sample_id_i = Sample_id[i].copy()
+                agent_id_i = Agent_id[i].copy()
                 
                 batch.append({})
 
@@ -236,7 +237,7 @@ class adapt_aydemir(model_template):
                 tensor[:, :, 2:4] = pos_matrix[:, 1:, :2] # x y
                 tensor[:, :, 4] = np.tile((np.arange(X.shape[2]-1)+1) * self.dt, (X.shape[1], 1)) # timestamp
                 
-                tensor[:, :, 5] = np.tile(~self.data_set.Not_pov_agent[[sample_id_i]], (X.shape[2]-1, 1)).T # TODO check if pov agent
+                tensor[:, :, 5] = np.tile(~self.data_set.Not_pov_agent[[sample_id_i]][:, agent_id_i], (X.shape[2]-1, 1)).T # TODO check if pov agent
 
 
                 tensor[j, :, 6] = 1 # type==target agent

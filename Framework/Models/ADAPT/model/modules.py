@@ -241,6 +241,7 @@ class Trajectory_Decoder(nn.Module):
         super(Trajectory_Decoder, self).__init__()
 
         self.multi_agent = args.multi_agent
+        self.fut_len = args.future_len
 
         meta_size = 5
         hidden_size = args.hidden_size
@@ -250,7 +251,7 @@ class Trajectory_Decoder(nn.Module):
         else:
             self.endpoint_predictor = MLP(hidden_size + meta_size, 6*2, residual=True)
 
-        self.get_trajectory = MLP(hidden_size + meta_size + 2, 29*2, residual=True)
+        self.get_trajectory = MLP(hidden_size + meta_size + 2, (self.fut_len-1)*2, residual=True)
         self.endpoint_refiner = MLP(hidden_size + meta_size + 2, 2, residual=True)
         self.get_prob = MLP(hidden_size + meta_size + 2, 1, residual=True)
 
@@ -283,12 +284,12 @@ class Trajectory_Decoder(nn.Module):
         # agent_features.shape = (N, M, 6, 128 + 5 + 2)
         agent_features = torch.cat([agent_features, endpoints.detach()], dim=-1)
 
-        predictions = self.get_trajectory(agent_features).view(N, M, 6, 29, 2)
+        predictions = self.get_trajectory(agent_features).view(N, M, 6, (self.fut_len-1), 2)
         logits = self.get_prob(agent_features).view(N, M, 6)
 
         predictions = torch.cat([predictions, endpoints.unsqueeze(dim=-2)], dim=-2)
 
-        assert predictions.shape == (N, M, 6, 30, 2)
+        assert predictions.shape == (N, M, 6, self.fut_len, 2)
 
         return predictions, logits
 
