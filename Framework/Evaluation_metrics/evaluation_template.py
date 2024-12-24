@@ -133,27 +133,23 @@ class evaluation_template():
             This is a :math:`\{...\}` dimensional numpy array with boolean values. It indicates if a 
             collision was detected for the corresponding pair of agents.
         '''
-        # Extract distance over timesteps
-        V_A = Path_A[...,1:,:] - Path_A[...,:-1,:]
-        V_B = Path_B[...,1:,:] - Path_B[...,:-1,:]
-
         # Get the corresponding angles
-        Theta_A = np.arctan2(V_A[...,1], V_A[...,0])
-        Theta_B = np.arctan2(V_B[...,1], V_B[...,0])
+        Theta_A = np.arctan2(Path_A[...,1:,1] - Path_A[...,:-1,1], Path_A[...,1:,0] - Path_A[...,:-1,0])
+        Theta_B = np.arctan2(Path_B[...,1:,1] - Path_B[...,:-1,1], Path_B[...,1:,0] - Path_B[...,:-1,0])
         
         # Elongate the theta values to original length, assuming that the
         # Calculated angels correspond to the recorded angles at the middle of each timestep
-        Theta_A_middle = np.nanmean(np.stack((Theta_A[...,1:], Theta_A[...,:-1]), -1), -1)
-        Theta_B_middle = np.nanmean(np.stack((Theta_B[...,1:], Theta_B[...,:-1]), -1), -1)
-
         Theta_A_start = Theta_A[...,0] - 0.5 * (Theta_A[...,1] - Theta_A[...,0])
         Theta_B_start = Theta_B[...,0] - 0.5 * (Theta_B[...,1] - Theta_B[...,0])
 
         Theta_A_end = Theta_A[...,-1] + 0.5 * (Theta_A[...,-1] - Theta_A[...,-2])
         Theta_B_end = Theta_B[...,-1] + 0.5 * (Theta_B[...,-1] - Theta_B[...,-2])
+        
+        Theta_A = np.nanmean(np.stack((Theta_A[...,1:], Theta_A[...,:-1]), -1), -1)
+        Theta_B = np.nanmean(np.stack((Theta_B[...,1:], Theta_B[...,:-1]), -1), -1)
 
-        Theta_A = np.concatenate((Theta_A_start[...,np.newaxis], Theta_A_middle, Theta_A_end[...,np.newaxis]), axis=-1)
-        Theta_B = np.concatenate((Theta_B_start[...,np.newaxis], Theta_B_middle, Theta_B_end[...,np.newaxis]), axis=-1)
+        Theta_A = np.concatenate((Theta_A_start[...,np.newaxis], Theta_A, Theta_A_end[...,np.newaxis]), axis=-1)
+        Theta_B = np.concatenate((Theta_B_start[...,np.newaxis], Theta_B, Theta_B_end[...,np.newaxis]), axis=-1)
 
         # Get the relative positions
         Path_B_adj = Path_B - Path_A
@@ -163,33 +159,27 @@ class evaluation_template():
                                Path_B_adj[...,0] * np.sin(-Theta_A) + Path_B_adj[...,1] * np.cos(-Theta_A)), axis=-1)
 
         # Get the relative angles
-        Theta_B_adj = Theta_B - Theta_A # Shape (..., N_O)
-
-        # Get widths (y-axis) and lengths (x-axis) of the vehicles
-        W_A = Size_A[...,1]
-        W_B = Size_B[...,1]
-
-        L_A = Size_A[...,0]
-        L_B = Size_B[...,0]
+        Theta_B -= Theta_A # Shape (..., N_O)
+        del Theta_A
 
         # Get initial corner positions
-        Corner_A = np.stack([np.stack([-L_A/2, -W_A/2], -1),
-                             np.stack([ L_A/2, -W_A/2], -1),
-                             np.stack([ L_A/2,  W_A/2], -1),
-                             np.stack([-L_A/2,  W_A/2], -1)], -2) # Shape (..., 4, 2)
+        Corner_A = np.stack([np.stack([-Size_A[...,0]/2, -Size_A[...,1]/2], -1),
+                             np.stack([ Size_A[...,0]/2, -Size_A[...,1]/2], -1),
+                             np.stack([ Size_A[...,0]/2,  Size_A[...,1]/2], -1),
+                             np.stack([-Size_A[...,0]/2,  Size_A[...,1]/2], -1)], -2) # Shape (..., 4, 2)
         
-        Corner_B = np.stack([np.stack([-L_B/2, -W_B/2], -1),
-                             np.stack([ L_B/2, -W_B/2], -1),
-                             np.stack([ L_B/2,  W_B/2], -1),
-                             np.stack([-L_B/2,  W_B/2], -1)], -2) # Shape (..., 4, 2)
-
+        Corner_B = np.stack([np.stack([-Size_B[...,0]/2, -Size_B[...,1]/2], -1),
+                             np.stack([ Size_B[...,0]/2, -Size_B[...,1]/2], -1),
+                             np.stack([ Size_B[...,0]/2,  Size_B[...,1]/2], -1),
+                             np.stack([-Size_B[...,0]/2,  Size_B[...,1]/2], -1)], -2) # Shape (..., 4, 2)
+        
         # Rotate the Corner B with the relative angles
         Corner_A = Corner_A[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
         Corner_B = Corner_B[...,np.newaxis, :, :] # Shape (..., 1, 4, 2)
-        Theta_B_adj = Theta_B_adj[...,np.newaxis] # Shape (..., N_O, 1)
+        Theta_B  = Theta_B[...,np.newaxis] # Shape (..., N_O, 1)
 
-        Corner_B = np.stack((Corner_B[...,0] * np.cos(Theta_B_adj) - Corner_B[...,1] * np.sin(Theta_B_adj),
-                             Corner_B[...,0] * np.sin(Theta_B_adj) + Corner_B[...,1] * np.cos(Theta_B_adj)), axis=-1) # Shape (..., N_O, 4, 2)
+        Corner_B = np.stack((Corner_B[...,0] * np.cos(Theta_B) - Corner_B[...,1] * np.sin(Theta_B),
+                             Corner_B[...,0] * np.sin(Theta_B) + Corner_B[...,1] * np.cos(Theta_B)), axis=-1) # Shape (..., N_O, 4, 2)
         
         # Translate the corners to the center
         Corner_B += Path_B_adj[...,np.newaxis, :] # Shape (..., N_O, 4, 2)
@@ -200,8 +190,8 @@ class evaluation_template():
         Norm_A_2 = np.array([0, 1])
 
         # Get the 2 normals of rectangle B
-        Norm_B_1 = np.concatenate([np.cos(Theta_B_adj), np.sin(Theta_B_adj)], -1) # Shape (..., N_O, 2)
-        Norm_B_2 = np.concatenate([-np.sin(Theta_B_adj), np.cos(Theta_B_adj)], -1) # Shape (..., N_O, 2)
+        Norm_B_1 = np.concatenate([np.cos(Theta_B), np.sin(Theta_B)], -1) # Shape (..., N_O, 2)
+        Norm_B_2 = np.concatenate([-np.sin(Theta_B), np.cos(Theta_B)], -1) # Shape (..., N_O, 2)
 
         # Combine the normals
         for size in Norm_B_1.shape[:-1]:
@@ -217,15 +207,18 @@ class evaluation_template():
         # Project the corners of rectangle A onto Normals
         Projections_A = np.matmul(Normals, Corner_A) # Shape (..., N_O, 4(normals), 4(corners A))
         Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4(normals), 4(corners B))
+        
+        del Corner_A, Corner_B, Normals
 
         # Get the diffrences between the points
         Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4(normals), 4(corners A), 4(corners B))
         Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4(normals), 16(corners A - corners B))
+        del Projections_A, Projections_B
 
         Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
         Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
 
-        # Analytical solution is to complicate din vectorform, cheat by doing linear interpolations
+        # Analytical solution is too complicated in vectorform, cheat by doing linear interpolations
         Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
 
         # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
@@ -240,11 +233,10 @@ class evaluation_template():
         No_collision = No_collision.all(-1) # Shape (..., N_O - 1)
 
         # Check if any of the Paths had nan values here
-        Path_A_nan = np.isnan(Path_A).any(-1) # Shape (..., N_O)
-        Path_B_nan = np.isnan(Path_B).any(-1) # Shape (..., N_O)
+        Path_nan = (np.isnan(Path_A) | np.isnan(Path_B)).any(-1) # Shape (..., N_O)
 
         # For a collision to be possible, both ends need to be observed
-        Missing_agent = Path_A_nan[...,1:] | Path_B_nan[...,1:] | Path_A_nan[...,:-1] | Path_B_nan[...,:-1] # Shape (..., N_O - 1)
+        Missing_agent = Path_nan[...,1:] | Path_nan[...,:-1] # Shape (..., N_O - 1)
         No_collision |= Missing_agent
 
         # For no collision to be observed, this must be the case for all original timesteps
