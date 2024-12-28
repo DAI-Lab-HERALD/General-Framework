@@ -251,7 +251,10 @@ class evaluation_template():
             Sign_1_equal_further = Sign_1_equal[Investigate_further] # Shape (N, 4(normals))
             
             # Get the factor at which the Diff gets zero
-            Factor = Diff_0_further / (Diff_0_further - Diff_1_further) # Shape (N, 4, 16(corners A - corners B))
+            Diff_diff = Diff_0_further - Diff_1_further # Shape (N, 4, 16(corners A - corners B))
+            Diff_diff[(0 <= Diff_diff) & (Diff_diff < 1e-6)] = 1e-6
+            Diff_diff[(0 >= Diff_diff) & (Diff_diff > -1e-6)] = -1e-6
+            Factor = Diff_0_further / Diff_diff # Shape (N, 4, 16(corners A - corners B))
             
             # Check for each normal, during which interval there is an overlap
             # There four possibilities:
