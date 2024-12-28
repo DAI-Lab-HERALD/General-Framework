@@ -79,7 +79,7 @@ class Collision_rate_joint(evaluation_template):
         print('Available memory: {:.2f} GB'.format(available_memory / 2**30), flush = True)
         # Get memry used for Path_pred_agent and Path_other
         memory_Path_pred_agent = Path_pred_agent.nbytes
-        needed_memory = memory_Path_pred_agent * 2000 # Rough estimate of memory needed for the calculation
+        needed_memory = memory_Path_pred_agent * 250 # Rough estimate of memory needed for the calculation
         
         print('Needed memory: {:.2f} GB'.format(needed_memory / 2**30), flush = True)
         split_size = max(1, int(P * available_memory / needed_memory))

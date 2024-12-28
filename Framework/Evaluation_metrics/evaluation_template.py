@@ -209,7 +209,7 @@ class evaluation_template():
         Projections_B = np.matmul(Normals, Corner_B) # Shape (..., N_O, 4(normals), 4(corners B))
         
         del Corner_A, Corner_B, Normals
-
+        
         # Get the diffrences between the points
         Differences = Projections_A[...,np.newaxis,:] - Projections_B[...,np.newaxis] # Shape (..., N_O, 4(normals), 4(corners A), 4(corners B))
         Differences = Differences.reshape((*Differences.shape[:-2], -1)) # Shape (..., N_O, 4(normals), 16(corners A - corners B))
@@ -217,20 +217,221 @@ class evaluation_template():
 
         Differences_0 = Differences[...,:-1,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
         Differences_1 = Differences[...,1:,:,:] # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
-
-        # Analytical solution is too complicated in vectorform, cheat by doing linear interpolations
-        Differences_test = np.linspace(0,1, 11) * (Differences_1 - Differences_0)[...,np.newaxis] + Differences_0[...,np.newaxis] # Shape (..., N_O - 1, 4, 16, 11)
-
-        # For each timepoint, check if any of the four projectrions has the same sign in all 16 differences
-        # I.e., there is no overlap between their projections on the normals
-        Sign_test = np.sign(Differences_test) # Shape (..., N_O - 1, 4, 16, 11)
-        Sign_equal = (Sign_test[...,[0],:] == Sign_test).all(-2) # Shape (..., N_O - 1, 4, 11)
-
-        # For there to be no overlap between the rectnagles, at least on of the 4 projections needs to have equal signs
-        No_collision = np.any(Sign_equal, -2) # Shape (..., N_O - 1, 11)
-
-        # For there to be no collision in the current timesteps, there must be no collision at all interpolated timesteps
-        No_collision = No_collision.all(-1) # Shape (..., N_O - 1)
+        
+        # Find seperated normals
+        Sign_0 = np.sign(Differences_0) # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
+        Sign_1 = np.sign(Differences_1) # Shape (..., N_O - 1, 4(normals), 16(corners A - corners B))
+        
+        # Check if the signs are different
+        Sign_0_equal = (Sign_0[...,[0]] == Sign_0).all(-1) # Shape (..., N_O - 1, 4(normals))
+        Sign_1_equal = (Sign_1[...,[0]] == Sign_1).all(-1) # Shape (..., N_O - 1, 4(normals))
+        
+        # There was definetly no overlap if both starting and endpoint had no overlap, and had the same sign
+        No_overlap = Sign_0_equal & Sign_1_equal & (Sign_0[...,0] == Sign_1[...,0]) # Shape (..., N_O - 1, 4(normals))
+        
+        # If there is any normal with no overlap, then there is no collision
+        No_collision = No_overlap.any(-1) # Shape (..., N_O - 1)
+        
+        # If either at the start or the end all normal have mixed signs, then there is a collision
+        Definite_collision = (~np.any(Sign_0_equal, axis = -1)) | (~np.any(Sign_1_equal, axis = -1)) # Shape (..., N_O - 1)
+        
+        # If neither No_collision nor Definite_collision is observed, then further investigation is needed
+        Investigate_further = ~(No_collision | Definite_collision) # Shape (..., N_O - 1)
+        
+        # Investigate further
+        if Investigate_further.any():
+            # N = Num furhter investigations
+            Diff_0_further = Differences_0[Investigate_further] # Shape (N, 4, 16(corners A - corners B))
+            Diff_1_further = Differences_1[Investigate_further] # Shape (N, 4, 16(corners A - corners B))
+            
+            Sign_0_further = Sign_0[Investigate_further] # Shape (N, 4(normals), 16(corners A - corners B))
+            Sign_1_further = Sign_1[Investigate_further] # Shape (N, 4(normals), 16(corners A - corners B))
+            
+            Sign_0_equal_further = Sign_0_equal[Investigate_further] # Shape (N, 4(normals))
+            Sign_1_equal_further = Sign_1_equal[Investigate_further] # Shape (N, 4(normals))
+            
+            # Get the factor at which the Diff gets zero
+            Factor = Diff_0_further / (Diff_0_further - Diff_1_further) # Shape (N, 4, 16(corners A - corners B))
+            
+            # Check for each normal, during which interval there is an overlap
+            # There four possibilities:
+            # Case 1: Start with no overlap, end with no overlap => There is an interval [a,b] with a,b in [0,1] where there is an overlap
+            # Case 2: Start with no overlap, end with overlap => There is an interval [a,1] with a in [0,1] where there is an overlap
+            # Case 3: Start with overlap, end with no overlap => There is an interval [0,b] with b in [0,1] where there is an overlap
+            # Case 4: Start with overlap, end with overlap on different sides => There is a possibility of an interval [a,b] with a,b in [0,1] where there is no overlap
+            
+            # Get the different cases
+            case_1 = Sign_0_equal_further & Sign_1_equal_further # Shape (N, 4(normals))
+            # For this case, the sign should be different
+            assert (Sign_0_further[case_1] != Sign_1_further[case_1]).all(), 'There is a bug in the code'
+            
+            case_2 = Sign_0_equal_further & ~Sign_1_equal_further # Shape (N, 4(normals))
+            
+            case_3 = ~Sign_0_equal_further & Sign_1_equal_further # Shape (N, 4(normals))
+            
+            case_4 = ~Sign_0_equal_further & ~Sign_1_equal_further # Shape (N, 4(normals))
+            
+            Overlap_start = np.zeros_like(Factor[...,0], float) # Shape (N, 4)
+            Overlap_end   = np.ones_like(Factor[...,0], float) # Shape (N, 4)
+            
+            Overlap_start_2 = np.ones_like(Factor[...,0], float) # Shape (N, 4)
+            Overlap_end_2   = np.ones_like(Factor[...,0], float) # Shape (N, 4)
+            # Go through the different cases
+            if case_1.any():
+                # Get the factors where there is an overlap
+                Factor_case_1 = Factor[case_1] # Shape (N_case_1, 16(corners A - corners B))
+                
+                # All the factors should be between 0 and 1
+                Fac_min = Factor_case_1.min(-1) # Shape (N_case_1)
+                Fac_max = Factor_case_1.max(-1) # Shape (N_case_1)
+                assert (Fac_min >= 0).all() and (Fac_max <= 1).all(), 'There is a bug in the code'
+                
+                Overlap_start[case_1] = Fac_min
+                Overlap_end[case_1] = Fac_max
+                
+            if case_2.any():
+                # Get the factors where there is an overlap
+                Factor_case_2 = Factor[case_2] # Shape (N_case_2, 16(corners A - corners B))
+                
+                # Get the corresponding signs
+                Sign_0_case_2 = Sign_0_further[case_2] # Shape (N_case_2, 16(corners A - corners B))
+                Sign_1_case_2 = Sign_1_further[case_2] # Shape (N_case_2, 16(corners A - corners B))
+                
+                # Get the factors where the sign changes
+                Sign_change = Sign_0_case_2 != Sign_1_case_2 # Shape (N_case_2, 16(corners A - corners B))
+                
+                # Factors with sign change should be between 0 and 1
+                assert (Factor_case_2[Sign_change] >= 0).all() and (Factor_case_2[Sign_change] <= 1).all(), 'There is a bug in the code'
+                
+                # Get the minimum factor where the sign changes
+                Fac_min = np.maximum(Factor_case_2, (~Sign_change).astype(float)).min(-1) # Shape (N_case_2)
+                
+                # Get interval start
+                Overlap_start[case_2] = Fac_min
+            
+            if case_3.any():
+                # Get the factors where there is an overlap
+                Factor_case_3 = Factor[case_3] # Shape (N_case_3, 16(corners A - corners B))	
+                
+                # Get the corresponding signs
+                Sign_0_case_3 = Sign_0_further[case_3] # Shape (N_case_3, 16(corners A - corners B))
+                Sign_1_case_3 = Sign_1_further[case_3] # Shape (N_case_3, 16(corners A - corners B))
+                
+                # Get the factors where the sign changes
+                Sign_change = Sign_0_case_3 != Sign_1_case_3 # Shape (N_case_3, 16(corners A - corners B))
+                
+                # Factors with sign change should be between 0 and 1
+                assert (Factor_case_3[Sign_change] >= 0).all() and (Factor_case_3[Sign_change] <= 1).all(), 'There is a bug in the code'
+                
+                # Get the maximum factor where the sign changes
+                Fac_max = np.minimum(Factor_case_3, Sign_change.astype(float)).max(-1) # Shape (N_case_3)
+                
+                # Get interval end
+                Overlap_end[case_3] = Fac_max
+            
+            if case_4.any():
+                # Get the factors where there is an overlap
+                Factor_case_4 = Factor[case_4] # Shape (N_case_4, 16(corners A - corners B))
+                Diff_0_case_4 = Diff_0_further[case_4] # Shape (N_case_4, 16(corners A - corners B))
+                Diff_1_case_4 = Diff_1_further[case_4] # Shape (N_case_4, 16(corners A - corners B))
+                
+                # Clip Factors to be between 0 and 1
+                Factor_case_4 = np.clip(Factor_case_4, 0, 1) # Shape (N_case_4, 16(corners A - corners B))
+                
+                # Each of the lines shoudl have an interval where the sign is positive and one interval where the sign is negative
+                Positive_start = np.zeros_like(Factor_case_4, float) # Shape (N_case_4, 16(corners A - corners B))
+                Positive_end   = np.ones_like(Factor_case_4, float) # Shape (N_case_4, 16(corners A - corners B))
+                
+                Negative_start = np.zeros_like(Factor_case_4, float) # Shape (N_case_4, 16(corners A - corners B))
+                Negative_end   = np.ones_like(Factor_case_4, float) # Shape (N_case_4, 16(corners A - corners B))
+                
+                # For decresing lines, it swithes from positive to negative
+                Decresing = Diff_0_case_4 > Diff_1_case_4 # Shape (N_case_4, 16(corners A - corners B))
+                
+                Positive_end[Decresing] = Factor_case_4[Decresing]
+                Negative_start[Decresing] = Factor_case_4[Decresing]
+                
+                # For increasing lines, it swithes from negative to positive
+                Increasing = ~Decresing # Shape (N_case_4, 16(corners A - corners B))
+                
+                Positive_start[Increasing] = Factor_case_4[Increasing]
+                Negative_end[Increasing] = Factor_case_4[Increasing]
+                
+                # Get the maximum start and minimum end values
+                Positive_start = Positive_start.max(-1) # Shape (N_case_4)
+                Positive_end = Positive_end.max(-1) # Shape (N_case_4)
+                Negative_start = Negative_start.min(-1) # Shape (N_case_4)
+                Negative_end = Negative_end.min(-1) # Shape (N_case_4)
+                
+                # The no overlap is if positive_start < positive_end or negative_start < negative_end
+                Positive_no_overlap = Positive_start < Positive_end # Shape (N_case_4)
+                Negative_no_overlap = Negative_start < Negative_end # Shape (N_case_4)
+                
+                # Both conditions should be impossible
+                assert (Positive_no_overlap & Negative_no_overlap).any(), 'There is a bug in the code'
+                
+                # Get the interval where there is no overlap
+                No_overlap_start = np.ones_like(Positive_start, float) # Shape (N_case_4)
+                No_overlap_end = np.ones_like(Positive_start, float) # Shape (N_case_4)
+                
+                No_overlap_start[Positive_no_overlap] = Positive_start[Positive_no_overlap]
+                No_overlap_end[Positive_no_overlap] = Positive_end[Positive_no_overlap]
+                
+                No_overlap_start[Negative_no_overlap] = Negative_start[Negative_no_overlap]
+                No_overlap_end[Negative_no_overlap] = Negative_end[Negative_no_overlap]
+                
+                # Define the left overlap interval
+                Overlap_end[case_4] = No_overlap_start
+                
+                # Define the right overlap interval
+                Overlap_start_2[case_4] = No_overlap_end 
+            
+            # Check if second intervals exist
+            Two_intervals = (Overlap_start_2 < 1.0).any(-1) # Shape (N)
+            One_interval = ~Two_intervals # Shape (N)
+            
+            Collision_found = np.zeros_like(Two_intervals, bool) # Shape (N)
+            
+            if Two_intervals.any():
+                Overlap_start_two = np.stack((Overlap_start[Two_intervals], Overlap_start_2[Two_intervals]), -1) # Shape (M, 4, 2)
+                Overlap_end_two = np.stack((Overlap_end[Two_intervals], Overlap_end_2[Two_intervals]), -1) # Shape (M, 4, 2)
+                # Check if there is any time where there is an overlap on all normals
+                # Given that there are 4 x 2 intervals, ther are 4 ^ 2 possible interval combinations an overlap could happen in.
+                # I.e, transform the N x 4 x 2 intervals to a N x 4 x 16 interval matrix
+                
+                I_normal = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                                     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                                     [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+                                     [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],])
+                
+                I_interv = np.array([[0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1],
+                                     [0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1],
+                                     [0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1],
+                                     [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]])
+                
+                Overlap_start_two = Overlap_start_two[...,I_normal, I_interv] # Shape (M, 4, 16)
+                Overlap_end_two = Overlap_end_two[...,I_normal, I_interv] # Shape (M, 4, 16)
+                
+                # Check if there is any overlap on all normals
+                Overlap_start_two = Overlap_start_two.max(-2) # Shape (M, 16)
+                Overlap_end_two = Overlap_end_two.min(-2) # Shape (M, 16)
+                
+                Overlap_two = Overlap_start_two < Overlap_end_two # Shape (M, 16)
+                Overlap_two = Overlap_two.any(-1) # Shape (M)
+                
+                Collision_found[Two_intervals] = Overlap_two
+            
+            if One_interval.any():
+                # Get combined start interval
+                Overlap_start_one = Overlap_start[One_interval].max(-1) # Shape (M)
+                Overlap_end_one = Overlap_end[One_interval].min(-1) # Shape (M)
+                
+                Overlap_one = Overlap_start_one < Overlap_end_one # Shape (M)
+                
+                Collision_found[One_interval] = Overlap_one
+                
+            # Expand No_collision to the original shape
+            No_collision[Investigate_further] = ~Collision_found
 
         # Check if any of the Paths had nan values here
         Path_nan = (np.isnan(Path_A) | np.isnan(Path_B)).any(-1) # Shape (..., N_O)

@@ -367,7 +367,7 @@ class model_template():
         # Predict the number of origdata size needed for output
         parts_needed_rel = (self.num_timesteps_out * self.num_samples_path_pred) / (self.num_timesteps_out + self.num_timesteps_in)
         
-        parts_needed = int(np.ceil(1.2 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 1.2 is a safety margin
+        parts_needed = int(np.ceil(2.5 * parts_needed_rel * len(Index_file) / num_samples_file)) # The 2.5 is a safety margin
 
         # Get number of samples that can actually be predicted
         index_length = int(np.ceil(len(Index_file) / parts_needed))
