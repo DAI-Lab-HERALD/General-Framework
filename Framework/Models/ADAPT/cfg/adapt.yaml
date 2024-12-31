@@ -5,7 +5,7 @@ num_modes: 6 # hardcoded in the model
 # === Common Hyperparameters ===
 hidden_size: 128
 batch_size: 64
-epoch: 2 #36
+epoch: 36
 learning_rate: 1e-4
 
 # ===  Architecture Parameters ===

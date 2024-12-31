@@ -200,10 +200,8 @@ class fjmp_rowe(model_template):
 
         if hasattr(self, 'model_file'):
             if not ('log_path' in self.model_kwargs.keys()):
-                log_folder = 'FJMP_' + str(self.model_kwargs["num_joint_modes"]) + "_" + str(self.num_samples_path_pred) + "_logs_seed_" + str(self.model_kwargs["seed"])
-                self.model_kwargs["log_path"] = Path(os.path.dirname(self.model_file) + os.sep + log_folder + os.sep)
+                self.model_kwargs["log_path"] = Path(self.model_file[:-4] + '_log' + os.sep)
 
-                # self.model_kwargs["log_path"].mkdir(exist_ok=True, parents=True)
                 if not os.path.exists(self.model_kwargs["log_path"]):
                     os.makedirs(self.model_kwargs["log_path"], exist_ok=True)
 
@@ -539,17 +537,6 @@ class fjmp_rowe(model_template):
             else:
                 with open(os.path.join(self.model_kwargs["log_path"], "config_stage_1.pkl"), "wb") as f:
                     pickle.dump(self.model_kwargs, f)
-
-        # # load model for stage 1 and freeze weights
-        # if self.model.two_stage_training and self.model.training_stage == 2:
-        #     with open(os.path.join(self.model_kwargs["log_path"], "config_stage_1.pkl"), "rb") as f:
-        #         config_stage_1 = pickle.load(f) 
-            
-        #     pretrained_relation_header = FJMP(config_stage_1)
-        #     self.model.prepare_for_stage_2(pretrained_relation_header)
-        
-
-        
 
         # hvd.broadcast_parameters(self.state_dict(), root_rank=0)
         # hvd.broadcast_optimizer_state(optimizer, root_rank=0)
