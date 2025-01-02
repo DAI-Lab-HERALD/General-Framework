@@ -3736,15 +3736,15 @@ class data_set_template():
         Keep_segments = np.zeros(len(left_boundaries), bool)
         Keep_nodes = np.zeros(num_nodes, bool)
         
-        # Assert lane_idcs are correct (i.e., consecutive or equal)
-        lane_idcs_diff = lane_idcs[1:] - lane_idcs[:-1]
-        assert lane_idcs_diff.max() <= 1, "Lane indices are jumped"
-        assert lane_idcs_diff.min() >= 0, "Lane indices go backwards"
+        # Get original lane id range, using
+        new_lane = np.where(lane_idcs[1:] != lane_idcs[:-1])[0] + 1
+        lane_ids = np.concatenate((lane_idcs[[0]], lane_idcs[new_lane]), 0)
+        assert len(lane_ids) == len(centerlines), "Lane ids are not correct."
 
-        for lane_id in range(len(left_boundaries)):
-            left_pts = left_boundaries[lane_id] # shape = (num_points, 2)
-            right_pts = right_boundaries[lane_id] # shape = (num_points, 2)
-            centerline_pts = centerlines[lane_id] # shape = (num_points, 2)
+        for i_lane, lane_id in enumerate(lane_ids):
+            left_pts = left_boundaries[i_lane] # shape = (num_points, 2)
+            right_pts = right_boundaries[i_lane] # shape = (num_points, 2)
+            centerline_pts = centerlines[i_lane] # shape = (num_points, 2)
 
             # Get distance to agents (nanmin over the agents)
             dist_left   = np.nanmin(np.linalg.norm(left_pts[:,np.newaxis] - X_a, axis = -1), axis = 1)
@@ -3772,6 +3772,7 @@ class data_set_template():
                     pre_idcs = pre_pairs[:,0] == lane_id
                     pre_pairs = pre_pairs[~pre_idcs]
                 
+                # Remove the nodes that are not kept
                 left_pts = left_pts[keep_left]
                 right_pts = right_pts[keep_right]
                 centerline_pts = centerline_pts[keep_center]
@@ -3802,10 +3803,10 @@ class data_set_template():
                 centerline_pts = centerline_pts[~remove_center]
 
                 # Set lanes
-                Keep_segments[lane_id] = True
-                left_boundaries[lane_id] = left_pts
-                right_boundaries[lane_id] = right_pts
-                centerlines[lane_id] = centerline_pts
+                Keep_segments[i_lane] = True
+                left_boundaries[i_lane] = left_pts
+                right_boundaries[i_lane] = right_pts
+                centerlines[i_lane] = centerline_pts
 
                 # Update keep center
                 keep_center[keep_center] = ~remove_center
@@ -3825,47 +3826,49 @@ class data_set_template():
         left_boundaries = left_boundaries[Keep_segments]
         right_boundaries = right_boundaries[Keep_segments]
         centerlines = centerlines[Keep_segments]
-
-        # Remove pairs that contain nodes that are not kept
-        keep_suc   = Keep_segments[suc_pairs].all(1)
-        keep_pre   = Keep_segments[pre_pairs].all(1)
-        keep_left  = Keep_segments[left_pairs].all(1)
-        keep_right = Keep_segments[right_pairs].all(1)
         
-        suc_pairs   = suc_pairs[keep_suc]
-        pre_pairs   = pre_pairs[keep_pre]
-        left_pairs  = left_pairs[keep_left]
-        right_pairs = right_pairs[keep_right]
+        # Update lany types
+        lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
         
-        if Keep_nodes.any():
-            # Only keep the current lane segments
-            unique_ids, lane_idcs = np.unique(lane_idcs[Keep_nodes], return_inverse = True)
-            num_nodes = len(lane_idcs)
-            lane_id_map = np.zeros(unique_ids.max() + 1, int)
-            lane_id_map[unique_ids] = np.arange(len(unique_ids))
+        # Update lane ids
+        if Keep_segments.any():
+            assert Keep_nodes.any(), "No nodes are kept, but segments are kept."
+            # Set up mapping
+            lane_id_map = np.full((lane_ids.max() + 1,), -1, dtype = int)
             
-            # Update the lane idcs
-            suc_pairs   = lane_id_map[suc_pairs]
-            pre_pairs   = lane_id_map[pre_pairs]
-            left_pairs  = lane_id_map[left_pairs]
-            right_pairs = lane_id_map[right_pairs]
+            # Update lane ids
+            lane_ids = lane_ids[Keep_segments] 
+            
+            # Fill in mapping
+            lane_id_map[lane_ids] = np.arange(len(lane_ids))
         else:
-            lane_idcs = np.array([], int)
+            assert not Keep_nodes.any(), "Nodes are kept, but no segments are kept."
+            lane_ids = np.array([], int)
             lane_id_map = np.array([], int)
-            num_nodes = 0
-            
-            # Here, Keep segement should also be false for all
-            assert not Keep_segments.any(), "There are still segments kept, without any nodes."
-            
             # Print warning
             print('Warning: With radius ' + str(radius) + ' no lane segments are foudn around the agents at positions ')
             print(X_a[0])       
-            print('')     
-
-        lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
+            print('')  
+          
+        lane_idcs = lane_idcs[Keep_nodes]
+        num_nodes = len(lane_idcs)
+        
+        if num_nodes > 0:
+            assert np.unique(lane_idcs) == np.sort(lane_ids), "Lane idcs are wrongly kept." 
+            
+        # Rename the pairs
+        suc_pairs   = lane_id_map[suc_pairs]
+        pre_pairs   = lane_id_map[pre_pairs]
+        left_pairs  = lane_id_map[left_pairs]
+        right_pairs = lane_id_map[right_pairs]
+        
+        # Remove pairs that containt removed nodes (now = -1)
+        suc_pairs   = suc_pairs[(suc_pairs >= 0).all(1)]
+        pre_pairs   = pre_pairs[(pre_pairs >= 0).all(1)]
+        left_pairs  = left_pairs[(left_pairs >= 0).all(1)]
+        right_pairs = right_pairs[(right_pairs >= 0).all(1)]
 
         # Assemble new graph
-
         loc_Graph_cut = pd.Series([num_nodes, lane_idcs, pre_pairs, suc_pairs, left_pairs, right_pairs, 
                                    left_boundaries, right_boundaries, centerlines, lane_type],
                                    index = ['num_nodes', 'lane_idcs', 'pre_pairs', 'suc_pairs', 'left_pairs', 'right_pairs',
