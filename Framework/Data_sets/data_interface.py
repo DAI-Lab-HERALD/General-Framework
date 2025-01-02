@@ -624,7 +624,7 @@ class data_interface(object):
         
     
     
-    def return_batch_sceneGraphs(self, domain, X, radius = None, print_progress = False):
+    def return_batch_sceneGraphs(self, domain, X, radius = None, wave_length = 1.0, print_progress = False):
         
         SceneGraphs = np.full(len(domain), np.nan, dtype = object)
         
@@ -640,7 +640,7 @@ class data_interface(object):
                     continue
                                 
                 Index_use = np.where(Use)[0]
-                SceneGraphs = data_set.return_batch_sceneGraphs(domain.iloc[Use], X[Use], radius, SceneGraphs, Index_use, print_progress)
+                SceneGraphs = data_set.return_batch_sceneGraphs(domain.iloc[Use], X[Use], radius, wave_length, SceneGraphs, Index_use, print_progress)
 
         return SceneGraphs
     

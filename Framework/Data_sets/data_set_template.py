@@ -3710,7 +3710,7 @@ class data_set_template():
             
 
 
-    def cut_sceneGraph(self, loc_Graph, X, radius):
+    def cut_sceneGraph(self, loc_Graph, X, radius, wave_length = 1.0):
         # loc_Graph: SceneGraph of the location, as a pandas dataframe
         # X: Position of the agents in the location, with shape num_agents x 2
         # radius: Radius of the scene graph, in meters
@@ -3782,9 +3782,9 @@ class data_set_template():
                 dist_cons_center = np.linalg.norm(centerline_pts[1:] - centerline_pts[:-1], axis = 1)
 
                 # Cumulative distance
-                cum_dist_left = np.concatenate([[0], np.cumsum(dist_cons_left)]).astype(int)
-                cum_dist_right = np.concatenate([[0], np.cumsum(dist_cons_right)]).astype(int)  
-                cum_dist_center = np.concatenate([[0], np.cumsum(dist_cons_center)]).astype(int)
+                cum_dist_left = np.concatenate([[0], np.cumsum(dist_cons_left / wave_length)]).astype(int)
+                cum_dist_right = np.concatenate([[0], np.cumsum(dist_cons_right / wave_length)]).astype(int)  
+                cum_dist_center = np.concatenate([[0], np.cumsum(dist_cons_center / wave_length)]).astype(int)
 
                 # get points that are unnecessary
                 remove_left = np.zeros(len(left_pts), bool)
@@ -3877,7 +3877,7 @@ class data_set_template():
 
         return loc_Graph_cut
 
-    def return_batch_sceneGraphs(self, domain, X, radius, SceneGraphs, Graphs_Index, print_progress=False):
+    def return_batch_sceneGraphs(self, domain, X, radius, wave_length, SceneGraphs, Graphs_Index, print_progress = False):
         if self.includes_sceneGraphs():
             if print_progress:    
                 print('')
@@ -3919,7 +3919,7 @@ class data_set_template():
                                 print('retrieving graphs ' + str(graph_num + 1) + 
                                     ' of ' + str(len(domain)) + ' total', flush = True)
                                 
-                            loc_Graph_cut = self.cut_sceneGraph(loc_Graph, X[index], radius)
+                            loc_Graph_cut = self.cut_sceneGraph(loc_Graph, X[index], radius, wave_length)
                             SceneGraphs[Graphs_Index[index]] = loc_Graph_cut
 
                             graph_num += 1

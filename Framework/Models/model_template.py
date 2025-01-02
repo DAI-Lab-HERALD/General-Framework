@@ -982,7 +982,7 @@ class model_template():
         return img_needed, img_m_per_px_needed, use_batch_extraction
 
 
-    def extract_sceneGraphs(self, domain_needed, X, radius = 100):
+    def extract_sceneGraphs(self, domain_needed, X, radius = 100, wave_length = 1.0):
         '''
         Returns scene graph data 
         '''
@@ -1001,7 +1001,7 @@ class model_template():
             else:
                 print_progress = True
 
-            graph_needed = self.data_set.return_batch_sceneGraphs(domain_needed, X, radius, print_progress)
+            graph_needed = self.data_set.return_batch_sceneGraphs(domain_needed, X, radius, wave_length, print_progress)
             use_batch_extraction = False
         else:
             graph_needed = None
@@ -1370,9 +1370,16 @@ class model_template():
                 X_last_all[self.Pred_agents] = X_last[Data_index_needed] 
 
                 if hasattr(self, 'sceneGraph_radius'):
-                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_all, self.sceneGraph_radius)
+                    radius = self.sceneGraph_radius
                 else:
-                    self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_all)
+                    radius = 100
+                
+                if hasattr(self, 'sceneGraph_wave_length'):
+                    wave_length = self.sceneGraph_wave_length
+                else:
+                    wave_length = 1.0
+                    
+                self.graph, self.use_graph_batch_extraction = self.extract_sceneGraphs(domain_needed, X_last_all, radius, wave_length)
                 self.graph_needed_sample = np.arange(len(self.ID))
             else:
                 self.graph = None
@@ -2176,9 +2183,16 @@ class model_template():
                 X_last_all = X[...,-1,:2].copy() # num_samples x num_agents x 2
                 X_last_all[~Pred_agents] = np.nan # Only consider pred agents
                 if hasattr(self, 'sceneGraph_radius'):
-                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all, self.sceneGraph_radius)
+                    radius = self.sceneGraph_radius
                 else:
-                    graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all)
+                    radius = 100
+                
+                if hasattr(self, 'sceneGraph_wave_length'):
+                    wave_length = self.sceneGraph_wave_length
+                else:
+                    wave_length = 1.0
+                
+                graph, unsuccesful = self.extract_sceneGraphs(domain, X_last_all, radius, wave_length)
 
                 if unsuccesful:
                     MemoryError('Not enough memory to extract graphs even with batches.' )
