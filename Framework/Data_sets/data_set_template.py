@@ -3715,7 +3715,11 @@ class data_set_template():
         # X: Position of the agents in the location, with shape num_agents x 2
         # radius: Radius of the scene graph, in meters
 
-        X_a = X[np.newaxis, :] # shape = (1, num_agents, 2)
+        # Only keep non nan agents
+        X_a = X[np.isfinite(X).all(-1)]
+        assert len(X_a) > 0, "There are no agents in the scene."
+        X_a = X_a[np.newaxis, :] # shape = (1, num_agents, 2)
+        
 
         # Get contents of loc_Graph
         num_nodes = loc_Graph.num_nodes + 0 # Number of nodes in the scene graph
@@ -3731,6 +3735,10 @@ class data_set_template():
         # Go through segments
         Keep_segments = np.zeros(len(left_boundaries), bool)
         Keep_nodes = np.zeros(num_nodes, bool)
+        
+        # Assert lane_idcs are correct (i.e., consecutive or equal)
+        lane_idcs_diff = lane_idcs[1:] - lane_idcs[:-1]
+        assert lane_idcs_diff.max() <= 1, "Lane indices are jumped"
 
         for lane_id in range(len(left_boundaries)):
             left_pts = left_boundaries[lane_id] # shape = (num_points, 2)
@@ -3807,19 +3815,12 @@ class data_set_template():
             keep_num_nodes = keep_center.sum() - 1
 
             # Get the current nodes for this lane
-            lane_nodes = lane_idcs == lane_id
-            keep_nodes_bool = np.zeros(lane_nodes.sum(), bool)
-            keep_nodes_bool[:keep_num_nodes] = True
+            lane_nodes_id = np.where(lane_idcs == lane_id)[0]
 
             # Get the nodes to keep 
-            Keep_nodes[lane_nodes] = keep_nodes_bool
-
-        # Only keep the current lane segments
-        unique_ids, lane_idcs = np.unique(lane_idcs[Keep_nodes], return_inverse = True)
-        num_nodes = len(lane_idcs)
-        lane_id_map = np.zeros(unique_ids.max() + 1, int)
-        lane_id_map[unique_ids] = np.arange(len(unique_ids))
-
+            Keep_nodes[lane_nodes_id[:keep_num_nodes]] = True
+        
+        # Keep lane segements
         left_boundaries = left_boundaries[Keep_segments]
         right_boundaries = right_boundaries[Keep_segments]
         centerlines = centerlines[Keep_segments]
@@ -3829,11 +3830,36 @@ class data_set_template():
         keep_pre   = Keep_segments[pre_pairs].all(1)
         keep_left  = Keep_segments[left_pairs].all(1)
         keep_right = Keep_segments[right_pairs].all(1)
-
-        suc_pairs   = lane_id_map[suc_pairs[keep_suc]]
-        pre_pairs   = lane_id_map[pre_pairs[keep_pre]]
-        left_pairs  = lane_id_map[left_pairs[keep_left]]
-        right_pairs = lane_id_map[right_pairs[keep_right]]
+        
+        suc_pairs   = suc_pairs[keep_suc]
+        pre_pairs   = pre_pairs[keep_pre]
+        left_pairs  = left_pairs[keep_left]
+        right_pairs = right_pairs[keep_right]
+        
+        if Keep_nodes.any():
+            # Only keep the current lane segments
+            unique_ids, lane_idcs = np.unique(lane_idcs[Keep_nodes], return_inverse = True)
+            num_nodes = len(lane_idcs)
+            lane_id_map = np.zeros(unique_ids.max() + 1, int)
+            lane_id_map[unique_ids] = np.arange(len(unique_ids))
+            
+            # Update the lane idcs
+            suc_pairs   = lane_id_map[suc_pairs]
+            pre_pairs   = lane_id_map[pre_pairs]
+            left_pairs  = lane_id_map[left_pairs]
+            right_pairs = lane_id_map[right_pairs]
+        else:
+            lane_idcs = np.array([], int)
+            lane_id_map = np.array([], int)
+            num_nodes = 0
+            
+            # Here, Keep segement should also be false for all
+            assert not Keep_segments.any(), "There are still segments kept, without any nodes."
+            
+            # Print warning
+            print('Warning: With radius ' + str(radius) + ' no lane segments are foudn around the agents at positions ')
+            print(X_a[0])       
+            print('')     
 
         lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
 
