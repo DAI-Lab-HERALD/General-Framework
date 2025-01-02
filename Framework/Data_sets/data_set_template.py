@@ -3739,6 +3739,7 @@ class data_set_template():
         # Assert lane_idcs are correct (i.e., consecutive or equal)
         lane_idcs_diff = lane_idcs[1:] - lane_idcs[:-1]
         assert lane_idcs_diff.max() <= 1, "Lane indices are jumped"
+        assert lane_idcs_diff.min() >= 0, "Lane indices go backwards"
 
         for lane_id in range(len(left_boundaries)):
             left_pts = left_boundaries[lane_id] # shape = (num_points, 2)
