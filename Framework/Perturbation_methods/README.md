@@ -1,6 +1,14 @@
 # Adding a new perturbation method to the framework
 One can easily add more perturbation methods to this framework, by implementing this method as a new class inside this folder.
 
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Extract the given perturbation method parameters](#extract-the-given-perturbation-method-parameters)
+- [Prepare perturbation](#prepare-perturbation)
+- [Perturbing the dataset](#perturbing-the-dataset)
+
+
+
 ## Setting up the class
 This class, and by it the perturbation method, interact with the other parts of the Framework using the [perturbation_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Perturbation_methods/perturbation_template.py). Therefore, the new <perturbation_method>.py file with the class <perturbation_method> (it is important that those two are the same strings so that the Framework can correctly load the class) begins in the following way:
 ```

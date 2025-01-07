@@ -1,6 +1,13 @@
 # Adding a new scenario to the framework
-One can easily add a new scenario type to the Framework, by implementing such a scenario as a new class. Such a scenario is mainly used to define certain 
-types of classifiable behavior, such as accepting or rejecting a gap in a gap acceptance scenario.
+One can easily add a new scenario type to the Framework, by implementing such a scenario as a new class. Such a scenario is mainly used to define certain types of classifiable behavior, such as accepting or rejecting a gap in a gap acceptance scenario.
+
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Define classifiable behaviors](#define-classifiable-behaviors)
+- [Define important actors](#define-important-actors)
+- [Generalized inputs](#generalized-inputs)
+- [Define safe actions](#define-safe-actions)
+
 
 ## Setting up the class
 

@@ -28,8 +28,6 @@ In the framework, the following metrics are currently implemented (notations bel
 | [ECE](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/ECE_class.py) | Classifications | Look at the corresponding python file for a definition. |
 | [TNR-PR](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/TNR_P_{N_p}R.py) | Gap acceptance classifications (for *'t0_type': 'crit'*) | $${1 \over{\vert\{i \, \vert \, p_{i, k=accepted} = 0\}\vert}}  \sum\limits_{i} \begin{cases} 1  & p_{i, k=accepted} = 0  \land \hat{p}_{i, k=accepted} > \underset{\hat{i} \in \{\hat{i} \vert p_{\hat{i},k=accepted} = 1 \}  }{\min} \; \hat{p}_{\hat{i},k=accepted} \\ 0 & otherwise   \end{cases} $$ |
 
-
-
 Here, the following notation is used:
 - $N_{S}$: Number of samples in the dataset.
 - $i$: Index for those samples.
@@ -67,6 +65,16 @@ Here, the following notation is used:
 # Adding a new evaluation metric to the framework
 
 One can easily add a new evaluation metric to the Framework, by implementing this metric as a new class.
+
+
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Setting up the evaluation metric](#setting-up-the-evaluation-metric)
+- [Define metric type](#define-metric-type)
+- [Defining the evaluation metric](#defining-the-evaluation-metric)
+- [Metric Visualization](#metric-visualization)
+- [Useful helper functions](#useful-helper-functions)
+
 
 ## Setting up the class
 

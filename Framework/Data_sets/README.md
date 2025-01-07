@@ -22,6 +22,17 @@ In the framework, the following datasets ar currently implemented:
 # Adding a new dataset to the framework
 One can easily add a new dataset to the Framework, by implementing this dataset as a new class. 
 
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Set the scope of available data](#set-the-scope-of-available-data)
+- [Setting the scenario](#setting-the-scenario)
+- [Importing the raw data](#importing-the-raw-data)
+- [Handling large datasets](#handling-large-datasets)
+- [Extracting classifiable behavior](#extracting-classifiable-behavior)
+- [Filling empty paths](#filling-empty-paths)
+- [Providing visulaization](#providing-visulaization)
+
+
 ## Setting up the class
 
 This class, and by it the dataset, interact with the other parts of the Framework using the [data_set_template.py](https://github.com/julianschumann/General-Framework/blob/main/Framework/Data_sets/data_set_template.py). Therefore, the new <dataset_name>.py file with the class <dataset_name> (it is important that those two are the same strings so that the Framework can recognize the dataset) begins in the following way:

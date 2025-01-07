@@ -1,6 +1,36 @@
 # Running a new experiment
 To set up an experiment with the modules in the framework, one has to create or change a *simulations.py* file. This Python script consists of a number of steps, which will be explained in more detail in the following sections.
 
+## Table of contents
+<!-- TOC depthFrom:2 depthTo:3 -->
+<!-- TOC skipBefore: true -->
+- [Set up an experiment](#set-up-an-experiment)
+- [Select Modules](#select-modules)
+  - [Extracting past and future timesteps](#extracting-past-and-future-timesteps)
+  - [Datasets](#datasets)
+  - [Splitting method](#splitting-method)
+  - [Models](#models)
+  - [Metrics](#metrics)
+- [Set the experiment hyperparameters](#set-the-experiment-hyperparameters)
+  - [Stochastic predictions](#stochastic-predictions)
+  - [Enforce rules for selecting prediction times](#enforce-rules-for-selecting-prediction-times)
+  - [Enforce the existence of a future trajectory](#enforce-the-existence-of-a-future-trajectory)
+  - [Exclude useless predictions](#exclude-useless-predictions)
+  - [Fill in missing positions](#fill-in-missing-positions)
+  - [Assign the predicted agents](#assign-the-predicted-agents)
+  - [Overwrite results](#overwrite-results)
+  - [Determine if predictions should be saved](#determine-if-predictions-should-be-saved)
+  - [Evaluate overfitting](#evaluate-overfitting)
+  - [Allow for transformations between prediction methods](#allow-for-transformations-between-prediction-methods)
+- [Getting results](#getting-results)
+- [Visualizing results](#visualizing-results)
+  - [Plotting metrics](#plotting-metrics)
+  - [Creating tables](#creating-tables)
+  - [Plotting trajectories](#plotting-trajectories)
+
+
+
+
 ## Set up an experiment
 In a first step, we have to set up the experiment we want to run:
 ```

@@ -2,6 +2,7 @@
 In the framework, the following models are currently implemented:
 | Model | Input/Output | Description | Has kwargs |
 | :------------ |:---------------| :----- | :----- |
+| [ADAPT](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | An MLP with joint endpoint refinement. | Yes |
 | [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer with split agent and time attention. | No |
 | [AutoBot-Ego](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_unitraj.py) | Trajectories / Trajectories | A transformer with split agent and time attention (Joint predictions). | Yes |
 | [AutoBot-Joint](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_girgis.py) | Trajectories / Trajectories | A transformer based CVAE network. | Yes |
@@ -19,11 +20,25 @@ In the framework, the following models are currently implemented:
 | [WayFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/watformer_unitraj.py) | Trajectories / Trajectories | Attention networks | Yes |
 
 
-
-
 # Adding a new model to the framework
 
 One can easily add a new model to the Framework by implementing this model as a new class.
+
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Define model type](#define-model-type)
+- [Model Setup](#model-setup)
+- [Training the model](#training-the-model)
+- [Saving and loading the model](#saving-and-loading-the-model)
+- [Making predictions](#making-predictions)
+- [Predicting likelihoods](#predicting-likelihoods)
+- [Making predictions for adversarial attacks](#making-predictions-for-adversarial-attacks)
+- [Useful helper functions](#useful-helper-functions)
+  - [Trajectory prediction models.](#trajectory-prediction-models)
+  - [Classification models](#classification-models)
+  - [Combined models](#combined-models)
+- [Model attributes](#model-attributes)
+
 
 ## Setting up the class
 

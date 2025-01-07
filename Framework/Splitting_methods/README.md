@@ -15,9 +15,18 @@ In the framework, the following splitting methids are currently implemented:
 
 The column **Repetitions** explains potential entries for the *'repetition'* key used for selecting splitting methods in the [*simulations.py* file](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework#splitting-method).
 
+
+
 # Adding a new splitting method to the framework
 
 One can easily add a new splitting method to the Framework, by implementing this splitting method as a new class.
+
+## Table of contents
+- [Setting up the class](#setting-up-the-class)
+- [Using strings for splitting datasets](#using-strings-for-splitting-datasets)
+- [Checking applicability](#checking-applicability)
+- [Splitting the dataset](#splitting-the-dataset)
+- [Splitting method attributes](#splitting-method-attributes)
 
 ## Setting up the class
 
