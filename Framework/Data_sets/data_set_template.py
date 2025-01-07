@@ -3866,7 +3866,7 @@ class data_set_template():
         num_nodes = len(lane_idcs)
         
         if num_nodes > 0:
-            assert np.unique(lane_idcs) == np.sort(lane_ids), "Lane idcs are wrongly kept." 
+            assert np.array_equal(np.unique(lane_idcs), np.sort(lane_ids)), "Lane idcs are wrongly kept." 
             
         # Rename the pairs
         suc_pairs   = lane_id_map[suc_pairs]
