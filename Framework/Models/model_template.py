@@ -7,6 +7,7 @@ import scipy as sp
 import importlib
 import psutil
 import shutil
+from pathlib import Path
 from utils.memory_utils import get_total_memory, get_used_memory
 
 from rome.ROME import ROME
@@ -80,6 +81,31 @@ class model_template():
                     self.model_file = data_set.change_result_directory(splitter.split_file,
                                                                        'Models', self.get_name()['file'])
                     
+                    # Check if this is a fintuned model
+                    if 'pretrained' in self.model_kwargs.keys():
+                        pretrained_path = self.model_kwargs['pretrained']
+                        
+                        assert isinstance(pretrained_path, str), 'The pretrained model should be a string.'
+
+                        # Check that string is either a full path, or that it starts with results
+                        if pretrained_path.startswith('Results'):
+                            pretrained_path = self.model_file.split('Results')[0] + pretrained_path
+
+                        # Check if the pretrained model exists
+                        if not os.path.isfile(pretrained_path):
+                            print('The desired pretrained model, defined to be found at the path\n' + pretrained_path 
+                                    + '\nwas not found. Training will continue with random parameter initialization.')
+                            pretrained_path = None
+                            
+                        self.model_kwargs['pretrained'] = pretrained_path
+
+                        # get the last folder of the pretrained model indicating the dataset folder
+                        if pretrained_path is not None:
+                            pretrained_folder = Path(pretrained_path).parent.name
+                            self.pretrained_string = '--pretrain_' + pretrained_folder.parts[-1]
+
+                            self.model_file = self.model_file[:-4] + self.pretrained_string + '.npy'
+                    
                     self.model_file_metric = self.model_file + ''
                     if '_pert=' in self.model_file:
                         pert_split = self.model_file.split('_pert=')
@@ -90,7 +116,7 @@ class model_template():
                             if '--Pertubation_' in self.model_file:
                                 pert_name_split = self.model_file.split('--Pertubation_')
                                 self.model_file = pert_name_split[0] + pert_name_split[1][3:]
-                        
+
                     self.simply_load_results = False
                     # Get the prediction location file
                     self.pred_loc_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions')
@@ -125,7 +151,39 @@ class model_template():
         else:
             self.depict_results = True
     
+
+    def load_pretrained_model(self, pretrained_path):
+        if pretrained_path is not None:
+            assert 'pretrain' in self.model_file, 'Model file does not match a pretrained model.'
+            model_file_current = self.model_file
+            try:
+                # Give model the pretrained path as self.model file,
+                # as some models call derivations of that during loading
+                self.model_file = pretrained_path
+
+                # Load any saved weights
+                self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
+
+                # Actually load the model
+                self.load_method()
+            except:
+                print('The desired pretrained model, defined to be found at the path\n' + pretrained_path 
+                    + '\ncould not be loaded. Potential reasons:\n'
+                    + ' - The model architectures are different.\n'
+                    + ' - The training and finetuning dataset params are incompatible (different timesteps/intervals).\n'
+                    + ' - The model file is corrupted (if a pickle file is saved, changes in python environments might make it incompatible)')
+                
+                raise ValueError('The pretrained model could not be loaded.')
+                
+            self.model_file = model_file_current
+
     def train_actual(self):
+        # Check if a pretrained model should be fitted
+        if 'pretrained' in self.model_kwargs.keys():
+            pretrained_path = self.model_kwargs['pretrained']
+            self.load_pretrained_model(pretrained_path)
+
+            
         # creates /overrides self.weights_saved
         self.train_method() 
         #0 is there to avoid some numpy load and save errros
