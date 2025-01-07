@@ -1385,8 +1385,6 @@ class data_set_template():
             assert graph.left_pairs.max() < num_segments
         if len(graph.right_pairs) > 0:
             assert graph.right_pairs.max() < num_segments
-        
-        assert graph.lane_idcs.max() < num_segments
 
         assert len(graph.left_boundaries) == num_segments
         assert len(graph.right_boundaries) == num_segments
@@ -1394,6 +1392,8 @@ class data_set_template():
         assert len(graph.lane_type) == num_segments
 
         assert len(graph.lane_idcs) == graph.num_nodes
+        
+        assert graph.lane_idcs.max() < num_segments
 
 
 
@@ -3873,6 +3873,9 @@ class data_set_template():
         pre_pairs   = lane_id_map[pre_pairs]
         left_pairs  = lane_id_map[left_pairs]
         right_pairs = lane_id_map[right_pairs]
+
+        # Rename the lane idcs
+        lane_idcs   = lane_id_map[lane_idcs]
         
         # Remove pairs that containt removed nodes (now = -1)
         suc_pairs   = suc_pairs[(suc_pairs >= 0).all(1)]
