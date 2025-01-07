@@ -1052,6 +1052,14 @@ class data_set_template():
             lane_type.append(('PEDESTRIAN', False))
 
 
+        # Check some things
+        num_segments = len(centerlines)
+        assert len(lane_idcs) == num_nodes, "Number of lane idcs should be equal to number of nodes."
+        assert len(left_boundaries) == num_segments, "Number of left boundaries should be equal to number of segments."
+        assert len(right_boundaries) == num_segments, "Number of right boundaries should be equal to number of segments."
+        assert len(np.unique(lane_idcs)) == num_segments, "Multiple segements have identical lane idcs."
+
+
         graph = pd.Series([])
         graph['num_nodes'] = num_nodes
         graph['lane_idcs'] = np.array(lane_idcs)
@@ -1208,6 +1216,9 @@ class data_set_template():
         left_pts = np.array(left_pts)
 
         right_pts = []
+        if right_end > right_start:
+            right_end -= len(center)
+            
         for i in range(right_start, right_end, -1):
             dist = np.linalg.norm(polygon_closed[i] - polygon_closed[i - 1], -1)
             num_nodes_needed = max(2, np.ceil(dist).astype(int))
@@ -1247,7 +1258,8 @@ class data_set_template():
         center_pts[:, 1] *= -1
         left_pts[:, 1] *= -1
         right_pts[:, 1] *= -1
-
+        
+        assert len(center_pts) > 1, "Centerline should have at least 2 points."
         return center_pts, left_pts, right_pts
 
 
