@@ -116,7 +116,7 @@ Different from the previous list, **Models** has two distinct entry types. The f
 #### Finetuning models
 One can use the *kwargs* dictionary as well when one wants to finetune a allready trained model on a specific dataset. For this, one hase to **use the key *pretrained*** in the *kwargs* dictionary, with the corrsponding value being the path of the pretrained model (this path should be in the *'Results/<Dataset_name>'* folder and be an *.npy* file, i.e., is should look like *'Results/<Dataset_name>/<Model_file>.npy'*). Prefixing the path this framework is also possible. 
 
-If the pretrained model does not exists at the named path, the framework will train the model with ransomly initialized parameters.
+If the pretrained model does not exists at the named path, the framework will train the model with ransomly initialized parameters. If the learning rate of the model can be set as a hyperparam in *kwargs*, it is normally advisable to use a lower value than for the training of the original model so one only finetunes and not completely retrains the model.
 
 ### Metrics
 Lastly, one has to select the metrics by which the models are to be evaluated, with the list of currently implemented methods available [here](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Evaluation_metrics/README.md#existing-evaluation-metrics). Similar to models, metrics can be passed as a string or dictionary with the keys *'metric'* and *'kwargs'*. 
