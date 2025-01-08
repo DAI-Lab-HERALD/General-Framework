@@ -3843,20 +3843,17 @@ class data_set_template():
         lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
         
         # Update lane ids
+        lane_ids = lane_ids[Keep_segments] 
+
+        # Prepare lane_id_map
+        lane_id_map = np.full((lane_ids.max() + 1,), -1, dtype = int)
+        # Update lane ids
         if Keep_segments.any():
             assert Keep_nodes.any(), "No nodes are kept, but segments are kept."
-            # Set up mapping
-            lane_id_map = np.full((lane_ids.max() + 1,), -1, dtype = int)
-            
-            # Update lane ids
-            lane_ids = lane_ids[Keep_segments] 
-            
             # Fill in mapping
             lane_id_map[lane_ids] = np.arange(len(lane_ids))
         else:
             assert not Keep_nodes.any(), "Nodes are kept, but no segments are kept."
-            lane_ids = np.array([], int)
-            lane_id_map = np.array([], int)
             # Print warning
             print('Warning: With radius ' + str(radius) + ' no lane segments are foudn around the agents at positions ')
             print(X_a[0])       
