@@ -191,6 +191,8 @@ class Sub_Graph(nn.Module):
 
     def forward(self, lane_list):
         batch_size = len(lane_list)
+        if batch_size == 0:
+            return torch.zeros([0, self.hidden_size], device=self.device)
         device = lane_list[0].device
         hidden_states, lengths = merge_tensors(
             lane_list, device, self.hidden_size)
@@ -230,8 +232,7 @@ class Sub_Graph(nn.Module):
 
         # hidden_states.shape = (lane_num, hidden_size)
         #                    or (agent_num, hidden_size)
-        hidden_states, _ = torch.max(
-            hidden_states + attention_mask_final, dim=1)
+        hidden_states, _ = torch.max(hidden_states + attention_mask_final, dim=1)
 
         return hidden_states
 
