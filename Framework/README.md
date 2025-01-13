@@ -93,7 +93,7 @@ Splitters = [{'Type': '<Split_method_1>', 'repetition': 0, 'test_part': 0.2},
 Again, this is passed as a dictionary with three keys:
 - 'Type': This is the name of the splitting method, which should be identical to one of the **.py* files in the [Splitting method Folder](https://github.com/julianschumann/General-Framework/tree/main/Framework/Splitting_methods). This will split the dataset into a number of ordered parts, which might be identifiable either by their position in the ordered list or, for specific cases, by a string identifier. This key has no default value, and is therefore required.
 - 'repetition': This gives instruction for the specific test set to be used.  This is based on the assumption that for a given splitting method, the whole dataset can be split preemptively into a number of ordered parts. A single repetition, from which one single training/testing split springs forth, can be given in three different forms:
-  - As an integer (*int*), to give the place in the ordered list of the presplit part to be used as a training set.
+  - As an integer (*int*), to give the place in the ordered list of the presplit part to be used as a testing set.
   - As a string (*str*), to refer to a specific name of the presplit part to be used as the test set, assuming that each presplit part can be assigned [such a name](https://github.com/julianschumann/General-Framework/blob/main/Framework/Splitting_methods/README.md#using-strings-for-splitting-datasets), as in the case of splitting by location.
   - As a tuple (*tuple*), where each entry is either a str or an integer. In this case, one will select the presplit part to the aforementioned method and use their union as the test set.
     
