@@ -1036,17 +1036,17 @@ class RounD_round_about(data_set_template):
         if isinstance(path.v_1, float):
             assert str(path.v_1) == 'nan'
         else:
-            path.v_1 = self.self.extrapolate_path(path.v_1, t, mode='vel_turn')
+            path.v_1 = self.extrapolate_path(path.v_1, t, mode='vel_turn')
             
         if isinstance(path.v_2, float):
             assert str(path.v_2) == 'nan'
         else:
-            path.v_2 = self.self.extrapolate_path(path.v_2, t, mode='vel_turn')
+            path.v_2 = self.extrapolate_path(path.v_2, t, mode='vel_turn')
             
         if isinstance(path.v_3, float):
             assert str(path.v_3) == 'nan'
         else:
-            path.v_3 = self.self.extrapolate_path(path.v_3, t, mode='vel_turn')
+            path.v_3 = self.extrapolate_path(path.v_3, t, mode='vel_turn')
             
         
         # check vehicle v_4 (pedestrian)
