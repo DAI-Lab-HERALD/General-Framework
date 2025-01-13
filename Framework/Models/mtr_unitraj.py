@@ -400,53 +400,61 @@ class mtr_unitraj(model_template):
         Obj_sizes = torch.from_numpy(S).float().to(self.device) # Shape (batch_size, num_agents, 2)
 
         # Get graphs
-        map_polylines = []
-        map_type = []
-        map_info = []
-        max_len_batch = 0
-        for i in range(len(graph)):
-            centerlines = graph[i].centerlines
-            lane_types = graph[i].lane_type
-            max_len_scene = max([len(centerline) for centerline in centerlines])
-            c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
+        if graph is None:
+            # Assume  num_road_segments = 0, num_pts_per_segment = 0
+            map_polylines = torch.zeros(Obj_trajs.shape[0], 0, 0, 3).to(self.device)
+            map_polylines_mask = torch.zeros(Obj_trajs.shape[0], 0, 0).to(self.device)
+            map_type_hot = torch.zeros(Obj_trajs.shape[0], 0, 4).to(self.device)
+            map_info = torch.zeros(Obj_trajs.shape[0], 0, 1).to(self.device)
 
-            max_len_batch = max(max_len_batch, max_len_scene)
-            map_polylines.append(c)
+        else:
+            map_polylines = []
+            map_type = []
+            map_info = []
+            max_len_batch = 0
+            for i in range(len(graph)):
+                centerlines = graph[i].centerlines
+                lane_types = graph[i].lane_type
+                max_len_scene = max([len(centerline) for centerline in centerlines])
+                c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
 
-            types = np.array([lane_type[0] for lane_type in lane_types])
-            info  = np.array([lane_type[1] for lane_type in lane_types])
+                max_len_batch = max(max_len_batch, max_len_scene)
+                map_polylines.append(c)
 
-            map_type.append(types)
-            map_info.append(info)
+                types = np.array([lane_type[0] for lane_type in lane_types])
+                info  = np.array([lane_type[1] for lane_type in lane_types])
 
-        max_num_roads = max([len(centerlines) for centerlines in map_polylines])
-        for i in range(len(map_polylines)):
-            num_roads, len_roads = map_polylines[i].shape[:2]
-            map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
-            map_type[i] = np.pad(map_type[i], (0,max_num_roads - num_roads), constant_values='PEDESTRIAN')
-            map_info[i] = np.pad(map_info[i], (0,max_num_roads - num_roads), constant_values=0)
+                map_type.append(types)
+                map_info.append(info)
 
-        map_type = np.array(map_type) # Shape (batch_size, num_road_segments)
-        map_type_hot = np.zeros((map_type.shape[0], map_type.shape[1], 4))
-        map_type_hot[map_type == 'VEHICLE', 0] = 1
-        map_type_hot[map_type == 'BIKE', 1] = 1
-        map_type_hot[map_type == 'BUS', 2] = 1
-        map_type_hot[map_type == 'PEDESTRIAN', 3] = 1
-        map_type_hot = torch.from_numpy(map_type_hot).float().to(self.device) # Shape (batch_size, num_road_segments, 4)
+            max_num_roads = max([len(centerlines) for centerlines in map_polylines])
+            for i in range(len(map_polylines)):
+                num_roads, len_roads = map_polylines[i].shape[:2]
+                map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
+                map_type[i] = np.pad(map_type[i], (0,max_num_roads - num_roads), constant_values='PEDESTRIAN')
+                map_info[i] = np.pad(map_info[i], (0,max_num_roads - num_roads), constant_values=0)
 
-        map_info = torch.from_numpy(np.array(map_info)).unsqueeze(-1).to(self.device) # Shape (batch_size, num_road_segments, 1)
-        
-        map_polylines_points = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
-        # Use the midpoint petween points instead of points
-        map_polylines = (map_polylines_points[:,:,1:] + map_polylines_points[:,:,:-1]) / 2 # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 2)
-        map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
+            map_type = np.array(map_type) # Shape (batch_size, num_road_segments)
+            map_type_hot = np.zeros((map_type.shape[0], map_type.shape[1], 4))
+            map_type_hot[map_type == 'VEHICLE', 0] = 1
+            map_type_hot[map_type == 'BIKE', 1] = 1
+            map_type_hot[map_type == 'BUS', 2] = 1
+            map_type_hot[map_type == 'PEDESTRIAN', 3] = 1
+            map_type_hot = torch.from_numpy(map_type_hot).float().to(self.device) # Shape (batch_size, num_road_segments, 4)
 
-        # Get the map_polylines heading
-        map_polylines_heading = torch.atan2(map_polylines_points[:,:,1:,1] - map_polylines_points[:,:,:-1,1], 
-                                            map_polylines_points[:,:,1:,0] - map_polylines_points[:,:,:-1,0]) # Shape (batch_size, num_road_segemnts, num_pts_per_segment)
-        
-        # Combine map polyline stuff
-        map_polylines = torch.cat([map_polylines, map_polylines_heading.unsqueeze(-1)], dim=-1) # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 3)
+            map_info = torch.from_numpy(np.array(map_info)).unsqueeze(-1).to(self.device) # Shape (batch_size, num_road_segments, 1)
+            
+            map_polylines_points = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
+            # Use the midpoint petween points instead of points
+            map_polylines = (map_polylines_points[:,:,1:] + map_polylines_points[:,:,:-1]) / 2 # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 2)
+            map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
+
+            # Get the map_polylines heading
+            map_polylines_heading = torch.atan2(map_polylines_points[:,:,1:,1] - map_polylines_points[:,:,:-1,1], 
+                                                map_polylines_points[:,:,1:,0] - map_polylines_points[:,:,:-1,0]) # Shape (batch_size, num_road_segemnts, num_pts_per_segment)
+            
+            # Combine map polyline stuff
+            map_polylines = torch.cat([map_polylines, map_polylines_heading.unsqueeze(-1)], dim=-1) # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 3)
 
         # Get rotation center and angle
         rot_center = Obj_trajs[:,0,-1,:2].clone() # Shape (batch_size, 2)
@@ -462,9 +470,10 @@ class mtr_unitraj(model_template):
         Obj_trajs[...,2:4] = torch.matmul(Obj_trajs[...,2:4], R.unsqueeze(1))
         Obj_trajs[...,4]   = Obj_trajs[...,4] - rot_angle.unsqueeze(-1).unsqueeze(-1)
 
-        map_polylines[...,:2] = map_polylines[...,:2] - rot_center.unsqueeze(1).unsqueeze(1)
-        map_polylines[...,:2] = torch.matmul(map_polylines[...,:2], R.unsqueeze(1))
-        map_polylines[...,2]  = map_polylines[...,2] - rot_angle.unsqueeze(-1).unsqueeze(-1)
+        if graph is not None:
+            map_polylines[...,:2] = map_polylines[...,:2] - rot_center.unsqueeze(1).unsqueeze(1)
+            map_polylines[...,:2] = torch.matmul(map_polylines[...,:2], R.unsqueeze(1))
+            map_polylines[...,2]  = map_polylines[...,2] - rot_angle.unsqueeze(-1).unsqueeze(-1)
 
         # Get last position of agents
         Obj_trajs_pos = Obj_trajs[...,:2].clone()

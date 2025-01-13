@@ -179,25 +179,30 @@ class autobot_unitraj(model_template):
             Center_GT_trajs_mask = None
 
         # Get graphs
-        map_polylines = []
-        max_len_batch = 0
-        for i in range(len(graph)):
-            centerlines = graph[i].centerlines
-            max_len_scene = max([len(centerline) for centerline in centerlines])
-            c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
+        if graph is None:
+            # Assume num_roads = 0, and num_steps_in = 0
+            map_polylines = torch.zeros((Obj_trajs.shape[0], 0, 0, 2)).float().to(self.device)
+            map_polylines_mask = torch.zeros((Obj_trajs.shape[0], 0, 0)).bool().to(self.device)
+        else:
+            map_polylines = []
+            max_len_batch = 0
+            for i in range(len(graph)):
+                centerlines = graph[i].centerlines
+                max_len_scene = max([len(centerline) for centerline in centerlines])
+                c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
 
-            max_len_batch = max(max_len_batch, max_len_scene)
-            map_polylines.append(c)
+                max_len_batch = max(max_len_batch, max_len_scene)
+                map_polylines.append(c)
 
-        max_num_roads = max([len(centerlines) for centerlines in map_polylines])
-        for i in range(len(map_polylines)):
-            num_roads, len_roads = map_polylines[i].shape[:2]
-            map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
-        
-        map_polylines = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
-        # Use the midpoint petween points instead of points
-        map_polylines = (map_polylines[:,:,1:] + map_polylines[:,:,:-1]) / 2
-        map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
+            max_num_roads = max([len(centerlines) for centerlines in map_polylines])
+            for i in range(len(map_polylines)):
+                num_roads, len_roads = map_polylines[i].shape[:2]
+                map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
+            
+            map_polylines = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
+            # Use the midpoint petween points instead of points
+            map_polylines = (map_polylines[:,:,1:] + map_polylines[:,:,:-1]) / 2
+            map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
 
         # Get rotation center and angle
         rot_center = Obj_trajs[:,0,-1,:2].clone() # Shape (batch_size, 2)
@@ -205,14 +210,16 @@ class autobot_unitraj(model_template):
 
         # Translate all the positions to the rotation center
         Obj_trajs = Obj_trajs - rot_center.unsqueeze(1).unsqueeze(1)
-        map_polylines = map_polylines - rot_center.unsqueeze(1).unsqueeze(1)
+        if graph is not None:
+            map_polylines = map_polylines - rot_center.unsqueeze(1).unsqueeze(1)
 
         # Rotate all the positions
         c, s = torch.cos(rot_angle), torch.sin(rot_angle)
         R = torch.stack([c, -s, s, c], dim=-1).reshape(-1, 2, 2)
 
         Obj_trajs = torch.matmul(Obj_trajs, R.unsqueeze(1))
-        map_polylines = torch.matmul(map_polylines, R.unsqueeze(1))
+        if graph is not None:
+            map_polylines = torch.matmul(map_polylines, R.unsqueeze(1))
 
         # Remove nan values
         Obj_trajs = torch.nan_to_num(Obj_trajs, nan=0.0)
