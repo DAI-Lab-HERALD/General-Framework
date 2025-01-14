@@ -85,7 +85,7 @@ class Dataset_split(splitting_template):
         # Get training dataset
         Dataset_used = Situation[0]
         data_set_used = None
-        for data_set in self.data_set.Datasets:
+        for data_set in self.data_set.Datasets.values():
             data_set_name = data_set.get_name()['print']
             # Check if Dataset_used starts with data_set_name
             if Dataset_used.startswith(data_set_name):
