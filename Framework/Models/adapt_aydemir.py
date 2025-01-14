@@ -199,7 +199,9 @@ class adapt_aydemir(model_template):
                 batch.append({})
 
                 pos_matrix = X[i,:,:,:2].copy()
-                batch_graph = graph[i].copy()
+
+                if graph is not None:
+                    batch_graph = graph[i].copy()
 
                 if Y is not None:
                     label_matrix = Y[i,:,:,:2].copy()
@@ -289,40 +291,42 @@ class adapt_aydemir(model_template):
 
                 lane_list = []
                 hist_len = X.shape[2] 
-                for l in range(len(batch_graph['centerlines'])):
-                    lane = batch_graph['centerlines'][l].copy()
 
-                    lane -= X[i, j, -1, :2]
-                    lane = np.matmul(lane, rot_matrix)
-                    lane = lane[:hist_len]
+                if graph is not None:
+                    for l in range(len(batch_graph['centerlines'])):
+                        lane = batch_graph['centerlines'][l].copy()
 
-                    # lane vector
-                    # [..., y, x, pre_y, pre_x]
-                    lane_vector = np.zeros((lane.shape[0]-1, 128))
-                    lane_vector[:, -4] = lane[1:, 1]
-                    lane_vector[:, -3] = lane[1:, 0]
-                    lane_vector[:, -2] = lane[:-1, 1]
-                    lane_vector[:, -1] = lane[:-1, 0]
+                        lane -= X[i, j, -1, :2]
+                        lane = np.matmul(lane, rot_matrix)
+                        lane = lane[:hist_len]
 
-                    lane_vector[:,-5] = 1
-                    lane_vector[:,-6] = np.arange(lane.shape[0]-1)+1
-                    lane_vector[:,-7] = l + len(batch[entries]['agent_data']) # lane id, ensuring that there is no overlap with agent ids
-                    lane_vector[:,-8] = -1 # has traffic control 
-                    lane_vector[:,-9] = 0  # turn direction
-                    lane_vector[:,-10] = 1 if batch_graph['lane_type'][l][1] else -1  # is intersection
+                        # lane vector
+                        # [..., y, x, pre_y, pre_x]
+                        lane_vector = np.zeros((lane.shape[0]-1, 128))
+                        lane_vector[:, -4] = lane[1:, 1]
+                        lane_vector[:, -3] = lane[1:, 0]
+                        lane_vector[:, -2] = lane[:-1, 1]
+                        lane_vector[:, -1] = lane[:-1, 0]
 
-                    point_pre_pre = np.zeros((lane.shape[0]-1, 2))
-                    point_pre_pre[0] = [2 * lane_vector[0, -1] - lane_vector[0, -3], 2 * lane_vector[0, -2] - lane_vector[0, -4]]
-                    point_pre_pre[1:] = lane[:-2]
-                    
-                    lane_vector[:,-17] = point_pre_pre[:, 0]
-                    lane_vector[:,-18] = point_pre_pre[:, 1]
+                        lane_vector[:,-5] = 1
+                        lane_vector[:,-6] = np.arange(lane.shape[0]-1)+1
+                        lane_vector[:,-7] = l + len(batch[entries]['agent_data']) # lane id, ensuring that there is no overlap with agent ids
+                        lane_vector[:,-8] = -1 # has traffic control 
+                        lane_vector[:,-9] = 0  # turn direction
+                        lane_vector[:,-10] = 1 if batch_graph['lane_type'][l][1] else -1  # is intersection
 
-                    if Y is not None:
-                        lane_vector[:, -4:] *= random_scale
-                        lane_vector[:, -18:-16] *= random_scale
+                        point_pre_pre = np.zeros((lane.shape[0]-1, 2))
+                        point_pre_pre[0] = [2 * lane_vector[0, -1] - lane_vector[0, -3], 2 * lane_vector[0, -2] - lane_vector[0, -4]]
+                        point_pre_pre[1:] = lane[:-2]
+                        
+                        lane_vector[:,-17] = point_pre_pre[:, 0]
+                        lane_vector[:,-18] = point_pre_pre[:, 1]
 
-                    lane_list.append(torch.tensor(lane_vector).float())
+                        if Y is not None:
+                            lane_vector[:, -4:] *= random_scale
+                            lane_vector[:, -18:-16] *= random_scale
+
+                        lane_list.append(torch.tensor(lane_vector).float())
 
                 batch[entries]['lane_data'] = lane_list
 

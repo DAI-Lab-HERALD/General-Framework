@@ -1370,6 +1370,23 @@ class data_set_template():
         assert np.all(np.diff(scales) > 0)
         assert scales[0] > 1
 
+        # Check if any nodes exist in the graph
+        assert len(graph.lane_idcs) == graph.num_nodes
+
+        if graph.num_nodes == 0:
+            pre, suc, left, right = dict(), dict(), dict(), dict()
+            for key in ['u', 'v']:
+                pre[key], suc[key], left[key], right[key] = [], [], [], []
+
+            graph['ctrs'] = np.zeros((0, 2), np.float32)
+            graph['feats'] = np.zeros((0, 2), np.float32)
+
+            graph['pre']   = [pre] * (len(scales) + 1)
+            graph['suc']   = [suc] * (len(scales) + 1)
+            graph['left']  = [left]
+            graph['right'] = [right]
+
+            return graph
         ##################################################################################
         #              Make checks on the graph data                                     #
         ##################################################################################
@@ -1390,9 +1407,6 @@ class data_set_template():
         assert len(graph.right_boundaries) == num_segments
         assert len(graph.centerlines) == num_segments
         assert len(graph.lane_type) == num_segments
-
-        assert len(graph.lane_idcs) == graph.num_nodes
-        
         assert graph.lane_idcs.max() < num_segments
 
 

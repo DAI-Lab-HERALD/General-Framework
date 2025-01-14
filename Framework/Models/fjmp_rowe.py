@@ -35,6 +35,16 @@ object_type_dict = {
 }
 
 class fjmp_rowe(model_template):
+    '''
+    This is the implementation of the joint prediction model FJMP. 
+    The code was taken from https://github.com/RLuke22/FJMP, and
+    the work should be cited as:
+        
+    Rowe, Luke and Ethier, Martin and Dykhne, Eli-Henry and Czarnecki, Krzysztof
+    FJMP: Factorized Joint Multi-Agent Motion Prediction over Learned Directed Acyclic Interaction Graphs
+    Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. 2023.
+
+    '''
     def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the model
