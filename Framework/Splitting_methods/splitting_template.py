@@ -110,6 +110,9 @@ class splitting_template():
         # Check if there are alternative split file names to check for trained models
         if hasattr(self, 'alternative_train_split_file'):
             self.split_file_option = self.alternative_train_split_file()
+            
+            if self.split_file_option == self.split_file:
+                self.split_file_option = None
         else:
             self.split_file_option = None
     
