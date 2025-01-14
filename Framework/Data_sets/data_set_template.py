@@ -478,9 +478,11 @@ class data_set_template():
         Num_timesteps = np.array([len(t) for t in T])
         unique_num_timesteps = np.unique(Num_timesteps)
         
+        print("Transform {} paths to sparse format".format(len(Path)), flush=True)
         # Go through unique number of timesteps
         for i, num_timesteps in enumerate(unique_num_timesteps):
             used_samples = np.where(num_timesteps == Num_timesteps)[0]
+            print("Step {} of {}: Transform the {} samples with {} timesteps".format(i+1, len(unique_num_timesteps), len(used_samples), num_timesteps), flush=True) 
             
             # Get the paths with this specific number of timesteps
             Path_samples = Path.iloc[used_samples]
@@ -515,6 +517,7 @@ class data_set_template():
             # Write in the specific data
             Path_helper.loc[locs, self.path_data_info()] = Paths_useful[useful_agents, useful_timesteps]
         
+        print("Transformed paths to sparse format", flush=True)
         return Path_helper
 
     def get_dense_path_sample(self, Path_sparse, sample_index, agent_name_array, num_timesteps):
