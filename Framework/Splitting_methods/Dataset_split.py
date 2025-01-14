@@ -75,16 +75,15 @@ class Dataset_split(splitting_template):
             return None
     
         # Check how many datasets are part of the training set
-        Situations = self.Domain['Scenario']
-        Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
-
-        Situation_type_train = Situation_type[self.Train_index]
-
-        if len(np.unique(Situation_type_train)) > 1:
+        Situations = self.Domain['Scenario'].to_numpy().astype('str')
+        Situations_train = Situations[self.Train_index]
+        Situation = np.unique(Situations_train)
+        
+        if len(Situation) > 1:
             return None
         
         # Get training dataset
-        Dataset_used = Situation[self.Train_index[0]]
+        Dataset_used = Situation[0]
         data_set_used = None
         for data_set in self.data_set.Datasets:
             data_set_name = data_set.get_name()['print']

@@ -99,18 +99,17 @@ class Location_split(splitting_template):
         # Check if this is a connected dataset
         if len(self.data_set.Datasets) > 1:
             return None
-    
+            
         # Check how many datasets are part of the training set
-        Situations = self.Domain['Scenario']
-        Situation, Situation_type = np.unique(Situations.to_numpy().astype('str'), return_inverse = True, axis = 0)
-
-        Situation_type_train = Situation_type[self.Train_index]
-
-        if len(np.unique(Situation_type_train)) > 1:
+        Situations = self.Domain['Scenario'].to_numpy().astype('str')
+        Situations_train = Situations[self.Train_index]
+        Situation = np.unique(Situations_train)
+        
+        if len(Situation) > 1:
             return None
         
         # Get training dataset
-        Dataset_used = Situation[self.Train_index[0]]
+        Dataset_used = Situation[0]
         data_set_used = None
         for data_set in self.data_set.Datasets:
             data_set_name = data_set.get_name()['print']
@@ -121,11 +120,12 @@ class Location_split(splitting_template):
         
         assert data_set_used is not None
 
-        # Get locations inthe current dataset not in the current training set
-        all_locations = np.unique(data_set_used.Domain.location[self.Train_index])
+        ## Get locations in the testset that are in data_set_used
+        # Get locations in data_set_used
+        all_locations = np.unique(data_set_used.Domain.location)
 
         # Get training locations
-        train_locations = np.unique(self.Domain.location)
+        train_locations = np.unique(self.Domain.location.iloc[self.Train_index])
 
         # Get the test locations
         test_locations = []
@@ -135,7 +135,7 @@ class Location_split(splitting_template):
 
         # Get the corresponding splitting method
         if len(test_locations) == 0:
-            # Use no split
+            # The whole data_set_used is part of the training domain
             split_alternative = no_split(data_set_used, 
                                         test_part = self.test_part,
                                         repetition = (0), 
@@ -145,6 +145,7 @@ class Location_split(splitting_template):
                                         )
 
         else:
+            # Some parts of data_set_used are part of the test domain
             split_alternative = Location_split(data_set_used, 
                                             test_part = self.test_part, 
                                             repetition = tuple(test_locations),
