@@ -131,7 +131,8 @@ class Location_split(splitting_template):
         test_locations = []
         for location in all_locations:
             if location not in train_locations:
-                test_locations.append(location)
+                test_locations.append(str(location))
+                    
 
         # Get the corresponding splitting method
         if len(test_locations) == 0:
@@ -157,7 +158,7 @@ class Location_split(splitting_template):
         # Do the actual test
         split_alternative.set_file_name()
 
-        return split_alternative.file_name
+        return split_alternative.split_file
 
 
 

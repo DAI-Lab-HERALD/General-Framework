@@ -106,7 +106,7 @@ class Dataset_split(splitting_template):
         # Do the actual test
         split_alternative.set_file_name()
 
-        return split_alternative.file_name
+        return split_alternative.split_file
 
         
         
