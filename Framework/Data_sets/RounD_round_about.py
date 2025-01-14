@@ -1020,11 +1020,20 @@ class RounD_round_about(data_set_template):
         
         # repair 
         if np.isnan(D1).any():
-            D1 = np.interp(t, t[np.isfinite(D1)], D1[np.isfinite(D1)])
+            if np.isfinite(D1).any():
+                D1 = np.interp(t, t[np.isfinite(D1)], D1[np.isfinite(D1)])
+            else:
+                D1 = 1000 * np.ones_like(Dc)
         if np.isnan(D2).any():
-            D2 = np.interp(t, t[np.isfinite(D2)], D2[np.isfinite(D2)])
+            if np.isfinite(D2).any():
+                D2 = np.interp(t, t[np.isfinite(D2)], D2[np.isfinite(D2)])
+            else:
+                D2 = 1000 * np.ones_like(Dc)
         if np.isnan(D3).any():
-            D3 = np.interp(t, t[np.isfinite(D3)], D3[np.isfinite(D3)])
+            if np.isfinite(D3).any():
+                D3 = np.interp(t, t[np.isfinite(D3)], D3[np.isfinite(D3)])
+            else:
+                D3 = 1000 * np.ones_like(Dc)
         
         Dist = pd.Series([D1, D2, D3, Le, Lt], index = ['D_1', 'D_2', 'D_3', 'L_e', 'L_t'])
         return Dist

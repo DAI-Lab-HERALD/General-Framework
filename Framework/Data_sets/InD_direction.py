@@ -658,7 +658,14 @@ class InD_direction(data_set_template):
         sides = np.sign((De * Dtt).sum(-1)) # 1 if both xE and XP are on the same side of the line
         
         D = - sides * (Dtt * Dp).sum(-1)
-        
+
+        # repair 
+        if np.isnan(D).any():
+            if np.isfinite(D).any():
+                D = np.interp(t, t[np.isfinite(D)], D1[np.isfinite(D)])
+            else:
+                D = 1000 * np.ones_like(D)
+
         Dist = pd.Series([-D], index = ['D_decision'])
         return Dist
     

@@ -577,7 +577,10 @@ class HighD_lane_change(data_set_template):
             
             D1_good = np.isfinite(D1)
             if not all(D1_good):
-                D1 = np.interp(t, t[D1_good], D1[D1_good], left = D1[D1_good][0], right = D1[D1_good][-1])    
+                if D1_good.any():
+                    D1 = np.interp(t, t[D1_good], D1[D1_good], left = D1[D1_good][0], right = D1[D1_good][-1])
+                else:    
+                    D1 = np.ones(tar_x.shape, float) * 1000
         
         if isinstance(path.v_2, float):
             assert str(path.v_2) == 'nan'
@@ -591,7 +594,11 @@ class HighD_lane_change(data_set_template):
             
             D2_good = np.isfinite(D2)
             if not all(D2_good):
-                D2 = np.interp(t, t[D2_good], D2[D2_good], left = D2[D2_good][0], right = D2[D2_good][-1])    
+                if D2_good.any():
+                    D2 = np.interp(t, t[D2_good], D2[D2_good], left = D2[D2_good][0], right = D2[D2_good][-1])
+                else:
+                    D2 = np.ones(tar_x.shape, float) * 1000
+
         
         if isinstance(path.v_3, float):
             assert str(path.v_3) == 'nan'
@@ -605,7 +612,11 @@ class HighD_lane_change(data_set_template):
             
             D3_good = np.isfinite(D3)
             if not all(D3_good):
-                D3 = np.interp(t, t[D3_good], D3[D3_good], left = D3[D3_good][0], right = D3[D3_good][-1]) 
+                if D3_good.any():
+                    D3 = np.interp(t, t[D3_good], D3[D3_good], left = D3[D3_good][0], right = D3[D3_good][-1]) 
+                else:
+                    D3 = np.ones(tar_x.shape, float) * 1000
+
         
         mean_dt = np.mean(t[1:] - t[:-1])
         n_dt = max(3, int(self.dt / mean_dt))
