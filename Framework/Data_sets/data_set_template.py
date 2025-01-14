@@ -3752,6 +3752,12 @@ class data_set_template():
         new_lane = np.where(lane_idcs[1:] != lane_idcs[:-1])[0] + 1
         lane_ids = np.concatenate((lane_idcs[[0]], lane_idcs[new_lane]), 0)
         assert len(lane_ids) == len(centerlines), "Lane ids are not correct."
+        
+        # Check that pair ids are within lane_ids
+        assert np.all(np.isin(pre_pairs.flatten(), lane_ids)), "Predecessor pair ids are not within lane_ids."
+        assert np.all(np.isin(suc_pairs.flatten(), lane_ids)), "Successor pair ids are not within lane_ids."
+        assert np.all(np.isin(left_pairs.flatten(), lane_ids)), "Left pair ids are not within lane_ids."
+        assert np.all(np.isin(right_pairs.flatten(), lane_ids)), "Right pair ids are not within lane_ids."
 
         for i_lane, lane_id in enumerate(lane_ids):
             left_pts = left_boundaries[i_lane] # shape = (num_points, 2)
@@ -3841,12 +3847,22 @@ class data_set_template():
         
         # Update lany types
         lane_type = [loc_Graph.lane_type[i] for i in np.where(Keep_segments)[0]]
+
+        # Prepare lane_id_map
+        max_id = lane_ids.max()
+        if len(suc_pairs) > 0:
+            max_id = max(max_id, suc_pairs.max())
+        if len(pre_pairs) > 0:
+            max_id = max(max_id, pre_pairs.max())
+        if len(left_pairs) > 0:
+            max_id = max(max_id, left_pairs.max())
+        if len(right_pairs) > 0:
+            max_id = max(max_id, right_pairs.max())
+        lane_id_map = np.full((max_id + 1,), -1, dtype = int)
         
         # Update lane ids
         lane_ids = lane_ids[Keep_segments] 
-
-        # Prepare lane_id_map
-        lane_id_map = np.full((lane_ids.max() + 1,), -1, dtype = int)
+        
         # Update lane ids
         if Keep_segments.any():
             assert Keep_nodes.any(), "No nodes are kept, but segments are kept."
