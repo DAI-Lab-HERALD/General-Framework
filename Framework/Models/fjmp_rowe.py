@@ -220,7 +220,7 @@ class fjmp_rowe(model_template):
                 sys.stdout = Logger(log)
 
 
-        if self.data_set.get_name()['file'] == 'Interaction':
+        if self.data_set.get_name()['file'] == 'Interaction' or self.data_set.get_name()['file'] == 'Roundabout':
             self.model_kwargs["dataset"] = 'interaction'
         else:
             self.model_kwargs["dataset"] = 'argoverse2'
@@ -285,7 +285,7 @@ class fjmp_rowe(model_template):
         self.define_default_kwargs()
 
         self.min_t_O_train = self.num_timesteps_out
-        self.max_t_O_train = 100
+        self.max_t_O_train = self.num_timesteps_out
         self.predict_single_agent = False
         self.can_use_map = False
         self.can_use_graph = True
@@ -654,8 +654,7 @@ class fjmp_rowe(model_template):
             val_epoch_done = False
             while not val_epoch_done:
                 X, Y, T, S, C, img, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, val_epoch_done = self.provide_batch_data('val', self.model_kwargs['batch_size'], 
-                                                                                        val_split_size = 0.1, return_categories=True)
-                
+                                                                                        val_split_size = 0.1, return_categories=True)                
 
                 # X[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = np.nan
                 # T[(np.isnan(X).any((2,3)) | np.isnan(Y).any((2,3)))] = '0'
