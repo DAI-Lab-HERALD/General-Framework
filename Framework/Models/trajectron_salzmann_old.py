@@ -424,7 +424,8 @@ class trajectron_salzmann_old(model_template):
         if Y is None:
             return S, S_st, first_h, Neighbor, Neighbor_edge, img_batch, node_type, center_pos, rot_angle
         else:
-            Y = self.rotate_pos_matrix(Y - center_pos, rot_angle).copy()
+            # Only use positions for future data
+            Y = self.rotate_pos_matrix(Y[...,:2] - center_pos, rot_angle).copy()
             
             Y_st = Y.copy()
             Y_st[Ped_agents]  /= self.std_pos_ped
