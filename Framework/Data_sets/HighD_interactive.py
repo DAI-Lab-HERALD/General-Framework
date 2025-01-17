@@ -376,9 +376,9 @@ class HighD_interactive(data_set_template):
 
     
     def get_name(self = None):
-        names = {'print': 'HighD (Lane Change)',
-                 'file': 'HighD_LCGA',
-                 'latex': r'\emph{HighD (gap)}'}
+        names = {'print': 'HighD (Highway)',
+                 'file': 'HighD_IntA',
+                 'latex': r'\emph{HighD}'}
         return names
     
     def future_input(self = None):

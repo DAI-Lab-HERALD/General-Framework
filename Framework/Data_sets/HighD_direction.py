@@ -461,9 +461,9 @@ class HighD_direction(data_set_template):
 
     
     def get_name(self = None):
-        names = {'print': 'HighD (Lane Change)',
-                 'file': 'HighD_LCGA',
-                 'latex': r'\emph{HighD (gap)}'}
+        names = {'print': 'HighD (Direction)',
+                 'file': 'HighD_Dirc',
+                 'latex': r'\emph{HighD (Dir)}'}
         return names
     
     def future_input(self = None):
