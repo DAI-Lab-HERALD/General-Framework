@@ -209,8 +209,8 @@ class HighD_lane_change(data_set_template):
                     lane_type.append(('VEHICLE', False))
 
                     # Append lane_idc
-                    lane_idcs += [segment_id] * (len(center_pts) - 1)
-                    num_nodes += len(center_pts) - 1
+                    lane_idcs += [segment_id] * (len(center_pts[j]) - 1)
+                    num_nodes += len(center_pts[j]) - 1
 
                     # Get the connections:
                     # left (j, j+1)

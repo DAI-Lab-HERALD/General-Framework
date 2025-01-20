@@ -120,8 +120,8 @@ class HighD_direction(data_set_template):
                     lane_type.append(('VEHICLE', False))
 
                     # Append lane_idc
-                    lane_idcs += [segment_id] * (len(center_pts) - 1)
-                    num_nodes += len(center_pts) - 1
+                    lane_idcs += [segment_id] * (len(center_pts[j]) - 1)
+                    num_nodes += len(center_pts[j]) - 1
 
                     # Get the connections:
                     # left (j, j+1)
@@ -171,7 +171,6 @@ class HighD_direction(data_set_template):
         
         self.Data = self.Data.reset_index(drop = True)
         # analize raw dara 
-        num_samples_max = len(self.Data)
         self.Path = []
         self.Type_old = []
         self.Size_old = []
@@ -222,60 +221,78 @@ class HighD_direction(data_set_template):
             self.SceneGraphs.loc[img_id] = graph
 
 
+        # Get allready saved samples
+        num_samples_saved = self.get_number_of_saved_samples()
         
         # extract raw samples
+        unique_recording_ids = np.unique(self.Data.recordingId)
         self.num_samples = 0
-        for i in range(num_samples_max):
-            # to keep track:
-            if np.mod(i, 1000) == 0:
-                print('trajectory ' + str(i).rjust(len(str(num_samples_max))) + '/{} analized'.format(num_samples_max))
+
+        for rec_i, recording_id in enumerate(unique_recording_ids):
+            Data_record = self.Data[self.Data.recordingId == recording_id]
+            print('Recording ' + str(rec_i + 1).rjust(len(str(len(unique_recording_ids)))) + '/{}: analizing'.format(len(unique_recording_ids)))
+
+            num_samples_rec = len(Data_record)
+            for i in range(num_samples_rec):
+                # to keep track:
+                if np.mod(i, 1000) == 0:
+                    print('Recording ' + str(rec_i + 1).rjust(len(str(len(unique_recording_ids)))) + '/{}: trajectory '.format(len(unique_recording_ids)) 
+                          + str(i).rjust(len(str(num_samples_rec))) + '/{} analized'.format(num_samples_rec))
+                
+                data_i = Data_record.iloc[i]
+                track_i = data_i.track[['frame','x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration','laneId']].copy(deep = True)
+
+                # get lane change
+                laneId = track_i.laneId.to_numpy()
+                lane_change = np.where(laneId[1:] != laneId[:-1])[0]
+
+                track_start = np.concatenate([[0], lane_change + 1, [len(track_i)]])
+                
+                for i, i_start in enumerate(track_start[:-1]):
+                    # Check if the current lane holds for at least 1s (25 frames)
+                    if track_start[i + 1] - i_start < 25:
+                        continue
+                    
+                    if self.num_samples < num_samples_saved:
+                        self.num_samples = self.num_samples + 1
+                        continue
+
+                    # Remove eberything that is more than 10s (250 frames) after the next lane change
+                    min_frame = track_i.frame.iloc[i_start]
+                    max_frame = track_i.frame.iloc[track_start[i + 1] - 1] + 250
+                    max_frame = min(max_frame, track_i.frame.iloc[-1]) 
+
+                    tar_track = track_i.set_index('frame').loc[min_frame:max_frame]
+                    
+                    # Save those paths
+                    path = pd.Series(np.zeros(0, np.ndarray), index = [])
+                    agent_types = pd.Series(np.zeros(0, str), index = [])
+                    sizes = pd.Series(np.zeros(0, np.ndarray), index = [])
+                    
+                    path['tar'] = tar_track.to_numpy()[...,:6]
+                    agent_types['tar'] = 'V'
+                    sizes['tar'] = np.array([data_i.width, data_i.height])
+                    
+                    # Get corresponding time points
+                    t = np.array(tar_track.index / 25)
+                    
+                    # get remaining important vehicles
+                    domain = pd.Series(np.zeros(5, object), index = ['location', 'image_id', 'graph_id', 'drivingDirection', 'laneMarkings'])
+                    domain.location         = data_i.locationId
+                    domain.image_id         = data_i.recordingId
+                    domain.graph_id         = data_i.recordingId
+                    domain.drivingDirection = data_i.drivingDirection
+                    domain.laneMarkings     = data_i.laneMarkings
+                    
+                    self.Path.append(path)
+                    self.Type_old.append(agent_types)
+                    self.Size_old.append(sizes)
+                    self.T.append(t)
+                    self.Domain_old.append(domain)
+                    self.num_samples = self.num_samples + 1   
             
-            data_i = self.Data.iloc[i]
-            track_i = data_i.track[['frame','x', 'y', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration','laneId']].copy(deep = True)
-
-            # get lane change
-            lane_change = np.where(track_i.laneId.diff() != 0)[0]
-
-            track_start = np.concatenate([[0], lane_change[0] + 1, [len(track_i)]])
-            
-            for i, i_start in enumerate(track_start[:-1]):
-                # Check if the current lane holds for at least 1s (25 frames)
-                if track_start[i + 1] - i_start < 25:
-                    continue
-
-                # Remove eberything that is more than 10s (250 frames) after the next lane change
-                min_frame = track_i.frame.iloc[i_start]
-                max_frame = track_i.frame.iloc[track_start[i + 1] - 1] + 250
-                max_frame = min(max_frame, track_i.frame.iloc[-1]) 
-
-                tar_track = track_i.set_index('frame').loc[min_frame:max_frame]
-                
-                # Save those paths
-                path = pd.Series(np.zeros(0, np.ndarray), index = [])
-                agent_types = pd.Series(np.zeros(0, str), index = [])
-                sizes = pd.Series(np.zeros(0, np.ndarray), index = [])
-                
-                path['tar'] = tar_track.to_numpy()[...,:6]
-                agent_types['tar'] = 'V'
-                sizes['tar'] = np.array([data_i.width, data_i.height])
-                
-                # Get corresponding time points
-                t = np.array(tar_track.index / 25)
-                
-                # get remaining important vehicles
-                domain = pd.Series(np.zeros(5, object), index = ['location', 'image_id', 'graph_id', 'drivingDirection', 'laneMarkings'])
-                domain.location         = data_i.locationId
-                domain.image_id         = data_i.recordingId
-                domain.graph_id         = data_i.recordingId
-                domain.drivingDirection = data_i.drivingDirection
-                domain.laneMarkings     = data_i.laneMarkings
-                
-                self.Path.append(path)
-                self.Type_old.append(agent_types)
-                self.Size_old.append(sizes)
-                self.T.append(t)
-                self.Domain_old.append(domain)
-                self.num_samples = self.num_samples + 1      
+            if len(self.Path) > 0:
+                self.check_created_paths_for_saving(force_save = True)   
                 
         
         self.Path = pd.DataFrame(self.Path)
@@ -284,6 +301,7 @@ class HighD_direction(data_set_template):
         self.T = np.array(self.T+[()], tuple)[:-1]
         self.Domain_old = pd.DataFrame(self.Domain_old)
         
+        self.check_created_paths_for_saving(last = True) 
         
     def calculate_distance(self, path, t, domain):
         r'''
@@ -311,8 +329,6 @@ class HighD_direction(data_set_template):
         laneMarkings     = domain.laneMarkings
         
         if drivingDirection == 1: # flip agents to move to the right
-            ego_x        = - ego_x
-            tar_x        = - tar_x
             tar_y        = - tar_y
             laneMarkings = - laneMarkings
         
@@ -324,7 +340,12 @@ class HighD_direction(data_set_template):
 
         D_left = lane_mark_left - tar_y
         D_right = tar_y - lane_mark_right
-        D_straight = np.ones_like(D_left) * 1000
+        D_straight = np.zeros_like(D_left)
+        D_straight[:] = np.linspace(1000,100,D_straight.shape[-1])[np.newaxis]
+
+        # Assign default behavior
+        straight = (D_left > 0).all(-1) & (D_right > 0).all(-1)
+        D_straight[straight, -1] = -0.01
 
         Dist = pd.Series([D_right, D_straight, D_left], index = ['right', 'straight', 'left'])
         return Dist  
@@ -351,7 +372,7 @@ class HighD_direction(data_set_template):
         
         tar_y = path.tar[...,1]
         lane_markings = domain.laneMarkings
-        in_position = (tar_y >= np.min(lane_markings)) & (tar_y <= np.max(lane_markings[-1]))
+        in_position = (tar_y >= np.min(lane_markings)) & (tar_y <= np.max(lane_markings))
         
         return in_position       
         
@@ -390,7 +411,7 @@ class HighD_direction(data_set_template):
         
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                       'HighD_highways' + os.sep + 'HighD_processed.pkl')
+                                       'HighD_highways' + os.sep + 'highD_processed.pkl')
             self.Data = self.Data.reset_index(drop = True) 
             
         frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames]).astype(int)

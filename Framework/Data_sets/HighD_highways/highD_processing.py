@@ -90,7 +90,7 @@ for n in range(1, 1 + len(Scenario)):
         local_track = Track_data[Track_data['id'] == final['id']].copy(deep=True)
         # Adjust pos to be the middle of the vehicle
         local_track['x'] = local_track['x'] + 0.5 * final['width']
-        local_track['y'] = local_track['y'] + 0.5 * final['height']
+        local_track['y'] = local_track['y'] - 0.5 * final['height']
         
 
         
