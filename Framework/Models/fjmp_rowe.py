@@ -882,7 +882,7 @@ class fjmp_rowe(model_template):
 
                 # Index = np.arange(i * sample_number, min((i + 1) * sample_number, num_samples_path_pred_max))
 
-                predicted_agents = np.isfinite(X)[:,:,0,0]
+                predicted_agents = np.isfinite(X)[:,:,-1,0]
 
                 pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
                 pred[predicted_agents] = res["loc_pred"].detach().cpu().numpy().transpose(0, 2, 1, 3)
