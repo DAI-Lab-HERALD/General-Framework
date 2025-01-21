@@ -9,14 +9,8 @@ from PIL import Image
 # Map import
 import copy
 import torch
-import lanelet2
-from av2.geometry.interpolate import compute_midpoint_line
-from lanelet2.projection import UtmProjector
-from pyproj import Proj, transform
 
 
-traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                              lanelet2.traffic_rules.Participants.Vehicle)
 
 
 
@@ -61,6 +55,13 @@ class RounD_round_about(data_set_template):
     '''
 
     def get_lane_graph(self, map_path, UtmOrigin):
+        import lanelet2
+        from av2.geometry.interpolate import compute_midpoint_line
+        from lanelet2.projection import UtmProjector
+        from pyproj import Proj, transform
+
+        traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
+                                                    lanelet2.traffic_rules.Participants.Vehicle)
         # Transfer UTm Origin into lattiude and longitude
         utm_zone = 32
         utm_proj = Proj(proj='utm', zone=utm_zone, ellps='WGS84', south= False)
@@ -1164,6 +1165,8 @@ class RounD_round_about(data_set_template):
                 
                 if Neighbor_type[i] == 'pedestrian':
                     agent_types[name] = 'P'
+                elif Neighbor_type[i] == 'bicycle':
+                    agent_types[name] = 'B'
                 else:
                     agent_types[name] = 'V'
             
