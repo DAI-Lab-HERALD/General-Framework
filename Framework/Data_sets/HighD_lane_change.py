@@ -669,7 +669,7 @@ class HighD_lane_change(data_set_template):
         
         if not hasattr(self, 'Data'):
             self.Data = pd.read_pickle(self.path + os.sep + 'Data_sets' + os.sep + 
-                                       'HighD_highways' + os.sep + 'HighD_processed.pkl')
+                                       'HighD_highways' + os.sep + 'highD_processed.pkl')
             self.Data = self.Data.reset_index(drop = True) 
             
         frames_help = np.concatenate([[tar_frames[0] - 1], tar_frames]).astype(int)
