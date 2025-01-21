@@ -476,7 +476,7 @@ class HighD_lane_change(data_set_template):
         angle = np.angle(tar_x[...,1:] - tar_x[...,:-1] + 1j * (tar_y[...,1:] - tar_y[...,:-1]))
         angle = np.concatenate((angle[...,[0]], angle), axis = -1)
         angle = np.clip(angle, 1e-3, 0.5 * np.pi)
-        if angle.max() > 1e-3:
+        if angle.max() > np.float32(1e-3):
             angle = np.clip(angle, max(1e-3, 0.99 * np.unique(angle)[1]), None)
         
         mean_dt = np.mean(t[1:] - t[:-1])

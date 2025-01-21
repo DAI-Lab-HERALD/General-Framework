@@ -88,3 +88,5 @@ Framework/Models/trajflow_meszaros_multiTask.py
 Framework/Data_sets/Toy_interactions.py
 /Framework/Data_sets/Toy_interactions
 
+/Framework/Models/Hierarchical_Predictor
+Framework/Models/hierarchical_meszaros.py
