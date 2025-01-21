@@ -2190,7 +2190,7 @@ class model_template():
                 class_names = self.data_set.Behaviors
 
         # Check if images need to be extracted
-        if hasattr(self, 'use_batch_extraction') and (not ignore_map) and self.has_map:
+        if hasattr(self, 'use_batch_extraction') and (not ignore_map) and self.has_map and self.can_use_map:
             if self.predict_single_agent:
                 Img_needed = np.zeros(X.shape[:2], bool)
                 Img_needed[:,0] = True
@@ -2234,7 +2234,7 @@ class model_template():
         Sample_id = Sample_id[:,0]
 
         # Check if graphs need to be extracted
-        if hasattr(self, 'use_graph_batch_extraction') and (not ignore_graph) and self.has_graph:
+        if hasattr(self, 'use_graph_batch_extraction') and (not ignore_graph) and self.has_graph and self.can_use_graph:
 
             if self.use_graph_batch_extraction:
                 domain = self.data_set.Domain.iloc[Sample_id]
