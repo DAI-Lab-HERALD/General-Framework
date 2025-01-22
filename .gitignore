@@ -92,3 +92,4 @@ Framework/Data_sets/Toy_interactions.py
 Framework/Models/hierarchical_meszaros.py
 Framework/Models/autobot_girgis_test.py
 Framework/mtr_installer.py
+Framework/Models/model_framework_test.py

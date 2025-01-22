@@ -1726,7 +1726,6 @@ class model_template():
         
         
     def _update_available_samples(self, Ind_advance, ind_advance):
-        ## NOTE: Method has been adjusted for large datasets
         # Get the indices that will remain
         ind_remain = np.setdiff1d(Ind_advance[0], ind_advance)
 
@@ -2542,8 +2541,10 @@ class model_template():
             for i_sample in range(D.shape[0]):
                 for i_dist in range(D.shape[1]):
                     D[i_sample, i_dist] = D_help[i_sample, i_dist].astype(np.float32)
+            dist_names = self.data_set.Input_prediction.columns
         else:
-            D = np.zeros((len(self.data_set.Domain),0), dtype = np.float32)
+            D = np.zeros((len(self.data_set.Domain),0, self.num_timesteps_in), dtype = np.float32)
+            dist_names = []
         
         # Select current samples
         if train:
@@ -2572,7 +2573,6 @@ class model_template():
         
         class_names = self.data_set.Behaviors
         agent_names = self.data_set.Agents
-        dist_names = self.data_set.Input_prediction.columns
         
 
         if return_categories:
@@ -2602,6 +2602,107 @@ class model_template():
                 return X, T, S, agent_names, D, dist_names, class_names
             
 
+
+    def get_batch_classification_data(self, Sample_id):
+        r'''
+        This function retuns inputs and outputs for classification models. It has to be called after
+        calling self.provide_batch_data().
+
+        Parameters
+        ----------
+        Sample_id : np.ndarray
+            This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which 
+            original samples come from. This should be the Sample_id returned by self.provide_batch_data().
+
+        Returns
+        -------
+        D : np.ndarray
+            This is the generalized past observed data of the agents, in the form of a
+            :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+            It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+            distances between vehicles.
+        dist_names : list
+            This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+            characteristic distance.
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        P : np.ndarray, optional
+            This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+            class contains the probability that it was observed in the sample. As this are observed values, 
+            per row, there should be exactly one value 1 and the rest should be zeroes.
+            It is not returned if Sample_id was generated in *self.provide_batch_data(mode = 'pred')*.
+        DT : np.ndarray, optional
+            This is a :math:`N_{samples}` dimensional numpy array, which for each 
+            class contains the time period after the prediction time at which the fullfilment of the 
+            classification crieria could be observed. 
+            It is not returned if Sample_id was generated in *self.provide_batch_data(mode = 'pred')*.
+        
+        '''
+        train = self.model_mode != 'pred'
+
+        class_names = self.data_set.Behaviors
+
+        if self.data_set.data_in_one_piece:
+            # Extract data from original number a samples
+            if self.general_input_available:
+                D_help = self.data_set.Input_prediction.to_numpy()[Sample_id]
+                D = np.ones(list(D_help.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
+                for i_sample in range(D.shape[0]):
+                    for i_dist in range(D.shape[1]):
+                        D[i_sample, i_dist] = D_help[i_sample, i_dist].astype(np.float32)
+                dist_names = self.data_set.Input_prediction.columns
+            else:
+                D = np.zeros((len(Sample_id),0,self.num_timesteps_in), dtype = np.float32)
+                dist_names = []
+
+            # Get other inputs
+            P = self.data_set.Output_A.iloc[Sample_id].to_numpy().astype(np.float32)
+            DT = self.data_set.Output_T_E[Sample_id].astype(np.float32)
+        
+        
+        else:
+            domain = self.data_set.Domain.iloc[Sample_id]
+            # Get the current file index
+            file_indices = domain.file_index
+
+            # assert that only one file is used
+            assert len(np.unique(file_indices)) == 1
+            file_index = file_indices.iloc[0]
+
+            # Get the specific index in the extracted data
+            ind_data = domain.Index_saved
+
+            # Load the data
+            data_file = self.data_set.Files[file_index] + '_data.npy'
+
+            # Load the data and extract the data
+            [Input_prediction, _, _, _, _, _, Output_A, Output_T_E, _] = np.load(data_file, allow_pickle = True)
+
+            Input_prediction = Input_prediction.loc[ind_data] 
+            Output_A = Output_A.loc[ind_data]
+            Output_T_E = Output_T_E[ind_data]
+
+
+            # Get D
+            if self.general_input_available:
+                D_help = Input_prediction.to_numpy()
+                D = np.ones(list(Input_prediction.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
+                for i_sample in range(D.shape[0]):
+                    for i_dist in range(D.shape[1]):
+                        D[i_sample, i_dist] = Input_prediction[i_sample, i_dist].astype(np.float32)
+                dist_names = Input_prediction.columns
+            else:
+                D = np.zeros((len(Sample_id),0,self.num_timesteps_in), dtype = np.float32)
+                dist_names = []
+
+            P = Output_A[class_names].fillna(0.0).to_numpy().astype(np.float32)
+            DT = Output_T_E.astype(np.float32)
+
+        if train:
+            return D, dist_names, class_names, P, DT
+        else:
+            return D, dist_names, class_names
             
 
     

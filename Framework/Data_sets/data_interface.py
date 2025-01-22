@@ -669,7 +669,10 @@ class data_interface(object):
 
         # get class names
         class_names = self.Behaviors
-        P = np.full((len(Paths), len(class_names)), np.nan, float)
+
+        # get the number of predicted paths
+        P = np.full((len(Paths), num_paths, len(class_names)), np.nan, float)
+        
 
         # get unique datasets in the domain
         for data_set in self.Datasets.values():
@@ -705,8 +708,9 @@ class data_interface(object):
                     output_A = output_A.astype(float)
 
                     # save the output
-                    P[i] = 0.0
-                    P[i, :, class_index] = output_A
+                    p = np.zeros((num_paths, len(class_names)))
+                    p[:, class_index] = output_A
+                    P[i] = p
                 except:
                     print('Error in classifying path in dataset ' + data_set_name + '.')
                 

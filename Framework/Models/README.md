@@ -1011,6 +1011,52 @@ def save_predicted_classifications(self, class_names, P, DT = None):
 ```
 ### Combined models
 ```
+  def get_batch_classification_data(self, Sample_id):
+    r'''
+    This function retuns inputs and outputs for classification models. It has to be called after
+    calling self.provide_batch_data().
+
+    Parameters
+    ----------
+    Sample_id : np.ndarray
+        This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which 
+        original samples come from. This should be the Sample_id returned by self.provide_batch_data().
+
+    Returns
+    -------
+    D : np.ndarray
+        This is the generalized past observed data of the agents, in the form of a
+        :math:`\{N_{samples} \times N_{dist} \times N_{I}\}` dimensional numpy array with float values. 
+        It is dependent on the scenario and represenst characteristic attributes of a scene such as 
+        distances between vehicles.
+    dist_names : list
+        This is a list of length :math:`N_{dist}`, where each string contains the name of a possible 
+        characteristic distance.
+    class_names : list
+        This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+        class.
+    P : np.ndarray, optional
+        This is a :math:`\{N_{samples} \times N_{classes}\}` dimensional numpy array, which for each 
+        class contains the probability that it was observed in the sample. As this are observed values, 
+        per row, there should be exactly one value 1 and the rest should be zeroes.
+        It is not returned if Sample_id was generated in *self.provide_batch_data(mode = 'pred')*.
+    DT : np.ndarray, optional
+        This is a :math:`N_{samples}` dimensional numpy array, which for each 
+        class contains the time period after the prediction time at which the fullfilment of the 
+        classification crieria could be observed. 
+        It is not returned if Sample_id was generated in *self.provide_batch_data(mode = 'pred')*.
+    
+    '''
+    train = self.model_mode != 'pred'
+
+    ...
+
+    if train:
+      return D, dist_names, class_names, P, DT
+    else:
+      return D, dist_names, class_names
+```          
+```
   def classify_data(self, Pred, Sample_id, Agent_id):
     r'''
     This function classifies the predicted data into the categories of the dataset. It is only useful if the dataset

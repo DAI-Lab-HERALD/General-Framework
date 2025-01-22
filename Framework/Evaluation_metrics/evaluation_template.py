@@ -77,7 +77,7 @@ class evaluation_template():
             [_, _, _, _, _, _, Output_A_local, Output_T_E_local, _] = np.load(data_file, allow_pickle = True)
 
             ind_used = self.data_set.Domain.Index_saved.iloc[self.Index_curr]
-            Output_A_full   = Output_A_local.iloc[ind_used] # Shape len(Index_curr) x num_behaviors
+            Output_A_full   = Output_A_local[self.data_set.Behaviors].loc[ind_used] # Shape len(Index_curr) x num_behaviors
             Output_T_E_full = Output_T_E_local[ind_used]    # Shape len(Index_curr)
         
         if self.get_output_type()[:5] == 'class':
