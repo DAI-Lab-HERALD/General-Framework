@@ -1167,6 +1167,8 @@ class RounD_round_about(data_set_template):
                     agent_types[name] = 'P'
                 elif Neighbor_type[i] == 'bicycle':
                     agent_types[name] = 'B'
+                elif Neighbor_type[i] == 'motorcycle':
+                    agent_types[name] = 'M'
                 else:
                     agent_types[name] = 'V'
             
