@@ -519,18 +519,30 @@ class data_set_template():
         
         print("Transformed paths to sparse format", flush=True)
         return Path_helper
+    
+    def get_multiindex_path(self, Path):
+        # Get max number of agents
+        max_agents = Path['agent_index'].max() + 1
+        max_timesteps = Path['time_index'].max() + 1
+        id = Path['sample_index'] + Path['agent_index'] / max_agents + Path['time_index'] / max_agents / max_timesteps
+
+        id_sort = np.argsort(id)
+        Path_sparse = Path.iloc[id_sort].set_index(['sample_index', 'agent_index', 'time_index'])
+        return Path_sparse
 
     def get_dense_path_sample(self, Path_sparse, sample_index, agent_name_array, num_timesteps):
-        path_sparse = Path_sparse[Path_sparse['sample_index'] == sample_index]
+        path_sparse = Path_sparse.loc[sample_index]
+
+        # Get pandas dataframe
+        path_data_dense = np.full((len(agent_name_array), num_timesteps, len(self.path_data_info())), np.nan, dtype = np.float32)
 
         # Transform sparse data to dense data
-        path_data_sparse = path_sparse[self.path_data_info()].to_numpy().astype(np.float32) # num_useful x n_data
-        path_data_dense = np.full((len(agent_name_array), num_timesteps, len(self.path_data_info())), np.nan, dtype = np.float32)
-        agent_ind, time_ind = path_sparse[['agent_index', 'time_index']].to_numpy().astype(int).T
+        path_data_sparse = path_sparse.to_numpy().astype(np.float32) # num_useful x n_data
+        agent_ind, time_ind = path_sparse.index.get_level_values(0), path_sparse.index.get_level_values(1)
         path_data_dense[agent_ind, time_ind] = path_data_sparse
 
         # Map onto pandas series
-        used_agents = np.isfinite(path_data_dense).any((1,2))
+        used_agents = np.unique(agent_ind)
         used_agents_name = agent_name_array[used_agents]
         path_data_dense_used = list(path_data_dense[used_agents])
 
@@ -1876,13 +1888,14 @@ class data_set_template():
             local_t_crit = []
 
             agent_name_array = np.array(Type.columns)
+            Path_sparse = self.get_multiindex_path(Path)
             for i_sample in range(num_samples):
                 if np.mod(i_sample, 100) == 0:
                     print('path ' + str(i_sample).rjust(len(str(num_samples))) + '/{} divided'.format(num_samples))
 
                 domain = Domain_old.iloc[i_sample]
                 t = np.array(T[i_sample])
-                path = self.get_dense_path_sample(Path, i_sample, agent_name_array, len(t))
+                path = self.get_dense_path_sample(Path_sparse, i_sample, agent_name_array, len(t))
 
                 # Get the corresponding class
                 d_class, in_position, behavior, t_D_class, t_class = self.classify_path(path, t, domain)
@@ -2375,6 +2388,8 @@ class data_set_template():
         predicted_saving_length = 0
 
         agent_name_array = np.array(Type_old.columns)
+
+        Path_sparse = self.get_multiindex_path(Path)
         for i in range(local_num_samples):
             # print progress
             if np.mod(i, 1) == 0:
@@ -2384,7 +2399,7 @@ class data_set_template():
             # load extracted data
             i_path = local_id[i]
             t = local_t[i]
-            path = self.get_dense_path_sample(Path, i_path, agent_name_array, len(t))
+            path = self.get_dense_path_sample(Path_sparse, i_path, agent_name_array, len(t))
 
             behavior = local_behavior[i]
             t_start = local_t_start[i]
