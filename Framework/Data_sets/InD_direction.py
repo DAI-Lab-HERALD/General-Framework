@@ -470,9 +470,10 @@ class InD_direction(data_set_template):
             neighbor_id    = agent_i.otherVehicles
             neighbor_class = self.Data.loc[neighbor_id]['class']
             
-            domain['neighbor_veh'] = neighbor_id[(neighbor_class == 'car') | (neighbor_class == 'truck_bus')]
             domain['neighbor_ped'] = neighbor_id[(neighbor_class == 'pedestrian')]      
-            domain['neighbor_byc'] = neighbor_id[(neighbor_class == 'bicycle')]
+            domain['neighbor_byc'] = neighbor_id[(neighbor_class == 'bicycle')]     
+            domain['neighbor_mtc'] = neighbor_id[(neighbor_class == 'motorcycle')]
+            domain['neighbor_veh'] = neighbor_id[(neighbor_class != 'pedestrian') & (neighbor_class != 'bicycle') & (neighbor_class != 'motorcycle')]
 
             # Get local SceneGraph, by rotating the respective positions and boundaries
             graph = SceneGraphs_unturned.loc[domain.location].copy(deep = True)
@@ -758,12 +759,37 @@ class InD_direction(data_set_template):
         use_byc = np.isfinite(Pos_byc[:,1:n_I + 1]).any((1,2))
         Pos_byc  = Pos_byc[use_byc]
         Size_byc = Size_byc[use_byc]
+
+        # Search for motorcyclists
+        Neighbor_mtc = domain.neighbor_mtc.copy()
+        Pos_mtc = np.ones((len(Neighbor_mtc), len(I_t + 1), num_data)) * np.nan
+        Size_mtc = np.ones((len(Neighbor_mtc), 2)) * np.nan
+        for i, n in enumerate(Neighbor_mtc):
+            track_n = self.Data.loc[n].track.set_index('frame')
+            track_n.index = track_n.index.astype(int)
+            track_n = track_n.reindex(frames_help)[['xCenter', 'yCenter', 'xVelocity', 'yVelocity', 'xAcceleration', 'yAcceleration']]
+
+            # Rename columns
+            track_n = track_n.rename(columns={"xCenter": "x", "yCenter": "y",
+                                              "xVelocity" : "v_x", "yVelocity" : "v_y",
+                                              "xAcceleration" : "a_x", "yAcceleration" : "a_y"}).copy(deep = True)
+            
+            # Rotate track 
+            track_n = rotate_track(track_n, domain.rot_angle, np.array([domain.x_center, domain.y_center]))
+            Pos_mtc[i] = track_n.to_numpy()
+            
+            Size_mtc[i] = [self.Data.loc[n].length, self.Data.loc[n].width]
+
+        use_mtc = np.isfinite(Pos_mtc[:,1:n_I + 1]).any((1,2))
+        Pos_mtc  = Pos_mtc[use_mtc]
+        Size_mtc = Size_mtc[use_mtc]
         
-        Pos = np.concatenate((Pos_veh, Pos_ped, Pos_byc), axis = 0)
-        Size = np.concatenate((Size_veh, Size_ped, Size_byc), axis = 0)
+        Pos = np.concatenate((Pos_veh, Pos_ped, Pos_byc, Pos_mtc), axis = 0)
+        Size = np.concatenate((Size_veh, Size_ped, Size_byc, Size_mtc), axis = 0)
         Type = np.zeros(len(Pos))
         Type[:len(Pos_veh)] = 1
         Type[len(Pos_veh):len(Pos_veh) + len(Pos_ped)] = 2
+        Type[len(Pos_veh) + len(Pos_ped):len(Pos_veh) + len(Pos_ped) + len(Pos_byc)] = 3
         
         # Get closest agents
         D = np.nanmin((np.sqrt((Pos[:,1:n_I + 1,:2] - tar_pos[:,:n_I]) ** 2).sum(-1)), -1)
@@ -788,8 +814,10 @@ class InD_direction(data_set_template):
                     agent_types[name] = 'V'
                 elif Type[i] == 2:
                     agent_types[name] = 'P'
-                else:
+                elif Type[i] == 3:
                     agent_types[name] = 'B'
+                else:
+                    agent_types[name] = 'M'
                 size[name] = Size[i]
                     
         return path, agent_types, size
