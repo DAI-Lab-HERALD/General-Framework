@@ -896,46 +896,59 @@ class evaluation_template():
         # Get useful samples
         self.model._transform_predictions_to_numpy(self.Index_curr, self.Output_path_pred, 
                                                    self.get_output_type() == 'path_all_wo_pov')
-        Pred_step = self.model.Pred_step
-        Pred_agent = Pred_step.any(-1)
+        Pred_step = self.model.Pred_step # num_samples x num_agents x num_O
+        Pred_agent = Pred_step.any(-1) # num_samples x num_agents
+
+
+        # Check if the model can predict likelihoods
+        model_predicts_probs = self.model.predict_path_probs
         
-        # Test the provided probabilities
-        Output_path_probs = self.Output_path_pred_probs[self.data_set.Agents].to_numpy()
-        
-        
-        # Adjust sorting
-        agents_id = self.model.Pred_agent_id
-        sample_id = np.tile(np.arange(len(agents_id))[:,np.newaxis], (1, agents_id.shape[1]))
-        Output_path_probs = Output_path_probs[sample_id, agents_id]
-        
-        Output_path_probs_useful = np.stack(list(Output_path_probs[Pred_agent]), axis = 0).astype(np.float32) # num_pred_agents x num_preds
-        
-        use_given_values = np.isfinite(Output_path_probs_useful).all()
-        
-        if use_given_values:
-            Output_path_probs_array = np.full((*agents_id.shape, Output_path_probs_useful.shape[-1]), np.nan, np.float32)
-            Output_path_probs_array[Pred_agent] = Output_path_probs_useful # Num_samples x num_agents x num_preds
+        # Check if the model actually predicted useful values
+        if model_predicts_probs:
+            # Test the provided probabilities
+            Output_path_probs = self.Output_path_pred_probs[self.data_set.Agents].to_numpy() # [num_samples x num_agents_all] x [(num_preds + 1)]
             
+            # Adjust sorting
+            agents_id = self.model.Pred_agent_id # num_samples x num_agents_all
+            sample_id = np.tile(np.arange(len(agents_id))[:,np.newaxis], (1, agents_id.shape[1])) # num_samples x num_agents_all
+            Output_path_probs = Output_path_probs[sample_id, agents_id]  # [num_samples x num_agents] x [(num_preds + 1)]
+            
+            Output_path_probs_useful = np.stack(list(Output_path_probs[Pred_agent]), axis = 0).astype(np.float32) # num_pred_agents x num_preds
+            
+            # Only use predicted values if they are useful
+            model_predicts_probs = np.isfinite(Output_path_probs_useful).all() # Check if the given values are useful
+        
+        # Use model predicted values.
+        if model_predicts_probs:
+            Output_path_probs_array = np.full((*agents_id.shape, Output_path_probs_useful.shape[-1]), np.nan, np.float32) # num_samples x num_agents x num_preds
+            Output_path_probs_array[Pred_agent] = Output_path_probs_useful
+            
+            # Check if values are identical across agents, to see if it was a joint probability
             Diff = np.abs(Output_path_probs_array[:,[0]] - Output_path_probs_array)
-            
             joint_samples_given = np.nanmax(Diff) < 1e-3
             
+            # Reorder the array to nmathc required output 
             Output_path_probs_array = Output_path_probs_array.transpose(0,2,1) # num_Samples x num_preds x num_agents
             
+            # Fit the output to desired joint/marginal value
+            # If model joint, output joint       => take the first agent (contains allready joint prob)
+            # If model marginal, output joint    => sum all agents (this are actually log prob values)
+            # If model joint, output marginal    => divide by number of actual agents (this are actually log prob values)
+            # If model marginal, output marginal => take the values as they are (this are actually log prob values)
             if joint_agents:
                 if joint_samples_given:
                     # First agent shoudl always be defined
-                    KDE_pred_log_prob = Output_path_probs_array[...,[0]]
+                    KDE_pred_log_prob = Output_path_probs_array[...,[0]] # num_samples x num_preds x 1
                 else:
                     # For marginal predictin models, assume independence, so we can add stuff together
-                    KDE_pred_log_prob = np.nansum(Output_path_probs_array, axis = -1, keepdims=True)
+                    KDE_pred_log_prob = np.nansum(Output_path_probs_array, axis = -1, keepdims=True) # num_samples x num_preds x 1
             
             else:
                 if joint_samples_given:
                     # Assume equal contribution from each sample
-                    KDE_pred_log_prob = Output_path_probs_array / Pred_agent.sum(-1)[:,np.newaxis, np.newaxis]
+                    KDE_pred_log_prob = Output_path_probs_array / Pred_agent.sum(-1)[:,np.newaxis, np.newaxis] # num_samples x num_preds x num_agents
                 else:
-                    KDE_pred_log_prob = Output_path_probs_array
+                    KDE_pred_log_prob = Output_path_probs_array # num_samples x num_preds x num_agents
             
             # Divide into log probs of predictions and ground truths
             KDE_pred_log_prob_pred = KDE_pred_log_prob[:,:-1]
