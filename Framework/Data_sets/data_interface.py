@@ -1736,16 +1736,16 @@ class data_interface(object):
             s_ind = np.where(self.Subgroups_file == subgroup)[0]
             
             assert len(np.unique(self.Pred_agents_eval_sorted[s_ind], axis = 0)) == 1
-            pred_agents = self.Pred_agents_eval_sorted[s_ind[0]]
+            pred_agents = self.Pred_agents_eval_sorted[s_ind[0]] # shape: num_agents
             
             # Avoid useless samples
             if not pred_agents.any():
                 continue
 
-            pred_agents_id = np.where(pred_agents)[0]
+            pred_agents_id = np.where(pred_agents)[0] # shape: num_agent_pred
             
-            nto_subgroup = Num_steps[s_ind]
-            Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
+            nto_subgroup = Num_steps[s_ind] # shape: num_subgroup_samples
+            Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)] # shape: num_subgroup_samples x num_agents x num_T_O x 2
             
             self.KDE_indepTimeIndepAgents[subgroup] = {}
 
@@ -1754,11 +1754,10 @@ class data_interface(object):
 
             for i_nto, nto in enumerate(np.unique(nto_subgroup)):
                 print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
-                n_ind = np.where(nto == nto_subgroup)[0]
-                nto_index = s_ind[n_ind]
+                n_ind = np.where(nto == nto_subgroup)[0] # shape: num_subgroup_time_samples
+                nto_index = s_ind[n_ind] # shape: num_subgroup_time_samples
                 
-                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
-                paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
+                paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto] # shape: num_subgroup_time_samples x num_agents x num_T_O x 2
                 
                 num_features = 2
                 
@@ -1767,15 +1766,16 @@ class data_interface(object):
                     self.KDE_indepTimeIndepAgents_data[subgroup][nto] = {}
 
                 for i_agent, i_agent_orig in enumerate(pred_agents_id):
-                    agent = self.Agents_eval_sorted[nto_index, i_agent_orig]
+                    agent = self.Agents_eval_sorted[nto_index, i_agent_orig] # shape: num_subgroup_time_samples
                     assert len(np.unique(agent)) == 1, 'Agent is not unique.'
                     agent = agent[0]
                     
                     # Get agent
-                    paths_true_agent = paths_true[:,i_agent]
+                    paths_true_agent = paths_true[:,i_agent] # shape: num_subgroup_time_samples x num_T_O x 2
                 
                     # Collapse agents
-                    paths_true_agent_comp = paths_true_agent.reshape(len(n_ind), num_features)
+                    # TODO: This will throw an error if num_T_O > 1
+                    paths_true_agent_comp = paths_true_agent.reshape(len(n_ind), num_features) 
                         
                     # Train model
                     # Check if current agent is pov agent
