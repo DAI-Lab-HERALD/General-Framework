@@ -1691,3 +1691,116 @@ class data_interface(object):
         if self.save_predictions:
             os.makedirs(os.path.dirname(safe_file), exist_ok = True)
             np.save(safe_file, np.array([self.KDE_indep_data, 0], dtype = object))
+
+
+            
+    def _get_indepTimeIndepAgents_KDE_probabilities(self, exclude_ego = False, file_index = 0):
+        if hasattr(self, 'Log_prob_true_indepTimeIndepAgents'):
+            assert hasattr(self, 'excluded_ego_indep'), 'Excluded ego has not been defined.'
+            assert hasattr(self, 'file_index_indep'), 'File index has not been defined.'
+            if (self.excluded_ego_indep == exclude_ego) and (self.file_index_indep == file_index):
+                return
+        
+        # Save last setting 
+        self.excluded_ego_indep = exclude_ego
+        self.file_index_indep   = file_index
+        
+        # Check if dataset has all valuable stuff
+        self._extract_identical_inputs(eval_pov = not exclude_ego, file_index = file_index)
+        
+        # Shape: Num_samples x num agents
+        self.Log_prob_true_indepTimeIndepAgents = np.zeros(self.Pred_agents_eval_sorted.shape, dtype = np.float32)
+
+        # Get the current file name and replace it to the Predictions folder
+        # Independent KDEs do not need to be saved for different pov settings,
+        # as the agents are saved individually
+        file_addon = 'indepTimeIndepAgents_gt_KDE' 
+        file_addon += '_FI_' + str(file_index)
+
+        safe_file = self.change_result_directory(self.assembled_data_file, 'Predictions', file_addon)
+
+        # Check if KDE models can be loaded
+        if os.path.isfile(safe_file):
+            self.KDE_indepTimeIndepAgents_data = np.load(safe_file, allow_pickle = True)[0]
+            clustering_loaded = True
+        else:
+            self.KDE_indepTimeIndepAgents_data = {}
+            clustering_loaded = False
+        
+        Num_steps = np.minimum(self.num_timesteps_out_real, self.N_O_data_orig)
+        
+        self.KDE_indepTimeIndepAgents = {}
+        print('Calculate indep PDF on ground truth probabilities.', flush = True)
+        for i_subgroup, subgroup in enumerate(self.unique_subgroups):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i_subgroup + 1, len(self.unique_subgroups)), flush = True)
+            s_ind = np.where(self.Subgroups_file == subgroup)[0]
+            
+            assert len(np.unique(self.Pred_agents_eval_sorted[s_ind], axis = 0)) == 1
+            pred_agents = self.Pred_agents_eval_sorted[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            nto_subgroup = Num_steps[s_ind]
+            Paths_subgroup = self.Path_true_all[i_subgroup,:len(s_ind)]
+            
+            self.KDE_indepTimeIndepAgents[subgroup] = {}
+
+            if not subgroup in self.KDE_indepTimeIndepAgents_data:
+                self.KDE_indepTimeIndepAgents_data[subgroup] = {}
+
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
+                n_ind = np.where(nto == nto_subgroup)[0]
+                nto_index = s_ind[n_ind]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_true = Paths_subgroup[n_ind][:,pred_agents,:nto]
+                
+                num_features = 2
+                
+                self.KDE_indepTimeIndepAgents[subgroup][nto] = {}
+                if not nto in self.KDE_indepTimeIndepAgents_data[subgroup]:
+                    self.KDE_indepTimeIndepAgents_data[subgroup][nto] = {}
+
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    agent = self.Agents_eval_sorted[nto_index, i_agent_orig]
+                    assert len(np.unique(agent)) == 1, 'Agent is not unique.'
+                    agent = agent[0]
+                    
+                    # Get agent
+                    paths_true_agent = paths_true[:,i_agent]
+                
+                    # Collapse agents
+                    paths_true_agent_comp = paths_true_agent.reshape(len(n_ind), num_features)
+                        
+                    # Train model
+                    # Check if current agent is pov agent
+
+                    if clustering_loaded and (agent != self.pov_agent):
+                        assert agent in self.KDE_indepTimeIndepAgents_data[subgroup][nto], 'Agent not found in loaded data.'
+                    
+                    if agent in self.KDE_indepTimeIndepAgents_data[subgroup][nto]:
+                        kde_data = self.KDE_indepTimeIndepAgents_data[subgroup][nto][agent]
+                        cluster_labels = kde_data['cluster_labels']
+                        assert len(cluster_labels) == len(paths_true_agent_comp), 'Cluster labels do not match the number of samples.'
+                        kde = ROME().fit(paths_true_agent_comp, clusters = cluster_labels)
+                    else:
+                        kde = ROME().fit(paths_true_agent_comp)
+                        kde_data = {'cluster_labels': kde.labels_}
+                        self.KDE_indepTimeIndepAgents_data[subgroup][nto][agent] = kde_data
+
+                    log_prob_true_agent = kde.score_samples(paths_true_agent_comp)
+                    log_prob_true_agent = log_prob_true_agent.reshape(*paths_true_agent.shape)
+                    log_prob_true_agent = log_prob_true_agent.sum(-2)
+                    
+                    self.KDE_indepTimeIndepAgents[subgroup][nto][agent] = kde
+                    self.Log_prob_true_indepTimeIndepAgents[nto_index,i_agent_orig] = log_prob_true_agent
+        
+        # Save the KDE models
+        if self.save_predictions:
+            os.makedirs(os.path.dirname(safe_file), exist_ok = True)
+            np.save(safe_file, np.array([self.KDE_indepTimeIndepAgents_data, 0], dtype = object))

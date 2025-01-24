@@ -3415,6 +3415,87 @@ class model_template():
 
                     self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
 
+    
+    def _get_indepTimeIndepAgents_KDE_true_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_true_indepTimeIndepAgents_pred'):
+            if self.excluded_ego_true_indep == exclude_ego:
+                if np.array_equal(self.extracted_pred_index_true_indep, Pred_index):
+                    return
+                
+        # Get the current file_index
+        if self.data_set.data_in_one_piece:
+            file_index = 0
+        else:
+            file_indices = self.data_set.Domain.file_index.iloc[Pred_index].to_numpy()
+            assert len(np.unique(file_indices)) == 1, 'This method is only useful for datasets that are in one piece.'
+            file_index = file_indices[0]
+        
+        # Have the dataset load
+        self.data_set._get_indepTimeIndepAgents_KDE_probabilities(exclude_ego, file_index)
+        
+        # Save last setting 
+        self.excluded_ego_true_indep = exclude_ego
+        self.extracted_pred_index_true_indep = Pred_index
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds x num agents
+        self.Log_prob_true_indepTimeIndepAgents_pred = np.zeros(self.Path_pred.shape[:3], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+       
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        Agents = np.array(self.data_set.Agents)[self.Pred_agent_id]
+        
+        for subgroup in np.unique(Subgroups):
+            s_ind = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+            
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            nto_subgroup = Num_steps[s_ind]
+            
+            for nto in np.unique(nto_subgroup):
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                num_features = 2
+                
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    agent = Agents[nto_index, i_agent_orig]
+                    assert len(np.unique(agent)) == 1
+                    agent = agent[0]
+                    
+                    # Get agent
+                    paths_pred_agent = paths_pred[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:3], num_features)
+                    
+                    # Collapse agents further
+                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+                    
+                    log_prob_pred_agent = self.data_set.KDE_indepTimeIndepAgents[subgroup][nto][agent].score_samples(paths_pred_agent_comp)
+                    log_prob_pred_agent = log_prob_pred_agent.reshape(*paths_pred_agent.shape)
+                    log_prob_pred_agent = log_prob_pred_agent.sum(-2)
+
+                    self.Log_prob_true_indep_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
+
+
 
     
     #####################################################################################################
@@ -3807,6 +3888,221 @@ class model_template():
         if self.data_set.save_predictions:
             os.makedirs(os.path.dirname(kde_file), exist_ok = True)
             np.save(kde_file, np.array([self.KDE_indep_data, 0], dtype = object))
+
+
+    def _get_indepTimeIndepAgents_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+        if hasattr(self, 'Log_prob_indepTimeIndepAgents_pred') and hasattr(self, 'Log_prob_indepTimeIndepAgents_true'):
+            if self.excluded_ego_indep == exclude_ego:
+                if np.array_equal(self.extracted_pred_index_indep, Pred_index):
+                    return
+                
+        # Get save file for KDE saving
+        file_addon = 'indepTimeIndepAgents_KDE'
+        kde_file = self.data_set.change_result_directory(self.model_file_metric, 'Predictions', file_addon)
+        if not hasattr(self, 'KDE_indepTimeIndepAgents_data'):
+            # Load kde data if it exists
+            if os.path.exists(kde_file):
+                self.KDE_indepTimeIndepAgents_data = np.load(kde_file, allow_pickle = True)[0]
+            else:
+                self.KDE_indepTimeIndepAgents_data = {}
+        
+        # Save last setting 
+        self.excluded_ego_indep = exclude_ego
+        self.extracted_pred_index_indep = Pred_index
+        
+        # Check if dataset has all valuable stuff
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        
+        # get predicted agents
+        Pred_agents = self.Pred_step.any(-1)
+        
+        # Shape: Num_samples x num_preds x num agents x timesteps
+        self.Log_prob_indepTimeIndepAgents_true = np.zeros(self.Path_true.shape[:-1], dtype = np.float32)
+        self.Log_prob_indepTimeIndepAgents_pred = np.zeros(self.Path_pred.shape[:-1], dtype = np.float32)
+        
+        Num_steps = self.Pred_step.sum(-1).max(-1)
+       
+        # Get identical input samples
+        self.data_set._group_indentical_inputs(eval_pov = not exclude_ego)
+        Subgroups = self.data_set.Subgroups[Pred_index]
+        Agents = np.array(self.data_set.Agents)[self.Pred_agent_id]
+        
+        print('Calculate indepTimeIndepAgents PDF on predicted probabilities.', flush = True)
+        for i, subgroup in enumerate(np.unique(Subgroups)):
+            print('    Subgroup {:5.0f}/{:5.0f}'.format(i + 1, len(np.unique(Subgroups))), flush = True)
+            s_ind = np.where(Subgroups == subgroup)[0]
+            
+            assert len(np.unique(Pred_agents[s_ind], axis = 0)) == 1
+            pred_agents = Pred_agents[s_ind[0]]
+            
+            # Avoid useless samples
+            if not pred_agents.any():
+                continue
+
+            pred_agents_id = np.where(pred_agents)[0]
+            
+            nto_subgroup = Num_steps[s_ind]
+
+            if not subgroup in self.KDE_indepTimeIndepAgents_data:
+                self.KDE_indepTimeIndepAgents_data[subgroup] = {}
+            
+            for i_nto, nto in enumerate(np.unique(nto_subgroup)):
+                print('        Number output timesteps: {:3.0f} ({:3.0f}/{:3.0f})'.format(nto, i_nto + 1, len(np.unique(nto_subgroup))), flush = True)
+                nto_index = s_ind[np.where(nto == nto_subgroup)[0]]
+                
+                # Should be shape: num_subgroup_samples x num_preds x num_agents x num_T_O x 2
+                paths_true = self.Path_true[nto_index][:,:,pred_agents,:nto]
+                paths_pred = self.Path_pred[nto_index][:,:,pred_agents,:nto]
+                
+                num_features = 2
+                
+                if not nto in self.KDE_indepTimeIndepAgents_data[subgroup]:
+                    self.KDE_indepTimeIndepAgents_data[subgroup][nto] = {}
+
+                for i_agent, i_agent_orig in enumerate(pred_agents_id):
+                    # Get the agent name
+                    agent = Agents[nto_index, i_agent_orig]
+                    assert len(np.unique(agent)) == 1
+                    agent = agent[0]
+                    print('            Agent ' + agent + ' ({:3.0f}/{:3.0f})'.format(i_agent + 1, len(pred_agents_id)), flush = True)
+
+                    # Get agent
+                    paths_true_agent = paths_true[:,:,i_agent]
+                    paths_pred_agent = paths_pred[:,:,i_agent]
+                
+                    # Collapse agents
+                    paths_true_agent_comp = paths_true_agent.reshape(*paths_true_agent.shape[:3], num_features)
+                    paths_pred_agent_comp = paths_pred_agent.reshape(*paths_pred_agent.shape[:3], num_features)
+                    
+                    # Collapse agents further
+                    paths_true_agent_comp = paths_true_agent_comp.reshape(-1, num_features)
+                    paths_pred_agent_comp = paths_pred_agent_comp.reshape(-1, num_features)
+
+                    assert np.isfinite(paths_true_agent_comp).all(), 'There are nan values in the true data.'
+                    assert np.isfinite(paths_pred_agent_comp).all(), 'There are nan values in the predicted data.'
+                    
+                    if not agent in self.KDE_indepTimeIndepAgents_data[subgroup][nto] or self.prediction_overwrite:
+                        # Only use select number of samples for training kde
+                        # use_preds = np.arange(len(paths_pred_agent_comp))
+                        use_preds = np.unique(paths_pred_agent_comp, axis = 0, return_index = True)[1]
+                        print('            Number of unique samples: {}/{}'.format(len(use_preds), len(paths_pred_agent_comp)), flush = True)
+                        np.random.seed(0)
+                        np.random.shuffle(use_preds)
+                        max_preds = min(3000, len(use_preds))
+                    
+                        # Get approximated probability distribution
+                        log_pred_satisfied = False
+                        i = 0
+
+                        while not log_pred_satisfied and i * max_preds < len(use_preds):
+                            test_ind = use_preds[i * max_preds : (i + 1) * max_preds]
+
+                            kde = ROME().fit(paths_pred_agent_comp[test_ind])
+                            if i == 0:
+                                # Get the combined test indices
+                                test_ind_all = test_ind
+
+                                # Get combined kde
+                                kde_all = kde
+                                labels_all = kde_all.labels_
+                            else:
+                                # Get the combined test indices
+                                test_ind_all = use_preds[:max_preds * (i + 1)]
+
+                                # Get the old combined labels
+                                labels_all = kde_all.labels_
+                                max_label = labels_all.max() + 1
+
+                                # Get new labels and adjust them
+                                labels_new = kde.labels_
+                                labels_new[labels_new != -1] += max_label
+
+                                # Get new combined labels
+                                labels_all = np.concatenate([labels_all, labels_new])
+
+                                # Refit kde_all
+                                kde_all = ROME().fit(paths_pred_agent_comp[test_ind_all], clusters = labels_all)
+
+                            # Score samples
+                            log_prob_true_agent = kde_all.score_samples(paths_true_agent_comp)
+                            log_prob_pred_agent = kde_all.score_samples(paths_pred_agent_comp)
+
+                            # For marginal distribution along time we need to reshape the data
+                            log_prob_true_agent = log_prob_true_agent.reshape(*paths_true.shape)
+                            log_prob_pred_agent = log_prob_pred_agent.reshape(*paths_pred.shape)
+
+                            # and sum over the time dimension
+                            log_prob_true_agent = log_prob_true_agent.sum(-2)
+                            log_prob_pred_agent = log_prob_pred_agent.sum(-2)
+                            
+                            # Check if we sufficiently represent predicted distribution
+                            print('            ' + str(i))
+
+                            # Check if further training is needed
+                            not_test_ind_all = use_preds[max_preds * (i + 1):]
+                            if len(not_test_ind_all) < 30:
+                                log_pred_satisfied = True
+                            else:
+                                included_quant = np.quantile(log_prob_pred_agent[test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
+                                unincluded_quant = np.quantile(log_prob_pred_agent[not_test_ind_all], [0.1, 0.3, 0.5, 0.7, 0.9])
+
+                                diff = np.abs(included_quant - unincluded_quant)
+
+                                log_pred_satisfied = np.max(diff) < 0.5
+                                print('            Diff train/val: ' + str(np.max(diff)))
+                            
+
+                            i += 1
+
+                        # Save KDE data
+                        # save the pred indices
+                        pred_index_all   = np.repeat(Pred_index[nto_index], self.num_samples_path_pred, axis = 0)
+                        pred_index_train = pred_index_all[test_ind_all]
+
+                        # Get the path sample indices
+                        sample_index_all   = np.tile(np.arange(self.num_samples_path_pred), len(nto_index))
+                        sample_index_train = sample_index_all[test_ind_all]
+
+                        kde_data = {'pred_index': pred_index_train, 'sample_index': sample_index_train, 'cluster_labels': labels_all}
+                        self.KDE_indepTimeIndepAgents_data[subgroup][nto][agent] = kde_data
+                    
+                    else:
+                        # Get the saved data
+                        kde_data = self.KDE_indepTimeIndepAgents_data[subgroup][nto][agent]
+                        pred_index_train   = kde_data['pred_index']
+                        sample_index_train = kde_data['sample_index']
+                        cluster_labels     = kde_data['cluster_labels']
+
+                        # Get the corresponding training samples
+                        pred_index_int_train = self.data_set.get_indices_1D(pred_index_train, Pred_index)
+                        path_pred_agent_train = self.Path_pred[pred_index_int_train, sample_index_train][:,i_agent_orig,:nto] # Shape: num_train_samples x num_T_O x 2
+
+                        # Collapse features
+                        path_pred_agent_comp_train = path_pred_agent_train.reshape(-1, num_features)
+
+                        # Get the kde
+                        kde_all = ROME().fit(path_pred_agent_comp_train, clusters = cluster_labels)
+
+                        # Score samples
+                        log_prob_true_agent = kde_all.score_samples(paths_true_agent_comp)
+                        log_prob_pred_agent = kde_all.score_samples(paths_pred_agent_comp)
+
+                        # For marginal distribution along time we need to reshape the data
+                        log_prob_true_agent = log_prob_true_agent.reshape(*paths_true.shape)
+                        log_prob_pred_agent = log_prob_pred_agent.reshape(*paths_pred.shape)
+
+                        # and sum over the time dimension
+                        log_prob_true_agent = log_prob_true_agent.sum(-2)
+                        log_prob_pred_agent = log_prob_pred_agent.sum(-2)
+                            
+
+                    self.Log_prob_indepTimeIndepAgents_true[nto_index,:,i_agent_orig] = log_prob_true_agent.reshape(*paths_true.shape[:2])
+                    self.Log_prob_indepTimeIndepAgents_pred[nto_index,:,i_agent_orig] = log_prob_pred_agent.reshape(*paths_pred.shape[:2])
+        
+        # Save the KDE data
+        if self.data_set.save_predictions:
+            os.makedirs(os.path.dirname(kde_file), exist_ok = True)
+            np.save(kde_file, np.array([self.KDE_indepTimeIndepAgents_data, 0], dtype = object))
                 
     #%% 
     #########################################################################################

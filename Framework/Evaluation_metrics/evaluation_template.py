@@ -867,13 +867,17 @@ class evaluation_template():
         return KDE_true_log_prob_true, KDE_true_log_prob_pred
         
         
-    def get_KDE_probabilities(self, joint_agents = True):
+    def get_KDE_probabilities(self, joint_timesteps = True, joint_agents = True):
         '''
         This return the probabilities asigned to trajectories according to 
         a Gaussian KDE method.
 
         Parameters
         ----------
+        joint_timesteps : bool, optional
+            This says if the probabilities for the predicted trajectories
+            are to be calcualted for all timesteps jointly. If this is the case,
+            then, :math:`N_{O}` in the output is 1. The default is True.
         joint_agents : bool, optional
             This says if the probabilities for the predicted trajectories
             are to be calcualted for all agents jointly. If this is the case,
@@ -942,19 +946,31 @@ class evaluation_template():
             KDE_pred_log_prob_true = KDE_pred_log_prob[:,[-1]]
             
         else:
-            if joint_agents:
+            if joint_agents and joint_timesteps:
                 self.model._get_joint_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
                                                                 self.get_output_type() == 'path_all_wo_pov')
                     
                 KDE_pred_log_prob_true = self.model.Log_prob_joint_true[:,:,np.newaxis] # num_samples x 1 x 1
                 KDE_pred_log_prob_pred = self.model.Log_prob_joint_pred[:,:,np.newaxis] # num_Samples x num_preds x 1
-                
-            else:
-                self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred, 
-                                                            self.get_output_type() == 'path_all_wo_pov')
+
+            elif joint_agents and not joint_timesteps:
+                # throw error
+                raise NotImplementedError # TODO implement this case
+
+            elif not joint_agents and joint_timesteps:
+                self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred,
+                                                                self.get_output_type() == 'path_all_wo_pov')
                 
                 KDE_pred_log_prob_true = self.model.Log_prob_indep_true # num_samples x 1 x num_agents
                 KDE_pred_log_prob_pred = self.model.Log_prob_indep_pred # num_Samples x num_preds x num_agents
+
+            else:
+                self.model._get_indepTimeIndepAgents_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred,
+                                                                self.get_output_type() == 'path_all_wo_pov')
+                
+                KDE_pred_log_prob_true = self.model.Log_prob_indepTimeIndepAgents_true # num_samples x 1 x num_agents
+                KDE_pred_log_prob_pred = self.model.Log_prob_indepTimeIndepAgents_pred # num_Samples x num_preds x num_agents
+
 
         # Get the KDE probabilities corresponding to the selected trajectory samples        
         if not hasattr(self, 'pred_idx'):
