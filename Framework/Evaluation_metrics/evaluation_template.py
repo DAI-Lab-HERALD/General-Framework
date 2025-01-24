@@ -793,7 +793,7 @@ class evaluation_template():
         return Path_true_all, Subgroup
     
     
-    def get_true_likelihood(self, joint_agents = True):
+    def get_true_likelihood(self, joint_timesteps = True, joint_agents = True):
         '''
         This return the probabilities asigned to ground truth trajectories 
         according to a Gaussian KDE method fitted to the ground truth samples
@@ -802,6 +802,10 @@ class evaluation_template():
 
         Parameters
         ----------
+        joint_timesteps : bool, optional
+            This says if the probabilities for the predicted trajectories
+            are to be calcualted for all timesteps jointly. If this is the case,
+            then, :math:`N_{O}` in the output is 1. The default is True.
         joint_agents : bool, optional
             This says if the probabilities for the predicted trajectories
             are to be calcualted for all agents jointly. If this is the case,
@@ -822,21 +826,32 @@ class evaluation_template():
         '''
         assert self.get_output_type()[:4] == 'path', 'This is not a path prediction metric.'
 
-        if joint_agents:
+        if joint_agents and joint_timesteps:
             self.data_set._get_joint_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov', self.file_index)
             self.model._get_joint_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_true_log_prob_true = self.data_set.Log_prob_true_joint[:,np.newaxis,np.newaxis]
             KDE_true_log_prob_pred = self.model.Log_prob_true_joint_pred[:,:,np.newaxis]
+
+        elif joint_agents and not joint_timesteps:
+            raise NotImplementedError('This is not implemented yet.') # TODO Implement this case
             
-        else:
+        elif not joint_agents and joint_timesteps:
             self.data_set._get_indep_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov', self.file_index)
             self.model._get_indep_KDE_true_probabilities(self.Index_curr, self.Output_path_pred, 
                                                          self.get_output_type() == 'path_all_wo_pov')
             
             KDE_true_log_prob_true = self.data_set.Log_prob_true_indep[:,np.newaxis,:]
             KDE_true_log_prob_pred = self.model.Log_prob_true_indep_pred
+
+        else:
+            self.data_set._get_indepTimeIndepAgents_KDE_probabilities(self.get_output_type() == 'path_all_wo_pov', self.file_index)
+            self.model._get_indepTimeIndepAgents_KDE_true_probabilities(self.Index_curr, self.Output_path_pred,
+                                                                        self.get_output_type() == 'path_all_wo_pov')
+            
+            KDE_true_log_prob_true = self.data_set.Log_prob_true_indepTimeIndepAgents[:,np.newaxis,:]
+            KDE_true_log_prob_pred = self.model.Log_prob_true_indepTimeIndepAgents_pred
 
         # Get the actual data based on the evaluated file
         Index_curr_data = self.Index_curr
@@ -955,7 +970,7 @@ class evaluation_template():
 
             elif joint_agents and not joint_timesteps:
                 # throw error
-                raise NotImplementedError # TODO implement this case
+                raise NotImplementedError('This is not implemented yet.') # TODO implement this case
 
             elif not joint_agents and joint_timesteps:
                 self.model._get_indep_KDE_pred_probabilities(self.Index_curr, self.Output_path_pred,

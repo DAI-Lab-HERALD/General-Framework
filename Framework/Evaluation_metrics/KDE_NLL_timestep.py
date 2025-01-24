@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from evaluation_template import evaluation_template 
 class KDE_NLL_timestep(evaluation_template):
     r'''
@@ -31,7 +30,7 @@ class KDE_NLL_timestep(evaluation_template):
         Pred_agents = Pred_steps.any(-1)
         
         # Get likelihood of having higher probability
-        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_agents = False)
+        KDE_log_prob_true, KDE_log_prob_pred = self.get_KDE_probabilities(joint_timesteps = False, joint_agents = False)
         
         # Combine agent and sample dimension
         Pred_steps = Pred_steps[Pred_agents]
@@ -69,9 +68,9 @@ class KDE_NLL_timestep(evaluation_template):
             P_f = 'nP'
             P_l = 'nP, '
             
-        names = {'print': 'KDE_NLL (independent prediction' + P_p + ')',
-                 'file': 'KDE_NLL_indep' + P_f,
-                 'latex': r'\emph{KDE$_{' + P_l + r'NLL, indep}$}'}
+        names = {'print': 'KDE_NLL (independent agent and timestep prediction' + P_p + ')',
+                 'file': 'KDE_NLL_timestep' + P_f,
+                 'latex': r'\emph{KDE$_{' + P_l + r'NLL, timestep}$}'}
         return names
     
     
