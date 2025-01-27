@@ -207,6 +207,7 @@ class data_interface(object):
         if hasattr(self, 'X_orig') and hasattr(self, 'Y_orig'):
             del self.X_orig
             del self.Y_orig
+        if hasattr(self, 'orig_file_index'):
             del self.orig_file_index
         
         if hasattr(self, 'Pred_agents_eval_all') and hasattr(self, 'Pred_agents_pred_all'):
@@ -858,9 +859,10 @@ class data_interface(object):
             if hasattr(self, 'orig_file_index'):
                 if file_index == self.orig_file_index:
                     return
-            self.orig_file_index = file_index
         else:
             assert not hasattr(self, 'orig_file_index'), 'Original trajectories have been extracted for unknown file index.'
+        
+        self.orig_file_index = file_index
             
         # Load the specific file
         if self.data_in_one_piece:
