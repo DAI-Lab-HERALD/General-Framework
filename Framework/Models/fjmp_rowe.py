@@ -279,6 +279,9 @@ class fjmp_rowe(model_template):
             self.model_kwargs["decoder"] = 'dagnn'
             self.model_kwargs["teacher_forcing"] = True
 
+        if self.data_set.get_name()['file'] == 'Roundabout':
+            self.model_kwargs["num_agenttypes"] = 4
+
 
 
     def setup_method(self):
