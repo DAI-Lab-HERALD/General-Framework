@@ -496,6 +496,7 @@ class Experiment():
             data_set = data_interface(data_set_dict, self.parameters)
 
             for j, data_param in enumerate(self.Data_params):
+                data_set.reset()
                 data_set.get_data(**data_param)
                 for k, splitter_param in enumerate(self.Splitters):
                     splitter_name       = splitter_param['Type']
