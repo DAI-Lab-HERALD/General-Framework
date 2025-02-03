@@ -22,7 +22,7 @@ class Random_split(splitting_template):
             else:
                 Behaviors = np.zeros(len(self.Domain), int)
                 for file_index in range(len(self.data_set.Files)):
-                    file = self.data_set.Files[file_index] + '.npy'
+                    file = self.data_set.Files[file_index] + '_data.npy'
                     used = self.Domain.file_index == file_index
                     used_index = np.where(used)[0]
 

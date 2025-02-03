@@ -25,7 +25,7 @@ class Critical_split(splitting_template):
         Accepted = np.zeros(len(self.Domain), bool)
         T_decision = np.zeros(len(self.Domain), bool)
         for file_index in range(len(self.data_set.Files)):
-            data_file = self.data_set.Files[file_index] + '.npy'
+            data_file = self.data_set.Files[file_index] + '_data.npy'
             path_file_addition = self.data_set.Files[file_index][-8:-4]
             
             used = self.Domain.file_index == file_index
