@@ -30,7 +30,7 @@ One can easily add a new dataset to the Framework, by implementing this dataset 
 - [Handling large datasets](#handling-large-datasets)
 - [Extracting classifiable behavior](#extracting-classifiable-behavior)
 - [Filling empty paths](#filling-empty-paths)
-- [Providing visulaization](#providing-visulaization)
+- [Providing visualization](#providing-visualization)
 
 
 ## Setting up the class
@@ -152,6 +152,14 @@ acceleration, or other information. For this one has to define the function *pat
 ```
 It must be noted that the dataset requires at least the existence of the positional data $x$ and $y$, so the strings *'x'* and *'y'* need to be included as the first and second element in the list returned by this function, i.e., *path_data_type = ['x', 'y', ...]*.
 
+Lastly, it is important for the Framework to know if datasets might contain repeated inputs with then different outputs. If that is the case, and they should be grouped together (for example for [calculating trajectory probability distributions](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Evaluation_metrics#useful-helper-functions)), then the following function has to be set:
+
+```
+def has_repeated_inputs(self):
+  return True
+```
+
+Returing *False* and not defining the function at all has the same effect on the Framework. 
 
 ## Setting the scenario
 Next, the scenario <scenario_class> that the dataset covers has to be set:
@@ -820,7 +828,7 @@ As a helper function, one can use the following method allready implemented:
 ```
 
 
-## Providing visulaization
+## Providing visualization
 One important aspect of the framework is its ability to visualize ground truth and predicted trajectories. While it would be possible to just display these, putting them on a background might help with better understanding and easier analysis. While for datasets with images, those images can be taken as a background, it must be noted that those might not always be available. 
 
 However, providing at least some orientation in forms such as lane markers might still be beneficial. Consequently, the following function allows one to add solid and dashed lines to such depiction, on top of which the trajectories are then plotted.

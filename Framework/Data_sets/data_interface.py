@@ -1237,78 +1237,83 @@ class data_interface(object):
         else:
             self._determine_pred_agents(eval_pov = eval_pov)
             if self.data_in_one_piece:
-                # Get the same entries in full dataset
-                T = self.Type.to_numpy().astype(str)
-                PA_str = self.Pred_agents_eval.astype(str) 
-                if hasattr(self.Domain, 'location'):
-                    Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
-                    Div = np.stack((T, PA_str, Loc), axis = -1)
-                else:
-                    Div = np.stack((T, PA_str), axis = -1)
-                    
-                Div_unique, Div_inverse, _ = np.unique(Div, axis = 0,
-                                                    return_inverse = True, 
-                                                    return_counts = True)
-                
-                # Prepare subgroup saving
-                self.Subgroups = np.zeros(len(T), int)
-                subgroup_index = 1
-                
-                self._extract_original_trajectories()
-                # go through all potentiall similar entries
-                for div_inverse in range(len(Div_unique)):
-                    # Get potentially similar samples
-                    index = np.where(Div_inverse == div_inverse)[0]
-                    
-                    # Get agents that are there
-                    T_div = Div_unique[div_inverse,:,0]
-                    useful_agents = np.where(T_div != 'nan')[0]
-
-                    # X.shape: len(index) x len(useful_agents) x nI x 2
-                    X = np.zeros((len(index), len(useful_agents), self.X_orig.shape[-2], 2), np.float32)
-
-                    use_X_orig = np.in1d(self.Used_samples, index) & np.in1d(self.Used_agents, useful_agents)
-                    used_orig_samples = self.Used_samples[use_X_orig]
-                    used_orig_agents  = self.Used_agents[use_X_orig]
-
-                    # Get inverse of index 
-                    index_inverse = np.zeros(index.max() + 1, int)
-                    index_inverse[index] = np.arange(len(index), dtype = int)
-
-                    # Get inverse of useful_agents
-                    useful_agents_inverse = np.zeros(useful_agents.max() + 1, int)
-                    useful_agents_inverse[useful_agents] = np.arange(len(useful_agents), dtype = int)
-
-                    X[index_inverse[used_orig_samples], useful_agents_inverse[used_orig_agents]] = self.X_orig[use_X_orig,...,:2]
-                    
-                    # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
-                    max_num = np.floor(2 ** 29 / np.prod(X.shape))
-                    
-                    # Prepare maximum differences
-                    D_max = np.zeros((len(index), len(index)), np.float32)
-                    
-                    # Calculate differences
-                    for i in range(int(np.ceil(len(index) / max_num))):
-                        d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
-                        D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
-                        D_max[d_index] = np.nanmax(D, (2,3,4))
-
-                    # Find identical trajectories
-                    Identical = D_max < 1e-3
-                    
-                    # Remove self references
-                    Identical[np.arange(len(index)), np.arange(len(index))] = False
-
-                    # Get graph
-                    G = nx.Graph(Identical)
-                    unconnected_subgraphs = list(nx.connected_components(G))
-                    
-                    for subgraph in unconnected_subgraphs:
-                        # Set subgraph
-                        self.Subgroups[index[list(subgraph)]] = subgroup_index
+                # Check if the dataset actually supports this
+                data_set = list(self.Datasets.values())[0]
+                if hasattr(data_set, 'has_repeated_inputs') and data_set.has_repeated_inputs():
+                    self.Subgroups = np.arange(len(self.Domain)) + 1
+                else:  
+                    # Get the same entries in full dataset
+                    T = self.Type.to_numpy().astype(str)
+                    PA_str = self.Pred_agents_eval.astype(str) 
+                    if hasattr(self.Domain, 'location'):
+                        Loc = np.tile(self.Domain.location.to_numpy().astype(str)[:,np.newaxis], (1, T.shape[1]))
+                        Div = np.stack((T, PA_str, Loc), axis = -1)
+                    else:
+                        Div = np.stack((T, PA_str), axis = -1)
                         
-                        # Update parameters
-                        subgroup_index += 1
+                    Div_unique, Div_inverse, _ = np.unique(Div, axis = 0,
+                                                        return_inverse = True, 
+                                                        return_counts = True)
+                    
+                    # Prepare subgroup saving
+                    self.Subgroups = np.zeros(len(T), int)
+                    subgroup_index = 1
+                    
+                    self._extract_original_trajectories()
+                    # go through all potentiall similar entries
+                    for div_inverse in range(len(Div_unique)):
+                        # Get potentially similar samples
+                        index = np.where(Div_inverse == div_inverse)[0]
+                        
+                        # Get agents that are there
+                        T_div = Div_unique[div_inverse,:,0]
+                        useful_agents = np.where(T_div != 'nan')[0]
+
+                        # X.shape: len(index) x len(useful_agents) x nI x 2
+                        X = np.zeros((len(index), len(useful_agents), self.X_orig.shape[-2], 2), np.float32)
+
+                        use_X_orig = np.in1d(self.Used_samples, index) & np.in1d(self.Used_agents, useful_agents)
+                        used_orig_samples = self.Used_samples[use_X_orig]
+                        used_orig_agents  = self.Used_agents[use_X_orig]
+
+                        # Get inverse of index 
+                        index_inverse = np.zeros(index.max() + 1, int)
+                        index_inverse[index] = np.arange(len(index), dtype = int)
+
+                        # Get inverse of useful_agents
+                        useful_agents_inverse = np.zeros(useful_agents.max() + 1, int)
+                        useful_agents_inverse[useful_agents] = np.arange(len(useful_agents), dtype = int)
+
+                        X[index_inverse[used_orig_samples], useful_agents_inverse[used_orig_agents]] = self.X_orig[use_X_orig,...,:2]
+                        
+                        # Get maximum number of samples comparable to all samples (assume 2GB RAM useage)
+                        max_num = np.floor(2 ** 29 / np.prod(X.shape))
+                        
+                        # Prepare maximum differences
+                        D_max = np.zeros((len(index), len(index)), np.float32)
+                        
+                        # Calculate differences
+                        for i in range(int(np.ceil(len(index) / max_num))):
+                            d_index = np.arange(max_num * i, min(max_num * (i + 1), len(index)), dtype = int) 
+                            D = np.abs(X[d_index, np.newaxis] - X[np.newaxis])
+                            D_max[d_index] = np.nanmax(D, (2,3,4))
+
+                        # Find identical trajectories
+                        Identical = D_max < 1e-3
+                        
+                        # Remove self references
+                        Identical[np.arange(len(index)), np.arange(len(index))] = False
+
+                        # Get graph
+                        G = nx.Graph(Identical)
+                        unconnected_subgraphs = list(nx.connected_components(G))
+                        
+                        for subgraph in unconnected_subgraphs:
+                            # Set subgraph
+                            self.Subgroups[index[list(subgraph)]] = subgroup_index
+                            
+                            # Update parameters
+                            subgroup_index += 1
                         
                         
             else:
@@ -1316,15 +1321,30 @@ class data_interface(object):
                 self.Subgroups = np.zeros(len(self.Domain), int)
                 subgroup_index = 1
                 
+                # Go through all datasets
+                Has_repeated_inputs = {}
+                for data_set in self.Datasets.values():
+                    data_set_file_name = os.path.basename(data_set.data_file)
+                    has_repeated_inputs = hasattr(data_set, 'has_repeated_inputs') and data_set.has_repeated_inputs()
+                    Has_repeated_inputs[data_set_file_name[:-4]] = has_repeated_inputs
+                
                 for file_index in range(len(self.Files)):
-                    agent_file = self.Files[file_index] + '_AM.npy'
-                    Type = np.load(agent_file, allow_pickle = True)[0]
-                    
                     used = self.Domain.file_index == file_index
                     used_index = np.where(used)[0]
                     
-                    # Adjust Type to used indices
                     Domain = self.Domain[used]
+                    
+                    # Check if calculation is needed
+                    file_name_check = os.path.basename(self.Files[file_index][:-8])
+                    
+                    if not Has_repeated_inputs[file_name_check]:
+                        self.Subgroups[used_index] = np.arange(subgroup_index, len(Domain) + subgroup_index)
+                        subgroup_index += len(Domain)
+                        continue
+                    
+                    # Load agent types
+                    agent_file = self.Files[file_index] + '_AM.npy'
+                    Type = np.load(agent_file, allow_pickle = True)[0]
                     Type = Type.loc[Domain.Index_saved]
 
                     # Transform to numpy
