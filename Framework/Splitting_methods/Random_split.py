@@ -42,7 +42,7 @@ class Random_split(splitting_template):
                     
             Behaviors = np.unique(Behaviors, return_inverse = True)[1]
         else:
-            Behaviors = np.zeros(len(self.Domain))
+            Behaviors = np.zeros(len(self.Domain), int)
         
         # Get unique subgroups
         uni_subgroups = np.unique(Subgroups)
