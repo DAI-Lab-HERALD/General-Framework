@@ -119,7 +119,7 @@ class HighD_lane_change(data_set_template):
         self.Domain_old.append(domain)
         self.num_samples = self.num_samples + 1   
         
-        
+     
     def get_sceneGraph(self, recording_id):
         Data_record = self.Data[self.Data.recordingId == recording_id].copy()
         
@@ -233,7 +233,7 @@ class HighD_lane_change(data_set_template):
 
                     segment_id += 1
 
-        graph = pd.Series([])
+        graph = pd.Series([], dtype = object)
         graph['num_nodes'] = num_nodes
         graph['lane_idcs'] = np.array(lane_idcs)
         graph['pre_pairs'] = pre_pairs

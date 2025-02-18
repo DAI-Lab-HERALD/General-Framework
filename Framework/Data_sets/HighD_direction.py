@@ -144,7 +144,7 @@ class HighD_direction(data_set_template):
 
                     segment_id += 1
 
-        graph = pd.Series([])
+        graph = pd.Series([], dtype = object)
         graph['num_nodes'] = num_nodes
         graph['lane_idcs'] = np.array(lane_idcs)
         graph['pre_pairs'] = pre_pairs
