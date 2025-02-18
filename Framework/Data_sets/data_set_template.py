@@ -3772,9 +3772,9 @@ class data_set_template():
         suc_pairs = loc_Graph.suc_pairs.copy() # Successor pairs of the nodes, array of shape (num_suc_pairs, 2)
         left_pairs = loc_Graph.left_pairs.copy() # Left pairs of the nodes, array of shape (num_left_pairs, 2)
         right_pairs = loc_Graph.right_pairs.copy() # Right pairs of the nodes, array of shape (num_right_pairs, 2)
-        left_boundaries = np.array(list(loc_Graph.left_boundaries) + [0])[:-1] # Left boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
-        right_boundaries = np.array(list(loc_Graph.right_boundaries) + [0])[:-1] # Right boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
-        centerlines = np.array(list(loc_Graph.centerlines) + [0])[:-1] # Centerlines of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        left_boundaries = np.array(list(loc_Graph.left_boundaries) + [0], object)[:-1] # Left boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        right_boundaries = np.array(list(loc_Graph.right_boundaries) + [0], object)[:-1] # Right boundaries of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
+        centerlines = np.array(list(loc_Graph.centerlines) + [0], object)[:-1] # Centerlines of the nodes, array of shape (num_segments), with each element being an array of shape (num_points, 2)
 
         # Go through segments
         Keep_segments = np.zeros(len(left_boundaries), bool)
