@@ -1614,8 +1614,10 @@ class Experiment():
 
             ind = domain[use_index].Index_saved
 
-            input_path[use_index]  = Input_path.iloc[ind]
-            output_path[use_index] = Output_path.iloc[ind]
+            ind_sample = np.where(use_index)[0]
+            ind_agent  = data_set.get_indices_1D(np.array(Input_path.columns), np.array(data_set.Agents))
+            input_path.iloc[ind_sample, ind_agent]  = Input_path.iloc[ind]
+            output_path.iloc[ind_sample, ind_agent] = Output_path.iloc[ind]
             output_T_E[use_index]  = Output_T_E[ind]
         
         # Load raw darta
@@ -1909,7 +1911,7 @@ class Experiment():
             Output_A_file = np.load(file, allow_pickle = True)[6]
             ind = Domain.Index_saved.iloc[Index_file]
 
-            Output_A.iloc[Index_file] = Output_A_file.iloc[ind].to_numpy()
+            Output_A.iloc[Index_file] = Output_A_file[data_set.Behaviors].iloc[ind].to_numpy()
 
         sample_inds = self._select_testing_samples(data_set, load_all, Output_A, plot_similar_futures, Index)
 
@@ -2039,7 +2041,7 @@ class Experiment():
                      r'$, Model: ' + model.get_name()['print'])
             behs = np.array(output_A.columns)
             if len(behs) > 1 and not plot_similar_futures:
-                title += r': \\True behavior: ' + behs[output_A.iloc[0]][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
+                title += r': \nTrue behavior: ' + behs[output_A.iloc[0].to_numpy().astype(bool)][0] + r' at $t = ' + str(output_T_E[0])[:5] + '$' 
 
             ax.set_title(title)
             plt.axis('off')

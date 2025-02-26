@@ -730,7 +730,7 @@ class HighD_lane_change(data_set_template):
         laneMarkings = domain.laneMarkings 
         
         lines_solid.append(np.array([[-10, laneMarkings[0]],[460, laneMarkings[0]]]))
-        lines_solid.append(np.array([[-10, laneMarkings[1]],[460, laneMarkings[1]]]))
+        lines_solid.append(np.array([[-10, laneMarkings[-1]],[460, laneMarkings[-1]]]))
         
         lines_dashed = []
         for lane_mark in laneMarkings[1:-1]:
