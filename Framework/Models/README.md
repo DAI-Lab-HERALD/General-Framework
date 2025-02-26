@@ -907,6 +907,32 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
 
 ### Classification models
 ```
+def get_classification_distibution(self, train = True):
+  r'''
+  This function returns the distribution of the classes in the dataset. It can be used to determine the class weights for
+  classification models.
+
+  Parameters
+  ----------
+  train : bool, optional
+    This discribes whether one wants to generate training or testing data. The default is True.
+  
+  Returns
+  -------
+  class_names : list
+    This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+    class.
+  class_counts : np.ndarray
+    This is a :math:`N_{classes}` dimensional numpy array with int values. 
+    It contains the number of class instances in the dataset.
+  '''
+  
+  ...
+  
+  return class_names, class_counts
+
+```
+```
 def get_classification_data(self, train = True, return_categories = False):
   r'''
   This function retuns inputs and outputs for classification models.

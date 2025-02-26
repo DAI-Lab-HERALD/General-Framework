@@ -2465,6 +2465,66 @@ class model_template():
                     self.Output_path_pred_probs.loc[i_sample, agent] = pred_probs   
     
     
+    def get_classification_distibution(self, train = True):
+        r'''
+        This function returns the distribution of the classes in the dataset. It can be used to determine the class weights for
+        classification models.
+
+        Parameters
+        ----------
+        train : bool, optional
+            This discribes whether one wants to generate training or testing data. The default is True.
+        
+        Returns
+        -------
+        class_names : list
+            This is a list of length :math:`N_{classes}`, where each string contains the name of a possible 
+            class.
+        class_counts : np.ndarray
+            This is a :math:`N_{classes}` dimensional numpy array with int values. 
+            It contains the number of class instances in the dataset.
+        '''
+        
+        # Select current samples
+        if train:
+            assert self.model_mode == 'train', 'During training, training set should be called.'
+            Index = self.Index_train
+        else:
+            assert self.model_mode == 'pred', 'During training, training set should be called.'
+            Index = self.Index_test
+
+        # Assemble output_A
+        class_names = self.data_set.Behaviors
+        if self.data_set.data_in_one_piece:
+            Output_A = self.data_set.Output_A.iloc[Index]
+            Output_A = Output_A[class_names]
+        else:
+            Output_A = pd.DataFrame(np.zeros((len(Index), len(class_names)), bool), columns = class_names)
+
+            Domain = self.data_set.Domain.iloc[Index]
+            file_indices = Domain.file_index.to_numpy()
+            for file_index in np.unique(file_indices):
+                use = file_indices == file_index
+                
+                # Get the specific index in the extracted data
+                ind_data = Domain[use].Index_saved
+
+                # Load the data
+                data_file = self.data_set.Files[file_index] + '_data.npy'
+
+                # Load the data and extract the data
+                [_, _, _, _, _, _, Output_A_file, _, _] = np.load(data_file, allow_pickle = True)
+
+                Output_A.iloc[use] = Output_A_file.iloc[ind_data][class_names].fillna(False)
+            
+        
+        class_counts = Output_A.sum().to_numpy()
+
+        return class_names, class_counts
+
+
+
+
     def get_classification_data(self, train = True, return_categories = False):
         r'''
         This function retuns inputs and outputs for classification models.
@@ -2690,7 +2750,7 @@ class model_template():
                 D = np.ones(list(Input_prediction.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
                 for i_sample in range(D.shape[0]):
                     for i_dist in range(D.shape[1]):
-                        D[i_sample, i_dist] = Input_prediction.iloc[i_sample, i_dist].astype(np.float32)
+                        D[i_sample, i_dist] = Input_prediction[i_sample, i_dist].astype(np.float32)
                 dist_names = Input_prediction.columns
             else:
                 D = np.zeros((len(Sample_id),0,self.num_timesteps_in), dtype = np.float32)
