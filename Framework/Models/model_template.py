@@ -2750,7 +2750,7 @@ class model_template():
                 D = np.ones(list(Input_prediction.shape) + [self.num_timesteps_in], dtype = np.float32) * np.nan
                 for i_sample in range(D.shape[0]):
                     for i_dist in range(D.shape[1]):
-                        D[i_sample, i_dist] = Input_prediction[i_sample, i_dist].astype(np.float32)
+                        D[i_sample, i_dist] = Input_prediction.iloc[i_sample, i_dist].astype(np.float32)
                 dist_names = Input_prediction.columns
             else:
                 D = np.zeros((len(Sample_id),0,self.num_timesteps_in), dtype = np.float32)
