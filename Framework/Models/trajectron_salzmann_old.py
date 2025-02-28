@@ -331,7 +331,7 @@ class trajectron_salzmann_old(model_template):
 
         if 'theta' in given_data:
             theta_ind = np.where(given_data == 'theta')[0][0]
-            H = data[...,theta_ind] + rot_angle
+            H = data[...,theta_ind] - rot_angle[:,np.newaxis, np.newaxis]
         else:
             H = np.arctan2(V[:,:,:,1], V[:,:,:,0])
         
@@ -660,7 +660,7 @@ class trajectron_salzmann_old(model_template):
             batch_number = 0
             while not epoch_done:
                 batch_number += 1
-                print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch_number))
+                # print('Train trajectron: Epoch ' + rjust_epoch + '/{} - Batch {}'.format(epochs, batch_number))
                 X, Y, T, _, img, img_m_per_px, _, _, num_steps, _, _, epoch_done = self.provide_batch_data('train', batch_size)
                 
                 S, S_St, first_h, Y, Y_st, Neighbor, Neighbor_edge, img, node_type = self.extract_data_batch(X, T, Y, img, num_steps)

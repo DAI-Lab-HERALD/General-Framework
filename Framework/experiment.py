@@ -2056,7 +2056,7 @@ class Experiment():
                 fig_str = 'traj_plot_train_'
             
             figure_file = data_set.change_result_directory(model.model_file, 'Metric_figures', 
-                                                           fig_str + '{}'.format(sample_name + 1), '.pdf')
+                                                           fig_str + '{}'.format(sample_name + 1), '.png')
             
             os.makedirs(os.path.dirname(figure_file), exist_ok = True)
             fig.savefig(figure_file)
