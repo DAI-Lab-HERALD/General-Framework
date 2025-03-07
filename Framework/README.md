@@ -15,6 +15,7 @@ To set up an experiment with the modules in the framework, one has to create or 
   - [Stochastic predictions](#stochastic-predictions)
   - [Enforce rules for selecting prediction times](#enforce-rules-for-selecting-prediction-times)
   - [Enforce the existence of a future trajectory](#enforce-the-existence-of-a-future-trajectory)
+  - [Allow longer prediction horizons](#allow-longer-prediction-horizons)
   - [Exclude useless predictions](#exclude-useless-predictions)
   - [Fill in missing positions](#fill-in-missing-positions)
   - [Assign the predicted agents](#assign-the-predicted-agents)
@@ -156,6 +157,13 @@ enforce_num_timesteps_out = False
 ```
 When extracting samples, it might be possible that not enough data is available to allow for a sufficient number of output time steps. By setting **enforce_num_timesteps_out** to *True* such samples are dismissed, while setting it to *False* would retain them. This is also discussed [above](https://github.com/julianschumann/General-Framework/tree/main/Framework#select-modules).
 
+### Allow longer prediction horizons
+```
+allow_longer_predictions = True
+```
+In the case that the given [scenario](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Scenarios) has more than one given [behavior](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors), there might be scenarios where the [classification criteria](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#extracting-classifiable-behavior) for such a behavior is fullfilled only after the [set number of prediction timesteps](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework#extracting-past-and-future-timesteps). If **allow_longer_predictions** is set to *True*, in such cases, the framework will increase the prediction horizon to include this behavior. If instead *False* is chosen, then the given number of output timesteps will be enforced, and the given scenario will be classified as the [default behavior](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Scenarios#define-classifiable-behaviors).
+
+
 ### Exclude useless predictions
 ```
 exclude_post_crit = True
@@ -220,7 +228,8 @@ new_experiment.set_parameters(model_for_path_transform  = model_for_path_transfo
                               agents_to_predict         = agents_to_predict,
                               overwrite_results         = overwrite_results,
                               save_predictions          = save_predictions,
-                              evaluate_on_train_set     = evaluate_on_train_set)
+                              evaluate_on_train_set     = evaluate_on_train_set,
+                              allow_longer_predictions  = allow_longer_predictions)
 ```
 
 ## Getting results

@@ -24,8 +24,9 @@ class data_interface(object):
         self.allow_extrapolation       = parameters[5]
         self.agents_to_predict         = parameters[6]
         self.overwrite_results         = parameters[7]
-        self.save_predictions          = parameters[8]
-        self.total_memory              = parameters[9]
+        self.allow_longer_predictions  = parameters[8]
+        self.save_predictions          = parameters[9]
+        self.total_memory              = parameters[10]
         
         # Remove total memory from parameters
         parameters = [parameters[i] for i in range(len(parameters) - 1)]

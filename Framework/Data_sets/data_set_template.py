@@ -21,6 +21,7 @@ class data_set_template():
                  allow_extrapolation = True,
                  agents_to_predict = 'predefined',
                  overwrite_results = 'no',
+                 allow_longer_predictions = True,
                  total_memory = psutil.virtual_memory().total):
         # Find path of framework
         self.path = os.sep.join(os.path.dirname(os.path.realpath(__file__)).split(os.sep)[:-1])
@@ -74,6 +75,7 @@ class data_set_template():
         
         # Determine if all predicted timesteps must be observable
         self.enforce_num_timesteps_out = enforce_num_timesteps_out
+        self.allow_longer_predictions  = allow_longer_predictions
         self.enforce_prediction_time   = enforce_prediction_time
         self.exclude_post_crit         = exclude_post_crit
         self.overwrite_results         = overwrite_results
@@ -2467,7 +2469,7 @@ class data_set_template():
 
                 # calculate number of output time steps
                 num_timesteps_out_pred = self.num_timesteps_out_real
-                if self.classification_useful:
+                if self.classification_useful and self.allow_longer_predictions:
                     t_default = local_T_class.iloc[i][self.behavior_default]
                     
                     # set prediction horizon considered for classification

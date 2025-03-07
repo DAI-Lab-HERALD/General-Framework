@@ -226,13 +226,14 @@ class Experiment():
     def set_parameters(self, model_for_path_transform,
                        num_samples_path_pred = 100, 
                        enforce_num_timesteps_out = False, 
-                       enforce_prediction_time = True, 
+                       enforce_prediction_times = True, 
                        exclude_post_crit = True,
                        allow_extrapolation = True,
-                       dynamic_prediction_agents = False,
+                       agents_to_predict = 'predefined',
                        overwrite_results = False,
                        save_predictions = True,
-                       evaluate_on_train_set = True):
+                       evaluate_on_train_set = True,
+                       allow_longer_predictions = True):
         
         model_to_path_module = importlib.import_module(model_for_path_transform)
         model_class_to_path = getattr(model_to_path_module, model_for_path_transform)
@@ -246,13 +247,13 @@ class Experiment():
         
         assert isinstance(enforce_num_timesteps_out, bool), "enforce_num_timesteps_out should be a boolean."
         
-        assert isinstance(enforce_prediction_time, bool), "enforce_prediction_time should be a boolean."
+        assert isinstance(enforce_prediction_times, bool), "enforce_prediction_time should be a boolean."
         
         assert isinstance(exclude_post_crit, bool), "exclude_post_crit should be a boolean."
         
         assert isinstance(allow_extrapolation, bool), "allow_extrapolation should be a boolean."
         
-        assert isinstance(dynamic_prediction_agents, str), "dynamic_prediction_agents should be a string."
+        assert isinstance(agents_to_predict, str), "dynamic_prediction_agents should be a string."
         
         # make it backward compatiable
         if isinstance(overwrite_results, bool):
@@ -270,10 +271,11 @@ class Experiment():
 
         # Save parameters needed in actual data_set_template
         self.parameters = [model_class_to_path, num_samples_path_pred, 
-                           enforce_num_timesteps_out, enforce_prediction_time, 
+                           enforce_num_timesteps_out, enforce_prediction_times, 
                            exclude_post_crit, allow_extrapolation, 
-                           dynamic_prediction_agents, overwrite_results, 
-                           save_predictions, self.total_memory]
+                           agents_to_predict, overwrite_results, 
+                           allow_longer_predictions, save_predictions,  
+                           self.total_memory]
         
         # Save the remaining parameters
         self.evaluate_on_train_set = evaluate_on_train_set
@@ -1455,7 +1457,7 @@ class Experiment():
         
         # Prevent model retraining
         parameters = [param for param in self.parameters]
-        parameters[-3] = 'no'
+        parameters[7] = 'no'
         
         data_set = data_interface(data_set_dict, parameters)
         
