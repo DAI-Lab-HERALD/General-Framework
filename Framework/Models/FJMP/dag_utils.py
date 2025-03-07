@@ -59,6 +59,7 @@ def remove_terminal_nodes(edges, weights = None):
 
     # Get connected nodes
     nodes = torch.unique(edges)
+    print("        Start braking cycles in graph ({} edges and {} nodes)".format(filtered_edges.shape[1], len(nodes)), flush = True)
 
     # find terminal nodes
     removed_terminal_nodes = False
@@ -75,7 +76,6 @@ def remove_terminal_nodes(edges, weights = None):
             # removed_terminal_nodes = True
             # There are only cycle left, start breaking them
             # Get scc components of graph
-            print("        Start braking cycles in remaining graph ({} edges and {} nodes)".format(filtered_edges.shape[1], len(nodes)), flush = True)
             G = nx.DiGraph(list(zip(filtered_edges.tolist()[0], filtered_edges.tolist()[1])))
             SCC = nx.strongly_connected_components(G)
             remove_id = []
