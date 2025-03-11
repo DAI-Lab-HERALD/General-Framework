@@ -1862,11 +1862,11 @@ class Experiment():
         model.prediction_overwrite = True
 
         if joint:
-            model._get_joint_KDE_pred_probabilities(Pred_index, Output_path_pred)
+            model._get_joint_KDE_pred_probabilities(Pred_index, Output_path_pred, get_for_pred_agents = True)
             Lp = model.Log_prob_joint_pred[0, :opp.shape[0], np.newaxis] # num_preds x 1
             Lp = np.repeat(Lp, opp.shape[1], axis = 1) # num_preds x num_agents
         else:
-            model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred)
+            model._get_indep_KDE_pred_probabilities(Pred_index, Output_path_pred, get_for_pred_agents = True)
             # Only consider the likelihoods of trajectories in opp
             Lp = model.Log_prob_indep_pred[0, :opp.shape[0], :opp.shape[1]] # num_preds x num_agents
 
