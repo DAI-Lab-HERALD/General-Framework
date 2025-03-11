@@ -96,3 +96,4 @@ Framework/Models/model_framework_test.py
 Framework/analysis_round_1.py
 Framework/Data_sets/CEI.py
 Framework/Data_sets/CEI_data/CEI_processing.py
+Framework/Data_sets/NuScenes_direction.py

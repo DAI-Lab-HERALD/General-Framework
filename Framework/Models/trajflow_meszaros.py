@@ -336,6 +336,8 @@ class trajflow_meszaros(model_template):
                         batch += 1
                         X, Y, T, _, _, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                             val_split_size = 0.1)
+                        X = X[...,:2]
+                        Y = Y[...,:2]
                         X, T, Y, _ = self.extract_batch_data(X, T, Y)
                         
                         # X.shape:   bs x num_agents x num_timesteps_is x 2
@@ -406,7 +408,8 @@ class trajflow_meszaros(model_template):
                         while not val_epoch_done:
                             X, Y, T, _, _, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                     val_split_size = 0.1)
-                            
+                            X = X[...,:2]
+                            Y = Y[...,:2]
                             X, T, Y, _ = self.extract_batch_data(X, T, Y)
                             
                             past_data = X[:,0]
@@ -517,6 +520,8 @@ class trajflow_meszaros(model_template):
                         
                     X, Y, T, _, img, _, _, _, num_steps, _, _, train_epoch_done = self.provide_batch_data('train', self.batch_size, 
                                                                                            val_split_size = 0.1)
+                    X = X[...,:2]
+                    Y = Y[...,:2]
                     X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                     
                     # X.shape:   bs x num_agents x num_timesteps_is x 2
@@ -586,6 +591,8 @@ class trajflow_meszaros(model_template):
                     while not val_epoch_done:
                         X, Y, T, _, img, _, _, _, num_steps, _, _, val_epoch_done = self.provide_batch_data('val', self.batch_size, 
                                                                                                 val_split_size = 0.1)
+                        X = X[...,:2]
+                        Y = Y[...,:2]
                         X, T, Y, img = self.extract_batch_data(X, T, Y, img)
                         
                         past_data_val = X
@@ -669,6 +676,7 @@ class trajflow_meszaros(model_template):
         prediction_done = False
         while not prediction_done:
             X, T, _, img, _, _, _, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.batch_size)
+            X = X[...,:2]
 
             actual_batch_size = len(X)
             Ped_agent = T == 'P'
