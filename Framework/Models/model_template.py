@@ -3209,7 +3209,7 @@ class model_template():
     
     # %% Method needed for evaluation_template
     def _transform_predictions_to_numpy(self, Pred_index, Output_path_pred, 
-                                        exclude_ego = False, exclude_late_timesteps = True):
+                                        exclude_ego = False, exclude_late_timesteps = True, get_for_pred_agents = False):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
             if self.excluded_ego == exclude_ego:
                 if np.array_equal(self.extracted_pred_index, Pred_index):
@@ -3250,7 +3250,10 @@ class model_template():
         nto_max = Nto_i.max()
         
         # Get pred agents
-        Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
+        if get_for_pred_agents:
+            Pred_agents = self.data_set.Pred_agents_pred[Pred_index]
+        else:
+            Pred_agents = self.data_set.Pred_agents_eval[Pred_index]
         max_num_pred_agents = Pred_agents.sum(1).max()
         
         
@@ -3481,7 +3484,7 @@ class model_template():
     #                           Get KDE_pred(x) and KDE_pred(x_pred)                                    #
     #####################################################################################################
 
-    def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+    def _get_joint_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False, get_for_pred_agents = False):
         if hasattr(self, 'Log_prob_joint_pred') and hasattr(self, 'Log_prob_joint_true'):
             if self.excluded_ego_joint == exclude_ego:
                 if np.array_equal(self.extracted_pred_index_joint, Pred_index):
@@ -3510,7 +3513,7 @@ class model_template():
         self.extracted_pred_index_joint = Pred_index
         
         # Check if dataset has all valuable stuff
-        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego, get_for_pred_agents = get_for_pred_agents)
         
         # get predicted agents
         Pred_agents = self.Pred_step.any(-1)
@@ -3670,7 +3673,7 @@ class model_template():
             np.save(kde_file, np.array([self.KDE_joint_data, 0], dtype = object))
             
             
-    def _get_indep_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False):
+    def _get_indep_KDE_pred_probabilities(self, Pred_index, Output_path_pred, exclude_ego = False, get_for_pred_agents = False):
         if hasattr(self, 'Log_prob_indep_pred') and hasattr(self, 'Log_prob_indep_true'):
             if self.excluded_ego_indep == exclude_ego:
                 if np.array_equal(self.extracted_pred_index_indep, Pred_index):
@@ -3691,7 +3694,7 @@ class model_template():
         self.extracted_pred_index_indep = Pred_index
         
         # Check if dataset has all valuable stuff
-        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego)
+        self._transform_predictions_to_numpy(Pred_index, Output_path_pred, exclude_ego, get_for_pred_agents = get_for_pred_agents)
         
         # get predicted agents
         Pred_agents = self.Pred_step.any(-1)
