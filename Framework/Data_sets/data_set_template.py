@@ -106,9 +106,9 @@ class data_set_template():
         if not isinstance(path_info, list):
             raise TypeError("self.path_data_info() should return a list.")
         else:
-            for info in path_info:
+            for i, info in enumerate(path_info):
                 if not isinstance(info, str):
-                    raise TypeError("Elements of self.path_data_info() should be strings.")
+                    raise TypeError("Elements of self.path_data_info() should be strings. \n Element {} is not a string: ".format(i), info)
         
         # Check if x and y are included
         if path_info[0] != 'x':
@@ -118,56 +118,66 @@ class data_set_template():
 
         # check some of the aspect to see if pre_process worked
         if not isinstance(Path, pd.core.frame.DataFrame):
-            raise TypeError("Paths should be saved in a pandas data frame")
+            raise TypeError("Paths should be saved in a pandas data frame. \nInstead, type(Path) returns: ", type(Path))
         if len(Path) != num_samples:
-            raise TypeError("Path does not have right number of sampels")
+            raise TypeError("Path does not have right number of sampels. \n len(Path) = {}, but the expected value is {}.".format(len(Path), num_samples))
 
         # check some of the aspect to see if pre_process worked
         if not isinstance(Type_old, pd.core.frame.DataFrame):
-            raise TypeError("Agent Types should be saved in a pandas data frame")
+            raise TypeError("Agent Types (Type_old) should be saved in a pandas data frame. \nInstead, type(Type_old) returns: ", type(Type_old))
         if len(Type_old) != num_samples:
-            raise TypeError("Type dataframe does not have right number of sampels")
+            raise TypeError("Type_old does not have right number of sampels. \n len(Type_old) = {}, but the expected value is {}.".format(len(Type_old), num_samples))
     
         if not isinstance(T, np.ndarray):
-            raise TypeError("Time points should be saved in a numpy array")
+            raise TypeError("Time points (T) should be saved in a numpy array. \nInstead, type(T) returns: ", type(T))
         if len(T) != num_samples:
-            raise TypeError("Time points des not have right number of sampels")
+            raise TypeError("T does not have right number of sampels. \n len(T) = {}, but the expected value is {}.".format(len(T), num_samples))
 
         if not isinstance(Domain_old,  pd.core.frame.DataFrame):
-            raise TypeError("Domain information should be saved in a Pandas Dataframe.")
-        
+            raise TypeError("Domain information (Domain_old) should be saved in a Pandas Dataframe. \nInstead, type(Domain_old) returns: ", type(Domain_old))
         if len(Domain_old) != num_samples:
-            raise TypeError("Domain information should have correct number of sampels")
+            raise TypeError("Domain_old does not have right number of sampels. \n len(Domain_old) = {}, but the expected value is {}.".format(len(Domain_old), num_samples))
         
         if self.includes_images():
             if not 'image_id' in Domain_old.columns:
-                raise AttributeError('Image identification is missing')
+                raise AttributeError('For your dataset, you defined that self.includes_images() is True. \nTherefore, Domain_old should include the column image_id, which it does not.')
         
         # Check final paths
         path_names = Path.columns
         
         if (path_names != Type_old.columns).any():
-            raise TypeError("Agent Paths and Types need to have the same columns.")
-        
+            for path_name in path_names:
+                if not path_name in Type_old.columns:
+                    raise TypeError("Agent Paths (Path) and Types (Type_old) need to have the same columns. \n However, the column name {} from Path is missing in Type_old.".format(path_name))
+            for path_name in Type_old.columns:
+                if not path_name in path_names:
+                    raise TypeError("Agent Paths (Path) and Types (Type_old) need to have the same columns. \n However, the column name {} from Type_old is missing in Path.".format(path_name))
+
+
         for needed_agent in self.needed_agents:
             if not needed_agent in path_names:
-                raise AttributeError("Agent " + needed_agent + " must be included in the paths")
+                raise AttributeError("The scenario you set as self.scenario in self.set_scenario() requires the following agent: {}. \n However, this agent name was not found in Path.columns.".format(needed_agent))
             
         check_size = Size_old is not None
         if check_size:
             if not isinstance(Size_old, pd.core.frame.DataFrame):
-                raise TypeError("Size information should be saved in a pandas data frame")
+                raise TypeError("Size information (Size_old) should be saved in a pandas data frame. \nInstead, type(Size_old) returns: ", type(Size_old))
             if len(Size_old) != num_samples:
-                raise TypeError("Size information should have correct number of sampels")
+                raise TypeError("Size_old does not have right number of sampels. \n len(Size_old) = {}, but the expected value is {}.".format(len(Size_old), num_samples))
             if (path_names != Size_old.columns).any():
-                raise TypeError("Agent Paths and Sizes need to have the same columns.")
+                for path_name in path_names:
+                    if not path_name in Size_old.columns:
+                        raise TypeError("Agent Paths (Path) and Sizes (Size_old) need to have the same columns. \n However, the column name {} from Path is missing in Size_old.".format(path_name))
+                for path_name in Size_old.columns:
+                    if not path_name in path_names:
+                        raise TypeError("Agent Paths (Path) and Sizes (Size_old) need to have the same columns. \n However, the column name {} from Size_old is missing in Path.".format(path_name))
             
         
 
         for i in range(num_samples):
             # check if time input consists out of tuples
             if not isinstance(T[i], np.ndarray):
-                raise TypeError("A time point samples is expected to be a np.ndarray.")
+                raise TypeError("The entries in T are expected to be np.ndarrays. \n However, type(T[{}]) returns: ".format(i), type(T[i]))
 
             test_length = len(T[i])
             for j, agent in enumerate(path_names):
@@ -180,39 +190,36 @@ class data_set_template():
                 # if the agent exists in this sample, adjust this
                 if isinstance(agent_path, np.ndarray):
                     if not len(agent_path.shape) == 2:
-                        raise TypeError("Path is expected to be consisting of np.ndarrays with two dimension.")
-                    if not agent_path.shape[1] == len(path_info):
-                        raise TypeError("Path is expected to be consisting of np.ndarrays of shape (n x {}).".format(len(self.path_data_info())))
-                        
-                    # test if input tuples have right length
-                    if test_length != len(agent_path):
-                        raise TypeError("Path sample does not have a matching number of timesteps.")
+                        raise TypeError("The entries in Path are expected to be np.ndarrays. \n However, for agent {} (i.e., j = {}), type(Path[{}][{}]) returns: ".format(agent, j, i, j), type(agent_path))
+                    if (not agent_path.shape[1] == len(path_info)) or (test_length != len(agent_path)):
+                        raise TypeError("The entries in Path are expected to be np.ndarrays with the right shape. \n For agent {} (i.e., j = {}), we expect that Path.iloc[{}][{}].shape = (len(T[{}]), len(self.path_data_info())) = ({}, {}), but the actual shape is ({}, {}).".format(agent, j, i, j, i, len(T[i]), len(self.path_data_info()), agent_path.shape[0], agent_path.shape[1]))
                         
                     if str(agent_type) == 'nan':
-                        raise ValueError("For a given path, the agent type must not be nan.")
+                        raise ValueError("For entries in Path that are np.ndarrays, the agent type (Type_old) should not be 'nan'. \n However, for agent {} (i.e., j = {}), Type_old.iloc[{}][{}] = 'nan' was observed.".format(agent, j, i, j))
 
                     if not isinstance(agent_type, str):
-                        raise TypeError("Agent type is expected to be a string.")
+                        raise TypeError("For entries in Path that are np.ndarrays, the agent type (Type_old) should be a string. \n However, for agent {} (i.e., j = {}), type(Type_old.iloc[{}][{}]) returns ".format(agent, j, i, j), type(agent_type)) 
                     
                     if check_size:
                         if not isinstance(agent_size, np.ndarray):
-                            raise TypeError("Size is expected to be consisting of np.ndarrays.")
+                            raise TypeError("For entries in Path that are np.ndarrays, the agent size (Size_old) should be a np.ndarray. \n However, for agent {} (i.e., j = {}), type(Size_old.iloc[{}][{}]) returns ".format(agent, j, i, j), type(agent_size))
                         if not len(agent_size) == 2:
-                            raise TypeError("Size is expected to be consisting of np.ndarrays with two dimension.")
+                            raise TypeError("For entries in Path that are np.ndarrays, the agent size (Size_old) should be a np.ndarray of length 2. \n However, for agent {} (i.e., j = {}), len(Size_old.iloc[{}][{}]) = {}.".format(agent, j, i, j, len(agent_size)))
 
                 
                 else:
                     if agent in self.needed_agents:
-                        raise TypeError("Path of needed agent is expected to be consisting of np.ndarrays.")
+                        raise TypeError("The scenario you set as self.scenario in self.set_scenario() requires the agent {} (i.e., j = {}) to have a trajectory defined as an np.ndarray. \n However, type(Path[{}][{}]) returns: ".format(agent, j, i, j), type(agent_path))
+            
                     if str(agent_path) != 'nan':
-                        raise TypeError("Path is expected to be consisting of np.ndarrays.")
+                        raise TypeError("For entries in Path that are not np.ndarrays, the agent path should be 'nan'. \n However, for agent {} (i.e., j = {}), Path.iloc[{}][{}] returns ".format(agent, j, i, j), agent_path)
                     
                     if str(agent_type) != 'nan':
-                        raise TypeError("If no path is given, there should be no agent type.")
+                        raise TypeError("For entries in Path that are not np.ndarrays, the agent type (Type_old) should be 'nan'. \n However, for agent {} (i.e., j = {}), Type_old.iloc[{}][{}] returns ".format(agent, j, i, j), agent_type)
 
                     if check_size:
                         if str(agent_size) != 'nan':
-                            raise TypeError("If no path is given, there should be no agent size.")
+                            raise TypeError("For entries in Path that are not np.ndarrays, the agent size (Size_old) should be 'nan'. \n However, for agent {} (i.e., j = {}), Size_old.iloc[{}][{}] returns ".format(agent, j, i, j), agent_size)
 
         
     def check_image_samples(self, Images):
