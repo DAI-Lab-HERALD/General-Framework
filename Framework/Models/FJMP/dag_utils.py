@@ -59,8 +59,7 @@ def remove_terminal_nodes(edges, weights = None):
 
     # Get connected nodes
     nodes = torch.unique(edges)
-    print("        Start braking cycles in graph ({} edges and {} nodes)".format(filtered_edges.shape[1], len(nodes)), flush = True)
-
+    
     # find terminal nodes
     removed_terminal_nodes = False
     while not removed_terminal_nodes:

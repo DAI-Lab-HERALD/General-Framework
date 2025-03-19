@@ -1761,6 +1761,7 @@ class data_set_template():
 
             mean_dt = np.mean(t[1:] - t[:-1])
             n_dt = max(5, int(0.75 * self.dt / mean_dt))
+            n_dt = min(n_dt, len(t)-1)
 
             T = np.zeros(len(self.Behaviors), float)
             T_D = np.empty(len(self.Behaviors), object)
