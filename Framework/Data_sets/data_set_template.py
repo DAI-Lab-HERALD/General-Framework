@@ -180,6 +180,11 @@ class data_set_template():
                 raise TypeError("The entries in T are expected to be np.ndarrays. \n However, type(T[{}]) returns: ".format(i), type(T[i]))
 
             test_length = len(T[i])
+
+            # ensure that test_length is at least 2
+            if test_length < 2:
+                raise ValueError("The entries in T are expected should have at least two entries. \n However, len(T[{}]) = {}.".format(i, test_length))
+                
             for j, agent in enumerate(path_names):
                 # check if time input consists out of tuples
                 agent_path = Path.iloc[i, j]
