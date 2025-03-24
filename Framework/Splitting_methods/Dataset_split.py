@@ -71,7 +71,7 @@ class Dataset_split(splitting_template):
         # the model might allready be trained using no split
 
         # Check if this is a connected dataset
-        if len(self.data_set.Datasets) > 1:
+        if len(self.data_set.Datasets) == 1:
             return None
     
         # Check how many datasets are part of the training set
@@ -97,7 +97,7 @@ class Dataset_split(splitting_template):
         # Get the corresponding splitting method
         split_alternative = no_split(data_set_used, 
                                      test_part = self.test_part,
-                                     repetition = (0), 
+                                     repetition = (0,), 
                                      train_pert = self.train_pert, 
                                      test_pert = self.test_pert, 
                                      train_on_test = False 
