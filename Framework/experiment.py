@@ -1913,7 +1913,7 @@ class Experiment():
             Output_A_file = np.load(file, allow_pickle = True)[6]
             ind = Domain.Index_saved.iloc[Index_file]
 
-            Output_A.iloc[Index_file] = Output_A_file[data_set.Behaviors].iloc[ind].to_numpy()
+            Output_A.iloc[Index_file] = Output_A_file.reindex(columns = data_set.Behaviors).iloc[ind].to_numpy()
 
         sample_inds = self._select_testing_samples(data_set, load_all, Output_A, plot_similar_futures, Index)
 

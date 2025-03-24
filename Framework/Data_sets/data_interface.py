@@ -477,7 +477,7 @@ class data_interface(object):
             self.Recorded    = self.Recorded[self.Agents]
         
             # Ensure behavior stuff is aligned and fill missing behaviors
-            self.Output_A = self.Output_A[self.Behaviors].fillna(False)
+            self.Output_A = self.Output_A.reindex(columns = self.Behaviors).fillna(False)
         
         # Set final values
         self.data_loaded = True
@@ -886,7 +886,7 @@ class data_interface(object):
             
             Output_T      = Output_T[ind]
             Output_T_pred = Output_T_pred[ind]
-            Output_A      = Output_A.loc[ind][self.Behaviors].fillna(False)
+            Output_A      = Output_A.loc[ind].reindex(columns = self.Behaviors).fillna(False)
 
             input_path_type_index = self.Domain[self.Domain.file_index == file_index].data_type_index
             assert len(np.unique(input_path_type_index)) == 1, 'Different data types should not occur in a single file.'
