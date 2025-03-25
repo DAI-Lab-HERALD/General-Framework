@@ -718,7 +718,11 @@ class model_template():
             assert np.array_equal(Index_made, out_made.index.to_numpy()), 'Made path is not correct.'
 
             # Check that columns are the same
-            assert np.array_equal(out_loaded.columns, out_made.columns), 'Columns are not the same.'
+            if not np.array_equal(out_loaded.columns, out_made.columns):
+                print('Columns are not the same for i = {}.'.format(i))
+                print('Loaded columns:', out_loaded.columns)
+                print('Made columns:', out_made.columns)
+                raise ValueError('Columns are not the same.')
 
             # Combine the paths in correct order
             out = pd.concat([out_loaded, out_made], axis = 0)
