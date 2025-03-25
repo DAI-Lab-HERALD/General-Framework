@@ -2657,7 +2657,7 @@ class data_set_template():
                         # Check if the dimension (i.e., self.path_data_info() has correct length)
                         assert len(self.path_data_info()) == helper_path[agent].shape[-1], "The path data info does not match the path data"
                         
-                        # Split by input and output, however, only include positions in the output
+                        # Split by input and output
                         input_path[agent]  = helper_path[agent][:self.num_timesteps_in_real].astype(np.float32)
                         output_path[agent] = helper_path[agent][self.num_timesteps_in_real:].astype(np.float32)
 

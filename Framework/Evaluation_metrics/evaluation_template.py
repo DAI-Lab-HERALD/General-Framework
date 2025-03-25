@@ -715,11 +715,21 @@ class evaluation_template():
                 # Find positions where Path_other is nan
                 nan_pos = np.isnan(Path_other).all(-1).all(-1).squeeze(1)
                 
-                # Test if all nonexisting paths have type zero
-                assert (Types[nan_pos] == '0').all(), 'There are types for nonexisting paths.'
-                assert (Types[~nan_pos] != '0').all(), 'There are no types for existing paths.'
-                assert np.isnan(Sizes[nan_pos]).all(), 'There are sizes for nonexisting paths.'
-                assert np.isfinite(Sizes[~nan_pos]).all(), 'There are no sizes for existing paths.'
+                # Test if all nonexisting paths have type zero                 
+                assert np.array_equal(Types == '0', np.isnan(Sizes).any(-1)), 'Mismatch between types and sizes.'
+                assert not (Types[~nan_pos] == '0').any(), 'There are no types for existing paths.'
+                if not (Types[nan_pos] == '0').all():
+                    # Find agents with wrong types
+                    wrong_agents = nan_pos & (Types != '0')
+                    sample_idx, agent_idx = np.where(wrong_agents)
+
+                    Path_other_past = np.full((*i_sampl_sort.shape, self.data_set.X_orig.shape[-2], 2), np.nan, dtype = np.float32)
+                    Path_other_past[data_index_mask] = self.data_set.X_orig[data_index, ..., :2]
+                    wrong_past_data = Path_other_past[sample_idx, agent_idx] # (num_wrong, num_timesteps, 2)
+
+                    # Check if the past data is missing
+                    wrong_wrong = np.isnan(wrong_past_data).all(-1).all(-1)
+                    assert not wrong_wrong.any(), 'There are types for nonexisting paths.'
         
         else:
             Path_other = np.full((len(Other_agents), 1, 0, self.data_set.Y_orig.shape[-2], 2), np.nan, dtype = np.float32)
