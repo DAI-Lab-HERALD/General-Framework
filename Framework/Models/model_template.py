@@ -246,36 +246,28 @@ class model_template():
                 print('    Model file option:', model_file_option, flush = True)
                 # Check if that model exists
                 if os.path.isfile(model_file_option) and not self.model_overwrite:
-                    self.weights_saved = list(np.load(model_file_option, allow_pickle = True)[:-1])
 
-                    # Load model with temporary file name
-                    actual_model_file = self.model_file + ''
-                    self.model_file = model_file_option
-                    try:
-                        self.load_method()
-                    except Exception as e:
-                        print('   Trying to load the model trained in a previous experiemnt based on self.model_file and saved model weights in self.model_file failed', flush = True)
-                        raise e
-                    self.model_file = actual_model_file
+                    ## Copy over file from old model
+                    # Find all files starting with model_file_option[:-4] and copy them to the self.model_file[:-4] equivalent
+                    option_folder = os.path.dirname(model_file_option)
+                    option_file = os.path.basename(model_file_option)[:-4]
+                    actual_folder = os.path.dirname(self.model_file)
+                    actual_file = os.path.basename(self.model_file)[:-4]
 
-                    # Copy model file
-                    os.makedirs(os.path.dirname(self.model_file), exist_ok=True)
-                    shutil.copyfile(model_file_option, self.model_file)
+                    for file in os.listdir(option_folder):
+                        if file.startswith(option_file):
+                            old_path = os.path.join(option_folder, file)
+                            new_path = os.path.join(actual_folder, file.replace(option_file, actual_file))
+                            if os.path.isfile(old_path):
+                                if not os.path.exists(new_path):
+                                    shutil.copyfile(old_path, new_path)
+                            else:
+                                shutil.copytree(old_path, new_path, dirs_exist_ok = True)
 
 
-                    # Copy csv and train loss files
-                    if self.save_params_in_csv():
-                        csv_file_old = self.model_file[:-4] + '.txt'
-                        csv_file_new = model_file_option[:-4] + '.txt'
-                        if os.path.isfile(csv_file_old):
-                            shutil.copyfile(csv_file_old, csv_file_new)
-
-                    if self.provides_epoch_loss():
-                        loss_file_old = self.model_file[:-4] + '--train_loss.npy'
-                        loss_file_new = self.model_file[:-4] + '--train_loss.npy'
-                        if os.path.isfile(loss_file_old):
-                            shutil.copyfile(loss_file_old, loss_file_new)
-                
+                    # Load the model
+                    self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
+                    self.load_method()
                 
                 else:
                     self.train_actual()
