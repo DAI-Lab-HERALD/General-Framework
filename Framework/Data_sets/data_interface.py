@@ -765,9 +765,15 @@ class data_interface(object):
             for out in output_data:
                 assert isinstance(out, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
                 out_data = out.iloc[use]
+
                 # check if this is a class thing
-                if np.in1d(np.array(out_data.columns), self.Behaviors).all():
-                    out_data = out_data[data_set.Behaviors]
+                behavior_data = np.in1d(np.array(out_data.columns), self.Behaviors)
+                if behavior_data.all():
+                    out_data = out_data.reindex(columns = data_set.Behaviors).fillna(0.0)
+
+                agent_data = np.in1d(np.array(out_data.columns), self.Agents)
+                if agent_data.all():
+                    out_data = out_data.reindex(columns = data_set.Agents).fillna(0.0)
 
                 # Apply output_index_dataset as index to out_data
                 out_data.index = pd.Index(output_index_dataset)
@@ -792,6 +798,14 @@ class data_interface(object):
                 # set index of output_trans_dataset_j to be use
                 assert isinstance(output_trans_dataset_j, pd.DataFrame), 'Predicted outputs should be pandas.DataFrame'
                 output_trans_dataset_j.index = pd.Index(use)
+
+                behavior_data = np.in1d(np.array(output_trans_dataset_j.columns), self.Behaviors)
+                if behavior_data.all():
+                    output_trans_dataset_j = output_trans_dataset_j.reindex(columns = self.Behaviors).fillna(0.0)
+
+                agent_data = np.in1d(np.array(output_trans_dataset_j.columns), self.Agents)
+                if agent_data.all():
+                    output_trans_dataset_j = output_trans_dataset_j.reindex(columns = self.Agents)
 
                 output_trans_j.append(output_trans_dataset_j)
             
