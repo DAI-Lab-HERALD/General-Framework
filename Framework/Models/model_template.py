@@ -247,7 +247,16 @@ class model_template():
                 # Check if that model exists
                 if os.path.isfile(model_file_option) and not self.model_overwrite:
                     self.weights_saved = list(np.load(model_file_option, allow_pickle = True)[:-1])
-                    self.load_method()
+
+                    # Load model with temporary file name
+                    actual_model_file = self.model_file + ''
+                    self.model_file = model_file_option
+                    try:
+                        self.load_method()
+                    except Exception as e:
+                        print('   Trying to load the model trained in a previous experiemnt based on self.model_file and saved model weights in self.model_file failed', flush = True)
+                        raise e
+                    self.model_file = actual_model_file
 
                     # Copy model file
                     os.makedirs(os.path.dirname(self.model_file), exist_ok=True)
@@ -2129,6 +2138,8 @@ class model_template():
         ## Prepare the data to be returned
         # get num_steps
         num_steps = N_O[ind_advance].min()
+        if mode != 'pred':
+            assert num_steps <= self.max_t_O_train, 'Number of timesteps is too large for training, got {}, while max is {}'.format(num_steps, self.max_t_O_train)
         
         # Get data as available for whole dataset
         T = self.T[ind_advance]

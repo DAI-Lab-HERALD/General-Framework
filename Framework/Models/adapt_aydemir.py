@@ -503,8 +503,9 @@ class adapt_aydemir(model_template):
         self.model = ADAPT(self.cfg)
 
         if self.cfg['use_checkpoint']:
-            assert os.path.exists(self.cfg['checkpoint_path'])
-            checkpoint = torch.load(self.cfg['checkpoint_path'])
+            checkpoint_path = self.model_file[:-4] + os.sep + 'checkpoint.pt'
+            assert os.path.exists(checkpoint_path)
+            checkpoint = torch.load(checkpoint_path)
             self.model.load_state_dict(checkpoint["state_dict"], strict=False)
 
         self.model.to(self.device)
