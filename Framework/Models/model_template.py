@@ -227,9 +227,11 @@ class model_template():
         else:
             # Check if the model maybe is saved under different file name
             if (not self.is_data_transformer) and (self.splitter.split_file_option is not None):
+                print('    Looking for model trained under previous experiment.', flush = True)
                 # Get the corresponding model file
                 model_file_option = self.data_set.change_result_directory(self.splitter.split_file_option,
                                                                           'Models', self.get_name()['file'])
+                
                 
                 if '_pert=' in model_file_option:
                     pert_split = model_file_option.split('_pert=')
@@ -241,6 +243,7 @@ class model_template():
                             pert_name_split = model_file_option.split('--Pertubation_')
                             model_file_option = pert_name_split[0] + pert_name_split[1][3:]
                 
+                print('    Model file option:', model_file_option, flush = True)
                 # Check if that model exists
                 if os.path.isfile(model_file_option) and not self.model_overwrite:
                     self.weights_saved = list(np.load(model_file_option, allow_pickle = True)[:-1])
@@ -2136,9 +2139,16 @@ class model_template():
         Sample_id = self.ID[ind_advance,:,0]
         Agent_id  = self.ID[ind_advance,:,1]
 
+        # Get the corresponding input_data_type
+        input_data_type_indices = self.data_set.Domain.iloc[Sample_id[:,0]].data_type_index
+        assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
+        self.input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
+
+        num_dim = len(self.input_data_type)
+
         # Prepare the output arrays
-        X = np.full((len(ind_advance), self.ID.shape[1], self.data_set.X_orig.shape[-2], self.data_set.X_orig.shape[-1]), np.nan, np.float32)
-        Y = np.full((len(ind_advance), self.ID.shape[1], num_steps, self.data_set.Y_orig.shape[-1]), np.nan, np.float32)
+        X = np.full((len(ind_advance), self.ID.shape[1], self.num_timesteps_in, num_dim), np.nan, np.float32)
+        Y = np.full((len(ind_advance), self.ID.shape[1], num_steps, num_dim), np.nan, np.float32)
 
         # Get data that is potentially not available yet
         if self.data_set.data_in_one_piece:
@@ -2260,12 +2270,6 @@ class model_template():
                 graph = self.graph[graph_ind]
         else:
             graph = None
-
-
-        # Get the corresponding input_data_type
-        input_data_type_indices = self.data_set.Domain.iloc[Sample_id].data_type_index
-        assert len(np.unique(input_data_type_indices)) == 1, 'Only one data type should be used in each batch'
-        self.input_data_type = self.data_set.Input_data_type[input_data_type_indices.iloc[0]]
 
         if return_categories:
             if 'category' in self.data_set.Domain.columns:
