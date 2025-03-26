@@ -139,8 +139,11 @@ class ECE_class(evaluation_template):
         P_hat = []
 
         for i in range(len(result_lists)):
-            P_pred += result_lists[i][1]
-            P_hat += result_lists[i][2]
+            P_pred.append(result_lists[i][1])
+            P_hat.append(result_lists[i][2])
+        
+        P_pred = np.concatenate(P_pred)
+        P_hat = np.concatenate(P_hat)
 
         # Sort by P_pred
         idx = np.argsort(P_pred)

@@ -101,8 +101,8 @@ class model_template():
 
                         # get the last folder of the pretrained model indicating the dataset folder
                         if pretrained_path is not None:
-                            pretrained_folder = Path(pretrained_path).parent.name
-                            self.pretrained_string = '--pretrain_' + pretrained_folder.parts[-1]
+                            pretrained_folder = Path(pretrained_path).parent.parent.name
+                            self.pretrained_string = '--pretrain_' + pretrained_folder
 
                             self.model_file = self.model_file[:-4] + self.pretrained_string + '.npy'
                     
@@ -589,6 +589,7 @@ class model_template():
                     Results = [result, result]
 
                 # Save results
+                print('The metric ' + metric.get_name()['print'] + ' was successfully evaluated.')
                 save_data = np.array(Results + [0], object) # 0 is there to avoid some numpy load and save errros
                 os.makedirs(os.path.dirname(metric_file), exist_ok=True)
                 np.save(metric_file, save_data)

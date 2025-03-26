@@ -73,8 +73,8 @@ class AUC_ROC(evaluation_template):
 
         for result in result_lists:
             _, p_true, p_pred, class_names = result
-            p_true.append(pd.DataFrame(p_true, columns = class_names))
-            p_pred.append(pd.DataFrame(p_pred, columns = class_names))
+            P_true.append(pd.DataFrame(p_true, columns = class_names))
+            P_pred.append(pd.DataFrame(p_pred, columns = class_names))
         
         P_true = pd.concat(P_true)
         P_pred = pd.concat(P_pred)
