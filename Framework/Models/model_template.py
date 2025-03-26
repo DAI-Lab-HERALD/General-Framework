@@ -93,8 +93,8 @@ class model_template():
 
                         # Check if the pretrained model exists
                         if not os.path.isfile(pretrained_path):
-                            print('The desired pretrained model, defined to be found at the path\n' + pretrained_path 
-                                    + '\nwas not found. Training will continue with random parameter initialization.')
+                            print('The desired pretrained model, defined to be found at the path\n"' + pretrained_path 
+                                    + '"\nwas not found. Training will continue with random parameter initialization.')
                             pretrained_path = None
                             
                         self.model_kwargs['pretrained'] = pretrained_path
@@ -155,27 +155,37 @@ class model_template():
     def load_pretrained_model(self, pretrained_path):
         if pretrained_path is not None:
             assert 'pretrain' in self.model_file, 'Model file does not match a pretrained model.'
-            model_file_current = self.model_file
-            try:
-                # Give model the pretrained path as self.model file,
-                # as some models call derivations of that during loading
-                self.model_file = pretrained_path
+            ## Copy over file from old model
+            # Find all files starting with model_file_option[:-4] and copy them to the self.model_file[:-4] equivalent
+            option_folder = os.path.dirname(pretrained_path)
+            option_file = os.path.basename(pretrained_path)[:-4]
+            actual_folder = os.path.dirname(self.model_file)
+            actual_file = os.path.basename(self.model_file)[:-4]
 
-                # Load any saved weights
-                self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
+            for file in os.listdir(option_folder):
+                if file.startswith(option_file):
+                    old_path = os.path.join(option_folder, file)
+                    new_path = os.path.join(actual_folder, file.replace(option_file, actual_file))
+                    if os.path.isfile(old_path):
+                        if not os.path.exists(new_path):
+                            shutil.copyfile(old_path, new_path)
+                    else:
+                        shutil.copytree(old_path, new_path, dirs_exist_ok = True)
+            
 
-                # Actually load the model
-                self.load_method()
-            except:
-                print('The desired pretrained model, defined to be found at the path\n' + pretrained_path 
-                    + '\ncould not be loaded. Potential reasons:\n'
-                    + ' - The model architectures are different.\n'
-                    + ' - The training and finetuning dataset params are incompatible (different timesteps/intervals).\n'
-                    + ' - The model file is corrupted (if a pickle file is saved, changes in python environments might make it incompatible)')
-                
-                raise ValueError('The pretrained model could not be loaded.')
-                
-            self.model_file = model_file_current
+            # Load the model
+            self.weights_saved = list(np.load(self.model_file, allow_pickle = True)[:-1])
+            self.load_method()
+
+            # Delete the new files, as the model is technically not trained yet
+            for file in os.listdir(actual_folder):
+                if file.startswith(actual_file):
+                    old_path = os.path.join(actual_folder, file)
+                    if os.path.isfile(old_path):
+                        os.remove(old_path)
+                    else:
+                        shutil.rmtree(old_path)
+                    
 
     def train_actual(self):
         # Check if a pretrained model should be fitted

@@ -712,8 +712,18 @@ class fjmp_rowe(model_template):
     
     def train_method(self):
         # TODO: Implement
-        self.model = FJMP(self.model_kwargs)
 
+        # Allow for finetuning of model
+        if not hasattr(self, 'model'):
+            self.model = FJMP(self.model_kwargs)
+        else:
+            self.model_kwargs['training_stage'] = 1
+
+        if os.path.exists(os.path.join(self.model_kwargs["log_path"], "epoch.pkl")):
+            start_epoch = pickle.load(open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "rb"))
+        else:
+            start_epoch = 0
+                
         # initialize optimizer
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.model.learning_rate)
         if can_use_hvd:
@@ -721,10 +731,6 @@ class fjmp_rowe(model_template):
                 optimizer, named_parameters=self.model.named_parameters()
             ) 
 
-        if os.path.exists(os.path.join(self.model_kwargs["log_path"], "epoch.pkl")):
-            start_epoch = pickle.load(open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "rb"))
-        else:
-            start_epoch = 0
 
         # Check if stage 1 model exists
         if self.model_kwargs['two_stage_training']:

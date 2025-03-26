@@ -387,16 +387,15 @@ class adapt_aydemir(model_template):
             self.cfg['device'] = 0
         # dist.init_process_group("nccl", rank=0, world_size=0)
 
-        
-        self.model = ADAPT(self.cfg)
+        # Allow fine-tuning of loaded model
+        if not hasattr(self, 'model'):
+            self.model = ADAPT(self.cfg)
 
         if self.cfg['use_checkpoint'] and os.path.exists(self.cfg['checkpoint_path']):
             checkpoint = torch.load(self.cfg['checkpoint_path'])
             self.model.load_state_dict(checkpoint["state_dict"], strict=False)
 
         self.model.to(self.device)
-
-        # self.model = DDP(self.model, device_ids=[0], find_unused_parameters=True)
 
         start_epoch = 0
         iter_num = int(self.data_set.Pred_agents_pred[self.splitter.Train_index].sum() /self.cfg['batch_size'] * 0.9) # int(self.Pred_agents.sum()/self.cfg['batch_size']) #100000
