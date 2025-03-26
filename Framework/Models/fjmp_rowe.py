@@ -266,7 +266,7 @@ class fjmp_rowe(model_template):
             self.model_kwargs["preprocess"] = True
             self.model_kwargs["val_workers"] = 0
             self.model_kwargs["workers"] = 0
-            self.model_kwargs["max_epochs"] = 36
+            self.model_kwargs["max_epochs"] = min(36, self.model_kwargs["max_epochs"])
             self.model_kwargs["num_proposals"] = 15
             self.model_kwargs["ig"] = 'dense'
             self.model_kwargs["n_mapnet_layers"] = 4
