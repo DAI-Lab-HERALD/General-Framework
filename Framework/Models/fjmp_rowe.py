@@ -220,8 +220,17 @@ class fjmp_rowe(model_template):
                 sys.stdout = Logger(log)
 
 
-        if self.data_set.get_name()['file'] == 'Interaction' or self.data_set.get_name()['file'] == 'Roundabout':
+        if self.data_set.get_name()['file'] == 'Interaction':
             self.model_kwargs["dataset"] = 'interaction'
+        elif self.data_set.get_name()['file'] == 'Roundabout':
+            if 'pretrained' in self.model_kwargs.keys():
+                pretrained_path = self.model_kwargs['pretrained']
+                if ('Interaction' in pretrained_path):
+                    self.model_kwargs["dataset"] = 'interaction'
+                else:
+                    self.model_kwargs["dataset"] = 'argoverse2'
+            else:
+                self.model_kwargs["dataset"] = 'interaction'
         else:
             self.model_kwargs["dataset"] = 'argoverse2'
 
@@ -436,6 +445,7 @@ class fjmp_rowe(model_template):
                                     dataset = self.model_kwargs["dataset"], 
                                     num_timesteps_in = self.num_timesteps_in, 
                                     num_timesteps_out = self.num_timesteps_out)
+            
             
             # define scales as the 2^i where i is the number of scales - 1
             # scales = [2**(i+1) for i in range(self.model_kwargs['num_scales']-1)]

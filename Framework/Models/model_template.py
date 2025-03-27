@@ -184,7 +184,7 @@ class model_template():
                     if os.path.isfile(old_path):
                         os.remove(old_path)
                     else:
-                        shutil.rmtree(old_path)
+                        shutil.rmtree(old_path, ignore_errors=True)
                     
 
     def train_actual(self):

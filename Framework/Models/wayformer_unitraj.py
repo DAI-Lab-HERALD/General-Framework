@@ -131,7 +131,6 @@ class wayformer_unitraj(model_template):
         
 
     def setup_method(self):
-        self.define_default_kwargs()
 
         self.min_t_O_train = self.num_timesteps_out
         self.max_t_O_train = self.num_timesteps_out
@@ -162,6 +161,8 @@ class wayformer_unitraj(model_template):
         # Set the number of agents needed for prediction
         self.prepare_batch_generation()
         self.cfg['max_num_agents'] = self.ID.shape[1]
+
+        self.define_default_kwargs()
 
         # Initialize the model
         self.model = Wayformer(self.cfg)
@@ -499,7 +500,11 @@ class wayformer_unitraj(model_template):
         with torch.no_grad():
             for i, weights_loaded in enumerate(self.weights_saved):
                 weights_loaded_torch = torch.from_numpy(weights_loaded)
-                assert Weights[i].shape == weights_loaded_torch.shape, "Model weights do not match"
+                if not (Weights[i].shape == weights_loaded_torch.shape):
+                    print('Weight shapes do not match')
+                    print('Shape loaded:', weights_loaded_torch.shape)
+                    print('Shape desired:', Weights[i].shape)
+                    assert False, "Model weights do not match" 
                 Weights[i][:] = weights_loaded_torch[:]
 
     def predict_method(self):
