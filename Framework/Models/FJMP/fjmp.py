@@ -58,14 +58,6 @@ class FJMP(torch.nn.Module):
         
         config["resume_training"] = args.resume_training
         config["eval_training"] = args.eval_training
-        
-
-        config["log_path"].mkdir(exist_ok=True, parents=True)
-        log = os.path.join(config["log_path"], "log")
-        # write stdout to log file
-        sys.stdout = Logger(log)
-
-
 
         self.dataset = config["dataset"]
         self.num_agenttypes = config["num_agenttypes"]

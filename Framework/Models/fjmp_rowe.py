@@ -727,7 +727,12 @@ class fjmp_rowe(model_template):
         if not hasattr(self, 'model'):
             self.model = FJMP(self.model_kwargs)
         else:
+            # Reset training stage
+            self.model.training_stage = 1
             self.model_kwargs['training_stage'] = 1
+
+            # Reset log path
+            self.model.log_path = self.model_kwargs["log_path"]
 
         if os.path.exists(os.path.join(self.model_kwargs["log_path"], "epoch.pkl")):
             start_epoch = pickle.load(open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "rb"))
