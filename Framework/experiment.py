@@ -538,12 +538,15 @@ class Experiment():
                             
                             # Initialize the model
                             model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
+                            model_str = model.get_name()['file']
+                            if '--pretrain' in model.model_file:
+                                model_str += '--pretrain_' + model.model_file[:-4].split('--pretrain_')[-1]
                             
                             results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
                                                  splitter_str + '--' + 
                                                  # Add model name
-                                                 model.get_name()['file']  + '--' + 
+                                                 model_str + '--' + 
                                                  # Add metric name
                                                  metric.get_name()['file']  + '.npy')
                             
