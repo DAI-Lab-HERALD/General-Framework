@@ -214,7 +214,7 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_smoothing = False
         
         # Plot the loss over the iterations
-        self.plot_loss = True
+        self.plot_loss = False
 
         # Image neural network
         self.image_neural_network = False
@@ -224,14 +224,14 @@ class Adversarial_Control_Action(perturbation_template):
         self.plot_input = False
 
         # Plot the adversarial scene
-        self.static_adv_scene = True
+        self.static_adv_scene = False
         self.animated_adv_scene = False
 
         # Spline settings animated scene
         self.total_spline_values = 100
 
         # Setting animated scene
-        self.control_action_graph = True
+        self.control_action_graph = False
 
         # Time step
         self.dt = self.kwargs['data_param']['dt']
@@ -427,8 +427,8 @@ class Adversarial_Control_Action(perturbation_template):
             X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier)
 
         # Plot the data
-        self._ploting_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1,
-                             data_barrier, loss_store, control_action, perturbation)
+        # self._ploting_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1,
+        #                      data_barrier, loss_store, control_action, perturbation)
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
