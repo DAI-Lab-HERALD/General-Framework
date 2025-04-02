@@ -12,6 +12,7 @@ import matplotlib
 from matplotlib.colors import LinearSegmentedColormap
 import time
 import seaborn as sns
+from pathlib import Path
 from utils.memory_utils import get_total_memory, get_used_memory
 
 # allow for latex code
@@ -539,8 +540,10 @@ class Experiment():
                             # Initialize the model
                             model = model_class(model_kwargs, data_set, splitter, self.evaluate_on_train_set)
                             model_str = model.get_name()['file']
-                            if '--pretrain' in model.model_file:
-                                model_str += '--pretrain_' + model.model_file[:-4].split('--pretrain_')[-1]
+                            if 'pretrained' in model.model_kwargs.keys():
+                                pretrained_path = model.model_kwargs['pretrained']                            
+                                pretrained_folder = Path(pretrained_path).parent.parent.name
+                                model_str += '--pretrain_' + pretrained_folder
                             
                             results_file_name = (data_set.data_file[:-4] + '--' + 
                                                  # Add splitting method
