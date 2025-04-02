@@ -222,27 +222,31 @@ class fjmp_rowe(model_template):
 
         if self.data_set.get_name()['file'] == 'Interaction':
             self.model_kwargs["dataset"] = 'interaction'
+            self.model_kwargs["num_agenttypes"] = 2
         elif self.data_set.get_name()['file'] == 'Roundabout':
             if 'pretrained' in self.model_kwargs.keys():
                 pretrained_path = self.model_kwargs['pretrained']
                 if ('Interaction' in pretrained_path):
                     self.model_kwargs["dataset"] = 'interaction'
+                    self.model_kwargs["num_agenttypes"] = 4
                 else:
                     self.model_kwargs["dataset"] = 'argoverse2'
+                    self.model_kwargs["num_agenttypes"] = 5
             else:
                 self.model_kwargs["dataset"] = 'interaction'
+                self.model_kwargs["num_agenttypes"] = 4
         else:
             self.model_kwargs["dataset"] = 'argoverse2'
+            self.model_kwargs["num_agenttypes"] = 5
 
         if self.model_kwargs["dataset"] == 'interaction':
-            self.model_kwargs["switch_lr_1"] = 40
-            self.model_kwargs["switch_lr_2"] = 48
+            self.model_kwargs["switch_lr_1"] = int(0.8 * self.model_kwargs["max_epochs"])
+            self.model_kwargs["switch_lr_2"] = int(0.95 * self.model_kwargs["max_epochs"])
             self.model_kwargs["lr_step"] = 1/5
             self.model_kwargs["input_size"] = 5
             self.model_kwargs["prediction_steps"] = self.num_timesteps_out # 30 
             self.model_kwargs["observation_steps"] = self.num_timesteps_in # 10
             # two agent types: "car", and "pedestrian/bicyclist"
-            self.model_kwargs["num_agenttypes"] = 2
             # self.model_kwargs['dataset_path'] = 'dataset_INTERACTION'
             # self.model_kwargs['tracks_train_reformatted'] = os.path.join(self.model_kwargs['dataset_path'], 'train_reformatted')
             # self.model_kwargs['tracks_val_reformatted'] = os.path.join(self.model_kwargs['dataset_path'], 'val_reformatted')
@@ -257,13 +261,10 @@ class fjmp_rowe(model_template):
             self.model_kwargs["workers"] = 0
 
         elif self.model_kwargs["dataset"] == "argoverse2":
-            self.model_kwargs["switch_lr_1"] = 32
-            self.model_kwargs["switch_lr_2"] = 36
             self.model_kwargs["lr_step"] = 1/10
             self.model_kwargs["input_size"] = 5
             self.model_kwargs["prediction_steps"] = self.num_timesteps_out # 60
             self.model_kwargs["observation_steps"] = self.num_timesteps_in # 50
-            self.model_kwargs["num_agenttypes"] = 5
             # self.model_kwargs['dataset_path'] = 'dataset_AV2'
             # self.model_kwargs['files_train'] = os.path.join(self.model_kwargs['dataset_path'], 'train')
             # self.model_kwargs['files_val'] = os.path.join(self.model_kwargs['dataset_path'], 'val')
@@ -276,6 +277,8 @@ class fjmp_rowe(model_template):
             self.model_kwargs["val_workers"] = 0
             self.model_kwargs["workers"] = 0
             self.model_kwargs["max_epochs"] = min(36, self.model_kwargs["max_epochs"])
+            self.model_kwargs["switch_lr_1"] = int(0.9 * self.model_kwargs["max_epochs"])
+            self.model_kwargs["switch_lr_2"] = int(0.95 * self.model_kwargs["max_epochs"])
             self.model_kwargs["num_proposals"] = 15
             self.model_kwargs["ig"] = 'dense'
             self.model_kwargs["n_mapnet_layers"] = 4
@@ -287,9 +290,6 @@ class fjmp_rowe(model_template):
             self.model_kwargs["learned_relation_header"] = True
             self.model_kwargs["decoder"] = 'dagnn'
             self.model_kwargs["teacher_forcing"] = True
-
-        if self.data_set.get_name()['file'] == 'Roundabout':
-            self.model_kwargs["num_agenttypes"] = 4
 
 
 
@@ -548,8 +548,8 @@ class fjmp_rowe(model_template):
 
         m = sum(p.numel() for p in self.model.parameters())
 
-        print("Model: {} parameters".format(m))
-        print("Training model...")
+        print("Model: {} parameters".format(m), flush = True)
+        print("Training model...", flush = True)
 
         # save stage 1 config
         if self.model.two_stage_training and self.model.training_stage == 1:
@@ -564,8 +564,9 @@ class fjmp_rowe(model_template):
         # hvd.broadcast_parameters(self.state_dict(), root_rank=0)
         # hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
-        for epoch in range(start_epoch, self.model_kwargs['max_epochs'] + 1):   
-            print("Epoch/Total: {}/{} ".format(epoch, self.model_kwargs['max_epochs']))
+        for epoch in range(start_epoch, self.model_kwargs['max_epochs'] + 1): 
+            print("", flush = True)  
+            print("Epoch/Total: {}/{} ".format(epoch, self.model_kwargs['max_epochs']), flush = True)
             # this shuffles the training set every epoch         
             # train_loader.sampler.set_epoch(int(epoch))
             
@@ -643,8 +644,8 @@ class fjmp_rowe(model_template):
                 optimizer.step()
                 
                 if i % 100 == 0:
-                    print("Training data: ", "{:.2f}%".format(i * 100), "lr={:.3e}".format(cur_lr), "rel_coef={:.1f}".format(self.model_kwargs['rel_coef']),
-                        "\t".join([k + ":" + f"{v.item():.3f}" for k, v in loss_dict.items()]))
+                    print("Training data: Batch " + str(i + 1).rjust(4) + " lr = {:.2e}".format(cur_lr), "rel_coef = {:.1f} --".format(self.model_kwargs['rel_coef']),
+                        "\t".join([k + ": " + "{:8.3f}".format(v.item()) for k, v in loss_dict.items()]), flush = True)
 
                 i = i + 1
                 tot += dd['batch_size']
@@ -652,10 +653,10 @@ class fjmp_rowe(model_template):
                 
 
             if (not self.model_kwargs['two_stage_training']) or (self.model_kwargs['two_stage_training'] and self.model_kwargs['training_stage'] == 2):
-                print("Saving model")
+                print("Saving model", flush = True)
                 self.model.save(epoch, optimizer, None, None, None)
             else:
-                print("Saving relation header")
+                print("Saving relation header", flush = True)
                 self.model.save_relation_header(epoch, optimizer, None)
 
             pickle.dump(epoch, open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "wb"))
@@ -704,10 +705,10 @@ class fjmp_rowe(model_template):
 
                 val_loss = self.model.get_loss(dgl_graph, dd['batch_idxs'], res, dd['agenttypes'], dd['has_preds'], dd['gt_locs'], dd['batch_size'], dd["ig_labels"], epoch)
                 
-                if i % 100 == 0:
-                    print("Validation data: ", "{:.2f}%".format(i * 100), "lr={:.3e}".format(cur_lr), "rel_coef={:.1f}".format(self.model_kwargs['rel_coef']),
-                        "\t".join([k + ":" + f"{v.item():.3f}" for k, v in val_loss.items()]))
-                    
+                if i % 10 == 0:
+                    print("Validation data: Batch " + str(i + 1).rjust(4) + " lr = {:.2e}".format(cur_lr), "rel_coef={:.1f} --".format(self.model_kwargs['rel_coef']),
+                        "\t".join([k + ": " + "{:8.3f}".format(v.item()) for k, v in loss_dict.items()]), flush = True)
+                i = i + 1
                 torch.cuda.empty_cache()
             
 
@@ -749,16 +750,20 @@ class fjmp_rowe(model_template):
 
         # Check if stage 1 model exists
         if self.model_kwargs['two_stage_training']:
-            print('')
-            print("Check if stage 1 exists")
+            print('', flush = True)
+            print("Check if stage 1 exists", flush = True)
             if self.model_kwargs['training_stage'] == 1 and not os.path.exists(self.model_file[:-4] + '_stage_1'):
                 if os.path.exists(str(self.model_kwargs["log_path"]) + 'best_model_relation_header.pt'):
                     self.model.load_relation_header()
-                print("Training stage 1")
-                self.train_fjmp(start_epoch+1, optimizer)
+                print("Stage 1 does not exist. Training stage 1 ...", flush = True)
+                print('', flush = True)
+                self.train_fjmp(start_epoch+1, optimizer)                
+                print('', flush = True)
 
+                # Update start_epoch for second stage
                 start_epoch = 0
-                pickle.dump(start_epoch, open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "wb"))
+                pickle.dump(start_epoch, open(os.path.join(self.model_kwargs["log_path"], "epoch.pkl"), "wb"))                
+
 
             if self.model_kwargs['training_stage'] == 2 and not os.path.exists(self.model_file[:-4] + '_stage_1'):
                 raise ValueError('Stage 1 model does not exist')
@@ -767,8 +772,9 @@ class fjmp_rowe(model_template):
                 self.model_kwargs['training_stage'] = 2
                 self.model.training_stage = 2
                 
-                print('Load stage 1 model')
-                with open(os.path.join(self.model_kwargs["log_path"], "config_stage_1.pkl"), "rb") as f:
+                print('Stage 1 does exist. Load stage 1 model...', flush = True)
+                path_stage_1_load = os.path.join(self.model_kwargs["log_path"], "config_stage_1.pkl")
+                with open(path_stage_1_load, "rb") as f:
                     config_stage_1 = pickle.load(f) 
                 
                 self.model = FJMP(self.model_kwargs)
@@ -786,8 +792,8 @@ class fjmp_rowe(model_template):
                 if os.path.exists(str(self.model_kwargs["log_path"]) + 'best_model.pt'):
                     self.model.load_for_train(optimizer)
 
-                print('')
-                print("Training stage 2")
+                print("Training stage 2 ...", flush = True)
+                print('', flush = True)
                 self.train_fjmp(start_epoch+1, optimizer)
             
             else:
