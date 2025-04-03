@@ -187,8 +187,8 @@ class Wayformer(nn.Module):
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=self.config['learning_rate'], eps=0.0001)
 
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.0002, steps_per_epoch=1, epochs=150,
-                                                        pct_start=0.02, div_factor=100.0, final_div_factor=10)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.0002, steps_per_epoch=1, epochs=self.config['max_epochs'], pct_start=0.02, 
+                                                        div_factor=0.0002/self.config['learning_rate'], final_div_factor=self.config['learning_rate']/0.000002)
 
         return [optimizer], [scheduler]
 
