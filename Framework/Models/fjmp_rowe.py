@@ -540,7 +540,7 @@ class fjmp_rowe(model_template):
         del data['track_ids']
         del data['is_valid_agent']
 
-            
+
         return data
     
     def train_fjmp(self, start_epoch = 1, optimizer = None):
@@ -911,11 +911,17 @@ class fjmp_rowe(model_template):
 
 
                 # Index = np.arange(i * sample_number, min((i + 1) * sample_number, num_samples_path_pred_max))
-
-                predicted_agents = np.isfinite(X)[:,:,-1,0]
+                if self.model_kwargs["dataset"] == 'interaction':
+                    predicted_agents = np.isfinite(X)[:,:,-1,0] 
+                else:
+                    if C is None:
+                        predicted_agents = np.isfinite(X).all(-1).all(-1)
+                    else:
+                        predicted_agents = np.isfinite(X)[:,:,-1,0] & (C != 0)
 
                 pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
                 pred[predicted_agents] = res["loc_pred"].detach().cpu().numpy().transpose(0, 2, 1, 3)
+
                 pred = np.tile(pred, (1, 1, splits, 1, 1))
                 Pred = pred
                 # Pred[:, :,Index] = pred
