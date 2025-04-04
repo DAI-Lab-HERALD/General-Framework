@@ -41,12 +41,12 @@ class Adversarial_Control_Action(perturbation_template):
         assert 'exp_parameters' in kwargs.keys(
         ), "Adverserial model experiment parameters are missing (required key: 'exp_parameters')."
 
-        assert kwargs['exp_parameters'][6] == 'predefined', "Perturbed datasets can only be used if the agents' roles are predefined."
-
+        print('Initilaze Perturbation settings.', flush = True)
         self.kwargs = kwargs
         self.initialize_settings()
 
         # Load the perturbation model
+        print('Load the data set the perturbation attack model was trained on.', flush = True)
         pert_data_set = data_interface(self.kwargs['data_set_dict'], self.kwargs['exp_parameters'])
         pert_data_set.reset()
 
@@ -54,6 +54,7 @@ class Adversarial_Control_Action(perturbation_template):
         pert_data_set.get_data(**self.kwargs['data_param'])
 
         # Exctract splitting method parameters
+        print('Apply the splitting the perturbation attack model was trained under.', flush = True)
         pert_splitter_name = self.kwargs['splitter_dict']['Type']
         if 'repetition' in self.kwargs['splitter_dict'].keys():
             # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
@@ -99,11 +100,11 @@ class Adversarial_Control_Action(perturbation_template):
         pert_splitter_class = getattr(pert_splitter_module, pert_splitter_name)
 
         # Initialize and apply Splitting method
-        pert_splitter = pert_splitter_class(
-            pert_data_set, pert_splitter_tp, pert_splitter_rep, pert_splitter_train_pert, pert_splitter_test_pert)
+        pert_splitter = pert_splitter_class(pert_data_set, pert_splitter_tp, pert_splitter_rep, pert_splitter_train_pert, pert_splitter_test_pert)
         pert_splitter.split_data()
 
         # Extract per model dict
+        print('Load the actual perturbation attack model.', flush = True)
         if isinstance(self.kwargs['model_dict'], str):
             pert_model_name = self.kwargs['model_dict']
             pert_model_kwargs = {}
@@ -130,6 +131,7 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Train the model on the given training set
         self.pert_model.train()
+        print('Successfully the actual perturbation attack model.', flush = True)
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
@@ -211,7 +213,8 @@ class Adversarial_Control_Action(perturbation_template):
             self.kwargs['barrier_function_past'] = self.barrier_function_past
 
         if self.barrier_function_past is not None:
-            assert self.barrier_function_past in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            barrier_test = self.barrier_function_past.split('_V')[0]
+            assert barrier_test in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
             if 'distance_threshold_past' in self.kwargs.keys():
                 self.distance_threshold_past = self.kwargs['distance_threshold_past']
             else:
@@ -234,7 +237,8 @@ class Adversarial_Control_Action(perturbation_template):
             self.kwargs['barrier_function_future'] = self.barrier_function_future
         
         if self.barrier_function_future is not None:
-            assert self.barrier_function_future in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            barrier_test = self.barrier_function_future.split('_V')[0]
+            assert barrier_test in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
             if 'distance_threshold_future' in self.kwargs.keys():
                 self.distance_threshold_future = self.kwargs['distance_threshold_future']
             else:

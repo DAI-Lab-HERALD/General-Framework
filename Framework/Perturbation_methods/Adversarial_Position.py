@@ -40,8 +40,6 @@ class Adversarial_Position(perturbation_template):
         assert 'exp_parameters' in kwargs.keys(
         ), "Adverserial model experiment parameters are missing (required key: 'exp_parameters')."
 
-        assert kwargs['exp_parameters'][6] == 'predefined', "Perturbed datasets can only be used if the agents' roles are predefined."
-
         self.kwargs = kwargs
         self.initialize_settings()
 

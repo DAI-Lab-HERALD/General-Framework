@@ -74,8 +74,8 @@ class perturbation_template():
                     if 'n_O_min' in requirements.keys():
                         assert n_time >= requirements['n_O_min'], "The number of output timesteps is too small."
 
-                    X[i_sample, i_agent]          = Input_path.loc[i_index, agent].astype(np.float32)
-                    Y[i_sample, i_agent, :n_time] = Output_path.loc[i_index, agent][:n_time].astype(np.float32)
+                    X[i_sample, i_agent]          = Input_path.loc[i_index, agent].astype(np.float32)[...,:2]
+                    Y[i_sample, i_agent, :n_time] = Output_path.loc[i_index, agent][:n_time].astype(np.float32)[...,:2]
 
         # Get the batch size
         self.set_batch_size()
@@ -105,7 +105,7 @@ class perturbation_template():
         # Go through the data 
         num_batches = int(np.ceil(X.shape[0] / self.batch_size))
         for i_batch in range(num_batches):
-            print(f'Perturbing batch {i_batch + 1}/{num_batches}')
+            print(f'Perturbing batch {i_batch + 1}/{num_batches}', flush = True)
             i_start = i_batch * self.batch_size
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
