@@ -134,7 +134,7 @@ class Adversarial_Control_Action(perturbation_template):
         # After training, set model up to only take position input
         self.pert_model.input_data_type = ['x', 'y']
         self.pert_model.num_samples_path_pred = self.num_samples
-        print('Successfully the actual perturbation attack model.', flush = True)
+        print('Successfully loaded the actual perturbation attack model.', flush = True)
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]

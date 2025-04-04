@@ -59,7 +59,8 @@ class ADAPT(nn.Module):
 
         for i in range(batch_size):
             for j in range(len(agent_data[i])):
-                agent_data[i][j] = agent_data[i][j].to(self.device)
+                if agent_data[i][j].device != self.device:
+                    agent_data[i][j] = agent_data[i][j].to(self.device)
 
             for j in range(len(lane_data[i])):
                 lane_data[i][j] = lane_data[i][j].to(self.device)

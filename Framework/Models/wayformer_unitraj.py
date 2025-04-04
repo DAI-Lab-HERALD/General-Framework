@@ -232,6 +232,165 @@ class wayformer_unitraj(model_template):
             
         return data
 
+    def extract_data_tensor(self, X, T, S, graph):
+        # X.shape = (batch_size, num_agents, num_steps_in, num_features)
+        # Y.shape = (batch_size, num_agents, num_steps_out, num_features)
+        # T.shape = (batch_size, num_agents)
+        # S.shape = (batch_size, num_agents)
+        # Pred_agents.shape = (batch_size, num_agents)
+
+        missing_timesteps_start = torch.isfinite(X).all(-1).argmax(-1) # batch_size, num_agents
+        missing_timesteps_end = missing_timesteps_start + np.isfinite(X).all(-1).sum(-1) # batch_size, num_agents
+
+        missing_timesteps = torch.stack([missing_timesteps_start, missing_timesteps_end], -1) # batch_size, num_agents, 2
+        missing_timesteps = torch.unique(missing_timesteps.reshape(-1,2), dim = 0) # n, 2 
+
+        V_x = torch.zeros_like(X[...,0])
+        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
+            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_x[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 0], dim = -1)
+            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_x[mask, missing_timestep_start] = 0
+        
+        V_y = torch.zeros_like(X[...,0])
+        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
+            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_y[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 1], dim = -1)
+            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_y[mask, missing_timestep_start] = 0
+        
+
+        # Use atan2 between v_y and v_x to get theta
+        Theta = torch.arctan2(V_y, V_x)
+
+        Obj_trajs = torch.cat([X, V_x.unsqueeze(-1), V_y.unsqueeze(-1), Theta.unsqueeze(-1)], dim = -1)
+
+        # Ensure position data is there
+        missing_position = np.isnan(X).any(-1)
+        Obj_trajs[missing_position] = np.nan
+        Obj_trajs_mask = torch.isfinite(Obj_trajs).all(dim=-1)
+
+        Track_index_to_predict = torch.zeros(Obj_trajs.shape[0], dtype=torch.long).to(self.device)
+
+        # get one hot encoding of agent types
+        Obj_types_hot = np.zeros((T.shape[0], T.shape[1], self.cfg['num_agent_types']))
+        Obj_types_hot[T == '0', 0] = 1
+        Obj_types_hot[T == 'V', 1] = 1
+        Obj_types_hot[T == 'M', 2] = 1
+        Obj_types_hot[T == 'B', 3] = 1
+        Obj_types_hot[T == 'P', 4] = 1 
+
+        Obj_types_hot = torch.from_numpy(Obj_types_hot).float().to(self.device)
+
+        assert (Obj_types_hot.sum(-1) == 1).all(), "One hot encoding failed"
+
+        # Get sizes
+        Obj_sizes = torch.from_numpy(S).float().to(self.device) # Shape (batch_size, num_agents, 2)
+
+        # Get graphs
+        if graph is None:
+            # Assume  num_road_segments = 0, num_pts_per_segment = 0
+            map_polylines = torch.zeros(Obj_trajs.shape[0], 0, 0, 3).to(self.device)
+            map_polylines_mask = torch.zeros(Obj_trajs.shape[0], 0, 0).to(self.device)
+            map_type_hot = torch.zeros(Obj_trajs.shape[0], 0, 4).to(self.device)
+            map_info = torch.zeros(Obj_trajs.shape[0], 0, 1).to(self.device)
+        else:
+            map_polylines = []
+            map_type = []
+            map_info = []
+            max_len_batch = 0
+            for i in range(len(graph)):
+                centerlines = graph[i].centerlines
+                lane_types = graph[i].lane_type
+                max_len_scene = max([len(centerline) for centerline in centerlines])
+                c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
+
+                max_len_batch = max(max_len_batch, max_len_scene)
+                map_polylines.append(c)
+
+                types = np.array([lane_type[0] for lane_type in lane_types])
+                info  = np.array([lane_type[1] for lane_type in lane_types])
+
+                map_type.append(types)
+                map_info.append(info)
+
+            max_num_roads = max([len(centerlines) for centerlines in map_polylines])
+            for i in range(len(map_polylines)):
+                num_roads, len_roads = map_polylines[i].shape[:2]
+                map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
+                map_type[i] = np.pad(map_type[i], (0,max_num_roads - num_roads), constant_values='PEDESTRIAN')
+                map_info[i] = np.pad(map_info[i], (0,max_num_roads - num_roads), constant_values=0)
+
+            map_type = np.array(map_type) # Shape (batch_size, num_road_segments)
+            map_type_hot = np.zeros((map_type.shape[0], map_type.shape[1], 4))
+            map_type_hot[map_type == 'VEHICLE', 0] = 1
+            map_type_hot[map_type == 'BIKE', 1] = 1
+            map_type_hot[map_type == 'BUS', 2] = 1
+            map_type_hot[map_type == 'PEDESTRIAN', 3] = 1
+            map_type_hot = torch.from_numpy(map_type_hot).float().to(self.device) # Shape (batch_size, num_road_segments, 4)
+
+            map_info = torch.from_numpy(np.array(map_info)).unsqueeze(-1).to(self.device) # Shape (batch_size, num_road_segments, 1)
+            
+            map_polylines_points = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
+            # Use the midpoint petween points instead of points
+            map_polylines = (map_polylines_points[:,:,1:] + map_polylines_points[:,:,:-1]) / 2 # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 2)
+            map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
+
+            # Get the map_polylines heading
+            map_polylines_heading = torch.atan2(map_polylines_points[:,:,1:,1] - map_polylines_points[:,:,:-1,1], 
+                                                map_polylines_points[:,:,1:,0] - map_polylines_points[:,:,:-1,0]) # Shape (batch_size, num_road_segemnts, num_pts_per_segment)
+            
+            # Combine map polyline stuff
+            map_polylines = torch.cat([map_polylines, map_polylines_heading.unsqueeze(-1)], dim=-1) # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 3)
+
+        # Get rotation center and angle
+        rot_center = Obj_trajs[:,0,-1,:2].clone() # Shape (batch_size, 2)
+        rot_angle = Obj_trajs[:,0,-1,4].clone()
+
+        # Prepare rotation matrix
+        c, s = torch.cos(rot_angle), torch.sin(rot_angle)
+        R = torch.stack([c, -s, s, c], dim=-1).reshape(-1, 2, 2)
+
+        # Translate and rotate all the positions to the rotation center
+        Obj_trajs[...,:2]  = Obj_trajs[...,:2] - rot_center.unsqueeze(1).unsqueeze(1)
+        Obj_trajs[...,:2]  = torch.matmul(Obj_trajs[...,:2], R.unsqueeze(1))
+        Obj_trajs[...,2:4] = torch.matmul(Obj_trajs[...,2:4], R.unsqueeze(1))
+        Obj_trajs[...,4]   = Obj_trajs[...,4] - rot_angle.unsqueeze(-1).unsqueeze(-1)
+
+        if graph is not None:
+            map_polylines[...,:2] = map_polylines[...,:2] - rot_center.unsqueeze(1).unsqueeze(1)
+            map_polylines[...,:2] = torch.matmul(map_polylines[...,:2], R.unsqueeze(1))
+            map_polylines[...,2]  = map_polylines[...,2] - rot_angle.unsqueeze(-1).unsqueeze(-1)
+
+        # Combine agent information
+        Obj_info = torch.cat([Obj_types_hot, Obj_sizes], dim=-1).unsqueeze(-2) # Shape (batch_size, num_agents, 1, 7)
+        Map_info = torch.cat([map_type_hot, map_info], dim=-1).unsqueeze(-2) # Shape (batch_size, num_road_segments, 1, 5)
+
+        # Add type and size to the input data
+        Obj_trajs = torch.cat([Obj_trajs, Obj_info.repeat_interleave(Obj_trajs.shape[-2], dim = -2)], dim=-1) # Shape (batch_size, num_agents, num_steps_in, 12)
+        map_polylines = torch.cat([map_polylines, Map_info.repeat_interleave(map_polylines.shape[-2], dim = -2)], dim=-1) # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 8)
+
+        # Remove nan values
+        Obj_trajs = torch.nan_to_num(Obj_trajs, nan=0.0)
+        map_polylines = torch.nan_to_num(map_polylines, nan=0.0)
+
+        inputs = {
+            'obj_trajs': Obj_trajs, # Should torch.tensor of shape (batch_size, num_agents, num_steps_in, 12) 
+            'obj_trajs_mask': Obj_trajs_mask, # Should torch.tensor of shape (batch_size, num_agents, num_steps_in)
+            'track_index_to_predict': Track_index_to_predict, # Should be torch.tensor of shape (batch_size)
+            'center_gt_trajs': None, # Should torch.tensor of shape (batch_size, num_steps_out, 12)
+            'center_gt_trajs_mask': None, # Should torch.tensor of shape (batch_size, num_steps_out)
+            'map_polylines': map_polylines, # Should torch.tensor of shape (batch_size, num_road_segemnts, num_pts_per_segment, 8)
+            'map_polylines_mask': map_polylines_mask, # Should torch.tensor of shape (batch_size, num_road_segemnts, num_pts_per_segment)
+        }
+
+
+        batch = {'input_dict': inputs}
+        return batch, rot_angle, rot_center
 
 
     def extract_data(self, X, Y, T, S, Pred_agents, graph):
@@ -600,3 +759,76 @@ class wayformer_unitraj(model_template):
 
 
 
+    def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
+        # Get range for stds
+        log_std_range = (-1.609, 5.0) # i.e. 0.2 - 150 m
+        rho_limit = 0.5
+
+        batch, rot_angle, rot_center = self.extract_data_tensor(X, None, T, S, graph)
+
+        assert (batch['input_dict']['obj_trajs_mask'].sum(1) > 0).all(), "At least one agent should be present in the scene"
+
+        output_dist = self.model(batch, eval = True)
+
+        # Sample trajectories
+        mode_prob = output_dist['predicted_probability'] # batch_size x num_modes
+        mode_dist = output_dist['predicted_trajectory'] # batch_size x num_modes x num_steps_out x 5
+        # The five values are mu_x, mu_y, sigma_x, sigma_y, rho_xy
+
+        # Build GMM (use multivaraiate normal distribution)
+        Pred = []
+        for i in range(len(mode_prob)):
+            num_modes = mode_prob[i].shape[0]
+            Pred.append([])
+            for j in range(num_modes):
+                mode_dist_ij = mode_dist[i,j]
+                mu_x = mode_dist_ij[...,0]
+                mu_y = mode_dist_ij[...,1]
+
+                # Limit std
+                log_sigma_x = torch.clip(mode_dist_ij[...,2], min=log_std_range[0], max=log_std_range[1])
+                log_sigma_y = torch.clip(mode_dist_ij[...,3], min=log_std_range[0], max=log_std_range[1])
+                sigma_x = torch.exp(log_sigma_x)  # (0.2m to 150m)
+                sigma_y = torch.exp(log_sigma_y)  # (0.2m to 150m)
+                rho_xy = torch.clip(mode_dist_ij[...,4], min = -rho_limit, max = rho_limit)
+
+                mu = torch.stack([mu_x, mu_y], dim=-1)
+
+                cov = torch.zeros((len(mu_x),2,2), dtype = torch.float32, device = self.device)
+                cov[...,0,0] = sigma_x ** 2
+                cov[...,1,1] = sigma_y ** 2
+                cov[...,0,1] = sigma_x * sigma_y * rho_xy
+                cov[...,1,0] = sigma_x * sigma_y * rho_xy
+
+                dist = MultivariateNormal(mu, cov)
+                Pred[-1].append(dist.sample([self.num_samples_path_pred]))
+            Pred[-1] = torch.stack(Pred[-1], dim=0)
+        
+        Pred = torch.stack(Pred, dim=0) # Shape (batch_size, num_modes, num_paths, num_steps_out, 2)
+
+        # Randomly select one of the predicted paths alonf the num_modes dimension, according to given probabilites
+        indices = torch.multinomial(mode_prob, self.num_samples_path_pred, replacement=True) # Shape (batch_size, num_samples_path_pred)
+
+        batch_ind = torch.arange(Pred.shape[0], device = self.device).unsqueeze(-1).repeat(1, self.num_samples_path_pred)
+        paths_ind = torch.arange(self.num_samples_path_pred, device = self.device).unsqueeze(0).repeat(Pred.shape[0], 1)
+        Pred = Pred[batch_ind, indices, paths_ind] # Shape (batch_size, num_samples_path_pred, num_steps_out, 2)
+        
+        # Rotate the predicted paths back
+        c, s = torch.cos(-rot_angle), torch.sin(-rot_angle)
+        R = torch.stack([c, -s, s, c], dim=-1).reshape(-1, 2, 2) # Shape (batch_size, 2, 2)
+        
+        Pred = torch.matmul(Pred, R.unsqueeze(1))
+        Pred = Pred + rot_center.unsqueeze(1).unsqueeze(1)
+
+        num_step_pred = Pred.shape[-2]
+        if num_steps <= num_step_pred:
+            Pred = Pred[..., :num_steps, :]
+        else: 
+            # use linear extrapolation
+            last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, 1, 2)
+            steps = torch.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, -1, 1).to(self.device).float()
+
+            Pred_exp = Pred[..., [-1],:] + last_vel * steps
+            Pred = torch.cat([Pred, Pred_exp], axis=-2)
+
+        return Pred.unsqueeze(1).repeat_interleave(X.shape[1], dim = 1)

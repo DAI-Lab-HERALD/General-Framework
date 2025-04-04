@@ -224,6 +224,138 @@ class autobot_girgis(model_template):
 
         return data
 
+    def extract_data_tensor(self, X, T, graph, Pred_agents):
+        # X.shape = (batch_size, num_agents, num_steps_in, num_features)
+        # Y.shape = (batch_size, num_agents, num_steps_out, num_features)
+        # T.shape = (batch_size, num_agents)
+        # S.shape = (batch_size, num_agents)
+        # Pred_agents.shape = (batch_size, num_agents)
+        missing_timesteps_start = torch.isfinite(X).all(-1).argmax(-1) # batch_size, num_agents
+        missing_timesteps_end = missing_timesteps_start + np.isfinite(X).all(-1).sum(-1) # batch_size, num_agents
+
+        missing_timesteps = torch.stack([missing_timesteps_start, missing_timesteps_end], -1) # batch_size, num_agents, 2
+        missing_timesteps = torch.unique(missing_timesteps.reshape(-1,2), dim = 0) # n, 2 
+
+        V_x = torch.zeros_like(X[...,0])
+        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
+            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_x[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 0], dim = -1)
+            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_x[mask, missing_timestep_start] = 0
+        
+        V_y = torch.zeros_like(X[...,0])
+        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
+            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_y[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 1], dim = -1)
+            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
+                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
+                V_y[mask, missing_timestep_start] = 0
+        
+
+        # Use atan2 between v_y and v_x to get theta
+        Theta = torch.arctan2(V_y, V_x)
+
+        Obj_trajs = torch.cat([X, V_x.unsqueeze(-1), V_y.unsqueeze(-1), Theta.unsqueeze(-1)], dim = -1)
+
+        # Ensure position data is there
+        missing_position = torch.isnan(X).any(-1)
+        Obj_trajs[missing_position] = torch.nan
+
+        # Find the agent closest to center of the scene
+        Pos_mean = torch.nanmean(Obj_trajs[:,:,-1,:2], dim=1) # Shape (B, 2)
+
+        Diff = Obj_trajs[:,:,-1,:2] - Pos_mean.unsqueeze(1) # Shape (B, num_agents, 2)
+        Dist = torch.norm(Diff, dim=-1) # Shape (B, num_agents)
+        Dist[~Pred_agents] += 200
+
+        # Get max num agents
+        max_num_agents = torch.isfinite(Dist).sum(-1).max()
+
+        ind_agent = torch.argsort(Dist, dim=-1) # Shape (B, num_agents)
+        ind_sample = torch.arange(Dist.shape[0]).unsqueeze(1).repeat_interleave(Dist.shape[1], dim=-1) # Shape (B, num_agents)
+
+        ind_agent = ind_agent[:,:max_num_agents]
+        ind_sample = ind_sample[:,:max_num_agents]
+
+        Obj_trajs = Obj_trajs[ind_sample, ind_agent] # Shape (B, num_agents, num_steps_in, 5)
+        Obj_types = T[ind_sample, ind_agent] # Shape (B, num_agents)
+
+        # Transform to torch tensors
+        Obj_trajs_mask = torch.isfinite(Obj_trajs).all(dim=-1).float()
+        Obj_trajs_out = None
+        Obj_trajs_out_mask = None
+
+        # get one hot encoding of agent types
+        Obj_types_hot = np.zeros((Obj_types.shape[0], Obj_types.shape[1], self.cfg['num_agent_types']))
+        Obj_types_hot[Obj_types == '0', 0] = 1
+        Obj_types_hot[Obj_types == 'V', 1] = 1
+        Obj_types_hot[Obj_types == 'M', 2] = 1
+        Obj_types_hot[Obj_types == 'B', 3] = 1
+        Obj_types_hot[Obj_types == 'P', 4] = 1 
+
+        Obj_types_hot = torch.from_numpy(Obj_types_hot).float().to(self.device)
+
+        assert (Obj_types_hot.sum(-1) == 1).all(), "One hot encoding failed"
+
+        # Get graphs
+        if graph is None:
+            # Assume num_roads = 0, and num_steps_in = 0
+            map_polylines = torch.zeros((Obj_trajs.shape[0], 0, 0, 2)).float().to(self.device)
+            map_polylines_mask = torch.zeros((Obj_trajs.shape[0], 0, 0)).bool().to(self.device)
+        else:
+            map_polylines = []
+            max_len_batch = 0
+            for i in range(len(graph)):
+                centerlines = graph[i].centerlines
+                max_len_scene = max([len(centerline) for centerline in centerlines])
+                c = np.stack([np.pad(centerline, ((0,max_len_scene - len(centerline)),(0,0)), constant_values=np.nan) for centerline in centerlines], axis=0)
+
+                max_len_batch = max(max_len_batch, max_len_scene)
+                map_polylines.append(c)
+
+            max_num_roads = max([len(centerlines) for centerlines in map_polylines])
+            for i in range(len(map_polylines)):
+                num_roads, len_roads = map_polylines[i].shape[:2]
+                map_polylines[i] = np.pad(map_polylines[i], ((0,max_num_roads - num_roads),(0,max_len_batch - len_roads),(0,0)), constant_values=np.nan)
+            
+            map_polylines = torch.from_numpy(np.stack(map_polylines, axis=0)).float().to(self.device)
+            # Use the midpoint petween points instead of points
+            map_polylines = (map_polylines[:,:,1:] + map_polylines[:,:,:-1]) / 2 # Shape (B, num_roads, num_steps_in, map_attr)
+            map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1) # Shape (B, num_roads, num_steps_in)
+
+
+        # Get rotation center and angle
+        rot_center = Obj_trajs[:,0,-1,:2].clone() # Shape (batch_size, 2)
+        # Translate all the positions to the rotation center
+        Obj_trajs[...,:2] = Obj_trajs[...,:2] - rot_center.unsqueeze(1).unsqueeze(1)
+        if graph is not None:
+            map_polylines = map_polylines - rot_center.unsqueeze(1).unsqueeze(1)
+
+        # Remove nan values
+        Obj_trajs = torch.nan_to_num(Obj_trajs, nan=0.0)
+        map_polylines = torch.nan_to_num(map_polylines, nan=0.0)
+        
+        # Put mask onto the last value
+        Obj_trajs = torch.cat([Obj_trajs, Obj_trajs_mask.unsqueeze(-1)], dim=-1)
+
+        # Divide into ego and agents
+        Ego_in = Obj_trajs[:,0] # Shape (B, num_steps_in, 5)
+        Agents_in = Obj_trajs[:,1:].permute(0,2,1,3) # Shape (B, num_steps_in, num_agents - 1, 5)
+        Ego_out = None
+        Agents_out = None
+
+        # Put mask onto polylines
+        map_polylines = torch.cat([map_polylines, map_polylines_mask.unsqueeze(-1)], dim=-1)
+
+        # Add agent_dim to polylines
+        map_polylines = map_polylines.unsqueeze(1) # Shape (B, 1, num_roads, num_steps_in, map_attr + 1)
+
+        return Ego_in, Ego_out, Agents_in, Agents_out, map_polylines, Obj_types_hot, rot_center, ind_sample, ind_agent
+    
+
 
     def extract_data(self, X, Y, T, graph, Pred_agents):
         # X.shape = (batch_size, num_agents, num_steps_in, num_features)
@@ -618,7 +750,7 @@ class autobot_girgis(model_template):
                 else: 
                     # use linear extrapolation
                     last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, num_agents, 1, 2)
-                    steps = np.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, -1, 1)
+                    steps = np.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, 1, -1, 1)
 
                     Pred_exp = Pred[..., [-1],:] + last_vel * steps
                     Pred = np.concatenate([Pred, Pred_exp], axis=-2)
@@ -633,3 +765,63 @@ class autobot_girgis(model_template):
             print('')
 
 
+
+
+    def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
+        Ego_in, _, Agents_in, _, map_polylines, Obj_types_hot, rot_center, ind_sample, ind_agent = self.extract_data_tensor(X, T, graph, Pred_agents)
+
+        # Set number of agents
+        self.model._M = Agents_in.shape[2]
+
+        # Adjust Agent_id to reordering
+        Agent_id    = Agent_id[ind_sample, ind_agent]
+        Pred_agents = Pred_agents[ind_sample, ind_agent]
+
+        out_dists, mode_prob = self.model(Ego_in, Agents_in, map_polylines, Obj_types_hot)
+        # output_dists.shape: (num_modes, num_time_outputs, batch_size, num_agents, 5)
+        # mode_prob.shape: (batch_size, num_modes)
+
+        out_dists = out_dists.permute(2, 0, 3, 1, 4) # Shape (batch_size, num_modes, num_agents, num_time_outputs, 5)
+        # The five values are mu_x, mu_y, sigma_x, sigma_y, rho_xy
+
+        # Build GMM (use multivaraiate normal distribution)
+        Pred = []
+        for i in range(len(mode_prob)):
+            num_modes = mode_prob[i].shape[0]
+            Pred.append([])
+            for j in range(num_modes):
+                mode_dist_ij = out_dists[i,j] # Shape (num_agents, num_steps_out, 5)
+
+                dist = Laplace(mode_dist_ij[...,:2], mode_dist_ij[...,2:4])
+                Pred[-1].append(dist.sample([self.num_samples_path_pred]))
+            Pred[-1] = torch.stack(Pred[-1], dim=0)
+        
+        Pred = torch.stack(Pred, dim=0) # Shape (batch_size, num_modes, num_paths, num_agents, num_steps_out, 2)
+
+        # Randomly select one of the predicted paths alonf the num_modes dimension, according to given probabilites
+        indices = torch.multinomial(mode_prob, self.num_samples_path_pred, replacement=True) # Shape (batch_size, num_samples_path_pred)
+
+        batch_ind = torch.arange(Pred.shape[0], device = self.device).unsqueeze(-1).repeat(1, self.num_samples_path_pred)
+        paths_ind = torch.arange(self.num_samples_path_pred, device = self.device).unsqueeze(0).repeat(Pred.shape[0], 1)
+        Pred = Pred[batch_ind, indices, paths_ind] # Shape (batch_size, num_samples_path_pred, num_agents, num_steps_out, 2)
+        
+        
+        # Translate the predicted paths back
+        Pred = Pred + rot_center.unsqueeze(1).unsqueeze(1).unsqueeze(1)
+
+        num_step_pred = Pred.shape[-2]
+        if num_steps <= num_step_pred:
+            Pred = Pred[..., :num_steps, :]
+        else: 
+            # use linear extrapolation
+            last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, num_agents, 1, 2)
+            steps = torch.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, 1, -1, 1).to(self.device).float()
+
+            Pred_exp = Pred[..., [-1],:] + last_vel * steps
+            Pred = torch.cat([Pred, Pred_exp], axis=-2)
+        
+        # Permute paths and agents dimension
+        Pred = Pred.transpose(0, 2, 1, 3, 4) # Shape (batch_size, num_agents, num_samples_path_pred, num_steps_out, 2)
+
+
+        return Pred

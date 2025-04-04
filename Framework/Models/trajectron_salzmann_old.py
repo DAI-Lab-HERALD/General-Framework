@@ -765,7 +765,7 @@ class trajectron_salzmann_old(model_template):
             self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
     
 
-    def predict_batch_tensor(self,X,T,S,C,img, img_m_per_px,graph, Pred_agents, num_steps):
+    def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
 
         assert Pred_agents[:,0].all() # only first agent is pred agent
         assert not Pred_agents[:,1:].any() # Only first agent is pred agent

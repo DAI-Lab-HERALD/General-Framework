@@ -475,7 +475,7 @@ class Helper:
         Returns:
             torch.Tensor: The converted tensor on the specified device.
         """
-        return torch.from_numpy(data).to(dtype=torch.float32, device=device)
+        return torch.from_numpy(data).to(device=device).float()
 
     @staticmethod
     def detach_tensor(*args):

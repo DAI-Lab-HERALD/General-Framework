@@ -425,12 +425,13 @@ If [adversarial attacks](https://github.com/DAI-Lab-HERALD/General-Framework/tre
 ```
   def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px,graph, Pred_agents, num_steps):
     r'''
-    This function is designed
+    This function is designed so that it is possible to get the derivative between prediction Y_pred and the 
+    initial input positions X.
     Inputs
     -------
       X : torch.Tensor
         This is the past observed data of the agents, in the form of a
-        :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float 
+        :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional torch tensor with float 
         values. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
       Y : np.ndarray
         This is the future observed data of the agents, in the form of a
