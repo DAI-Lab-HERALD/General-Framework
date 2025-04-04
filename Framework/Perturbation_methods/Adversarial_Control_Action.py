@@ -47,27 +47,26 @@ class Adversarial_Control_Action(perturbation_template):
         self.initialize_settings()
 
         # Load the perturbation model
-        pert_data_set = data_interface(
-            kwargs['data_set_dict'], kwargs['exp_parameters'])
+        pert_data_set = data_interface(self.kwargs['data_set_dict'], self.kwargs['exp_parameters'])
         pert_data_set.reset()
 
         # Select or load repective datasets
-        pert_data_set.get_data(**kwargs['data_param'])
+        pert_data_set.get_data(**self.kwargs['data_param'])
 
         # Exctract splitting method parameters
-        pert_splitter_name = kwargs['splitter_dict']['Type']
-        if 'repetition' in kwargs['splitter_dict'].keys():
+        pert_splitter_name = self.kwargs['splitter_dict']['Type']
+        if 'repetition' in self.kwargs['splitter_dict'].keys():
             # Check that in splitter dict the length of repetition is only 1 (i.e., only one splitting method)
-            if isinstance(kwargs['splitter_dict']['repetition'], list):
+            if isinstance(self.kwargs['splitter_dict']['repetition'], list):
 
-                if len(kwargs['splitter_dict']['repetition']) > 1:
+                if len(self.kwargs['splitter_dict']['repetition']) > 1:
                     raise ValueError("The splitting dictionary neccessary to define the trained model used " +
                                     "for the adversarial attack can only contain one singel repetition " +
                                     "(i.e, the value assigned to the key 'repetition' CANNOT be a list with a lenght larger than one).")
 
-                kwargs['splitter_dict']['repetition'] = kwargs['splitter_dict']['repetition'][0]
+                self.kwargs['splitter_dict']['repetition'] = self.kwargs['splitter_dict']['repetition'][0]
 
-            pert_splitter_rep = kwargs['splitter_dict']['repetition']
+            pert_splitter_rep = self.kwargs['splitter_dict']['repetition']
 
             # Check the value of the repetition key
             assert (isinstance(pert_splitter_rep, int) or
@@ -82,17 +81,17 @@ class Adversarial_Control_Action(perturbation_template):
                 pert_splitter_rep = (pert_splitter_rep,)
         else:
             pert_splitter_rep = (0,)
-        if 'test_part' in kwargs['splitter_dict'].keys():
-            pert_splitter_tp = kwargs['splitter_dict']['test_part']
+        if 'test_part' in self.kwargs['splitter_dict'].keys():
+            pert_splitter_tp = self.kwargs['splitter_dict']['test_part']
         else:
             pert_splitter_tp = 0.2
 
-        if 'train_pert' in kwargs['splitter_dict'].keys():
-            pert_splitter_train_pert = kwargs['splitter_dict']['train_pert']
+        if 'train_pert' in self.kwargs['splitter_dict'].keys():
+            pert_splitter_train_pert = self.kwargs['splitter_dict']['train_pert']
         else:
             pert_splitter_train_pert = False
-        if 'test_pert' in kwargs['splitter_dict'].keys():
-            pert_splitter_test_pert = kwargs['splitter_dict']['test_pert']
+        if 'test_pert' in self.kwargs['splitter_dict'].keys():
+            pert_splitter_test_pert = self.kwargs['splitter_dict']['test_pert']
         else:
             pert_splitter_test_pert = False
 
@@ -105,21 +104,18 @@ class Adversarial_Control_Action(perturbation_template):
         pert_splitter.split_data()
 
         # Extract per model dict
-        if isinstance(kwargs['model_dict'], str):
-            pert_model_name = kwargs['model_dict']
+        if isinstance(self.kwargs['model_dict'], str):
+            pert_model_name = self.kwargs['model_dict']
             pert_model_kwargs = {}
         elif isinstance(kwargs['model_dict'], dict):
-            assert 'model' in kwargs['model_dict'].keys(
-            ), "No model name is provided."
-            assert isinstance(kwargs['model_dict']['model'],
-                              str), "A model is set as a string."
-            pert_model_name = kwargs['model_dict']['model']
-            if not 'kwargs' in kwargs['model_dict'].keys():
+            assert 'model' in self.kwargs['model_dict'].keys(), "No model name is provided."
+            assert isinstance(self.kwargs['model_dict']['model'], str), "A model is set as a string."
+            pert_model_name = self.kwargs['model_dict']['model']
+            if not 'kwargs' in self.kwargs['model_dict'].keys():
                 pert_model_kwargs = {}
             else:
-                assert isinstance(
-                    kwargs['model_dict']['kwargs'], dict), "The kwargs value must be a dictionary."
-                pert_model_kwargs = kwargs['model_dict']['kwargs']
+                assert isinstance(self.kwargs['model_dict']['kwargs'], dict), "The kwargs value must be a dictionary."
+                pert_model_kwargs = self.kwargs['model_dict']['kwargs']
         else:
             raise TypeError("The provided model must be string or dictionary")
 
@@ -128,8 +124,7 @@ class Adversarial_Control_Action(perturbation_template):
         pert_model_class = getattr(pert_model_module, pert_model_name)
 
         # Initialize the model
-        self.pert_model = pert_model_class(
-            pert_model_kwargs, pert_data_set, pert_splitter, True)
+        self.pert_model = pert_model_class(pert_model_kwargs, pert_data_set, pert_splitter, True)
 
         # TODO: Check if self.pert_model can call the function that is needed later in perturb_batch (i.e., self.pert_model.adv_generation())
 
@@ -138,45 +133,52 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
-        self.name += '---' + kwargs['attack']
-        self.name += '---' + str(kwargs['gamma'])
-        self.name += '---' + str(kwargs['alpha'])
-        self.name += '---' + str(kwargs['num_samples_perturb'])
-        self.name += '---' + str(kwargs['max_number_iterations'])
-        self.name += '---' + str(kwargs['loss_function_1'])
-        self.name += '---' + str(kwargs['store_GT'])
-        self.name += '---' + str(kwargs['store_pred_1'])
-        if 'loss_function_2' in kwargs.keys() is not None:
-            self.name += '---' + str(kwargs['loss_function_2'])
-        if 'barrier_function_past' in kwargs.keys() is not None:
-            self.name += '---' + str(kwargs['barrier_function_past'])
-            self.name += '---' + str(kwargs['distance_threshold_past'])
-            self.name += '---' + str(kwargs['log_value_past'])
+        self.name += '---' + self.kwargs['attack']
+        self.name += '---' + str(self.kwargs['gamma'])
+        self.name += '---' + str(self.kwargs['alpha'])
+        self.name += '---' + str(self.kwargs['num_samples_perturb'])
+        self.name += '---' + str(self.kwargs['max_number_iterations'])
+        self.name += '---' + str(self.kwargs['loss_function_1'])
+        self.name += '---' + str(self.kwargs['GT_data'])
+        if 'loss_function_2' in self.kwargs.keys() is not None:
+            self.name += '---' + str(self.kwargs['loss_function_2'])
+        if 'barrier_function_past' in self.kwargs.keys() is not None:
+            self.name += '---' + str(self.kwargs['barrier_function_past'])
+            self.name += '---' + str(self.kwargs['distance_threshold_past'])
+            self.name += '---' + str(self.kwargs['log_value_past'])
         if 'barrier_function_future' in kwargs.keys() is not None:
-            self.name += '---' + str(kwargs['barrier_function_future'])
-            self.name += '---' + str(kwargs['distance_threshold_future'])
-            self.name += '---' + str(kwargs['log_value_future'])
+            self.name += '---' + str(self.kwargs['barrier_function_future'])
+            self.name += '---' + str(self.kwargs['distance_threshold_future'])
+            self.name += '---' + str(self.kwargs['log_value_future'])
 
     def initialize_settings(self):
         # Initialize parameters
-        self.num_samples = self.kwargs['num_samples_perturb']
-        self.max_number_iterations = self.kwargs['max_number_iterations']
+        if 'num_samples_perturb' in self.kwargs.keys():
+            self.num_samples = self.kwargs['num_samples_perturb']
+        else:
+            self.num_samples = 20
+            self.kwargs['num_samples_perturb'] = self.num_samples
+
+        if 'max_number_iterations' in self.kwargs.keys():
+            self.max_number_iterations = self.kwargs['max_number_iterations']
+        else:
+            self.max_number_iterations = 50
+            self.kwargs['max_number_iterations'] = self.max_number_iterations
         
         # Learning decay
-        self.gamma = self.kwargs['gamma']
-        self.alpha = self.kwargs['alpha']
+        if 'gamma' in self.kwargs.keys():
+            self.gamma = self.kwargs['gamma']
+        else:
+            self.gamma = 1.0
+            self.kwargs['gamma'] = self.gamma
 
-        # absolute clamping values
-        self.epsilon_curv_absolute = 0.2
+        if 'alpha' in self.kwargs.keys():
+            self.alpha = self.kwargs['alpha']
+        else:
+            self.alpha = 0.01
+            self.kwargs['alpha'] = self.alpha
 
-        # relative clamping values
-        self.epsilon_acc_relative = 2
-        self.epsilon_curv_relative = 0.05
 
-        # Learning rate adjusted
-        self.alpha_acc = (self.epsilon_acc_relative /
-                          self.epsilon_curv_relative) * self.alpha
-        self.alpha_curv = self.alpha
 
         # Car size
         self.car_length = 4.1
@@ -189,22 +191,86 @@ class Adversarial_Control_Action(perturbation_template):
         # FDE attack select (Minimize distance): 'FDE_Y_GT_Y_Pred_Min', 'FDE_Y_Perturb_Y_Pred_Min', 'FDE_Y_Perturb_Y_GT_Min', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Min', 'FDE_Y_pred_and_Y_pred_iteration_1_Min'
         # Collision attack select: 'Collision_Y_pred_tar_Y_GT_ego', 'Collision_Y_Perturb_tar_Y_GT_ego'
         # Other: 'Y_perturb', None
-        self.loss_function_1 = self.kwargs['loss_function_1']
-        self.loss_function_2 = self.kwargs['loss_function_2'] 
+        if 'loss_function_1' in self.kwargs.keys():
+            self.loss_function_1 = self.kwargs['loss_function_1']
+        else:
+            self.loss_function_1 = 'ADE_Y_GT_Y_Pred_Max'
+            self.kwargs['loss_function_1'] = self.loss_function_1
+        
+        if 'loss_function_2' in self.kwargs.keys():
+            self.loss_function_2 = self.kwargs['loss_function_2'] 
+        else:
+            self.loss_function_2 = None
+            self.kwargs['loss_function_2'] = self.loss_function_2
 
         # For barrier function past select: 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None
-        self.barrier_function_past = self.kwargs['barrier_function_past']
-        self.barrier_function_future = self.kwargs['barrier_function_future']  
+        if 'barrier_function_past' in self.kwargs.keys():
+            self.barrier_function_past = self.kwargs['barrier_function_past']
+        else:
+            self.barrier_function_past = None
+            self.kwargs['barrier_function_past'] = self.barrier_function_past
 
-        # Barrier function parameters
-        self.distance_threshold_past = self.kwargs['distance_threshold_past']
-        self.distance_threshold_future = self.kwargs['distance_threshold_future']
-        self.log_value_past = self.kwargs['log_value_past']
-        self.log_value_future = self.kwargs['log_value_future']
+        if self.barrier_function_past is not None:
+            assert self.barrier_function_past in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            if 'distance_threshold_past' in self.kwargs.keys():
+                self.distance_threshold_past = self.kwargs['distance_threshold_past']
+            else:
+                self.distance_threshold_past = 1
+                self.kwargs['distance_threshold_past'] = self.distance_threshold_past
+            
+            if 'log_value_past' in self.kwargs.keys():
+                self.log_value_past = self.kwargs['log_value_past']
+            else:
+                self.log_value_past = 1.5
+                self.kwargs['log_value_past'] = self.log_value_past
+        else:
+            self.distance_threshold_past = 1
+            self.log_value_past = 1.5
+
+        if 'barrier_function_future' in self.kwargs.keys():
+            self.barrier_function_future = self.kwargs['barrier_function_future']
+        else:
+            self.barrier_function_future = None
+            self.kwargs['barrier_function_future'] = self.barrier_function_future
+        
+        if self.barrier_function_future is not None:
+            assert self.barrier_function_future in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            if 'distance_threshold_future' in self.kwargs.keys():
+                self.distance_threshold_future = self.kwargs['distance_threshold_future']
+            else:
+                self.distance_threshold_future = 1
+                self.kwargs['distance_threshold_future'] = self.distance_threshold_future
+            
+            if 'log_value_future' in self.kwargs.keys():
+                self.log_value_future = self.kwargs['log_value_future']
+            else:
+                self.log_value_future = 1.5
+                self.kwargs['log_value_future'] = self.log_value_future
+        else:
+            self.distance_threshold_future = 1
+            self.log_value_future = 1.5
 
         # store which data
-        self.store_GT = self.kwargs['store_GT']
-        self.store_pred_1 = self.kwargs['store_pred_1']
+        if 'GT_data' in self.kwargs.keys():
+            self.GT_data = self.kwargs['GT_data']
+        else:
+            self.GT_data = 'no'
+            self.kwargs['GT_data'] = self.GT_data
+
+        assert self.GT_data in ['no', 'one', 'full'], "The GT data can only be 'no' (use unperturbed GT), 'one' (use first perturbed iteration) or 'full' (use last perturbed iteration)."
+        
+        # absolute clamping values
+        self.epsilon_curv_absolute = 0.2
+
+        # relative clamping values
+        self.epsilon_acc_relative = 2
+        self.epsilon_curv_relative = 0.05
+
+        # Learning rate adjusted
+        self.alpha_acc = (self.epsilon_acc_relative /
+                          self.epsilon_curv_relative) * self.alpha
+        self.alpha_curv = self.alpha
+
 
         # Randomized smoothing
         self.smoothing = False
@@ -442,11 +508,14 @@ class Adversarial_Control_Action(perturbation_template):
         # Add back additional data
         X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
 
-        if self.store_pred_1:
+        if self.GT_data == 'one':
+            # Use the first perturbed iteration
             return X_new_pert, Y_Pred_iter_1_new
-        elif self.store_GT:
+        elif self.GT_data == 'no':
+            # Use the unperturbed GT
             return X_new_pert, self.copy_Y
         else:
+            # Use the last perturbed iteration
             return X_new_pert, Y_new_pert
 
     def _ploting_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, loss_store, control_action, perturbation):
