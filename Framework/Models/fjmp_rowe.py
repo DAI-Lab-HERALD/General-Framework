@@ -930,6 +930,17 @@ class fjmp_rowe(model_template):
 
                 Pred = Pred[:, :, :self.num_samples_path_pred]
                 
+                num_step_pred = Pred.shape[-2]
+                if num_steps <= num_step_pred:
+                    Pred = Pred[..., :num_steps, :]
+                else: 
+                    # use linear extrapolation
+                    last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, num_agents, 1, 2)
+                    steps = np.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, 1, -1, 1)
+
+                    Pred_exp = Pred[..., [-1],:] + last_vel * steps
+                    Pred = np.concatenate([Pred, Pred_exp], axis=-2)
+                
                 # save predictions
                 self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
 

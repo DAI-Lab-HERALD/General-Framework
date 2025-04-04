@@ -2304,6 +2304,9 @@ class model_template():
                 C = C.to_numpy().astype(int)
                 C = np.take_along_axis(C, Agent_id, 1)
 
+                if (C == 4).all():
+                    C = None
+
             else:
                 C = None
             if mode == 'pred':
