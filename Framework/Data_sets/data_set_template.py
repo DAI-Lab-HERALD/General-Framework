@@ -3185,11 +3185,6 @@ class data_set_template():
             self.Domain['perturbation'] = False
             
             if self.is_perturbed:
-                # Check the current data type
-                if len(self.path_data_info()) > 2:
-                    raise AttributeError("Perturbation is currently not possible for data that includes more information than positions.")
-
-
                 # Get unperturbed save file
                 data_file_perturbde_parts = data_file.split('--Pertubation_')
                 data_file_unperturbed = data_file_perturbde_parts[0] + data_file_perturbde_parts[1][3:]

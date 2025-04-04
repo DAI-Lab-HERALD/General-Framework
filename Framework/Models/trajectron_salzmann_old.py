@@ -765,7 +765,10 @@ class trajectron_salzmann_old(model_template):
             self.save_predicted_batch_data(Pred_t, Sample_id, Agent_id)
     
 
-    def predict_batch_tensor(self,X,T,Domain,img, img_m_per_px,num_steps,num_samples = 20):
+    def predict_batch_tensor(self,X,T,S,C,img, img_m_per_px,graph, Pred_agents, num_steps):
+
+        assert Pred_agents[:,0].all() # only first agent is pred agent
+        assert not Pred_agents[:,1:].any() # Only first agent is pred agent
 
         X = X.to(self.trajectron.device)
         self.trajectron.model_registrar.to(self.trajectron.device)
@@ -790,7 +793,7 @@ class trajectron_salzmann_old(model_template):
                                     robot                 = None,
                                     map                   = img,
                                     prediction_horizon    = num_steps,
-                                    num_samples           = num_samples)
+                                    num_samples           = self.num_samples_path_pred)
         
 
         Pred = predictions.permute(1,0,2,3)
@@ -799,7 +802,7 @@ class trajectron_salzmann_old(model_template):
         # reverse translation
         Pred_t = Pred_r + center_pos
 
-        return Pred_t
+        return Pred_t.unsqueeze(1).repeat_interleave(X.shape[1], dim = 1)
 
     
     def check_trainability_method(self):

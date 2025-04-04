@@ -98,7 +98,7 @@ Additionally, one can also constrain the perturbation to specific datasets, by s
 ## Perturbing the dataset
 Lastly, one has to define the actual perturbation performed, using the function *perturb_batch*:
 ```
-  def perturb_batch(self, X, Y, Pred_agents, Perturb_agents):
+  def perturb_batch(self, X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, Agent_names, Domain):
     '''
     This function takes a batch of data and generates perturbations.
 
@@ -106,28 +106,108 @@ Lastly, one has to define the actual perturbation performed, using the function 
     ----------
     X : np.ndarray
       This is the past observed data of the agents, in the form of a
-      :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float values. 
-      Here, :math:`N_{data}` are the number of information available. This information can be found in 
-      *self.input_path_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-      the position data (*self.input_path_data_type = ['x', 'y', ...]*). 
-      If an agent is fully or at some timesteps partially not observed, then this can include np.nan values.
-    Y : np.ndarray, optional
+      :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float 
+      values. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
+    Y : np.ndarray
       This is the future observed data of the agents, in the form of a
       :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-      If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
-      This value is not returned for **mode** = *'pred'*.
+      If an agent is fully or for some timesteps partially not observed, then this can include np.nan values. 
     T : np.ndarray
-        This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
-        the type of agent observed (see definition of **provide_all_included_agent_types()** for available types).
-        If an agent is not observed at all, the value will instead be '0'.
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings that indicate
+      the type of agent observed. If an agent is not observed at all, the value will instead be '0'.
+    S : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents} \times 2\}` dimensional numpy array. It is the sizes of the agents,
+      where the first column (S[:,:,0]) includes the lengths of the agents (longitudinal size) and the second column
+      (S[:,:,1]) includes the widths of the agents (lateral size). If an agent is not observed at all, the values will
+      instead be np.nan.
+    C : np.ndarray
+      Optional return provided when return_categories = True. 
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes ints that indicate the
+      category of agent observed, where the categories are dataset specific.
+    img : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents} \times H \times W \times C\}` dimensional numpy array. 
+      It includes uint8 integer values that indicate either the RGB (:math:`C = 3`) or grayscale values (:math:`C = 1`)
+      of the map image with height :math:`H` and width :math:`W`. These images are centered around the agent 
+      at its current position, and are rotated so that the agent is right now driving to the right. 
+      If an agent is not observed at prediction time, 0 values are returned.
+    img_m_per_px : np.ndarray
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes float values that indicate
+      the resolution of the provided images in *m/Px*. If only black images are provided, this will be np.nan. 
+    graph : np.ndarray
+      This is a numpy array with length :math:`N_{samples}`, where the entries are pandas.Series with the following entries:
+        num_nodes         - number of nodes in the scene graph.
+
+        lane_idcs         - indices of the lane segments in the scene graph; array of length :math:`num_{nodes}`
+                            with *lane_idcs.max()* :math:`= num_{lanes} - 1`.
+
+        pre_pairs         - array with shape :math:`\{num_{lane pre} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            predecessor lane index.
+
+        suc_pairs         - array with shape :math:`\{num_{lane suc} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            successor lane index.
+
+        left_pairs        - array with shape :math:`\{num_{lane left} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            left neighbor lane index.
+
+        right_pairs       - array with shape :math:`\{num_{lane right} {\times} 2\}` lane_idcs pairs where the
+                            first value of the pair is the source lane index and the second value is source's
+                            right neighbor lane index.
+
+        left_boundaries   - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the left boundary in travel direction of the current lane.
+                            Here, :math:`num_{nodes,l} = ` *(lane_idcs == l).sum()*. 
+                                  
+        right_boundaries  - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the right boundary in travel direction of the current lane.
+
+        centerlines       - array with length :math:`num_{lanes}`, whose elements are arrays with shape
+                            :math:`\{num_{nodes,l} + 1 {\times} 2\}`, where :math:`num_{nodes,l} + 1` is the number
+                            of points needed to describe the middle between the left and right boundary in travel
+                            direction of the current lane.
+
+        lane_type         - an array with length :math:`num_{lanes}`, whose elements are tuples with the length :math:`2`,
+                            where the first element is a string that is either *'VEHILCE'*, '*BIKE*', or '*BUS*', and the 
+                            second entry is a boolean, which is true if the lane segment is part of an intersection.
+
+        pre               - predecessor nodes of each node in the scene graph;
+                            list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                            dilation as per the implementation in LaneGCN. 
+                            Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                            'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                            predecessor.
+
+        suc               - successor nodes of each node in the scene graph;
+                            list of dictionaries where the length of the list is equal to the number of scales for the neighbor
+                            dilation as per the implementation in LaneGCN. 
+                            Each dictionary contains the keys 'u' and 'v', where 'u' is the *node index* of the source node and
+                            'v' is the index of the target node giving edges pointing from a given source node 'u' to its
+                            successor.
+
+        left              - left neighbor nodes of each node in the scene graph;
+                            list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                            node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                            its left neighbor.
+
+        right             - right neighbor nodes of each node in the scene graph;
+                            list containing a dictionary with the keys 'u' and 'v', where 'u' is the *node index* of the source 
+                            node and 'v' is the index of the target node giving edges pointing from a given source node 'u' to 
+                            its right neighbor.
+                              
     Agent_names : np.ndarray
-        This is a :math:`N_{agents}` long numpy array. It includes strings with the names of the agents.
+      This is a :math:`N_{agents}` long numpy array. It includes strings with the names of the agents.
+
+
 
     Returns
     -------
     X_pert : np.ndarray
         This is the past perturbed data of the agents, in the form of a
-        :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float values. 
+        :math:`\{N_{samples} \times N_{agents} \times N_{I} \times 2\}` dimensional numpy array with float values. 
         If an agent is fully or at some timesteps partially not observed, then this can include np.nan values.
     Y_pert : np.ndarray, optional
         This is the future perturbed data of the agents, in the form of a

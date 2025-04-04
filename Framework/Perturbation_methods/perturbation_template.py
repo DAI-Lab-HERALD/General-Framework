@@ -19,7 +19,23 @@ class perturbation_template():
         # Ensure that the name identifying the perturbation method is defined
         assert hasattr(self, 'name'), "The name identifying the perturbation method is not defined."
 
+    def set_default_size(self, Type):
+        Size = pd.DataFrame(columns=Type.columns, index=Type.index, dtype = object)
 
+        default_dict = {
+            'V': np.array([5.0, 2.0]),
+            'M': np.array([2.0, 0.5]),
+            'B': np.array([2.0, 0.5]),
+            'P': np.array([0.5, 0.5]),
+        }
+        T_array = Type.to_numpy()
+
+        for typ, size in default_dict.items():
+            useful = T_array == typ
+            size_array = np.array([size] * useful.sum() + ['helper'], dtype = object)[:-1]
+            Size.values[useful] = size_array
+
+        return Size
 
     def perturb(self, data):
         self.data = data
@@ -33,6 +49,15 @@ class perturbation_template():
         Type        = data.Type
         Domain      = data.Domain
 
+        if data.size_given:
+            Size = data.Size
+        else:
+            Size = self.set_default_size(Type)
+
+        # Transform the data into numpy arrays
+        Agents = np.array(Input_path.columns)
+        pred_agents = np.array([agent in data.needed_agents for agent in Agents])
+
         # Get input data type
         self.input_path_data_type = self.data.path_data_info()
 
@@ -43,6 +68,15 @@ class perturbation_template():
         T = Type.to_numpy().astype(str)
         T[T == 'nan'] = '0'
 
+        # Transform size to array
+        overwrite = Size.isna().to_numpy()
+        S = Size.to_numpy()
+        
+        # overwrtite nan stuff
+        overwrite_array = np.array([np.full(2, np.nan)] * overwrite.sum() + ['test'], dtype = object)[:-1]
+        S[overwrite] = overwrite_array
+        S = np.stack(S.tolist())
+
         # Get length of future data
         N_O = np.zeros(len(Output_T), int)
         for i_sample in range(Output_T.shape[0]):
@@ -52,8 +86,6 @@ class perturbation_template():
 
             N_O[i_sample] = len(Output_T[i_sample])
 
-        # Transform the data into numpy arrays
-        Agents = np.array(Input_path.columns)
 
         X = np.ones(list(Input_path.shape) + [data.num_timesteps_in_real, 2], dtype = np.float32) * np.nan
         Y = np.ones(list(Output_path.shape) + [N_O.max(), 2], dtype = np.float32) * np.nan
@@ -88,6 +120,7 @@ class perturbation_template():
         X_sort = X[sorted_indices]
         Y_sort = Y[sorted_indices]
         T_sort = T[sorted_indices]
+        S_sort = S[sorted_indices]
         Domain_sort = Domain.iloc[sorted_indices]
 
         # Run perturbation
@@ -110,14 +143,95 @@ class perturbation_template():
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
             samples = np.arange(i_start, i_end)
+
+            # Predagents are the predefined agents
+            Pred_agents = np.tile(pred_agents[np.newaxis], (len(samples), 1))
+
+            # Get images and graphs
+            if data.includes_images() and hasattr(self, 'pert_model') and self.pert_model.can_use_map:
+                Img_needed = T_sort[samples] != '0'
+                domain_needed = Domain_sort.iloc[samples[np.where(Img_needed)[0]]]
+
+                # Only use the input positions
+                X_needed = X_sort[samples][Img_needed]
+                centre = X_needed[:, -1,:].copy()
+                x_rel = centre - X_needed[:, -2,:]
+                rot = np.angle(x_rel[:,0] + 1j * x_rel[:,1]) 
+
+                if hasattr(self, 'use_batch_extraction') and self.use_batch_extraction:
+                    print_progress = False
+                else:
+                    print_progress = True
+                
+                if self.pert_model.grayscale:
+                    img_needed = np.zeros((X_needed.shape[0], self.pert_model.target_height, self.pert_model.target_width, 1), dtype = np.uint8)
+                else:
+                    img_needed = np.zeros((X_needed.shape[0], self.pert_model.target_height, self.pert_model.target_width, 3), dtype = np.uint8)
+                img_needed = data.return_batch_images(domain_needed, centre, rot,
+                                                      target_height = self.pert_model.target_height, 
+                                                      target_width = self.pert_model.target_width,
+                                                      grayscale = self.pert_model.grayscale,
+                                                      Imgs_rot = img_needed,
+                                                      Imgs_index = np.arange(X_needed.shape[0]),
+                                                      print_progress = False)
+                img_m_per_px_needed = data.Images.Target_MeterPerPx.loc[domain_needed.image_id.iloc[Use]]
+
+                img = np.zeros((len(samples), X_sort.shape[1], *img_needed.shape[1:]), dtype = np.uint8)
+                img_m_per_px = np.zeros((len(samples), X_sort.shape[1]), dtype = np.float32)
+                img[Img_needed] = img_needed
+                img_m_per_px[Img_needed] = img_m_per_px_needed
+            else:
+                img = None
+                img_m_per_px = None
             
-            X_pert_sort[samples], Y_pert_sort[samples] = self.perturb_batch(X_sort[samples], Y_sort[samples], T_sort[samples], Agents, Domain_sort.iloc[samples])
+            if data.includes_graphs() and hasattr(self, 'pert_model') and self.pert_model.can_use_graph:
+                X_last_all = X_sort[samples][...,-1,:2].copy() # num_samples x num_agents x 2
+                X_last_all[~Pred_agents] = np.nan
+                if hasattr(self.pert_model, 'sceneGraph_radius'):
+                    radius = self.pert_model.sceneGraph_radius
+                else:
+                    radius = 100
+                
+                if hasattr(self.pert_model, 'sceneGraph_wave_length'):
+                    wave_length = self.pert_model.sceneGraph_wave_length
+                else:
+                    wave_length = 1.0
+                    
+                graph = np.full(len(samples), np.nan, dtype = object)
+                graph = data.return_batch_sceneGraphs(Domain_sort.iloc[samples], X_last_all, radius, wave_length, graph, np.arange(len(samples)), print_progress)
+                pass # TODO
+            else:
+                graph = None
+
+            # get categories
+            if 'category' in Domain.columns:
+                C = Domain_sort.iloc[samples].category
+                C = pd.DataFrame(C.to_list())
+
+                # Adjust columns to match self.data_set.Agents
+                C = C.reindex(columns = Agents, fill_value = np.nan)
+
+                # Replace missing agents
+                C = C.fillna(4)
+
+                # Get to numpy and apply indices
+                C = C.to_numpy().astype(int)
+            else:
+                C = None
+
+            # self.perturb_batch has to provide: X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps
+            X_pert_sort[samples], Y_pert_sort[samples] = self.perturb_batch(X_sort[samples], Y_sort[samples], T_sort[samples], S_sort[samples], C,
+                                                                            img, img_m_per_px, graph, Agents)
 
 
         sort_indices_inverse = np.argsort(sorted_indices)
         X_pert = X_pert_sort[sort_indices_inverse]
         Y_pert = Y_pert_sort[sort_indices_inverse]
 
+        # Get the additional required information.
+        data_type = data.path_data_info()
+        X_pert, Y_pert = self.extend_postion_data(X_pert, Y_pert, dt, data_type)
+        
         # Add unperturberd input and output columns to Domain
         Domain['Unperturbed_input'] = None
         Domain['Unperturbed_output'] = None
@@ -142,6 +256,145 @@ class perturbation_template():
         data.Output_path = Output_path
         data.Domain = Domain
         return data
+    
+
+    def extend_postion_data(self, P_in, P_out, dt, data_type):
+        if len(data_type) > 2:
+            # Combine trajectories
+            n_in = P_in.shape[2]
+            n_out = P_out.shape[2]
+
+            P_full = np.ones((P_in.shape[0], P_in.shape[1], n_in + n_out, len(data_type)), dtype = np.float32) * np.nan
+            P_full[..., :2] = np.concatenate((P_in, P_out), axis = -1) 
+
+            # Do marginal velocities first
+            if 'v_x' in data_type:
+                i_vx = data_type.index('v_x')
+
+                P_v_x = np.gradient(P_full[..., 0], axis = -1) * dt
+                P_full[..., i_vx] = P_v_x
+
+            if 'v_y' in data_type:
+                i_vy = data_type.index('v_y')
+                P_v_y = np.gradient(P_full[..., 1], axis = -1) * dt
+                P_full[..., i_vy] = P_v_y
+            
+            # Do marginal accelerations, based on previous velocities
+            if 'a_x' in data_type:
+                i_ax = data_type.index('a_x')
+                # If velocities are required, they will have been calculated already
+                if 'v_x' in data_type:
+                    i_vx = data_type.index('v_x')
+                    P_vx = P_full[..., i_vx]
+                else:
+                    P_vx = np.gradient(P_full[..., 0], axis = -1) * dt
+                P_ax = np.gradient(P_vx, axis = -1) * dt
+                P_full[..., i_ax] = P_ax
+            
+            if 'a_y' in data_type:
+                i_ay = data_type.index('a_y')
+                # If velocities are required, they will have been calculated already
+                if 'v_y' in data_type:
+                    i_vy = data_type.index('v_y')
+                    P_vy = P_full[..., i_vy]
+                else:
+                    P_vy = np.gradient(P_full[..., 1], axis = -1) * dt
+                P_ay = np.gradient(P_vy, axis = -1) * dt
+                P_full[..., i_ay] = P_ay
+
+            # Do total velocities, based on previous velocities
+            if 'v' in data_type:
+                i_v = data_type.index('v')
+                if 'v_x' in data_type:
+                    i_vx = data_type.index('v_x')
+                    P_vx = P_full[..., i_vx]
+                else:
+                    P_vx = np.gradient(P_full[..., 0], axis = -1) * dt
+                if 'v_y' in data_type:
+                    i_vy = data_type.index('v_y')
+                    P_vy = P_full[..., i_vy]
+                else:
+                    P_vy = np.gradient(P_full[..., 1], axis = -1) * dt
+                P_v = np.sqrt(P_vx**2 + P_vy**2)
+                P_full[..., i_v] = P_v
+            
+            # Do headings, based on previous velocities
+            if 'theta' in data_type:
+                i_theta = data_type.index('theta')
+                if 'v_x' in data_type:
+                    i_vx = data_type.index('v_x')
+                    P_vx = P_full[..., i_vx]
+                else:
+                    P_vx = np.gradient(P_full[..., 0], axis = -1) * dt
+                if 'v_y' in data_type:
+                    i_vy = data_type.index('v_y')
+                    P_vy = P_full[..., i_vy]
+                else:
+                    P_vy = np.gradient(P_full[..., 1], axis = -1) * dt
+                P_theta = np.arctan2(P_vy, P_vx)
+                P_full[..., i_theta] = P_theta
+
+            # Do total accelerations, based on previous velocities
+            if 'a' in data_type:
+                i_a = data_type.index('a')
+                if 'a_x' in data_type:
+                    i_ax = data_type.index('a_x')
+                    P_ax = P_full[..., i_ax]
+                else:
+                    # If velocities are required, they will have been calculated already
+                    if 'v_x' in data_type:
+                        i_vx = data_type.index('v_x')
+                        P_vx = P_full[..., i_vx]
+                    else:
+                        P_vx = np.gradient(P_full[..., 0], axis = -1) * dt
+                    P_ax = np.gradient(P_vx, axis = -1) * dt
+                if 'a_y' in data_type:
+                    i_ay = data_type.index('a_y')
+                    P_ay = P_full[..., i_ay]
+                else:
+                    # If velocities are required, they will have been calculated already
+                    if 'v_y' in data_type:
+                        i_vy = data_type.index('v_y')
+                        P_vy = P_full[..., i_vy]
+                    else:
+                        P_vy = np.gradient(P_full[..., 1], axis = -1) * dt
+                    P_ay = np.gradient(P_vy, axis = -1) * dt
+
+                P_a = np.sqrt(P_ax**2 + P_ay**2)
+                P_full[..., i_a] = P_a
+
+            # Do change in heading
+            if 'd_theta' in data_type:
+                i_d_theta = data_type.index('d_theta')
+                if 'theta' in data_type:
+                    i_theta = data_type.index('theta')
+                    P_theta = P_full[..., i_theta]
+                else:                
+                    if 'v_x' in data_type:
+                        i_vx = data_type.index('v_x')
+                        P_vx = P_full[..., i_vx]
+                    else:
+                        P_vx = np.gradient(P_full[..., 0], axis = -1) * dt
+                    if 'v_y' in data_type:
+                        i_vy = data_type.index('v_y')
+                        P_vy = P_full[..., i_vy]
+                    else:
+                        P_vy = np.gradient(P_full[..., 1], axis = -1) * dt
+                    P_theta = np.arctan2(P_vy, P_vx)
+
+                P_theta = np.unwrap(P_theta, axis = -1)
+                P_d_theta = np.gradient(P_theta, axis = -1) * dt
+                P_full[..., i_d_theta] = P_d_theta
+
+            P_in_full = P_full[..., :n_in]
+            P_out_full = P_full[..., n_in:]
+            
+            return P_in_full, P_out_full
+        else:   
+            return P_in, P_out
+
+
+
         
     
     def perturb_batch(self, X, Y, T, Agent_names, Domain):

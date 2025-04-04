@@ -241,7 +241,42 @@ class Helper:
             X (np.ndarray): A 4-dimensional array of shape (batch size, number agents, number time steps observed, coordinates (x,y)).
             Y (np.ndarray): A 4-dimensional array of shape (batch size, number agents, number time steps future, coordinate (x,y)).
             agent (np.ndarray): A 1-dimensional array indicating the type of each agent.
-            flip_dimensions (bool): A boolean indicating whether dimension flipping is required.
+
+        Returns:
+            tuple: A tuple containing:
+                   - agent_order (np.ndarray or None): The new order of agents, or None if no flipping is required.
+                   - tar_index (int): The index of the target agent.
+                   - ego_index (int): The index of the ego agent.
+        """
+        # Early exit if no dimension flipping is required
+
+        # Determine the indices for the target and ego agents
+        i_agent_perturbed = np.where(agent == 'tar')[0][0]
+        i_agent_collision = np.where(agent == 'ego')[0][0]
+
+        # Create an array of indices for other agents, excluding the target and ego agents
+        other_agents = np.arange(Y.shape[1])
+        other_agents = np.delete(other_agents, [i_agent_perturbed, i_agent_collision])
+
+        # Construct a new order for agents: target, ego, followed by the rest
+        agent_order = np.array([i_agent_perturbed, i_agent_collision, *other_agents])
+
+        # Rearrange the X and Y arrays according to the new agent order
+        X = X[:, agent_order, :, :]
+        Y = Y[:, agent_order, :, :]
+
+        # Return the index of tar and ego agent
+        tar_index = 0
+        ego_index = 1
+
+        return X, Y, agent_order, tar_index, ego_index
+    
+    def flip_dimensions_index(agent):
+        """
+        Flips the dimensions of the input arrays based on the specified agent and reorders the agent dimensions.
+
+        Args:
+            agent (np.ndarray): A 1-dimensional array indicating the type of each agent.
 
         Returns:
             tuple: A tuple containing:
@@ -258,23 +293,17 @@ class Helper:
         i_agent_collision = np.where(agent == 'ego')[0][0]
 
         # Create an array of indices for other agents, excluding the target and ego agents
-        other_agents = np.arange(Y.shape[1])
-        other_agents = np.delete(
-            other_agents, [i_agent_perturbed, i_agent_collision])
+        other_agents = np.arange(len(agent))
+        other_agents = np.delete(other_agents, [i_agent_perturbed, i_agent_collision])
 
         # Construct a new order for agents: target, ego, followed by the rest
-        agent_order = np.array(
-            [i_agent_perturbed, i_agent_collision, *other_agents])
-
-        # Rearrange the X and Y arrays according to the new agent order
-        X = X[:, agent_order, :, :]
-        Y = Y[:, agent_order, :, :]
+        agent_order = np.array([i_agent_perturbed, i_agent_collision, *other_agents])
 
         # Return the index of tar and ego agent
         tar_index = 0
         ego_index = 1
 
-        return X, Y, agent_order, tar_index, ego_index
+        return agent_order, tar_index, ego_index
 
     def get_dimensions_physical_bounds(constraints, agent_order):
         """

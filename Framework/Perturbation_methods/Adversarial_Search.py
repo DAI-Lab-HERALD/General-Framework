@@ -126,13 +126,17 @@ class Adversarial_Search(perturbation_template):
         pert_model_class = getattr(pert_model_module, pert_model_name)
 
         # Initialize the model
-        self.pert_model = pert_model_class(
-            pert_model_kwargs, pert_data_set, pert_splitter, True)
+        self.pert_model = pert_model_class(pert_model_kwargs, pert_data_set, pert_splitter, True)
+        assert hasattr(self.pert_model, 'predict_batch_tensor'), "The model does not have the method 'predict_batch_tensor'."
 
         # TODO: Check if self.pert_model can call the function that is needed later in perturb_batch (i.e., self.pert_model.adv_generation())
 
         # Train the model on the given training set
         self.pert_model.train()
+
+        # After training, set model up to only take position input
+        self.pert_model.input_data_type = ['x', 'y']
+        self.pert_model.num_samples_path_pred = self.num_samples
 
         # Define the name of the perturbation method
         self.name = self.pert_model.model_file.split(os.sep)[-1][:-4]
@@ -200,9 +204,6 @@ class Adversarial_Search(perturbation_template):
         # Plot the loss over the iterations
         self.plot_loss = True
 
-        # Image neural network
-        self.image_neural_network = False
-
         # Left turn settings!!!
         # Plot input data 
         self.plot_input = False
@@ -220,7 +221,7 @@ class Adversarial_Search(perturbation_template):
         # Do a assertion check on settings
         self._assertion_check()
 
-    def perturb_batch(self, X, Y, T, agent, Domain, samples):
+    def perturb_batch(self, X, Y, T, S, C, img, img_m_per_px, graph, Agent_names): 
         '''
         This function takes a batch of data and generates perturbations.
 
@@ -254,16 +255,13 @@ class Adversarial_Search(perturbation_template):
             :math:`\{N_{samples} \times N_{agents} \times N_{O} \times 2\}` dimensional numpy array with float values. 
             If an agent is fully or at some timesteps partially not observed, then this can include np.nan values. 
         '''
-        # Only use input positions
-        X_rest = X[..., 2:]
-        X = X[..., :2]
-
         # Prepare the data (ordering/spline/edge_cases)
-        X, Y = self._prepare_data(X, Y, T, agent, Domain)
+        X, Y, T, S, C, img, img_m_per_px = self._prepare_data(X, Y, T, S, C, img, img_m_per_px, Agent_names)
+        Pred_agents = np.zeros((X.shape[0], X.shape[1]), dtype=bool)
+        Pred_agents[:, 0] = True
 
         # Prepare data for adversarial attack (tensor/image prediction model)
-        X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(
-            X, Y)
+        X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(X, Y)
 
         # # Create a tensor for the perturbation
         # perturbation = torch.zeros_like(
@@ -297,8 +295,11 @@ class Adversarial_Search(perturbation_template):
                 positions_perturb + perturbation_new, X, Y, self.future_action_included)
 
             # Forward pass through the model
-            Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
-                                                          num_steps=self.num_steps_predict, num_samples=self.num_samples)
+            Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, S=S, C=C, 
+                                                          img=img, img_m_per_px=img_m_per_px, graph = graph,
+                                                          Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
+            # Only use actually predicted target agent
+            Y_pred = Y_pred[:,0]
 
             if i == 0:
                 # check conversion
@@ -335,8 +336,11 @@ class Adversarial_Search(perturbation_template):
                     positions_perturb + perturbation_new, X, Y, self.future_action_included)
                 
                 # Forward pass through the model
-                Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
-                                                            num_steps=self.num_steps_predict, num_samples=self.num_samples)
+                Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, S=S, C=C, 
+                                                              img=img, img_m_per_px=img_m_per_px, graph = graph,
+                                                              Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
+                # Only use actually predicted target agent
+                Y_pred = Y_pred[:,0]
 
                 losses = self._loss_module(
                     X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
@@ -374,8 +378,11 @@ class Adversarial_Search(perturbation_template):
             positions_perturb + perturbation_storage, X, Y, self.future_action_included)
 
         # Forward pass through the model
-        Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, Domain=Domain, img=self.img, img_m_per_px=self.img_m_per_px,
-                                                      num_steps=self.num_steps_predict, num_samples=self.num_samples)
+        Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, S=S, C=C,
+                                                      img=img, img_m_per_px=img_m_per_px, graph = graph,
+                                                      Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
+        # Only use actually predicted target agent
+        Y_pred = Y_pred[:,0]
 
         # Gaussian smoothing module
         self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
@@ -397,9 +404,6 @@ class Adversarial_Search(perturbation_template):
         # Flip dimensions back
         X_new_pert, Y_new_pert, Y_Pred_iter_1_new = Helper.flip_dimensions_2(
             X_new, Y_new, Y_Pred_iter_1_new, self.agent_order)
-
-        # Add back additional data
-        X_new_pert = np.concatenate((X_new_pert, X_rest), axis=-1)
         
         if self.store_pred_1:
             return X_new_pert, Y_Pred_iter_1_new
@@ -525,50 +529,8 @@ class Adversarial_Search(perturbation_template):
 
         Helper.validate_adversarial_loss(self.loss_function_1)
 
-    def _load_images(self, X, Domain):
-        """
-        Loads images required for neural netwrok on the given observed positions and domain information.
 
-        Parameters:
-        X (array-like): The ground truth observed position tensor with array shape (batch size, number agents, number time steps observed, coordinates (x,y)).
-        Domain (DataFrame): A DataFrame containing domain-specific information related to the agents.
-
-        Returns:
-        img (array-like): Loaded images in the required format and dimensions.
-        img_m_per_px (array-like): Meter-per-pixel values for the images.
-        """
-        Img_needed = np.zeros(X.shape[:2], bool)
-        Img_needed[:, 0] = True
-
-        if self.data.includes_images():
-            if self.pert_model.grayscale:
-                channels = 1
-            else:
-                channels = 3
-            img = np.zeros((*Img_needed.shape, self.pert_model.target_height,
-                            self.pert_model.target_width, channels), np.uint8)
-            img_m_per_px = np.ones(Img_needed.shape, np.float32) * np.nan
-
-            centre = X[Img_needed, -1, :]
-            x_rel = centre - X[Img_needed, -2, :]
-            rot = np.angle(x_rel[:, 0] + 1j * x_rel[:, 1])
-            domain_needed = Domain.iloc[np.where(Img_needed)[0]]
-
-            img[Img_needed] = self.data.return_batch_images(domain_needed, centre, rot,
-                                                            target_height=self.pert_model.target_height,
-                                                            target_width=self.pert_model.target_width,
-                                                            grayscale=self.pert_model.grayscale,
-                                                            Imgs_rot=img[Img_needed],
-                                                            Imgs_index=np.arange(Img_needed.sum()))
-
-            img_m_per_px[Img_needed] = self.data.Images.Target_MeterPerPx.loc[domain_needed.image_id]
-        else:
-            img = None
-            img_m_per_px = None
-
-        return img, img_m_per_px
-
-    def _prepare_data(self, X, Y, T, agent, Domain):
+    def _prepare_data(self, X, Y, T, S, C, I1, I2, agent):
         """
         Prepares data for further processing by removing NaN values,
         flipping dimensions of the agent data, and storing relevant
@@ -579,7 +541,6 @@ class Adversarial_Search(perturbation_template):
         Y (array-like): The ground truth future postition tensor with array shape (batch size, number agents, number time steps future, coordinates (x,y))
         T (int): Type of agent observed.
         agent (object): It includes strings with the names of the agents.
-        Domain (object): A domain object specifying the context of the agents
 
         Returns:
         X (array-like): Processed observed feature matrix.
@@ -594,16 +555,19 @@ class Adversarial_Search(perturbation_template):
         self.copy_Y = Y.copy()
 
         # Flip dimensions agents
-        X, Y, self.agent_order, self.tar_agent_index, self.ego_agent_index = Helper.flip_dimensions(
-            X=X, Y=Y, agent=agent)
+        self.agent_order, self.tar_agent_index, self.ego_agent_index = Helper.flip_dimensions_index(agent)
 
-        self.physical_bounds = Helper.get_dimensions_physical_bounds(
-            constraints=self.contstraints, agent_order=self.agent_order)
+        X  = X[:, self.agent_order]
+        Y  = Y[:, self.agent_order]
+        T  = T[:, self.agent_order]
+        S  = S[:, self.agent_order]
+        C  = C[:, self.agent_order]
+        I1 = I1[:, self.agent_order]
+        I2 = I2[:, self.agent_order]
 
-        self.T = T
-        self.Domain = Domain
+        self.physical_bounds = Helper.get_dimensions_physical_bounds( constraints=self.contstraints, agent_order=self.agent_order)
 
-        return X, Y
+        return X, Y, T, S, C, I1, I2
 
     def _prepare_data_attack(self, X, Y):
         """
@@ -633,15 +597,6 @@ class Adversarial_Search(perturbation_template):
         data_barrier = torch.cat((X, Y), dim=2)
 
         self.mask_data = Helper.compute_mask_values_tensor(positions_perturb)
-
-        # Load images for adversarial attack (change when using image)
-        # img, img_m_per_px = self._load_images(X,Domain)
-        self.img, self.img_m_per_px = None, None
-
-        # Show image
-        if self.image_neural_network:
-            plot_img = Image.fromarray(self.img[0, 0, :], 'RGB')
-            plot_img.show()
 
         # Create storage for the adversarial prediction on nominal setting
         Y_Pred_iter_1 = torch.zeros(
