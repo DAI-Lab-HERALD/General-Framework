@@ -561,9 +561,11 @@ class Adversarial_Search(perturbation_template):
         Y  = Y[:, self.agent_order]
         T  = T[:, self.agent_order]
         S  = S[:, self.agent_order]
-        C  = C[:, self.agent_order]
-        I1 = I1[:, self.agent_order]
-        I2 = I2[:, self.agent_order]
+        if C is not None:
+            C  = C[:, self.agent_order]
+        if I1 is not None:
+            I1 = I1[:, self.agent_order]
+            I2 = I2[:, self.agent_order]
 
         self.physical_bounds = Helper.get_dimensions_physical_bounds( constraints=self.contstraints, agent_order=self.agent_order)
 

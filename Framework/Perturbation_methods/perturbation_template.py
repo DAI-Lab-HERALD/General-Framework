@@ -134,6 +134,26 @@ class perturbation_template():
 
         if contstraints is not None:
             self.contstraints = contstraints(X_pert_sort, Y_pert_sort, dt)
+            
+        # Prepare graphs
+        if 'graph_id' in Domain_sort.columns:
+            graph_ids = Domain_sort.graph_id.to_numpy()
+            Path_ids = Domain_sort[['Path_ID', 'path_addition']].to_numpy().astype(str)
+
+            # Get unique Path_ids, with index
+            index_unique_path = np.unique(Path_ids, axis = 0, return_index = True)[1]
+            graph_ids_old = graph_ids[index_unique_path]
+
+            # For each unique graph_id, check how often they are repeated
+            unqiue_graph_id, counts = np.unique(graph_ids_old, return_counts = True)
+
+            # Transfer to dictionary
+            data.graph_count = dict(zip(unqiue_graph_id, counts))
+
+            if np.max(counts) == 1:
+                data.graph_count_always_one = True
+            else:
+                data.graph_count_always_one = False
 
         # Go through the data 
         num_batches = int(np.ceil(X.shape[0] / self.batch_size))
@@ -184,7 +204,7 @@ class perturbation_template():
                 img = None
                 img_m_per_px = None
             
-            if data.includes_graphs() and hasattr(self, 'pert_model') and self.pert_model.can_use_graph:
+            if data.includes_sceneGraphs() and hasattr(self, 'pert_model') and self.pert_model.can_use_graph:
                 X_last_all = X_sort[samples][...,-1,:2].copy() # num_samples x num_agents x 2
                 X_last_all[~Pred_agents] = np.nan
                 if hasattr(self.pert_model, 'sceneGraph_radius'):
@@ -198,7 +218,7 @@ class perturbation_template():
                     wave_length = 1.0
                     
                 graph = np.full(len(samples), np.nan, dtype = object)
-                graph = data.return_batch_sceneGraphs(Domain_sort.iloc[samples], X_last_all, radius, wave_length, graph, np.arange(len(samples)), print_progress)
+                graph = data.return_batch_sceneGraphs(Domain_sort.iloc[samples], X_last_all, radius, wave_length, graph, np.arange(len(samples)), print_progress = False)
                 pass # TODO
             else:
                 graph = None

@@ -549,9 +549,11 @@ class Adversarial_Position(perturbation_template):
         Y  = Y[:, self.agent_order]
         T  = T[:, self.agent_order]
         S  = S[:, self.agent_order]
-        C  = C[:, self.agent_order]
-        I1 = I1[:, self.agent_order]
-        I2 = I2[:, self.agent_order]
+        if C is not None:
+            C  = C[:, self.agent_order]
+        if I1 is not None:
+            I1 = I1[:, self.agent_order]
+            I2 = I2[:, self.agent_order]
 
         return X, Y, T, S, C, I1, I2
 
