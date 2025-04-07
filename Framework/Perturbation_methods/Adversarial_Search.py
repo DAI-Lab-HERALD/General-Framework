@@ -299,7 +299,7 @@ class Adversarial_Search(perturbation_template):
                                                           img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                           Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
             # Only use actually predicted target agent
-            Y_pred = Y_pred[:,0]
+            Y_Pred = Y_Pred[:,0]
 
             if i == 0:
                 # check conversion
@@ -340,7 +340,7 @@ class Adversarial_Search(perturbation_template):
                                                               img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                               Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
                 # Only use actually predicted target agent
-                Y_pred = Y_pred[:,0]
+                Y_Pred = Y_Pred[:,0]
 
                 losses = self._loss_module(
                     X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
@@ -382,7 +382,7 @@ class Adversarial_Search(perturbation_template):
                                                       img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                       Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
         # Only use actually predicted target agent
-        Y_pred = Y_pred[:,0]
+        Y_Pred = Y_Pred[:,0]
 
         # Gaussian smoothing module
         self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(

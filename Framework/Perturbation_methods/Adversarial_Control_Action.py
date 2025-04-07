@@ -385,7 +385,7 @@ class Adversarial_Control_Action(perturbation_template):
                                                           img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                           Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
             # Only use actually predicted target agent
-            Y_pred = Y_pred[:,0]
+            Y_Pred = Y_Pred[:,0]
 
             if i == 0:
                 # Store the first prediction
@@ -393,12 +393,15 @@ class Adversarial_Control_Action(perturbation_template):
                 Helper
                 
             losses = self._loss_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
-    
-            print(losses)
+
+            print('')
+            print('Iteration {}: Initial losses {}'.format(i, losses), flush = True)
 
             # Calculate gradients
             losses.sum().backward()
             grad = perturbation.grad
+            
+            assert torch.isfinite(grad).all(), "Gradient contains NaN or Inf values."
 
             # copy learning rates
             alpha_acc_iter = alpha_acc.clone()
@@ -444,15 +447,18 @@ class Adversarial_Control_Action(perturbation_template):
                                                               img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                               Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
                 # Only use actually predicted target agent
-                Y_pred = Y_pred[:,0]
+                Y_Pred = Y_Pred[:,0]
                 
                 losses = self._loss_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
                 
-                print(losses)
+                max_perturb = torch.norm(X_new - X, dim = -1).max().item()
+                print('Iteration {}: Perturbation attempt {} - max_perturbation {} m'. format(i, inner_loop_count, max_perturb), flush = True)
+                print('Iteration {}: Perturbation attempt {} - losses {}'.format(i, inner_loop_count, losses), flush = True)
 
                 # Check for NaN values in losses
                 invalid_mask = torch.isnan(losses) | torch.isinf(losses)
                 if invalid_mask.any():
+                    
                     # check if agent crashes replace tensor with zero tensor
                     if inner_loop_count >= 20:
                         perturbation_new[invalid_mask] = torch.zeros_like(perturbation_new[invalid_mask])
@@ -486,7 +492,7 @@ class Adversarial_Control_Action(perturbation_template):
                                                       img=img, img_m_per_px=img_m_per_px, graph = graph,
                                                       Pred_agents = Pred_agents, num_steps = self.num_steps_predict)
         # Only use actually predicted target agent
-        Y_pred = Y_pred[:,0]
+        Y_Pred = Y_Pred[:,0]
 
         # Gaussian smoothing module
         self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
