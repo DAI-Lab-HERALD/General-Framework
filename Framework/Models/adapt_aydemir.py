@@ -16,6 +16,11 @@ from ADAPT.utils.utils import rotate
 
 
 
+def safe_atan2(y, x):
+    Evaluate = (y != 0.0) | (x != 0.0) # Shape (batch_size, num_agents, num_steps_in)
+    theta = torch.zeros_like(x) # Shape (batch_size, num_agents, num_steps_in)
+    theta[Evaluate] = torch.atan2(y[Evaluate], x[Evaluate]) # Shape (batch_size, num_agents, num_steps_in)
+    return theta
 
 class adapt_aydemir(model_template):
     '''
@@ -391,7 +396,7 @@ class adapt_aydemir(model_template):
             angles = span[interval:] - span[:-interval] # Shape (4, 2)
             
             der_x, der_y = torch.mean(angles, dim=0) 
-            angle = -torch.arctan2(der_y, der_x) + 0.5 * torch.pi
+            angle = - safe_atan2(der_y, der_x) + 0.5 * torch.pi # Shape (2,)
 
             # normalize the pos_matrix around the target agent
             rot_matrix = torch.stack([torch.stack([torch.cos(angle), torch.sin(angle)]), 
@@ -471,7 +476,7 @@ class adapt_aydemir(model_template):
             batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float().to(tensor.device)
 
             dpos = tensor[~missing_agent_mask, -1, 2:4] - tensor[~missing_agent_mask, -1, :2] # Shape (num_agents, 2)
-            degree = torch.atan2(dpos[:,1],dpos[:,0]) # Shape (num_agents,)
+            degree = safe_atan2(dpos[:,1],dpos[:,0]) # Shape (num_agents,)
             x = tensor[~missing_agent_mask, -1, 2] # Shape (num_agents,)
             y = tensor[~missing_agent_mask, -1, 3] # Shape (num_agents,)
             pre_x = tensor[~missing_agent_mask, -1, 0] # Shape (num_agents,)

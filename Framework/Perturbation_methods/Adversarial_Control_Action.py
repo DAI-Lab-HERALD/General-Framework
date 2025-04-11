@@ -411,8 +411,8 @@ class Adversarial_Control_Action(perturbation_template):
             assert torch.isfinite(grad[:,0]).all(), "Gradient contains NaN or Inf values."
 
             # Clamp grad to half of the local limits
-            grad[:, :, :, 0].clamp_(-self.epsilon_acc_relative * 5, self.epsilon_acc_relative * 5)
-            grad[:, :, :, 1].clamp_(-self.epsilon_curv_relative * 5, self.epsilon_curv_relative * 5)
+            grad[:, :, :, 0].clamp_(-self.epsilon_acc_relative * 20, self.epsilon_acc_relative * 20)
+            grad[:, :, :, 1].clamp_(-self.epsilon_curv_relative * 20, self.epsilon_curv_relative * 20)
 
             # copy learning rates
             alpha_acc_iter = alpha_acc.clone()

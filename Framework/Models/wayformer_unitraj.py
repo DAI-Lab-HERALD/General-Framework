@@ -14,6 +14,11 @@ from Wayformer_unitraj.model.wayformer import Wayformer
 from torch.distributions import MultivariateNormal
 
 
+def safe_atan2(y, x):
+    Evaluate = (y != 0.0) | (x != 0.0) # Shape (batch_size, num_agents, num_steps_in)
+    theta = torch.zeros_like(x) # Shape (batch_size, num_agents, num_steps_in)
+    theta[Evaluate] = torch.atan2(y[Evaluate], x[Evaluate]) # Shape (batch_size, num_agents, num_steps_in)
+    return theta
 
 
 class wayformer_unitraj(model_template):
@@ -267,7 +272,7 @@ class wayformer_unitraj(model_template):
         
 
         # Use atan2 between v_y and v_x to get theta
-        Theta = torch.arctan2(V_y, V_x)
+        Theta = safe_atan2(V_y, V_x) # Shape (batch_size, num_agents, num_steps_in)
 
         Obj_trajs = torch.cat([X, V_x.unsqueeze(-1), V_y.unsqueeze(-1), Theta.unsqueeze(-1)], dim = -1)
 
@@ -343,9 +348,9 @@ class wayformer_unitraj(model_template):
             map_polylines_mask = torch.isfinite(map_polylines).all(dim=-1)
 
             # Get the map_polylines heading
-            map_polylines_heading = torch.atan2(map_polylines_points[:,:,1:,1] - map_polylines_points[:,:,:-1,1], 
-                                                map_polylines_points[:,:,1:,0] - map_polylines_points[:,:,:-1,0]) # Shape (batch_size, num_road_segemnts, num_pts_per_segment)
-            
+            map_polylines_heading = safe_atan2(map_polylines_points[:,:,1:,1] - map_polylines_points[:,:,:-1,1],
+                                               map_polylines_points[:,:,1:,0] - map_polylines_points[:,:,:-1,0]) # Shape (batch_size, num_road_segemnts, num_pts_per_segment)
+
             # Combine map polyline stuff
             map_polylines = torch.cat([map_polylines, map_polylines_heading.unsqueeze(-1)], dim=-1) # Shape (batch_size, num_road_segemnts, num_pts_per_segment, 3)
 

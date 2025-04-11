@@ -39,7 +39,6 @@ class ADAPT(nn.Module):
         # T_f: Future time step number
         # L: Lane number
         # D: Feature size
-
         batch_size = len(mapping)
         if validate:
             batch_init(mapping)
@@ -73,12 +72,10 @@ class ADAPT(nn.Module):
         start = time.time()
         # agent_features.shape = (N, M, D)
         # lane_features.shape = (N, L, D)
-        agent_features, lane_features = self.encode_polylines(
-                agent_data, lane_data)
+        agent_features, lane_features = self.encode_polylines(agent_data, lane_data)
 
         # predictions.shape = (N, M, 6, 30, 2)
-        predictions, logits = self.trajectory_decoder(
-            agent_features, meta_info)
+        predictions, logits = self.trajectory_decoder(agent_features, meta_info)
 
         end = time.time()
 
@@ -124,8 +121,7 @@ class ADAPT(nn.Module):
             probs[scene_index] = prob[0]
 
             if validate and self.multi_agent:
-                multi_outputs.append(
-                    (prediction.detach().cpu(), label.detach().cpu()))
+                multi_outputs.append((prediction, label))
 
             if not validate:
                 loss_ = self.trajectory_loss(

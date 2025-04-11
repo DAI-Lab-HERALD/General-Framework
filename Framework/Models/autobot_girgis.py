@@ -14,6 +14,13 @@ from Autobot.utils.train_helpers import nll_loss_multimodes_joint
 from torch.distributions import Laplace
 
 
+def safe_atan2(y, x):
+    Evaluate = (y != 0.0) | (x != 0.0) # Shape (batch_size, num_agents, num_steps_in)
+    theta = torch.zeros_like(x) # Shape (batch_size, num_agents, num_steps_in)
+    theta[Evaluate] = torch.atan2(y[Evaluate], x[Evaluate]) # Shape (batch_size, num_agents, num_steps_in)
+    return theta
+
+
 class autobot_girgis(model_template):
     '''
     This is the version of Autobot-Joint, the joint prediction version of AutoBot. 
@@ -258,7 +265,8 @@ class autobot_girgis(model_template):
                 
 
         # Use atan2 between v_y and v_x to get theta
-        Theta = torch.arctan2(V_y, V_x)
+        # Be careful that v_y = v_x = 0 does not lead to NaN gradients
+        Theta = safe_atan2(V_y, V_x) # Shape (batch_size, num_agents, num_steps_in)
 
         Obj_trajs = torch.cat([X, V_x.unsqueeze(-1), V_y.unsqueeze(-1), Theta.unsqueeze(-1)], dim = -1)
 
