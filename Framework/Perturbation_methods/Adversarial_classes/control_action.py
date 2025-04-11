@@ -48,43 +48,46 @@ class Control_action:
         # Last timestep will never be replaced
         replace[..., -1] = False
 
+        positions_perturb_init = positions_perturb.clone()
+
         # Linearly interpolate the positions (assume that the timepoints correspond to the dist_cum)
         # For each replace = True, find the previous time index that was not replaced, as well as the following one
-        replace_sample, replace_agent, replace_time = torch.where(replace)
-        prev_ind = replace_time - 1
-        while replace[replace_sample, replace_agent, prev_ind].any():
-            redo = replace[replace_sample, replace_agent, prev_ind]
-            prev_ind[redo] = prev_ind[redo] - 1
-        
-        assert prev_ind.min() >= 0, "Previous index is negative, which should not happen"
-        next_ind = replace_time + 1
-        while replace[replace_sample, replace_agent, next_ind].any():
-            redo = replace[replace_sample, replace_agent, next_ind]
-            next_ind[redo] = next_ind[redo] + 1
-        assert next_ind.max() < positions_perturb.shape[2], "Next index is out of bounds, which should not happen"
+        if replace.any():
+            replace_sample, replace_agent, replace_time = torch.where(replace)
+            prev_ind = replace_time - 1
+            while replace[replace_sample, replace_agent, prev_ind].any():
+                redo = replace[replace_sample, replace_agent, prev_ind]
+                prev_ind[redo] = prev_ind[redo] - 1
+            
+            assert prev_ind.min() >= 0, "Previous index is negative, which should not happen"
+            next_ind = replace_time + 1
+            while replace[replace_sample, replace_agent, next_ind].any():
+                redo = replace[replace_sample, replace_agent, next_ind]
+                next_ind[redo] = next_ind[redo] + 1
+            assert next_ind.max() < positions_perturb.shape[2], "Next index is out of bounds, which should not happen"
 
-        Dist_cum_prev = dist_cum[replace_sample, replace_agent, prev_ind]
-        Dist_cum_next = dist_cum[replace_sample, replace_agent, next_ind]
-        Dist_cum_inter = dist_cum[replace_sample, replace_agent, replace_time]
-        fac = (Dist_cum_inter - Dist_cum_prev) / (Dist_cum_next - Dist_cum_prev)
-        fac = fac.unsqueeze(-1)
+            Dist_cum_prev = dist_cum[replace_sample, replace_agent, prev_ind]
+            Dist_cum_next = dist_cum[replace_sample, replace_agent, next_ind]
+            Dist_cum_inter = dist_cum[replace_sample, replace_agent, replace_time]
+            fac = (Dist_cum_inter - Dist_cum_prev) / (Dist_cum_next - Dist_cum_prev)
+            fac = fac.unsqueeze(-1)
 
-        # Interpolate the positions
-        pos_prev = positions_perturb[replace_sample, replace_agent, prev_ind]
-        pos_next = positions_perturb[replace_sample, replace_agent, next_ind]
+            # Interpolate the positions
+            pos_prev = positions_perturb[replace_sample, replace_agent, prev_ind]
+            pos_next = positions_perturb[replace_sample, replace_agent, next_ind]
 
-        positions_perturb_init = positions_perturb.clone()
+            # Replace the positions  
+            positions_perturb[replace_sample, replace_agent, replace_time] = fac * pos_next + (1 - fac) * pos_prev
 
         debug = False
         if debug:
-            x0 = positions_perturb[23,0].detach().cpu().numpy()
+            x0 = positions_perturb_init[23,0].detach().cpu().numpy()
             import matplotlib.pyplot as plt
             plt.figure(figsize=(15, 7.5))
             plt.plot(x0[:,0], x0[:,1], 'k')
             plt.scatter(x0[:,0], x0[:,1], c='k')
             plt.xlim([16, 17])
             plt.ylim([8, 8.5])
-        positions_perturb[replace_sample, replace_agent, replace_time] = fac * pos_next + (1 - fac) * pos_prev
         useful_agent = positions_perturb.isfinite().all(-1).sum(-1) > 2
         if debug:
             x1 = positions_perturb[23,0].detach().cpu().numpy()
