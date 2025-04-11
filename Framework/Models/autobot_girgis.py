@@ -230,30 +230,32 @@ class autobot_girgis(model_template):
         # T.shape = (batch_size, num_agents)
         # S.shape = (batch_size, num_agents)
         # Pred_agents.shape = (batch_size, num_agents)
-        missing_timesteps_start = torch.isfinite(X).all(-1).argmax(-1) # batch_size, num_agents
-        missing_timesteps_end = missing_timesteps_start + np.isfinite(X).all(-1).sum(-1) # batch_size, num_agents
+        missing_timesteps_start = torch.isfinite(X).all(-1).float().argmax(-1) # batch_size, num_agents
+        missing_timesteps_end = missing_timesteps_start + torch.isfinite(X).all(-1).int().sum(-1) # batch_size, num_agents
 
         missing_timesteps = torch.stack([missing_timesteps_start, missing_timesteps_end], -1) # batch_size, num_agents, 2
         missing_timesteps = torch.unique(missing_timesteps.reshape(-1,2), dim = 0) # n, 2 
 
-        V_x = torch.zeros_like(X[...,0])
+        V_x = torch.zeros_like(X[...,0]) # Shape (batch_size, num_agents, num_steps_in)
+        V_y = torch.zeros_like(X[...,0]) # Shape (batch_size, num_agents, num_steps_in)
         for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
-            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_x[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 0], dim = -1)
-            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_x[mask, missing_timestep_start] = 0
-        
-        V_y = torch.zeros_like(X[...,0])
-        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
-            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_y[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 1], dim = -1)
-            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_y[mask, missing_timestep_start] = 0
-        
+            mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end) # batch_size, num_agents
+            
+            if torch.abs(missing_timestep_end - missing_timestep_start) > 1:
+                x_mask = X[mask][..., 0] # Shape (M x num_steps_in)
+                x_mask_time = x_mask[:,missing_timestep_start:missing_timestep_end] # Shape (M x num_steps_in)
+                vx_mask_time = torch.gradient(x_mask_time, dim = 1)[0] # Shape (M x num_steps_in)
+                vx_mask = torch.zeros_like(x_mask) # Shape (M x num_steps_in)
+                vx_mask[:,missing_timestep_start:missing_timestep_end] = vx_mask_time
+                V_x[mask] = vx_mask
+                
+                y_mask = X[mask][..., 1] # Shape (M x num_steps_in)
+                y_mask_time = y_mask[:,missing_timestep_start:missing_timestep_end] # Shape (M x num_steps_in)
+                vy_mask_time = torch.gradient(y_mask_time, dim = 1)[0] # Shape (M x num_steps_in)
+                vy_mask = torch.zeros_like(y_mask) # Shape (M x num_steps_in)
+                vy_mask[:,missing_timestep_start:missing_timestep_end] = vy_mask_time
+                V_y[mask] = vy_mask
+                
 
         # Use atan2 between v_y and v_x to get theta
         Theta = torch.arctan2(V_y, V_x)
@@ -269,27 +271,25 @@ class autobot_girgis(model_template):
 
         Diff = Obj_trajs[:,:,-1,:2] - Pos_mean.unsqueeze(1) # Shape (B, num_agents, 2)
         Dist = torch.norm(Diff, dim=-1) # Shape (B, num_agents)
-        Dist[~Pred_agents] += 200
+        Dist = Dist + torch.from_numpy(~Pred_agents).float().to(X.device) * 200 # Shape (B, num_agents)
 
         # Get max num agents
         max_num_agents = torch.isfinite(Dist).sum(-1).max()
 
         ind_agent = torch.argsort(Dist, dim=-1) # Shape (B, num_agents)
-        ind_sample = torch.arange(Dist.shape[0]).unsqueeze(1).repeat_interleave(Dist.shape[1], dim=-1) # Shape (B, num_agents)
+        ind_sample = torch.arange(Dist.shape[0]).unsqueeze(1).repeat_interleave(Dist.shape[1], dim=-1).to(X.device) # Shape (B, num_agents)
 
         ind_agent = ind_agent[:,:max_num_agents]
         ind_sample = ind_sample[:,:max_num_agents]
 
         Obj_trajs = Obj_trajs[ind_sample, ind_agent] # Shape (B, num_agents, num_steps_in, 5)
-        Obj_types = T[ind_sample, ind_agent] # Shape (B, num_agents)
+        Obj_types = T[ind_sample.detach().cpu().numpy(), ind_agent.detach().cpu().numpy()] # Shape (B, num_agents)
 
         # Transform to torch tensors
         Obj_trajs_mask = torch.isfinite(Obj_trajs).all(dim=-1).float()
-        Obj_trajs_out = None
-        Obj_trajs_out_mask = None
 
         # get one hot encoding of agent types
-        Obj_types_hot = np.zeros((Obj_types.shape[0], Obj_types.shape[1], self.cfg['num_agent_types']))
+        Obj_types_hot = np.zeros((ind_sample.shape[0], ind_sample.shape[1], self.cfg['num_agent_types']))
         Obj_types_hot[Obj_types == '0', 0] = 1
         Obj_types_hot[Obj_types == 'V', 1] = 1
         Obj_types_hot[Obj_types == 'M', 2] = 1
@@ -768,14 +768,17 @@ class autobot_girgis(model_template):
 
 
     def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
+        self.model.to(X.device)
         Ego_in, _, Agents_in, _, map_polylines, Obj_types_hot, rot_center, ind_sample, ind_agent = self.extract_data_tensor(X, T, graph, Pred_agents)
 
         # Set number of agents
         self.model._M = Agents_in.shape[2]
 
         # Adjust Agent_id to reordering
-        Agent_id    = Agent_id[ind_sample, ind_agent]
-        Pred_agents = Pred_agents[ind_sample, ind_agent]
+        Sample_id = torch.arange(X.shape[0], device=X.device).unsqueeze(1).repeat_interleave(X.shape[1], dim=1) # Shape (batch_size, num_agents)
+        Agent_id  = torch.arange(X.shape[1], device=X.device).unsqueeze(0).repeat_interleave(X.shape[0], dim=0) # Shape (batch_size, num_agents)
+        Sample_id = Sample_id[ind_sample, ind_agent] # Shape (batch_size, num_agents)
+        Agent_id  = Agent_id[ind_sample, ind_agent]
 
         out_dists, mode_prob = self.model(Ego_in, Agents_in, map_polylines, Obj_types_hot)
         # output_dists.shape: (num_modes, num_time_outputs, batch_size, num_agents, 5)
@@ -821,7 +824,10 @@ class autobot_girgis(model_template):
             Pred = torch.cat([Pred, Pred_exp], axis=-2)
         
         # Permute paths and agents dimension
-        Pred = Pred.transpose(0, 2, 1, 3, 4) # Shape (batch_size, num_agents, num_samples_path_pred, num_steps_out, 2)
+        Pred = Pred.permute(0, 2, 1, 3, 4) # Shape (batch_size, num_agents, num_samples_path_pred, num_steps_out, 2)
+
+        pred = torch.zeros((*X.shape[:2], *Pred.shape[2:]), device=X.device, dtype=Pred.dtype)
+        pred[Sample_id, Agent_id] = Pred
 
 
-        return Pred
+        return pred

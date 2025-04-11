@@ -239,29 +239,31 @@ class wayformer_unitraj(model_template):
         # S.shape = (batch_size, num_agents)
         # Pred_agents.shape = (batch_size, num_agents)
 
-        missing_timesteps_start = torch.isfinite(X).all(-1).argmax(-1) # batch_size, num_agents
-        missing_timesteps_end = missing_timesteps_start + np.isfinite(X).all(-1).sum(-1) # batch_size, num_agents
+        missing_timesteps_start = torch.isfinite(X).all(-1).float().argmax(-1) # batch_size, num_agents
+        missing_timesteps_end = missing_timesteps_start + torch.isfinite(X).all(-1).int().sum(-1) # batch_size, num_agents
 
         missing_timesteps = torch.stack([missing_timesteps_start, missing_timesteps_end], -1) # batch_size, num_agents, 2
         missing_timesteps = torch.unique(missing_timesteps.reshape(-1,2), dim = 0) # n, 2 
 
-        V_x = torch.zeros_like(X[...,0])
+        V_x = torch.zeros_like(X[...,0]) # Shape (batch_size, num_agents, num_steps_in)
+        V_y = torch.zeros_like(X[...,0]) # Shape (batch_size, num_agents, num_steps_in)
         for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
-            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_x[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 0], dim = -1)
-            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_x[mask, missing_timestep_start] = 0
-        
-        V_y = torch.zeros_like(X[...,0])
-        for (missing_timestep_start, missing_timestep_end) in missing_timesteps:
-            if np.abs(missing_timestep_end - missing_timestep_start) > 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_y[mask, missing_timestep_start:missing_timestep_end] = torch.gradient(X[mask, missing_timestep_start:missing_timestep_end, 1], dim = -1)
-            elif np.abs(missing_timestep_end - missing_timestep_start) == 1:
-                mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end)
-                V_y[mask, missing_timestep_start] = 0
+            mask = (missing_timestep_start == missing_timesteps_start) & (missing_timestep_end == missing_timesteps_end) # batch_size, num_agents
+            
+            if torch.abs(missing_timestep_end - missing_timestep_start) > 1:
+                x_mask = X[mask][..., 0] # Shape (M x num_steps_in)
+                x_mask_time = x_mask[:,missing_timestep_start:missing_timestep_end] # Shape (M x num_steps_in)
+                vx_mask_time = torch.gradient(x_mask_time, dim = 1)[0] # Shape (M x num_steps_in)
+                vx_mask = torch.zeros_like(x_mask) # Shape (M x num_steps_in)
+                vx_mask[:,missing_timestep_start:missing_timestep_end] = vx_mask_time
+                V_x[mask] = vx_mask
+                
+                y_mask = X[mask][..., 1] # Shape (M x num_steps_in)
+                y_mask_time = y_mask[:,missing_timestep_start:missing_timestep_end] # Shape (M x num_steps_in)
+                vy_mask_time = torch.gradient(y_mask_time, dim = 1)[0] # Shape (M x num_steps_in)
+                vy_mask = torch.zeros_like(y_mask) # Shape (M x num_steps_in)
+                vy_mask[:,missing_timestep_start:missing_timestep_end] = vy_mask_time
+                V_y[mask] = vy_mask
         
 
         # Use atan2 between v_y and v_x to get theta
@@ -270,8 +272,8 @@ class wayformer_unitraj(model_template):
         Obj_trajs = torch.cat([X, V_x.unsqueeze(-1), V_y.unsqueeze(-1), Theta.unsqueeze(-1)], dim = -1)
 
         # Ensure position data is there
-        missing_position = np.isnan(X).any(-1)
-        Obj_trajs[missing_position] = np.nan
+        missing_position = torch.isnan(X).any(-1)
+        Obj_trajs[missing_position] = torch.nan
         Obj_trajs_mask = torch.isfinite(Obj_trajs).all(dim=-1)
 
         Track_index_to_predict = torch.zeros(Obj_trajs.shape[0], dtype=torch.long).to(self.device)
@@ -760,11 +762,12 @@ class wayformer_unitraj(model_template):
 
 
     def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
+        self.model.to(X.device)
         # Get range for stds
         log_std_range = (-1.609, 5.0) # i.e. 0.2 - 150 m
         rho_limit = 0.5
 
-        batch, rot_angle, rot_center = self.extract_data_tensor(X, None, T, S, graph)
+        batch, rot_angle, rot_center = self.extract_data_tensor(X, T, S, graph)
 
         assert (batch['input_dict']['obj_trajs_mask'].sum(1) > 0).all(), "At least one agent should be present in the scene"
 

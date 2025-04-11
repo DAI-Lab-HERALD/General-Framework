@@ -356,8 +356,7 @@ class adapt_aydemir(model_template):
                 y = tensor[~missing_agent_mask, -1, 3]
                 pre_x = tensor[~missing_agent_mask, -1, 0]
                 pre_y = tensor[~missing_agent_mask, -1, 1]
-                info = torch.tensor(
-                    np.array([degree, x, y, pre_x, pre_y]))#.unsqueeze(dim=0)
+                info = torch.tensor(np.array([degree, x, y, pre_x, pre_y]))#.unsqueeze(dim=0)
                 batch[entries]['meta_info'] = info.transpose(1, 0).float()
 
                 entries += 1
@@ -374,7 +373,6 @@ class adapt_aydemir(model_template):
         # Pred_agents.shape = (batch_size, num_agents)
 
         # TODO
-
         batch = []
         entries = 0
 
@@ -396,86 +394,91 @@ class adapt_aydemir(model_template):
             angle = -torch.arctan2(der_y, der_x) + 0.5 * torch.pi
 
             # normalize the pos_matrix around the target agent
-            rot_matrix = torch.tensor([[torch.cos(angle), torch.sin(angle)],
-                                       [-torch.sin(angle), torch.cos(angle)]]) 
+            rot_matrix = torch.stack([torch.stack([torch.cos(angle), torch.sin(angle)]), 
+                                      torch.stack([-torch.sin(angle), torch.cos(angle)])], dim = 0) # Shape (2, 2)
             
             pos_matrix -= X[i, 0, -1, :2] 
-            pos_matrix = torch.matmul(pos_matrix, rot_matrix) # Shape (num_agents, num_steps_in, 2)
-
+            useful_position = pos_matrix.isfinite().all(-1).all(-1) # Shape (num_agents,)
+            pos_matrix[useful_position] = torch.einsum('...ij,jk->...ik', pos_matrix[useful_position], rot_matrix) # Shape (num_agents, num_steps_in, 2)
 
             # tensor consists of prev_x prev_y x y timestamp type==AV type==AGENT type==OTHERS agent_id timestep and padding until 128
-            tensor = torch.cat([pos_matrix[:, :-1] , pos_matrix[:, 1:]], dim  = -1)
+            tensor = torch.cat([pos_matrix[:, :-1], pos_matrix[:, 1:]], dim  = -1)
             tensor = torch.cat([tensor, torch.zeros((X.shape[1], X.shape[2]-1, 128 - 4), dtype = tensor.dtype).to(tensor.device)], dim = -1) 
-            tensor[..., 4] = (torch.arange(X.shape[2]-1) + 1).unsqueeze(0).repeat_interleave(X.shape[1], dim = 0) * self.dt # timestamp
+            tensor[..., 4] = (torch.arange(X.shape[2]-1).to(tensor.device) + 1).unsqueeze(0).repeat_interleave(X.shape[1], dim = 0) * self.dt # timestamp
             tensor[1, :, 5] = 1 # In adversarial attacks, the ego agent is always at position 1
             tensor[0, :, 6] = 1 # type==target agent
             tensor[1:, :, 7] = 1 # type==others
-            tensor[:, :, 8] = torch.arange(X.shape[1]).unsqueeze(1).repeat_interleave(X.shape[2]-1, dim = 1) # agent_id
-            tensor[:, :, 9] = (torch.arange(X.shape[2]-1) + 1).unsqueeze(0).repeat_interleave(X.shape[1], dim = 0) # timestep
+            tensor[:, :, 8] = torch.arange(X.shape[1]).unsqueeze(1).repeat_interleave(X.shape[2]-1, dim = 1).to(tensor.device) # agent_id
+            tensor[:, :, 9] = (torch.arange(X.shape[2]-1) + 1).unsqueeze(0).repeat_interleave(X.shape[1], dim = 0).to(tensor.device) # timestep
 
-            batch[entries]['consider'] = torch.tensor(np.where(Pred_agents[i])[0])
+            batch[entries]['consider'] = torch.from_numpy(np.where(Pred_agents[i])[0]).to(tensor.device)	
 
             batch[entries]['cent_x'] = X[i, 0, -1, 0].clone()
             batch[entries]['cent_y'] = X[i, 0, -1, 1].clone()
 
             batch[entries]['angle'] = angle
 
-            existing_timestep_mask = ~torch.isnan(tensor).any(-1) # Shape (num_agents, num_steps_in-1)
-            batch[entries]['agent_data'] = [tensor[ag][existing_timestep_mask[ag]] for ag in range(tensor.shape[0]) if len(tensor[ag][existing_timestep_mask[ag]].float())>0]
-
+            existing_timestep_mask = torch.isfinite(tensor).all(-1) # Shape (num_agents, num_steps_in-1)
+            batch[entries]['agent_data'] = []
+            for j in range(tensor.shape[0]):
+                agent_mask = existing_timestep_mask[j] # Shape (num_steps_in-1,)
+                agent_tensor = tensor[j] # Shape (num_steps_in-1, 128)
+                if agent_mask.any():
+                    batch[entries]['agent_data'].append(agent_tensor[agent_mask].float())
+                    
             lane_list = []
             hist_len = X.shape[2] 
 
             if graph is not None:
                 for l in range(len(batch_graph['centerlines'])):
-                    lane = batch_graph['centerlines'][l].copy()
+                    lane = torch.from_numpy(batch_graph['centerlines'][l]).to(tensor.device).float() # Shape (num_steps_in, 2)
 
-                    lane -= X[i, 0, -1, :2]
-                    lane = np.matmul(lane, rot_matrix)
+                    lane -= X[i, 0, -1, :2] 
+                    lane = torch.einsum('ij,jk->ik', lane, rot_matrix) 
                     lane = lane[:hist_len]
 
                     # lane vector
                     # [..., y, x, pre_y, pre_x]
-                    lane_vector = np.zeros((lane.shape[0]-1, 128))
+                    lane_vector = torch.zeros((lane.shape[0]-1, 128)).to(tensor.device)
                     lane_vector[:, -4] = lane[1:, 1]
                     lane_vector[:, -3] = lane[1:, 0]
                     lane_vector[:, -2] = lane[:-1, 1]
                     lane_vector[:, -1] = lane[:-1, 0]
 
                     lane_vector[:,-5] = 1
-                    lane_vector[:,-6] = np.arange(lane.shape[0]-1)+1
+                    lane_vector[:,-6] = torch.arange(lane.shape[0]-1).to(tensor.device) + 1
                     lane_vector[:,-7] = l + len(batch[entries]['agent_data']) # lane id, ensuring that there is no overlap with agent ids
                     lane_vector[:,-8] = -1 # has traffic control 
                     lane_vector[:,-9] = 0  # turn direction
                     lane_vector[:,-10] = 1 if batch_graph['lane_type'][l][1] else -1  # is intersection
 
-                    point_pre_pre = np.zeros((lane.shape[0]-1, 2))
-                    point_pre_pre[0] = [2 * lane_vector[0, -1] - lane_vector[0, -3], 2 * lane_vector[0, -2] - lane_vector[0, -4]]
+                    point_pre_pre = torch.zeros((lane.shape[0]-1, 2)).to(tensor.device)
+                    point_pre_pre[0,0] = 2 * lane_vector[0, -1] - lane_vector[0, -3]
+                    point_pre_pre[0,1] = 2 * lane_vector[0, -2] - lane_vector[0, -4]
                     point_pre_pre[1:] = lane[:-2]
                     
                     lane_vector[:,-17] = point_pre_pre[:, 0]
                     lane_vector[:,-18] = point_pre_pre[:, 1]
 
-                    lane_list.append(torch.tensor(lane_vector).float())
+                    lane_list.append(lane_vector)
 
             batch[entries]['lane_data'] = lane_list
 
-            missing_agent_mask = np.isnan(X[i,:,:,:2]).all(-1).all(-1) # shape should be agents
+            missing_agent_mask = ~existing_timestep_mask.any(-1) # shape should be agents
 
-            batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float()
-            batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float()
-            batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float()
+            batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float().to(tensor.device)
+            batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float().to(tensor.device)
+            batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float().to(tensor.device)
 
-            dpos = tensor[:, -1, 2:4] - tensor[:, -1, :2]
-            degree = torch.atan2(torch.tensor(dpos[:,1]), torch.tensor(dpos[:,0])).numpy()
-            degree = degree[~missing_agent_mask]
-            x = tensor[~missing_agent_mask, -1, 2]
-            y = tensor[~missing_agent_mask, -1, 3]
-            pre_x = tensor[~missing_agent_mask, -1, 0]
-            pre_y = tensor[~missing_agent_mask, -1, 1]
-            info = torch.tensor(
-                np.array([degree, x, y, pre_x, pre_y]))#.unsqueeze(dim=0)
-            batch[entries]['meta_info'] = info.transpose(1, 0).float()
+            dpos = tensor[~missing_agent_mask, -1, 2:4] - tensor[~missing_agent_mask, -1, :2] # Shape (num_agents, 2)
+            degree = torch.atan2(dpos[:,1],dpos[:,0]) # Shape (num_agents,)
+            x = tensor[~missing_agent_mask, -1, 2] # Shape (num_agents,)
+            y = tensor[~missing_agent_mask, -1, 3] # Shape (num_agents,)
+            pre_x = tensor[~missing_agent_mask, -1, 0] # Shape (num_agents,)
+            pre_y = tensor[~missing_agent_mask, -1, 1] # Shape (num_agents,)
+            info = torch.stack([degree, x, y, pre_x, pre_y], dim = -1) # Shape (num_agents, 5)
+            assert torch.isfinite(info).all()
+            batch[entries]['meta_info'] = info
 
             entries += 1
 
@@ -670,7 +673,19 @@ class adapt_aydemir(model_template):
                 torch.cuda.empty_cache()
 
                 Pred = Pred[:, :, :self.num_samples_path_pred]
-                
+
+                # ensure required prediction length
+                num_step_pred = Pred.shape[-2]
+                if num_steps <= num_step_pred:
+                    Pred = Pred[..., :num_steps, :]
+                else: 
+                    # use linear extrapolation
+                    last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, num_agents, 1, 2)
+                    steps = np.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, 1, -1, 1)
+
+                    Pred_exp = Pred[..., [-1],:] + last_vel * steps
+                    Pred = np.concatenate([Pred, Pred_exp], axis=-2)
+
                 # save predictions
                 self.save_predicted_batch_data(Pred, Sample_id, Agent_id, Pred_agents)
 
@@ -679,11 +694,12 @@ class adapt_aydemir(model_template):
 
 
     def predict_batch_tensor(self, X, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps):
+        
+        self.model.to(X.device)
 
         batch_data = self.extract_data_tensor(X, graph, Pred_agents)
         
         _, _, multi_out = self.model(batch_data, True)
-
 
         # map proposals to Predictions according to Pred_agents
         sample_number = self.cfg['num_modes']
@@ -691,26 +707,40 @@ class adapt_aydemir(model_template):
         # OOM protection
         splits = int(np.ceil((self.num_samples_path_pred / sample_number)))
         
-        num_samples_path_pred_max = int(sample_number * splits)
-        Pred = np.zeros((X.shape[0], X.shape[1], num_samples_path_pred_max, self.num_timesteps_out, 2)) # Shape (batch_size, num_agents, num_paths, num_steps_out, 2)
-
-        pred = np.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2))
-
+        Pred = torch.zeros((X.shape[0], X.shape[1], sample_number, self.num_timesteps_out, 2)).to(X.device)
         for i in range(X.shape[0]):
             mul_out_x, mul_out_y = rotate(multi_out[i][0][:,:,:,0], multi_out[i][0][:,:,:,1], -batch_data[i]['angle']) # in original code, when handling data they seem to rotate by angle when normalizing
             multi_out[i][0][:,:,:,0] = mul_out_x
             multi_out[i][0][:,:,:,1] = mul_out_y
-            pred[i, Pred_agents[i]] = multi_out[i][0].detach().cpu().numpy() + np.array([batch_data[i]['cent_x'], batch_data[i]['cent_y']])
+            center = torch.stack([batch_data[i]['cent_x'], batch_data[i]['cent_y']])
+            try:
+                Pred[i, Pred_agents[i]] = multi_out[i][0] + center
+            except:
+                error_String = []
+                error_String.append('    ADAPT: Error in prediction')
+                error_String.append('    ADAPT: Pred.device = {}'.format(Pred.device))
+                error_String.append('    ADAPT: X.device = {}'.format(X.device))
+                error_String.append('    ADAPT: multi_out[i][0].device = {}'.format(multi_out[i][0].device))
+                error_String.append('    ADAPT: batch_data[i][cent_x].device = {}'.format(batch_data[i]['cent_x'].device))
+                error_String.append('    ADAPT: batch_data[i][cent_y].device = {}'.format(batch_data[i]['cent_y'].device))
+                error_String.append('    ADAPT: center.device = {}'.format(center.device))
+                error_String = '\n'.join(error_String)
+                raise ValueError(error_String)
 
         # pred_probs are save in multi_out[batch][1]
-
-
-        pred = np.tile(pred, (1, 1, splits, 1, 1))
-        Pred = pred
-        # Pred[:, :,Index] = pred
-                        
-        torch.cuda.empty_cache()
-
+        Pred = Pred.repeat_interleave(splits, dim = 2)   
         Pred = Pred[:, :, :self.num_samples_path_pred]
 
-        return 
+        # ensure required prediction length
+        num_step_pred = Pred.shape[-2]
+        if num_steps <= num_step_pred:
+            Pred = Pred[..., :num_steps, :]
+        else: 
+            # use linear extrapolation
+            last_vel = Pred[..., [-1],:] - Pred[..., [-2],:] # Shape (batch_size, num_paths, num_agents, 1, 2)
+            steps = torch.arange(1, num_steps - num_step_pred + 1).reshape(1, 1, 1, -1, 1).to(self.device).float()
+
+            Pred_exp = Pred[..., [-1],:] + last_vel * steps
+            Pred = torch.cat([Pred, Pred_exp], axis=-2)
+
+        return Pred
