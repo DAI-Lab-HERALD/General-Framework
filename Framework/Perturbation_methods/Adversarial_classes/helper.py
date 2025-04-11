@@ -118,10 +118,9 @@ class Helper:
             np.ndarray: The tensor restored to its original shape with NaN values appended.
         """
         mean_Y_new_pert = np.expand_dims(np.mean(Y_new_pert, axis=1), axis=1)
-        Y_final = np.concatenate((mean_Y_new_pert, np.expand_dims(Y_old[:, ego_agent_index, :, :], axis=1)), axis=1)
+        Y_final = np.concatenate((mean_Y_new_pert, Y_old[:, 1:, :, :]), axis=1)
 
-        nan_array = np.full(
-            (Y_shape[0], Y_shape[1], Y_shape[2]-Y_final.shape[2], Y_shape[3]), np.nan)
+        nan_array = np.full((Y_shape[0], Y_shape[1], Y_shape[2]-Y_final.shape[2], Y_shape[3]), np.nan)
         return np.concatenate((Y_final, nan_array), axis=2)
 
     @staticmethod

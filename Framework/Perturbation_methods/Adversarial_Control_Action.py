@@ -280,11 +280,11 @@ class Adversarial_Control_Action(perturbation_template):
 
 
         # Randomized smoothing
-        self.smoothing = False
-        self.num_samples_used_smoothing = 15 
-        self.sigma_acceleration = [0.05, 0.1]
-        self.sigma_curvature = [0.01, 0.05]
-        self.plot_smoothing = False
+        # self.smoothing = False
+        # self.num_samples_used_smoothing = 15 
+        # self.sigma_acceleration = [0.05, 0.1]
+        # self.sigma_curvature = [0.01, 0.05]
+        # self.plot_smoothing = False
         
         # Plot the loss over the iterations
         self.plot_loss = False
@@ -348,12 +348,14 @@ class Adversarial_Control_Action(perturbation_template):
         Pred_agents = np.zeros((X.shape[0], X.shape[1]), dtype=bool)
         Pred_agents[:, 0] = True
 
+
         # Prepare data for adversarial attack (tensor/image prediction model)
         X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(X, Y)
-
+        
+        useful_agents = X.isfinite().all(-1).all(-1)
+        X[~useful_agents] = torch.nan
         # Calculate initial control actions
-        control_action, heading, velocity = Control_action.Inverse_Dynamical_Model(
-            positions_perturb=positions_perturb, mask_data=self.mask_data, dt=self.dt, device=self.pert_model.device)
+        control_action, heading, velocity = Control_action.Inverse_Dynamical_Model(positions_perturb=positions_perturb, mask_data=self.mask_data, dt=self.dt, device=self.pert_model.device)
 
         # Create a tensor for the perturbation
         perturbation_storage = torch.zeros_like(control_action)
@@ -387,21 +389,30 @@ class Adversarial_Control_Action(perturbation_template):
             # Only use actually predicted target agent
             Y_Pred = Y_Pred[:,0]
 
+            assert Y_Pred.shape[-2] == self.num_steps_predict, "The number of predicted steps does not correspond to the number of steps in the model."
+
             if i == 0:
                 # Store the first prediction
                 Y_Pred_iter_1 = Y_Pred.detach()
                 Helper
-                
+            
+            X_new.retain_grad()
             losses = self._loss_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
 
             print('')
-            print('Iteration {}: Initial losses {}'.format(i, losses), flush = True)
+            max_perturb = np.nanmax(torch.norm(X_new - X, dim = -1).max(-1).values.detach().cpu().numpy(), 1)
+            print('Iteration {}: alpha_m:                          {}'. format(i, alpha_curv[:,0,0].detach().cpu().numpy()), flush = True)
+            print('Iteration {}: Initial max_perturbations [in m]: {}'. format(i, max_perturb), flush = True)
+            print('Iteration {}: Initial losses:                   {}'.format(i, losses.detach().cpu().numpy()), flush = True)
 
             # Calculate gradients
-            losses.sum().backward()
-            grad = perturbation.grad
-            
-            assert torch.isfinite(grad).all(), "Gradient contains NaN or Inf values."
+            losses.sum().backward(retain_graph=True)
+            grad = perturbation.grad    
+            assert torch.isfinite(grad[:,0]).all(), "Gradient contains NaN or Inf values."
+
+            # Clamp grad to half of the local limits
+            grad[:, :, :, 0].clamp_(-self.epsilon_acc_relative * 5, self.epsilon_acc_relative * 5)
+            grad[:, :, :, 1].clamp_(-self.epsilon_curv_relative * 5, self.epsilon_curv_relative * 5)
 
             # copy learning rates
             alpha_acc_iter = alpha_acc.clone()
@@ -413,25 +424,25 @@ class Adversarial_Control_Action(perturbation_template):
             while True:
                 inner_loop_count += 1
                 with torch.no_grad():
+                    # Prepare new perturbation
                     perturbation_new = perturbation.clone()
-                    perturbation_new[:, :, :, 0].subtract_(
-                        grad[:, :, :, 0] * alpha_acc_iter)
-                    perturbation_new[:, :, :, 1].subtract_(
-                        grad[:, :, :, 1] * alpha_curv_iter)
-                    perturbation_new[:, :, :X.shape[2], 0].clamp_(
-                        -self.epsilon_acc_relative, self.epsilon_acc_relative)
-                    perturbation_new[:, :, :X.shape[2], 1].clamp_(
-                        -self.epsilon_curv_relative, self.epsilon_curv_relative)
+                    
+                    # Apply gradient
+                    perturbation_new[:, :, :, 0].subtract_(grad[:, :, :, 0] * alpha_acc_iter)
+                    perturbation_new[:, :, :, 1].subtract_(grad[:, :, :, 1] * alpha_curv_iter)
 
+                    # Apply relative control action limits
+                    perturbation_new[:, :, :X.shape[2], 0].clamp_(-self.epsilon_acc_relative, self.epsilon_acc_relative)
+                    perturbation_new[:, :, :X.shape[2], 1].clamp_(-self.epsilon_curv_relative, self.epsilon_curv_relative)
+
+                    # Apply absolute control action limits
                     control_action_perturbed = control_action + perturbation_new
-                    control_action_perturbed[:, :, :, 0].clamp_(
-                        -self.epsilon_acc_absolute, self.epsilon_acc_absolute)
-                    control_action_perturbed[:, :, :, 1].clamp_(
-                        -self.epsilon_curv_absolute, self.epsilon_curv_absolute)
+                    control_action_perturbed[:, :, :, 0].clamp_(-self.epsilon_acc_absolute, self.epsilon_acc_absolute)
+                    control_action_perturbed[:, :, :, 1].clamp_(-self.epsilon_curv_absolute, self.epsilon_curv_absolute)
 
-                    perturbation_new.copy_(control_action_perturbed - control_action)
+                    perturbation_new = control_action_perturbed - control_action
 
-                    # set perturbations of ego agent to zero
+                    # only consider target agent
                     perturbation_new[:, 1:] = 0.0
 
                 # Calculate updated adversarial position
@@ -442,6 +453,8 @@ class Adversarial_Control_Action(perturbation_template):
                 X_new, Y_new = Helper.return_data(
                     adv_position, X, Y, self.future_action_included)
 
+                assert (X.isnan().any(-1).any(-1) == X_new.isnan().any(-1).any(-1)).all(), "Perturbation removed existing trajectories."
+
                 # Forward pass through the model
                 Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, S=S, C=C, 
                                                               img=img, img_m_per_px=img_m_per_px, graph = graph,
@@ -451,26 +464,27 @@ class Adversarial_Control_Action(perturbation_template):
                 
                 losses = self._loss_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, i)
                 
-                max_perturb = torch.norm(X_new - X, dim = -1).max().item()
-                print('Iteration {}: Perturbation attempt {} - max_perturbation {} m'. format(i, inner_loop_count, max_perturb), flush = True)
-                print('Iteration {}: Perturbation attempt {} - losses {}'.format(i, inner_loop_count, losses), flush = True)
-
+                max_perturb = np.nanmax(torch.norm(X_new - X, dim = -1).max(-1).values.detach().cpu().numpy(), 1)
+                print('Iteration {}: Perturbation attempt {} - alpha_m:                  {}'. format(i, inner_loop_count, alpha_curv_iter[:,0,0].detach().cpu().numpy()), flush = True) 
+                print('Iteration {}: Perturbation attempt {} - max_perturbations [in m]: {}'. format(i, inner_loop_count, max_perturb), flush = True)
+                print('Iteration {}: Perturbation attempt {} - losses:                   {}'.format(i, inner_loop_count, losses.detach().cpu().numpy()), flush = True)
+                
                 # Check for NaN values in losses
                 invalid_mask = torch.isnan(losses) | torch.isinf(losses)
                 if invalid_mask.any():
-                    
                     # check if agent crashes replace tensor with zero tensor
                     if inner_loop_count >= 20:
                         perturbation_new[invalid_mask] = torch.zeros_like(perturbation_new[invalid_mask])
-                        perturbation_storage = perturbation_new.detach().clone()
                         break
                     # Half the learning rate only for samples with NaN losses
                     alpha_acc_iter[invalid_mask] *= 0.5
                     alpha_curv_iter[invalid_mask] *= 0.5
                     continue  # Skip this iteration and try again with reduced learning rate for NaN samples
                 else:
-                    perturbation_storage = perturbation_new.detach().clone()
                     break
+
+            # Get used perturbation
+            perturbation_storage = perturbation_new.detach().clone()
 
             # Store the loss for plot
             loss_store.append(losses.detach().cpu().numpy())
@@ -495,8 +509,8 @@ class Adversarial_Control_Action(perturbation_template):
         Y_Pred = Y_Pred[:,0]
 
         # Gaussian smoothing module
-        self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
-            X, Y, control_action, perturbation, adv_position, velocity, heading)
+        # self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
+        #     X, Y, control_action, perturbation, adv_position, velocity, heading)
 
         # Detach the tensor and convert to numpy
         X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier = Helper.detach_tensor(
@@ -508,7 +522,6 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
-        self.copy_Y = Helper.return_to_old_shape(self.copy_Y, self.Y_shape)
         Y_Pred_iter_1_new = Helper.return_to_old_shape_pred_1(Y_Pred_iter_1, Y, self.Y_shape, self.ego_agent_index)
 
         # Flip dimensions back
@@ -565,10 +578,10 @@ class Adversarial_Control_Action(perturbation_template):
             plot.plot_animated_adv_scene(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
                                          control_action=control_action, perturbed_control_action=control_action+perturbation)
 
-        # Plot the randomized smoothing
-        if self.plot_smoothing:
-            plot.plot_smoothing(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
-                                X_smoothed=self.X_smoothed, X_smoothed_adv=self.X_smoothed_adv, Y_pred_smoothed=self.Y_pred_smoothed, Y_pred_smoothed_adv=self.Y_pred_smoothed_adv)
+        # # Plot the randomized smoothing
+        # if self.plot_smoothing:
+        #     plot.plot_smoothing(X=X, X_new=X_new, Y=Y, Y_new=Y_new, Y_Pred=Y_Pred, Y_Pred_iter_1=Y_Pred_iter_1,
+        #                         X_smoothed=self.X_smoothed, X_smoothed_adv=self.X_smoothed_adv, Y_pred_smoothed=self.Y_pred_smoothed, Y_pred_smoothed_adv=self.Y_pred_smoothed_adv)
 
     def _loss_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, iteration):
         """
@@ -649,9 +662,9 @@ class Adversarial_Control_Action(perturbation_template):
         None
         """
         # check if the size of both sigmas are the same
-        Helper.check_size_list(self.sigma_acceleration, self.sigma_curvature)
+        # Helper.check_size_list(self.sigma_acceleration, self.sigma_curvature)
 
-        Helper.validate_settings_order(self.smoothing, self.plot_smoothing)
+        # Helper.validate_settings_order(self.smoothing, self.plot_smoothing)
 
         Helper.validate_adversarial_loss(self.loss_function_1)
 
@@ -674,10 +687,10 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Remove nan from input and remember old shape
         self.Y_shape = Y.shape
-        Y = Helper.remove_nan_values(data=Y)
-
         # Copy the original data
         self.copy_Y = Y.copy()
+        Y = Helper.remove_nan_values(data=Y)
+
 
         # set clamping values for absolute acceleration
         self.epsilon_acc_absolute = self.contstraints
