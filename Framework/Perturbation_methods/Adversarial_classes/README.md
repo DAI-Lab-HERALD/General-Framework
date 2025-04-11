@@ -22,7 +22,7 @@ The initial "learning" rate $\alpha_{0}$ and its decay rate $\gamma$ employed du
 ### Evaluation ground truth
 Setting the type of future ground truth data a model's prediction are compared against for calculating metrics, with three feasible options:
 - *'no'* => The unperturbed future data is the ground truth
-- *'one'* => The perturbed future recorded after the first iteration of PGD
+- *'one'* => The average predicted future on based on the unperturbed data
 - *'full'* => The perturbed future recorded after the last iteration of PGD
 ``` 
 "GT_data": 'no'
@@ -75,7 +75,7 @@ For each barrier, a distance threshold $d_{\max}$ can be selected:
 "distance_threshold_future": 1
 ```
 
-Addittionally, we can set a multiplier $\lambda$, with which the barrier function is multiplied in the overall attack loss:
+Addittionally, we can set a weightfactor $\lambda > 1$, where the barrier function is multiplied with $\frac{1}{\ln \lambda}$ (i.e., higher values leave less impact for this function):
 ```
 "log_value_past": 1.5
 "log_value_future": 1.5
