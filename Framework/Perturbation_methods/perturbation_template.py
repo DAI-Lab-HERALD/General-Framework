@@ -318,6 +318,7 @@ class perturbation_template():
 
     def extend_postion_data(self, P_in, P_out, dt, data_type):
         if len(data_type) > 2:
+            print('Position derivatives need to be calculated.', flush = True)
             # Combine trajectories
             n_in = P_in.shape[2]
             n_out = P_out.shape[2]
@@ -451,11 +452,13 @@ class perturbation_template():
             # Reverse flattening of P_full
             P_full = P_full.reshape(P_in.shape[0], P_in.shape[1], n_in + n_out, len(data_type))
             
-            P_in_full = P_full[..., :n_in]
-            P_out_full = P_full[..., n_in:]
-            
+            P_in_full  = P_full[..., :n_in, :]
+            P_out_full = P_full[..., n_in:, :]
+            print('Past.shape: {} - Future.shape: {}'.format(P_in_full.shape, P_out_full.shape), flush = True)
             return P_in_full, P_out_full
         else:   
+            print('No derivatives needed.', flush = True)
+            print('Past.shape: {} - Future.shape: {}'.format(P_in.shape, P_out.shape), flush = True)
             return P_in, P_out
 
 

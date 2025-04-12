@@ -3233,6 +3233,7 @@ class data_set_template():
                 self.Domain['perturbation'] = True
                 
                 if self.classification_useful:
+                    print("Extracting perturbed classification data (self.Output_path.shape: {})".format(self.Output_path.shape), flush = True)
                     # save old num_samples_path_pred
                     num_samples_path_pred = self.num_samples_path_pred + 0
                     self.num_samples_path_pred = 1
@@ -4232,6 +4233,8 @@ class data_set_template():
             
             # Increase dimensions if needed
             if need_dim_increase:
+                if i_sample == 0:
+                    print('Adding num_predictions dimension to paths.', flush = True)
                 paths = self.increase_path_dim(paths)
             
             t = Output_T_pred[i_full]
