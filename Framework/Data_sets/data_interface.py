@@ -592,8 +592,13 @@ class data_interface(object):
         
         for data_set in self.Datasets.values():
             if data_set.includes_images():
-                
-                Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
+                # Find the indices of the samples coming from this dataset
+                data_set_file = os.path.basename(data_set.data_file[:-4])
+                data_set_name = data_set.get_name()['print']
+                if 'Pertubation' in data_set_file:
+                    pert_index = data_set_file.split('Pertubation_')[-1]
+                    data_set_name += ' (Pertubation_' + pert_index + ')'
+                Use = (domain['Scenario'] == data_set_name).to_numpy()
                 
                 # Ignore if no images from dataset are used
                 if not Use.any():
@@ -636,7 +641,14 @@ class data_interface(object):
                     print('')
                     print('Get scene graphs from dataset ' + data_set.get_name()['print'])
                 
-                Use = (domain['Scenario'] == data_set.get_name()['print']).to_numpy()
+                # Find the indices of the samples coming from this dataset
+                data_set_file = os.path.basename(data_set.data_file[:-4])
+                data_set_name = data_set.get_name()['print']
+                if 'Pertubation' in data_set_file:
+                    pert_index = data_set_file.split('Pertubation_')[-1]
+                    data_set_name += ' (Pertubation_' + pert_index + ')'
+                Use = (domain['Scenario'] == data_set_name).to_numpy()
+                
                 # Ignore if no scene graphs from dataset are used
                 if not Use.any():
                     continue
