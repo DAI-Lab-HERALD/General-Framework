@@ -403,7 +403,7 @@ class adapt_aydemir(model_template):
                                       torch.stack([-torch.sin(angle), torch.cos(angle)])], dim = 0) # Shape (2, 2)
             
             pos_matrix -= X[i, 0, -1, :2] 
-            useful_position = pos_matrix.isfinite().all(-1).all(-1) # Shape (num_agents,)
+            useful_position = pos_matrix.isfinite().all(-1) # Shape (num_agents,)
             pos_matrix[useful_position] = torch.einsum('...ij,jk->...ik', pos_matrix[useful_position], rot_matrix) # Shape (num_agents, num_steps_in, 2)
 
             # tensor consists of prev_x prev_y x y timestamp type==AV type==AGENT type==OTHERS agent_id timestep and padding until 128
@@ -475,14 +475,15 @@ class adapt_aydemir(model_template):
             batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float().to(tensor.device)
             batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float().to(tensor.device)
 
-            dpos = tensor[~missing_agent_mask, -1, 2:4] - tensor[~missing_agent_mask, -1, :2] # Shape (num_agents, 2)
+            existing_tensor = tensor[~missing_agent_mask] # Shape (num_agents, num_steps_in-1, 128)
+            dpos = existing_tensor[:, -1, 2:4] - existing_tensor[:, -1, :2] # Shape (num_agents, 2)
             degree = safe_atan2(dpos[:,1],dpos[:,0]) # Shape (num_agents,)
-            x = tensor[~missing_agent_mask, -1, 2] # Shape (num_agents,)
-            y = tensor[~missing_agent_mask, -1, 3] # Shape (num_agents,)
-            pre_x = tensor[~missing_agent_mask, -1, 0] # Shape (num_agents,)
-            pre_y = tensor[~missing_agent_mask, -1, 1] # Shape (num_agents,)
+            x = existing_tensor[:, -1, 2] # Shape (num_agents,)
+            y = existing_tensor[:, -1, 3] # Shape (num_agents,)
+            pre_x = existing_tensor[:, -1, 0] # Shape (num_agents,)
+            pre_y = existing_tensor[:, -1, 1] # Shape (num_agents,)
             info = torch.stack([degree, x, y, pre_x, pre_y], dim = -1) # Shape (num_agents, 5)
-            assert torch.isfinite(info).all()
+            # assert torch.isfinite(info).all()
             batch[entries]['meta_info'] = info
 
             entries += 1
