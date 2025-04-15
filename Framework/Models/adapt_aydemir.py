@@ -470,18 +470,24 @@ class adapt_aydemir(model_template):
             batch[entries]['lane_data'] = lane_list
 
             missing_agent_mask = ~(existing_timestep_mask.any(-1)) # shape should be agents
+            
+            # Find last existing timestep
+            exist_timestep = existing_timestep_mask[~missing_agent_mask] # Shape (num_agents, num_steps_in-1)
+            ind_last = exist_timestep[... ::-1].argmax(dim = -1) # Shape (num_agents,)
+            ind_last = exist_timestep.shape[-1] - ind_last - 1 # Shape (num_agents,)
+            ind_batch = torch.arange(ind_last.shape[0]).to(tensor.device) # Shape (num_agents,)
 
             batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float().to(tensor.device)
             batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float().to(tensor.device)
             batch[entries]['label_is_valid'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum())).float().to(tensor.device)
 
             existing_tensor = tensor[~missing_agent_mask] # Shape (num_agents, num_steps_in-1, 128)
-            dpos = existing_tensor[:, -1, 2:4] - existing_tensor[:, -1, :2] # Shape (num_agents, 2)
+            dpos = existing_tensor[ind_batch, ind_last, 2:4] - existing_tensor[ind_batch, ind_last, :2] # Shape (num_agents, 2)
             degree = safe_atan2(dpos[:,1],dpos[:,0]) # Shape (num_agents,)
-            x = existing_tensor[:, -1, 2] # Shape (num_agents,)
-            y = existing_tensor[:, -1, 3] # Shape (num_agents,)
-            pre_x = existing_tensor[:, -1, 0] # Shape (num_agents,)
-            pre_y = existing_tensor[:, -1, 1] # Shape (num_agents,)
+            x = existing_tensor[ind_batch, ind_last, 2] # Shape (num_agents,)
+            y = existing_tensor[ind_batch, ind_last, 3] # Shape (num_agents,)
+            pre_x = existing_tensor[ind_batch, ind_last, 0] # Shape (num_agents,)
+            pre_y = existing_tensor[ind_batch, ind_last, 1] # Shape (num_agents,)
             info = torch.stack([degree, x, y, pre_x, pre_y], dim = -1) # Shape (num_agents, 5)
             # assert torch.isfinite(info).all()
             batch[entries]['meta_info'] = info
