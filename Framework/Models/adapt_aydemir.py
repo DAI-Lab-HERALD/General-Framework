@@ -259,7 +259,7 @@ class adapt_aydemir(model_template):
                 if Y is not None:
                     complete_trajectory = np.concatenate([X[i, :, :, :2], Y[i, :, :, :2]], axis=1)
                     complete_trajectory_mask = np.isfinite(complete_trajectory).all(-1).all(-1) # shape should be agents
-                    missing_agent_mask = np.isnan(complete_trajectory).all(-1).all(-1) # shape should be agents
+                    missing_agent_mask = np.isnan(complete_trajectory).any(-1).all(-1) # shape should be agents
 
                     displacement = torch.norm((torch.tensor(tensor[:, -1, 2:4]) - torch.tensor(tensor[:, 0, :2])), dim=-1)
                     drop_candidates = (displacement < 1.0) & (self.cfg['static_agent_drop'])
@@ -348,7 +348,7 @@ class adapt_aydemir(model_template):
                     assert batch[entries]['consider'][-1] <= batch[entries]['labels'].shape[1] - 1
 
                 else:
-                    missing_agent_mask = np.isnan(X[i,:,:,:2]).all(-1).all(-1) # shape should be agents
+                    missing_agent_mask = ~(existing_timestep_mask.any(-1))
 
                     batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float()
                     batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float()
@@ -469,7 +469,7 @@ class adapt_aydemir(model_template):
 
             batch[entries]['lane_data'] = lane_list
 
-            missing_agent_mask = ~existing_timestep_mask.any(-1) # shape should be agents
+            missing_agent_mask = ~(existing_timestep_mask.any(-1)) # shape should be agents
 
             batch[entries]['labels'] = torch.zeros((self.num_timesteps_out, (~missing_agent_mask).sum(), 2)).float().to(tensor.device)
             batch[entries]['origin_labels'] = torch.zeros((self.num_timesteps_out, 2)).float().to(tensor.device)
@@ -645,11 +645,9 @@ class adapt_aydemir(model_template):
                 print('    ADAPT: Predicting batch {}'.format(ind_batch))
 
                 X, _, _, _, _, graph, Pred_agents, num_steps, Sample_id, Agent_id, prediction_done = self.provide_batch_data('pred', self.cfg['batch_size'])
-
                 batch_data = self.extract_data(X, None, graph, Pred_agents, Sample_id, Agent_id)
-                # TODO
-                pred_trajectory, pred_probs, multi_out = self.model(batch_data, True)
 
+                pred_trajectory, pred_probs, multi_out = self.model(batch_data, True)
 
                 # map proposals to Predictions according to Pred_agents
                 sample_number = self.cfg['num_modes']
