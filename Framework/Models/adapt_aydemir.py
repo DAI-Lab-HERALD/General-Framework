@@ -473,7 +473,7 @@ class adapt_aydemir(model_template):
             
             # Find last existing timestep
             exist_timestep = existing_timestep_mask[~missing_agent_mask] # Shape (num_agents, num_steps_in-1)
-            ind_last = exist_timestep[..., ::-1].argmax(dim = -1) # Shape (num_agents,)
+            ind_last = torch.flip(exist_timestep, [1]).float().argmax(dim = -1) # Shape (num_agents,)
             ind_last = exist_timestep.shape[-1] - ind_last - 1 # Shape (num_agents,)
             ind_batch = torch.arange(ind_last.shape[0]).to(tensor.device) # Shape (num_agents,)
 
