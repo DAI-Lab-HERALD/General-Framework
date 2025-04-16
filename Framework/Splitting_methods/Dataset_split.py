@@ -99,7 +99,7 @@ class Dataset_split(splitting_template):
                                      test_part = self.test_part,
                                      repetition = (0,), 
                                      train_pert = self.train_pert, 
-                                     test_pert = self.test_pert, 
+                                     test_pert = self.train_pert, 
                                      train_on_test = False 
                                      )
         
