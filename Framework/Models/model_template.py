@@ -2435,12 +2435,16 @@ class model_template():
         else:
             assert Pred_agents is not None
 
+        assert Sample_id.shape == Agent_id.shape[:1]
+        assert Pred.shape[2] == self.num_samples_path_pred
+        assert Pred.shape[4] >= 2
         assert Pred.shape[:2] == Agent_id.shape
         assert Pred_agents.shape == Agent_id.shape
 
         assert hasattr(self, 'batch_data'), 'This should not have happened here.'
         num_steps_required = self.batch_data[-3]
-        assert Pred.shape[-2] == num_steps_required, 'Number of timesteps in prediction {} is not equal to the number of timesteps required {}.'.format(Pred.shape[-2], num_steps_required)
+        assert Pred.shape[3] >= num_steps_required, 'Number of timesteps in prediction {} is not equal to the number of timesteps required {}.'.format(Pred.shape[-2], num_steps_required)
+        Pred = Pred[..., :num_steps_required, :] # Only predict required length
 
         # Get ready to adjust for potential changes of Agent id in the model pertrub method function
         Sample_id_given = self.batch_data[-2].copy()
@@ -2468,9 +2472,6 @@ class model_template():
         assert same_agent.any(-1).all(), 'Predicted agents are not the same as the given agents.'
 
         if self.predict_path_probs:
-
-
-            
             if Log_probs is not None:
                 assert Pred.shape[[0,2]] == Log_probs.shape[[0,2]]
                 assert Log_probs.shape[1] == Pred.shape[1]
@@ -2522,11 +2523,6 @@ class model_template():
             # Append log likelihoods with ground truth
             Log_probs = np.concatenate([Log_probs, gt_probs[...,np.newaxis]], axis = -1)
         
-        assert Sample_id.shape == Agent_id.shape[:1]
-        assert Pred.shape[2] == self.num_samples_path_pred
-        assert Pred.shape[4] >= 2
-        # Only use position
-        Pred = Pred[..., :2]
         
         # Get agent string names
         Agents = np.array(self.data_set.Agents)
@@ -2539,7 +2535,7 @@ class model_template():
                 pred_traj = Pred[i, j].astype('float32')
                 assert np.isfinite(pred_traj).all(), 'Predicted trajectory contains non-finite values.'
                 self.Output_path_pred.loc[i_sample, agent] = None
-                self.Output_path_pred.loc[i_sample, agent] = pred_traj
+                self.Output_path_pred.loc[i_sample, agent] = pred_traj[...,:2] # Only keep x and y coordinates
                 
                 if self.predict_path_probs:
                     pred_probs = Log_probs[i,j].astype('float32')
