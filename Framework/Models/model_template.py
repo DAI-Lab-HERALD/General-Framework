@@ -2310,8 +2310,7 @@ class model_template():
             else:
                 C = None
             if mode == 'pred':
-                if self.predict_path_probs:
-                    self.batch_data = [X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
+                self.batch_data = [X, Y, T, S, C, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
                 return     X,    T, S, C,                 img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 if return_classifications:
@@ -2320,8 +2319,7 @@ class model_template():
                     return X, Y, T, S, C,                 img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done
         else:
             if mode == 'pred':
-                if self.predict_path_probs:
-                    self.batch_data = [X, Y, T, S, None, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
+                self.batch_data = [X, Y, T, S, None, img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id]
                 return     X,    T, S,                    img, img_m_per_px, graph, Pred_agents, num_steps, Sample_id, Agent_id, epoch_done    
             else:
                 if return_classifications:
@@ -2439,19 +2437,39 @@ class model_template():
 
         assert Pred.shape[:2] == Agent_id.shape
         assert Pred_agents.shape == Agent_id.shape
-            
+
+        assert hasattr(self, 'batch_data'), 'This should not have happened here.'
+        num_steps_required = self.batch_data[-3]
+        assert Pred.shape[-2] == num_steps_required, 'Number of timesteps in prediction {} is not equal to the number of timesteps required {}.'.format(Pred.shape[-2], num_steps_required)
+
+        # Get ready to adjust for potential changes of Agent id in the model pertrub method function
+        Sample_id_given = self.batch_data[-2].copy()
+        assert np.array_equal(Sample_id_given, Sample_id), "Batch samples are missing."
+        Agent_id_given = self.batch_data[-1].copy()
+        max_agent_id = max(Agent_id_given.max(), Agent_id.max())
+        Pred_agents_given = self.batch_data[-4].copy()
+
+        # Prepare corresponding sample id:
+        sample_id = np.arange(Agent_id.shape[0])[:,np.newaxis].repeat(Agent_id.shape[1], axis = 1)
+        sample_id_given = np.arange(Agent_id_given.shape[0])[:,np.newaxis].repeat(Agent_id_given.shape[1], axis = 1)
+
+        # Check if all agents are provided
+        Pred_samples, Pred_agents = np.where(Pred_agents)
+        Pred_samples_given, Pred_agents_given = np.where(Pred_agents_given)
+
+        Pred_agents_id = np.stack(Sample_id[Pred_samples], Agent_id[Pred_samples, Pred_agents], axis = -1) # Num_pred_agents x 2
+        Pred_agents_id_given = np.stack(Sample_id_given[Pred_samples_given], Agent_id_given[Pred_samples_given, Pred_agents_given], axis = -1) # Num_pred_agents x 2
+
+        Pred_agents_id = Pred_agents_id[:,0] + Pred_agents_id[:,1] / (max_agent_id + 1)
+        Pred_agents_id_given = Pred_agents_id_given[:,0] + Pred_agents_id_given[:,1] / (max_agent_id + 1)
+
+        # Check if all agents are provided
+        same_agent = (Pred_agents_id_given[:,np.newaxis] - Pred_agents_id[np.newaxis,:]).abs() < 0.1 / (max_agent_id + 1)
+        assert same_agent.any(-1).all(), 'Predicted agents are not the same as the given agents.'
+
         if self.predict_path_probs:
-            assert hasattr(self, 'batch_data'), 'This should not have happened here.'
 
-            # Get ready to adjust for potential changes of Agent id in the model pertrub method function
-            Sample_id_given = self.batch_data[-2].copy()
-            assert np.array_equal(Sample_id_given, Sample_id), "Batch samples are missing."
-            Agent_id_given = self.batch_data[-1].copy()
-            max_agent_id = max(Agent_id_given.max(), Agent_id.max())
 
-            # Prepare corresponding sample id:
-            sample_id = np.arange(Agent_id.shape[0])[:,np.newaxis].repeat(Agent_id.shape[1], axis = 1)
-            sample_id_given = np.arange(Agent_id_given.shape[0])[:,np.newaxis].repeat(Agent_id_given.shape[1], axis = 1)
             
             if Log_probs is not None:
                 assert Pred.shape[[0,2]] == Log_probs.shape[[0,2]]
