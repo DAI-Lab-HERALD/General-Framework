@@ -2397,7 +2397,7 @@ class model_template():
         Pred : np.ndarray
             This is the predicted future observed data of the agents, in the form of a
             :math:`\{N_{samples} \times N_{agents} \times N_{preds} \times N_{O} \times 2\}` dimensional numpy array with float values. 
-            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values. 
+            If an agent is fully or on some timesteps partially not observed, then this can include np.nan values.
             The required value of :math:`N_{preds}` is given in **self.num_samples_path_pred**.
         Sample_id : np.ndarray
             This is a :math:`N_{samples}` dimensional numpy array with integer values. Those indicate from which original sample
@@ -2412,13 +2412,11 @@ class model_template():
             This input does not have to be provided if the model can only predict one single agent at the same time and is therefore
             incapable of joint predictions, i. e., it is only expected if **self.predict_single_agent** =  *True*.
         Log_probs : np.ndarray, optional
-            This is a :math:`\{N_{samples} \times M_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, with 
-            the model assigned log likelihoods. Here, :math:`M_{agents} = N_{agents}` if **self.predict_single_agent** = *False* (i. e., 
-            the model expects marginal likelihoods), while joint likelihoods are expected for the case of **self.predict_single_agent** = 
-            *True*, (resulting in :math:`M_{agents} = 1`). In the former cases, this can include np.nan values for non predicted agents.
+            This is a :math:`\{N_{samples} \times N_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, with 
+            the model assigned log likelihoods for each corresponding prediction. For agents that doe not need to be predicted 
+            (i.e. ~Pred_agents), this can be np.nan values.
             
-            This input does not have to be provided if the model does not predict likelihoods, but is expected otherwise, i. e., if the 
-            model has the function *self.provides_likelihoods()* and it is defined to return *True*.
+            This input does not have to be provided if the model does not predict likelihoods.
 
         Returns
         -------
@@ -2429,24 +2427,82 @@ class model_template():
         if self.predict_single_agent:
             if len(Pred.shape) == 4:
                 Pred = Pred[:,np.newaxis]
-                
-            assert Pred.shape[:1] == Sample_id.shape
+
+            if Pred.shape[1] == 1:
+                Pred = np.concatenate([Pred, np.full((Pred.shape[0], Agent_id.shape[1] - 1, *Pred.shape[2:]), np.nan)], axis = 1)
+
             if Pred_agents is None:
                 Pred_agents = np.zeros(Agent_id.shape, bool)
                 Pred_agents[:,0] = True
         else:
             assert Pred_agents is not None
-            assert Pred.shape[:2] == Agent_id.shape
-            assert Pred_agents.shape == Agent_id.shape
+
+        assert Pred.shape[:2] == Agent_id.shape
+        assert Pred_agents.shape == Agent_id.shape
             
         if self.predict_path_probs:
-            assert Log_probs is not None
-            assert Pred.shape[[0,2]] == Log_probs.shape[[0,2]]
-            if self.predict_single_agent:
+            assert hasattr(self, 'batch_data'), 'This should not have happened here.'
+
+            # Get ready to adjust for potential changes of Agent id in the model pertrub method function
+            Sample_id_given = self.batch_data[-2].copy()
+            assert np.array_equal(Sample_id_given, Sample_id), "Batch samples are missing."
+            Agent_id_given = self.batch_data[-1].copy()
+            max_agent_id = max(Agent_id_given.max(), Agent_id.max())
+
+            # Prepare corresponding sample id:
+            sample_id = np.arange(Agent_id.shape[0])[:,np.newaxis].repeat(Agent_id.shape[1], axis = 1)
+            sample_id_given = np.arange(Agent_id_given.shape[0])[:,np.newaxis].repeat(Agent_id_given.shape[1], axis = 1)
+            
+            if Log_probs is not None:
+                assert Pred.shape[[0,2]] == Log_probs.shape[[0,2]]
                 assert Log_probs.shape[1] == Pred.shape[1]
-            else:
-                assert Log_probs.shape[1] == 1
-                Log_probs = np.tile(Log_probs, (1, Pred.shape[1], 1))
+                if Log_probs.shape[1] == 1:
+                    Log_probs = np.concatenate([Log_probs, np.full((Log_probs.shape[0], Agent_id.shape[1] - 1, Log_probs.shape[-1]), np.nan)], axis = 1)
+            else: 
+                # Use the calculate_log_likelihoods function to calculate the log likelihoods
+                Y_gt = self.batch_data[1].copy()
+
+
+                # Pred corresponds to Agent_id, while we need something that corresponds to Agent_id_given
+                # Map Y_pred_k onto Y_pred_k_used accordingly
+                Pred_actual_help = np.full((Pred.shape[0], max_agent_id, *Pred.shape[2:]), np.nan)
+                Pred_actual_help[sample_id, Agent_id] = Pred
+                Pred_actual = Pred_actual_help[sample_id_given, Agent_id_given]
+
+                # Go through predictions
+                # Get actual Log_probs
+                Log_probs_actual = np.full(Pred_actual.shape[:3], np.nan, np.float32)
+                for k in Log_probs.shape[-1]:
+                    Y_pred_k = Pred_actual[:,:,k] # num_samples x num_agents x N_O x 2
+                    self.batch_data[1] = Y_pred_k
+                    log_probs_k = self.calculate_log_likelihoods(*self.batch_data) # num_samples x M_agents
+                    assert len(log_probs_k.shape) == 2
+                    assert Pred.shape[:2] == log_probs_k.shape
+
+                    Log_probs_actual[:,:,k] = log_probs_k
+                
+                # Transform
+                Log_probs_help = np.full((Pred.shape[0], max_agent_id, *Log_probs.shape[2:]), np.nan, np.float32)
+                Log_probs_help[sample_id_given, Agent_id_given] = Log_probs_actual
+                Log_probs = Log_probs_help[sample_id, Agent_id]
+                    
+                # Set ground truth back to batch data
+                self.batch_data[1] = Y_gt
+
+            ##Calculate the corresponding ground truth likelihoods
+            # Check for batch data
+            gt_probs = self.calculate_log_likelihoods(*self.batch_data) # Num_samples x M_agents
+            
+            assert len(gt_probs.shape) == 2
+            assert self.batch_data[1].shape[:2] == gt_probs.shape
+
+            # Map onto actual Agent_id
+            gt_probs_help = np.full((Pred.shape[0], max_agent_id), np.nan, np.float32)
+            gt_probs_help[sample_id_given, Agent_id_given] = gt_probs
+            gt_probs = gt_probs_help[sample_id, Agent_id]
+
+            # Append log likelihoods with ground truth
+            Log_probs = np.concatenate([Log_probs, gt_probs[...,np.newaxis]], axis = -1)
         
         assert Sample_id.shape == Agent_id.shape[:1]
         assert Pred.shape[2] == self.num_samples_path_pred
@@ -2462,31 +2518,15 @@ class model_template():
                 if not Pred_agents[i,j]:
                     continue
                 agent = Agents[agent_id]
-                self.Output_path_pred.loc[i_sample, agent] = None
                 pred_traj = Pred[i, j].astype('float32')
                 assert np.isfinite(pred_traj).all(), 'Predicted trajectory contains non-finite values.'
+                self.Output_path_pred.loc[i_sample, agent] = None
                 self.Output_path_pred.loc[i_sample, agent] = pred_traj
                 
                 if self.predict_path_probs:
-                    self.Output_path_pred_probs.loc[i_sample, agent] = None
                     pred_probs = Log_probs[i,j].astype('float32')
-                    assert np.isfinite(pred_probs).all(), 'Predicted trajectory contains non-finite values.'
-                    
-                    # Calculate the corresponding ground truth likelihoods
-                    # Check for batch data
-                    assert hasattr(self, 'batch_data'), 'This should not have happened here.'
-                    gt_probs = self.calculate_log_likelihoods(*self.batch_data) # Num_samples x M_agents
-                    
-                    assert len(gt_probs.shape) == 2
-                    assert Pred.shape[0] == gt_probs.shape[0]
-                    if self.predict_single_agent:
-                        assert gt_probs.shape[1] == Pred.shape[1]
-                    else:
-                        assert gt_probs.shape[1] == 1
-                        gt_probs = np.tile(gt_probs, (1, Pred.shape[1]))
-                        
-                    pred_probs = np.concatenate([pred_probs, gt_probs[...,np.newaxis]], axis = -1)
-                    
+                    assert np.isfinite(pred_probs).all(), 'Predicted log likelihoods contains non-finite values.'
+                    self.Output_path_pred_probs.loc[i_sample, agent] = None
                     self.Output_path_pred_probs.loc[i_sample, agent] = pred_probs   
     
     

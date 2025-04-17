@@ -404,10 +404,11 @@ Some common metrics like do not only require the predictions by the model, but a
     Returns
     -------
     GT_log_probs : np.ndarray
-      This is a :math:`\{N_{samples} \times M_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, with 
-      the model assigned log likelihoods. Here, :math:`M_{agents} = N_{agents}` if **self.predict_single_agent** = *False* (i. e., 
-      the model expects marginal likelihoods), while joint likelihoods are expected for the case of **self.predict_single_agent** = 
-      *True*, (resulting in :math:`M_{agents} = 1`). In the former cases, this can include np.nan values for non predicted agents.
+      This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. it includes float values, with 
+      the model assigned log likelihoods for each corresponding agentds. For agents that do not need to be predicted 
+      (i.e. ~Pred_agents), this can be np.nan values.
+    
+    This in
     
     '''
 
@@ -973,14 +974,11 @@ def save_predicted_batch_data(self, Pred, Sample_id, Agent_id, Pred_agents = Non
     This input does not have to be provided if the model can only predict one single agent at the same time and
     is therefore incapable of joint predictions. In this case, None is assumed as the value.
   Log_probs : np.ndarray, optional
-    This is a :math:`\{N_{samples} \times M_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, 
-    with the model assigned log likelihoods. Here, :math:`M_{agents} = N_{agents}` if **self.predict_single_agent** = *False* 
-    (i. e., the model expects marginal likelihoods), while joint likelihoods are expected for the case of 
-    **self.predict_single_agent** = *True*, (resulting in :math:`M_{agents} = 1`). In the former cases, this can include 
-    np.nan values for non predicted agents.
+    This is a :math:`\{N_{samples} \times N_{agents} \times N_{preds}\}` dimensional numpy array. it includes float values, with 
+    the model assigned log likelihoods for each corresponding prediction. For agents that do not need to be predicted 
+    (i.e. ~Pred_agents), this can be np.nan values.
     
-    This input does not have to be provided if the model does not predict likelihoods, but is expected otherwise, i. e., if the 
-    model has the function *self.provides_likelihoods()* and it is defined to return *True*.
+    This input does not have to be provided if the model does not predict likelihoods.
 
   Returns
   -------
