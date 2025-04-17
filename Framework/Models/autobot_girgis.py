@@ -224,7 +224,11 @@ class autobot_girgis(model_template):
         if num_any_finite != num_all_finite:
             print('    Autobot: Rearranging input data failed')
             failed_cases = (num_any_finite - num_all_finite) / num_any_finite
-            print('    Autobot: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases))
+            print('    Autobot: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases), flush = True)
+            failed = any_finite != finite_data.all(-1) # Shape (batch_size, num_agents, num_steps_in)
+            num_missing = data.shape[-1] - finite_data[failed].sum(-1)
+            print('    Autobot: In those cases, on average, {:0.2f} columns are missing'.format(num_missing.mean()), flush = True)
+            print('')
 
             # Check if positions are always available
             assert np.isfinite(data[any_finite][...,:2]).all(), "There are finite values in v_x or v_y where x or y is nan"

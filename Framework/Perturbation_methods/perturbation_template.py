@@ -308,7 +308,9 @@ class perturbation_template():
             if np.abs(missing_timestep_end - missing_timestep_start) > 1:
                 f_mask = F[mask] # [N, M]
                 f_mask_time = f_mask[:,missing_timestep_start:missing_timestep_end] # [N,m]
+                assert np.isfinite(f_mask_time).all(), "There are still NaN values in the original data."
                 df_mask_time = np.gradient(f_mask_time, axis = -1) # [N,m]
+                assert np.isfinite(df_mask_time).all(), "There are still NaN values in the derivatives."
                 df_mask = np.zeros_like(f_mask) # [N, M]
                 df_mask[:,missing_timestep_start:missing_timestep_end] = df_mask_time
                 dF[mask] = df_mask

@@ -48,7 +48,7 @@ class wayformer_unitraj(model_template):
         latex commands - such as using '$$' for math notation.
             
         '''
-        self.define_default_kwargs()
+        self.define_default_kwargs(name = True)
 
         # TODO: Implement
         kwargs_str = ''
@@ -106,19 +106,22 @@ class wayformer_unitraj(model_template):
         '''
         return None
     
-    def define_default_kwargs(self):
+    def define_default_kwargs(self, name = False):
         if not ('seed' in self.model_kwargs.keys()):
             self.model_kwargs["seed"] = 42
+        
+        if name:
+            return
         
         # Go through the cfg file in wayformer.cfg.wayformer.yaml
         # Check if the key is in the model_kwargs, if not, add it, and set 
         # the value to the one in the .yaml file
         
-        # Get path to this file
-        path = os.path.dirname(os.path.abspath(__file__))
 
         # Load yaml file
         if not hasattr(self, 'cfg'):
+            # Get path to this file
+            path = os.path.dirname(os.path.abspath(__file__))
             cfg_path = path + os.sep + 'Wayformer_unitraj' + os.sep + 'cfg' + os.sep + 'wayformer.yaml'
             self.cfg = OmegaConf.load(cfg_path)
 
@@ -129,9 +132,6 @@ class wayformer_unitraj(model_template):
             
             else:
                 self.cfg[key] = self.model_kwargs[key]
-        
-
-        
 
         
 
@@ -142,7 +142,6 @@ class wayformer_unitraj(model_template):
         self.predict_single_agent = True
         self.can_use_map = False
         self.can_use_graph = True
-        self.sceneGraph_radius = self.model_kwargs['map_range']
 
         seed = self.model_kwargs["seed"]
         random.seed(seed)
@@ -151,6 +150,11 @@ class wayformer_unitraj(model_template):
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
+
+        # Load yaml file
+        path = os.path.dirname(os.path.abspath(__file__))
+        cfg_path = path + os.sep + 'Wayformer_unitraj' + os.sep + 'cfg' + os.sep + 'wayformer.yaml'
+        self.cfg = OmegaConf.load(cfg_path)
 
         # Check if map is available
         self.cfg['use_map'] = self.can_use_graph and self.has_graph
@@ -168,6 +172,8 @@ class wayformer_unitraj(model_template):
         self.cfg['max_num_agents'] = self.ID.shape[1]
 
         self.define_default_kwargs()
+        self.sceneGraph_radius = self.model_kwargs['map_range']
+
 
         # Initialize the model
         self.model = Wayformer(self.cfg)
@@ -228,9 +234,9 @@ class wayformer_unitraj(model_template):
         num_any_finite = any_finite.sum()
         num_all_finite = finite_data.all(-1).sum()
         if num_any_finite != num_all_finite:
-            print('    Autobot: Rearranging input data failed')
+            print('    Wayformer: Rearranging input data failed')
             failed_cases = (num_any_finite - num_all_finite) / num_any_finite
-            print('    Autobot: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases))
+            print('    Wayformer: In {:0.2f}% of cases, there where mixed nan/finite values'.format(100 * failed_cases))
 
             # Check if positions are always available
             assert np.isfinite(data[any_finite][...,:2]).all(), "There are finite values in v_x or v_y where x or y is nan"
@@ -243,6 +249,10 @@ class wayformer_unitraj(model_template):
         # T.shape = (batch_size, num_agents)
         # S.shape = (batch_size, num_agents)
         # Pred_agents.shape = (batch_size, num_agents)
+        num_agents_max = self.model._M - 1
+        X = X[:,:num_agents_max]
+        T = T[:,:num_agents_max]
+        S = S[:,:num_agents_max]
 
         missing_timesteps_start = torch.isfinite(X).all(-1).float().argmax(-1) # batch_size, num_agents
         missing_timesteps_end = missing_timesteps_start + torch.isfinite(X).all(-1).int().sum(-1) # batch_size, num_agents
@@ -406,6 +416,15 @@ class wayformer_unitraj(model_template):
         # T.shape = (batch_size, num_agents)
         # S.shape = (batch_size, num_agents)
         # Pred_agents.shape = (batch_size, num_agents)
+        # Remove excessive agents
+        num_agents_max = self.model._M - 1
+        X = X[:,:num_agents_max]
+        T = T[:,:num_agents_max]
+        S = S[:,:num_agents_max]
+
+
+
+
         Obj_trajs = self.rearange_input_data(X)
         Obj_trajs = torch.from_numpy(Obj_trajs).float().to(self.device)
         Obj_trajs_mask = torch.isfinite(Obj_trajs).all(dim=-1)
@@ -667,10 +686,18 @@ class wayformer_unitraj(model_template):
             for i, weights_loaded in enumerate(self.weights_saved):
                 weights_loaded_torch = torch.from_numpy(weights_loaded)
                 if not (Weights[i].shape == weights_loaded_torch.shape):
-                    print('Weight shapes do not match')
-                    print('Shape loaded:', weights_loaded_torch.shape)
-                    print('Shape desired:', Weights[i].shape)
-                    assert False, "Model weights do not match" 
+                    error_string = []
+                    error_string.append('Model weights do not match')
+                    error_string.append('Shape loaded: {}'.format(weights_loaded_torch.shape))
+                    error_string.append('Shape desired: {}'.format(Weights[i].shape))
+                    error_string.append('max_num_agents (cfg): {}'.format(self.cfg['max_num_agents']))
+                    error_string.append('data_set.Pred_agents_eval.shape: {}'.format(len(self.data_set.Pred_agents_eval)))
+                    if hasattr(self, 'ID'):
+                        error_string.append('ID.shape: {}'.format(self.ID.shape))
+                    else:
+                        error_string.append('ID.shape not available. Why???')
+                    error_string = '\n'.join(error_string)
+                    assert False, error_string
                 Weights[i][:] = weights_loaded_torch[:]
 
     def predict_method(self):
