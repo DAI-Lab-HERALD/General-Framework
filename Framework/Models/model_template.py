@@ -2458,17 +2458,14 @@ class model_template():
         sample_id_given = np.arange(Agent_id_given.shape[0])[:,np.newaxis].repeat(Agent_id_given.shape[1], axis = 1)
 
         # Check if all agents are provided
-        Pred_samples, Pred_agents = np.where(Pred_agents)
-        Pred_samples_given, Pred_agents_given = np.where(Pred_agents_given)
+        pred_samples, pred_agents = np.where(Pred_agents)
+        pred_samples_given, pred_agents_given = np.where(Pred_agents_given)
 
-        Pred_agents_id = np.stack(Sample_id[Pred_samples], Agent_id[Pred_samples, Pred_agents], axis = -1) # Num_pred_agents x 2
-        Pred_agents_id_given = np.stack(Sample_id_given[Pred_samples_given], Agent_id_given[Pred_samples_given, Pred_agents_given], axis = -1) # Num_pred_agents x 2
-
-        Pred_agents_id = Pred_agents_id[:,0] + Pred_agents_id[:,1] / (max_agent_id + 1)
-        Pred_agents_id_given = Pred_agents_id_given[:,0] + Pred_agents_id_given[:,1] / (max_agent_id + 1)
+        Pred_agents_id = np.stack((Sample_id[pred_samples], Agent_id[pred_samples, pred_agents]), axis = -1) # Num_pred_agents x 2
+        Pred_agents_id_given = np.stack((Sample_id_given[pred_samples_given], Agent_id_given[pred_samples_given, pred_agents_given]), axis = -1) # Num_pred_agents x 2
 
         # Check if all agents are provided
-        same_agent = (Pred_agents_id_given[:,np.newaxis] - Pred_agents_id[np.newaxis,:]).abs() < 0.1 / (max_agent_id + 1)
+        same_agent = (Pred_agents_id_given[:,np.newaxis] == Pred_agents_id[np.newaxis,:]).all(-1) # Num_pred_agents x Num_pred_agents
         assert same_agent.any(-1).all(), 'Predicted agents are not the same as the given agents.'
 
         if self.predict_path_probs:
@@ -2532,10 +2529,10 @@ class model_template():
                 if not Pred_agents[i,j]:
                     continue
                 agent = Agents[agent_id]
-                pred_traj = Pred[i, j].astype('float32')
+                pred_traj = Pred[i, j][...,:2].astype('float32') # Only keep x and y coordinates
                 assert np.isfinite(pred_traj).all(), 'Predicted trajectory contains non-finite values.'
                 self.Output_path_pred.loc[i_sample, agent] = None
-                self.Output_path_pred.loc[i_sample, agent] = pred_traj[...,:2] # Only keep x and y coordinates
+                self.Output_path_pred.loc[i_sample, agent] = pred_traj 
                 
                 if self.predict_path_probs:
                     pred_probs = Log_probs[i,j].astype('float32')
