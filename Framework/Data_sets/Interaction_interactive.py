@@ -11,6 +11,17 @@ from scenario_none import scenario_none
 
 
 class Interaction_interactive(data_set_template):
+    '''
+    The INTERACTION dataset contains naturalistic motions of various traffic participants in 
+    a variety of highly interactive driving scenarios from different countries. 
+
+    The dataset is available at https://interaction-dataset.com/ and the following citation
+    can be used:
+
+    Zhan, W., Sun, L., Wang, D., Shi, H., Clausse, A., Naumann, M., ... & Tomizuka, M. (2019). 
+    Interaction dataset: An international, adversarial and cooperative motion dataset in 
+    interactive driving scenarios with semantic maps. arXiv preprint arXiv:1910.03088.
+    '''
     def get_name(self = None):
         r'''
         Provides a dictionary with the different names of the dataset
