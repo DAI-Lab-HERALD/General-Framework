@@ -169,7 +169,7 @@ class wayformer_unitraj(model_template):
 
         # Set the number of agents needed for prediction
         self.prepare_batch_generation()
-        self.cfg['max_num_agents'] = self.ID.shape[1]
+        self.cfg['max_num_agents'] = max(32, self.ID.shape[1])
 
         self.define_default_kwargs()
         self.sceneGraph_radius = self.model_kwargs['map_range']
@@ -688,15 +688,16 @@ class wayformer_unitraj(model_template):
                 if not (Weights[i].shape == weights_loaded_torch.shape):
                     error_string = []
                     error_string.append('Model weights do not match')
+                    error_string.append('Model weights loaded from: \n{}\n'.format(self.model_file))
                     error_string.append('Shape loaded: {}'.format(weights_loaded_torch.shape))
                     error_string.append('Shape desired: {}'.format(Weights[i].shape))
                     error_string.append('max_num_agents (cfg): {}'.format(self.cfg['max_num_agents']))
-                    error_string.append('data_set.Pred_agents_eval.shape: {}'.format(len(self.data_set.Pred_agents_eval)))
+                    error_string.append('data_set.Pred_agents_eval.shape: {}'.format(self.data_set.Pred_agents_eval.shape))
                     if hasattr(self, 'ID'):
                         error_string.append('ID.shape: {}'.format(self.ID.shape))
                     else:
                         error_string.append('ID.shape not available. Why???')
-                    error_string = '\n'.join(error_string)
+                    error_string = '\n'.join(error_string) + '\n'
                     assert False, error_string
                 Weights[i][:] = weights_loaded_torch[:]
 
