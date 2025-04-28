@@ -16,18 +16,17 @@ from trajdata.caching.df_cache import DataFrameCache
 
 class Waymo_interactive(data_set_template):
     '''
-    The Lyft dataset is recored by an AV driving around a city, including gneral
+    The Waymo dataset is recored in six different cities (San Francisco, Phoenix, 
+    Mountain View, Los Angeles, Detroit, and Seattle), including general
     human bahavior in various situations.
 
-    This dataset is imported using the trajflow libary, which require that numpy >= 1.20
-    and numpy <= 1.23 is installed.
-    
-    The data can be found at https://woven-planet.github.io/l5kit/dataset.html
-    amd the following citation can be used:
+    The data can be found at https://waymo.com/open. This implementation was written 
+    around v1.2 of the Waymo Open Dataset.
+    The following citation can be used:
         
-    Houston, J., Zuidhof, G., Bergamini, L., Ye, Y., Chen, L., Jain, A., ... & Ondruska, P. 
-    (2021, October). One thousand and one hours: Self-driving motion prediction dataset. 
-    In Conference on Robot Learning (pp. 409-418). PMLR.
+    Ettinger, Scott, et al. "Large scale interactive motion forecasting for autonomous driving: 
+    The waymo open motion dataset." Proceedings of the IEEE/CVF International Conference on 
+    Computer Vision. 2021.
     '''
     
     def get_name(self = None):

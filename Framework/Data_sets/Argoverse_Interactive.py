@@ -11,6 +11,17 @@ from data_set_template import data_set_template
 from scenario_none_pov import scenario_none_pov
 
 class Argoverse_Interactive(data_set_template):
+    '''
+    The Argoverse dataset is recored in six different cities (Miami, Austin, Washington DC, 
+    Pittsburgh, Palo Alto, and Detroit), including general human bahavior in various situations.
+
+    The data can be found at https://www.argoverse.org/av2.html, and the following citation can be used:
+        
+    B. Wilson, W. Qi, T. Agarwal, J. Lambert, J. Singh, S. Khandelwal, B. Pan, R. Kumar, A. Hartnett, 
+    J. K. Pontes, D. Ramanan, P. Carr, and J. Hays, “Argoverse 2: Next generation datasets for self-driving
+    perception and forecasting,” in Proc. Neural Inf. Process. Syst. Track on Datasets Benchmarks 
+    (NeurIPS Datasets Benchmarks 2021), 2021.
+    '''
     object_type_dict = {
         0: 'V',
         1: 'P',
