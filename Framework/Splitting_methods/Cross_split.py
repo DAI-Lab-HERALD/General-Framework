@@ -25,7 +25,7 @@ class Cross_split(splitting_template):
         # Get Behaviors, with non appearing ones being neglected
         if self.data_set.classification_possible:
             if self.data_set.data_in_one_piece:
-                Behaviors = self.data_set.Output_A.to_numpy().argmax(1)
+                Behaviors = self.data_set.Output_A.to_numpy().argmax(1).astype(int)
             else:
                 Behaviors = np.zeros(len(self.Domain), int)
                 for file_index in range(len(self.data_set.Files)):
@@ -56,14 +56,14 @@ class Cross_split(splitting_template):
         assert len(uni_subgroups) > num_splits, "Not enough unique input conditions for the desired number of splits."
         
         # Get number of behaviors for each subgroup
-        uni_subgroups_beh = np.zeros((len(uni_subgroups), Behaviors.max() + 1))
+        uni_subgroups_beh = np.zeros((len(uni_subgroups), int(Behaviors.max()) + 1))
         for ind, subgroup in enumerate(uni_subgroups):
             subgroup_beh = Behaviors[Subgroups == subgroup]
             beh_included, beh_num = np.unique(subgroup_beh, return_counts = True)
             
             uni_subgroups_beh[ind, beh_included] = beh_num
         
-        desired_beh = uni_subgroups_beh.sum(0, keepdims = True) / num_splits
+        desired_beh = uni_subgroups_beh.sum(0, keepdims = True) / num_splits # shape (1, num_behaviors)
         
         # Sort by overall number of samples
         sort_ind = np.argsort(-uni_subgroups_beh.sum(1))
@@ -72,10 +72,10 @@ class Cross_split(splitting_template):
         sort_subgroups_beh = np.zeros((num_splits, uni_subgroups_beh.shape[1]))
         
         splitcase = np.ones(len(uni_subgroups_beh)) * -1
-        Splitcase = np.ones(len(Subgroups))
+        Splitcase = np.ones(len(Subgroups)) * -1
         
         for ind in sort_ind:
-            subgroup_beh_pot = sort_subgroups_beh + uni_subgroups_beh[ind]
+            subgroup_beh_pot = sort_subgroups_beh + uni_subgroups_beh[[ind]]
             case_loss_with = ((desired_beh - subgroup_beh_pot) ** 2).sum(1)
             case_loss_without = ((desired_beh - sort_subgroups_beh) ** 2).sum(1)
             
@@ -84,7 +84,7 @@ class Cross_split(splitting_template):
             best_case = np.argmax(loss_decrease)
             
             # update current collection
-            sort_subgroups_beh[best_case] += uni_subgroups_beh[ind]
+            sort_subgroups_beh[best_case] = subgroup_beh_pot[best_case]
             
             
             splitcase[ind] = best_case

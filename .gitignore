@@ -101,3 +101,6 @@ Framework/Data_sets/NuScenes_direction.py
 Framework/analysis_round_2.py
 Framework/analysis_round_3.py
 Framework/analysis_round_4.py
+*.sh
+Framework/convinience.py
+*.tex
