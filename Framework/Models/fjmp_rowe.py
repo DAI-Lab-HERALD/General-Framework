@@ -707,7 +707,7 @@ class fjmp_rowe(model_template):
                 
                 if i % 10 == 0:
                     print("Validation data: Batch " + str(i + 1).rjust(4) + " lr = {:.2e}".format(cur_lr), "rel_coef={:.1f} --".format(self.model_kwargs['rel_coef']),
-                        "\t".join([k + ": " + "{:8.3f}".format(v.item()) for k, v in loss_dict.items()]), flush = True)
+                        "\t".join([k + ": " + "{:8.3f}".format(v.item()) for k, v in val_loss.items()]), flush = True)
                 i = i + 1
                 torch.cuda.empty_cache()
             
