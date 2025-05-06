@@ -9,7 +9,6 @@ import torch
 from Adversarial_classes.helper import Helper
 from Adversarial_classes.loss import Loss
 from Adversarial_classes.plot import Plot
-from Adversarial_classes.smoothing import Smoothing
 from Adversarial_classes.search import Search
 
 from PIL import Image
@@ -457,17 +456,9 @@ class Adversarial_Search(perturbation_template):
         # Only use actually predicted target agent
         Y_Pred = Y_Pred[:,0]
 
-        # Gaussian smoothing module
-        self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
-            X, Y, positions_perturb + perturbation)
-
         # Detach the tensor and convert to numpy
         X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier = Helper.detach_tensor(
             X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier)
-
-        # Plot the data
-        self._ploting_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1,
-                             data_barrier, loss_store)
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
@@ -562,33 +553,6 @@ class Adversarial_Search(perturbation_template):
                                      )
 
         return losses
-
-    def _smoothing_module(self, X, Y, adv_position):
-        """
-        Applies a smoothing module to the input data to perform randomized smoothing on control actions.
-
-        Parameters:
-        X (array-like): The ground truth observed position tensor with array shape (batch size, number agents, number time steps observed, coordinates (x,y)).
-        Y (array-like): The ground truth future position tensor with array shape (batch size, number agents, number time steps future, coordinates (x,y)).
-        adv_position (array-like): The adversarial positions for the agents.
-
-        Returns:
-        X_smoothed (array-like): Smoothed observed position tensor.
-        X_smoothed_adv (array-like): Smoothed adversarial observed position tensor.
-        Y_pred_smoothed (array-like): Smoothed future position predictions.
-        Y_pred_smoothed_adv (array-like): Smoothed adversarial future position predictions.
-        """
-        # initialize smoothing
-        smoothing = Smoothing(self,
-                              adv_position=adv_position,
-                              X=X,
-                              Y=Y
-                              )
-
-        # Randomized smoothing
-        X_smoothed, X_smoothed_adv, Y_pred_smoothed, Y_pred_smoothed_adv = smoothing.randomized_smoothing()
-
-        return X_smoothed, X_smoothed_adv, Y_pred_smoothed, Y_pred_smoothed_adv
 
     def _assertion_check(self):
         """
