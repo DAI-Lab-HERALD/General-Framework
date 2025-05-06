@@ -33,7 +33,7 @@ class Control_action:
         # Get cummulative distance between the timepoints
         diff = positions_perturb[:, :, 1:, :] - positions_perturb[:, :, :-1, :]
         dist = torch.norm(diff, p=2, dim=-1)
-        dist = torch.nan_to_num(dist, nan=2.0)
+        dist = torch.nan_to_num(dist, nan = 2.0)
 
         # Distances under 0.1 are considered neglible. Correspondingly, all points where the distance is less than 
         dist_cum = torch.cumsum(dist, dim=-1)
@@ -47,6 +47,24 @@ class Control_action:
         replace = torch.cat([torch.zeros(*replace.shape[:-1], 1).to(device).bool(), replace], dim=-1)
         # Last timestep will never be replaced
         replace[..., -1] = False
+        
+        # Do not replace if there where nan values
+        # find end piece nan values
+        replaceable = positions_perturb.isfinite().all(-1)
+        # If there is a True after a False value along the axis -1, make it true
+        # Flip along -1 dimension
+        replaceable = torch.flip(replaceable, dims = [-1])
+
+        # Culmativ logical or
+        replaceable = torch.cumsum(replaceable.int(), dim = -1) > 0
+
+        # Flip back
+        replaceable = torch.flip(replaceable, dims = [-1])
+
+        # Make also last one before this unreplaceable
+        replace[...,:-1] &= replaceable[...,1:] 
+
+
 
         positions_perturb_init = positions_perturb.clone()
 
@@ -70,6 +88,7 @@ class Control_action:
             Dist_cum_next = dist_cum[replace_sample, replace_agent, next_ind]
             Dist_cum_inter = dist_cum[replace_sample, replace_agent, replace_time]
             fac = (Dist_cum_inter - Dist_cum_prev) / (Dist_cum_next - Dist_cum_prev)
+            fac = fac.nan_to_num()
             fac = fac.unsqueeze(-1)
 
             # Interpolate the positions

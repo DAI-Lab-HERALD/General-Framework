@@ -143,8 +143,7 @@ class Adversarial_Position(perturbation_template):
         self.name += '---' + str(kwargs['num_samples_perturb'])
         self.name += '---' + str(kwargs['max_number_iterations'])
         self.name += '---' + str(kwargs['loss_function_1'])
-        self.name += '---' + str(kwargs['store_GT'])
-        self.name += '---' + str(kwargs['store_pred_1'])
+        self.name += '---' + str(self.kwargs['GT_data'])
         if 'loss_function_2' in kwargs.keys() is not None:
             self.name += '---' + str(kwargs['loss_function_2'])
         if 'barrier_function_past' in kwargs.keys() is not None:
@@ -158,12 +157,32 @@ class Adversarial_Position(perturbation_template):
 
     def initialize_settings(self):
         # Initialize parameters
-        self.num_samples = self.kwargs['num_samples_perturb']
-        self.max_number_iterations = self.kwargs['max_number_iterations']
+        if 'num_samples_perturb' in self.kwargs.keys():
+            self.num_samples = self.kwargs['num_samples_perturb']
+        else:
+            self.num_samples = 20
+            self.kwargs['num_samples_perturb'] = self.num_samples
 
+        if 'max_number_iterations' in self.kwargs.keys():
+            self.max_number_iterations = self.kwargs['max_number_iterations']
+        else:
+            self.max_number_iterations = 50
+            self.kwargs['max_number_iterations'] = self.max_number_iterations
+        
         # Learning decay
-        self.gamma = self.kwargs['gamma']
-        self.alpha = self.kwargs['alpha']
+        if 'gamma' in self.kwargs.keys():
+            self.gamma = self.kwargs['gamma']
+        else:
+            self.gamma = 1.0
+            self.kwargs['gamma'] = self.gamma
+
+        if 'alpha' in self.kwargs.keys():
+            self.alpha = self.kwargs['alpha']
+        else:
+            self.alpha = 0.01
+            self.kwargs['alpha'] = self.alpha
+
+
 
         # Car size
         self.car_length = 4.1
@@ -176,22 +195,76 @@ class Adversarial_Position(perturbation_template):
         # FDE attack select (Minimize distance): 'FDE_Y_GT_Y_Pred_Min', 'FDE_Y_Perturb_Y_Pred_Min', 'FDE_Y_Perturb_Y_GT_Min', 'FDE_Y_pred_iteration_1_and_Y_Perturb_Min', 'FDE_Y_pred_and_Y_pred_iteration_1_Min'
         # Collision attack select: 'Collision_Y_pred_tar_Y_GT_ego', 'Collision_Y_Perturb_tar_Y_GT_ego'
         # Other: 'Y_perturb', None
-        self.loss_function_1 = self.kwargs['loss_function_1']
-        self.loss_function_2 = self.kwargs['loss_function_2'] 
+        if 'loss_function_1' in self.kwargs.keys():
+            self.loss_function_1 = self.kwargs['loss_function_1']
+        else:
+            self.loss_function_1 = 'ADE_Y_GT_Y_Pred_Max'
+            self.kwargs['loss_function_1'] = self.loss_function_1
+        
+        if 'loss_function_2' in self.kwargs.keys():
+            self.loss_function_2 = self.kwargs['loss_function_2'] 
+        else:
+            self.loss_function_2 = None
+            self.kwargs['loss_function_2'] = self.loss_function_2
 
         # For barrier function past select: 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None
-        self.barrier_function_past = self.kwargs['barrier_function_past']
-        self.barrier_function_future = self.kwargs['barrier_function_future']
+        if 'barrier_function_past' in self.kwargs.keys():
+            self.barrier_function_past = self.kwargs['barrier_function_past']
+        else:
+            self.barrier_function_past = None
+            self.kwargs['barrier_function_past'] = self.barrier_function_past
 
-        # Barrier function parameters
-        self.distance_threshold_past = self.kwargs['distance_threshold_past']
-        self.distance_threshold_future = self.kwargs['distance_threshold_future']
-        self.log_value_past = self.kwargs['log_value_past']
-        self.log_value_future = self.kwargs['log_value_future']
+        if self.barrier_function_past is not None:
+            barrier_test = self.barrier_function_past.split('_V')[0]
+            assert barrier_test in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            if 'distance_threshold_past' in self.kwargs.keys():
+                self.distance_threshold_past = self.kwargs['distance_threshold_past']
+            else:
+                self.distance_threshold_past = 1
+                self.kwargs['distance_threshold_past'] = self.distance_threshold_past
+            
+            if 'log_value_past' in self.kwargs.keys():
+                self.log_value_past = self.kwargs['log_value_past']
+            else:
+                self.log_value_past = 1.5
+                self.kwargs['log_value_past'] = self.log_value_past
+        else:
+            self.distance_threshold_past = 1
+            self.log_value_past = 1.5
+
+        if 'barrier_function_future' in self.kwargs.keys():
+            self.barrier_function_future = self.kwargs['barrier_function_future']
+        else:
+            self.barrier_function_future = None
+            self.kwargs['barrier_function_future'] = self.barrier_function_future
+        
+        if self.barrier_function_future is not None:
+            barrier_test = self.barrier_function_future.split('_V')[0]
+            assert barrier_test in ['Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific'], "The barrier function can only be 'Time_specific', 'Trajectory_specific', 'Time_Trajectory_specific' or None."
+            if 'distance_threshold_future' in self.kwargs.keys():
+                self.distance_threshold_future = self.kwargs['distance_threshold_future']
+            else:
+                self.distance_threshold_future = 1
+                self.kwargs['distance_threshold_future'] = self.distance_threshold_future
+            
+            if 'log_value_future' in self.kwargs.keys():
+                self.log_value_future = self.kwargs['log_value_future']
+            else:
+                self.log_value_future = 1.5
+                self.kwargs['log_value_future'] = self.log_value_future
+        else:
+            self.distance_threshold_future = 1
+            self.log_value_future = 1.5
 
         # store which data
-        self.store_GT = self.kwargs['store_GT']
-        self.store_pred_1 = self.kwargs['store_pred_1']
+        if 'GT_data' in self.kwargs.keys():
+            self.GT_data = self.kwargs['GT_data']
+        else:
+            self.GT_data = 'no'
+            self.kwargs['GT_data'] = self.GT_data
+
+        assert self.GT_data in ['no', 'one', 'full'], "The GT data can only be 'no' (use unperturbed GT), 'one' (use first iteration prediction) or 'full' (use last perturbed iteration)."
+        
 
         # Randomized smoothing
         self.smoothing = False
@@ -394,11 +467,14 @@ class Adversarial_Position(perturbation_template):
         X_new_pert, Y_new_pert, Y_Pred_iter_1_new = Helper.flip_dimensions_2(
             X_new, Y_new, Y_Pred_iter_1_new, self.agent_order)
         
-        if self.store_pred_1:
+        if self.GT_data == 'one':
+            # Use the first perturbed iteration
             return X_new_pert, Y_Pred_iter_1_new
-        elif self.store_GT:
+        elif self.GT_data == 'no':
+            # Use the unperturbed GT
             return X_new_pert, self.copy_Y
         else:
+            # Use the last perturbed iteration
             return X_new_pert, Y_new_pert
 
     def _ploting_module(self, X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier, loss_store):

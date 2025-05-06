@@ -253,7 +253,7 @@ class CoR_left_turns(data_set_template):
         self.get_sceneGraph()
 
         # extract raw samples
-        for i in range(self.num_samples):
+        for i in range(len(self.Data)):
             path = pd.Series(np.empty(len(agents), np.ndarray), index = agents)
             agent_type = pd.Series(np.full(len(agents), 'V', dtype = str), index = agents)
             
