@@ -362,8 +362,8 @@ class evaluation_template():
                 
                 # Get the maximum start and minimum end values
                 Positive_start = Positive_start.max(-1) # Shape (N_case_4)
-                Positive_end = Positive_end.max(-1) # Shape (N_case_4)
-                Negative_start = Negative_start.min(-1) # Shape (N_case_4)
+                Positive_end = Positive_end.min(-1) # Shape (N_case_4)
+                Negative_start = Negative_start.max(-1) # Shape (N_case_4)
                 Negative_end = Negative_end.min(-1) # Shape (N_case_4)
                 
                 # The no overlap is if positive_start < positive_end or negative_start < negative_end
@@ -371,7 +371,7 @@ class evaluation_template():
                 Negative_no_overlap = Negative_start < Negative_end # Shape (N_case_4)
                 
                 # Both conditions should be impossible
-                assert (Positive_no_overlap & Negative_no_overlap).any(), 'There is a bug in the code'
+                assert not (Positive_no_overlap & Negative_no_overlap).any(), 'There is a bug in the code'
                 
                 # Get the interval where there is no overlap
                 No_overlap_start = np.ones_like(Positive_start, float) # Shape (N_case_4)
@@ -389,6 +389,9 @@ class evaluation_template():
                 # Define the right overlap interval
                 Overlap_start_2[case_4] = No_overlap_end 
             
+            assert (Overlap_start <= Overlap_end).all(), 'There is a bug in the code'
+            assert (Overlap_start_2 <= Overlap_end_2).all(), 'There is a bug in the code'
+
             # Check if second intervals exist
             Two_intervals = (Overlap_start_2 < 1.0).any(-1) # Shape (N)
             One_interval = ~Two_intervals # Shape (N)
