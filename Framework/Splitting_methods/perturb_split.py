@@ -35,8 +35,11 @@ class perturb_split(splitting_template):
             return 'training set must be unperturbed.'
         if not self.test_pert:
             return 'testing set must be perturbed.'
-        if 'Unperturbed_input' not in self.Domain.columns:
+        if 'perturbation' not in self.Domain.columns:
             return 'dataset contains no perturbed data'
+        else:
+            if self.Domain['perturbation'].sum() == 0:
+                return 'dataset contains no perturbed data'
         return None
     
     def repetition_number(self):
