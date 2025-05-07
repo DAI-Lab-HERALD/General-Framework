@@ -187,7 +187,7 @@ class Control_action:
                 Behind_violated = Start_from_behind[i_violation]
                 dist_BC_viol = dist_BC[i_violation]
                 # Project A onto the line spanned by B and C (call that point Ap) 
-                Ap = B + BC * (torch.sum(-AB * BC, dim=-1) / dist_BC ** 2).unsqueeze(-1) # Shape: (batch_size, num_agents, 2)
+                Ap = B + BC * (torch.sum(-AB * BC, dim=-1) / (dist_BC ** 2 + 1e-3)).unsqueeze(-1) # Shape: (batch_size, num_agents, 2)
                 ApA = A[i_violation] - Ap[i_violation] # Shape: (n, 2)
                 BAp = B[i_violation] - Ap[i_violation] # Shape: (n, 2)
                 dist_ApA = torch.norm(ApA, p=2, dim=-1) # Shape: (n)
@@ -208,7 +208,7 @@ class Control_action:
 
                     dist_vel = torch.where(Behind_violated, dist_BAs, dist_BC_viol)
                     # Calculate the new curvature
-                    Ft = torch.arcsin(t * dist_ApA / dist_BAs) / dist_vel
+                    Ft = torch.arcsin(t * dist_ApA / (dist_BAs + 1e-4)) / (dist_vel + 1e-4)
 
                     success = Ft <= 0.2
 
