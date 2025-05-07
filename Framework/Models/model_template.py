@@ -3288,11 +3288,15 @@ class model_template():
                                         exclude_ego = False, exclude_late_timesteps = True, get_for_pred_agents = False):
         if hasattr(self, 'Path_pred') and hasattr(self, 'Path_true') and hasattr(self, 'Pred_step'):
             if self.excluded_ego == exclude_ego:
-                if np.array_equal(self.extracted_pred_index, Pred_index):
-                    return
+                if self.exclude_last_timesteps == exclude_late_timesteps:
+                    if self.get_for_pred_agents == get_for_pred_agents:
+                        if np.array_equal(self.extracted_pred_index, Pred_index):
+                            return
         
         # Save last setting 
         self.excluded_ego = exclude_ego
+        self.exclude_last_timesteps = exclude_late_timesteps
+        self.get_for_pred_agents = get_for_pred_agents
         self.extracted_pred_index = Pred_index
 
         # Get the file index
