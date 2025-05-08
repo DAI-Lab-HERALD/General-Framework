@@ -1,4 +1,4 @@
-# A general framework for benchmarking human behavior prediction methods in traffic
+# STEP: Structured Training and Evaluation Platform for benchmarking human behavior models.
 In the field of predicting human behavior in traffic situations, comprehensive and equitable comparisons between different methods are an important aspect. To this end, we present a generalized framework for benchmarking human behavior prediction models, which can be used to compare and test different models with a large amount of control over the actual testing environment.
 
 ## General usage description
@@ -13,10 +13,6 @@ If one wants to instead add new modules, detailed explanations on how to integra
 
 ## Contact and collaboration
 If you have questions regarding the usage of the framework or are interested in a collaboration, please contact J.F.Schumann@tudelft.nl.
-
-## Coming updates
-The following improvements are currently planned for the framework.
-- SceneGraphs (allready implemented for Waymo, Lyft, NuScenes, and Argoverse) will be expanded to the remaining, currently implemented datasets.
 
 ## Citation
 When using this framework for your work, please cite the [initial paper](https://ieeexplore.ieee.org/abstract/document/10043012). Please be advised that we are planning to publish a new paper about this framework before the end of 2025, so if you do not plan to publish your work until then, please check the current preferred citation. Thank you very much. 
