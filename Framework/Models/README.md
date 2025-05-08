@@ -2,7 +2,7 @@
 In the framework, the following models are currently implemented:
 | Model | Input/Output | Description | Has kwargs |
 | :------------ |:---------------| :----- | :----- |
-| [ADAPT](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/adept_aydemir.py) | Trajectories / Trajectories | An MLP with joint endpoint refinement. | Yes |
+| [ADAPT](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/adapt_aydemir.py) | Trajectories / Trajectories | An MLP with joint endpoint refinement. | Yes |
 | [AgentFormer](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/agent_yuan.py) | Trajectories / Trajectories | A transformer with split agent and time attention. | No |
 | [AutoBot-Ego](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_unitraj.py) | Trajectories / Trajectories | A transformer with split agent and time attention (Joint predictions). | Yes |
 | [AutoBot-Joint](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/Models/autobot_girgis.py) | Trajectories / Trajectories | A transformer based CVAE network. | Yes |
