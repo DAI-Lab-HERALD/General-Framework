@@ -1,5 +1,5 @@
 # STEP: Structured Training and Evaluation Platform for benchmarking human behavior models.
-In the field of predicting human behavior in traffic situations, comprehensive and equitable comparisons between different methods are an important aspect. To this end, we present a generalized framework for benchmarking human behavior prediction models, which can be used to compare and test different models with a large amount of control over the actual testing environment.
+In the field of predicting human behavior in traffic situations, comprehensive and equitable comparisons between different methods are an important aspect. To this end, we present STEP, a generalized framework for benchmarking human behavior prediction models, which can be used to compare and test different models with a large amount of control over the actual testing environment.
 
 ## General usage description
 If one wants to use the framework, one has to [set up a new simulations.py file](https://github.com/julianschumann/General-Framework/tree/main/Framework#running-a-new-experiment) with the desired experiment settings in the folder [../Framework/](https://github.com/julianschumann/General-Framework/tree/main/Framework). Once this is complete, one just has to run this file:
