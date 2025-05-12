@@ -664,7 +664,7 @@ class InD_direction(data_set_template):
         # repair 
         if np.isnan(D).any():
             if np.isfinite(D).any():
-                D = np.interp(t, t[np.isfinite(D)], D1[np.isfinite(D)])
+                D = np.interp(t, t[np.isfinite(D)], D[np.isfinite(D)])
             else:
                 D = 1000 * np.ones_like(D)
 
