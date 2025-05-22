@@ -694,13 +694,13 @@ class HighD_lane_change(data_set_template):
         Sizes = Sizes[Past_available]
 
         # Distance to the existing agents
-        D_help = np.nanmin(np.sqrt(((Pos[np.newaxis, :,1:n_I + 1,...,:2] - help_pos[:,np.newaxis,:n_I,...,:2]) ** 2).sum(-1)), -1).min(0)
-        Close_enough = (D_help > 0.5) & (D_help < 100)
+        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1,...,:2] - tar_pos[:,:n_I,...,:2]) ** 2).sum(-1)), -1)
+        Close_enough = (D > 0.5) & (D < 100) # max distance set to 100 under the assumption of 130 km/h driving speed and 2-3s lead time (recommended is 15s but most drivers only have 2-3 s)
         Pos = Pos[Close_enough]
         Sizes = Sizes[Close_enough]
+        D = D[Close_enough]
         
         # Distance to target agent
-        D = np.nanmin(((Pos[:,1:n_I + 1,...,:2] - tar_pos[:,:n_I,...,:2]) ** 2).sum(-1), -1)
         D_argsort = np.argsort(D)
         Pos = Pos[D_argsort]
         Sizes = Sizes[D_argsort]
