@@ -111,26 +111,27 @@ class splitting_template():
         if hasattr(self, 'alternative_train_split_file'):
             self.split_file_option = self.alternative_train_split_file()
             
-            # Add agent pred type            
-            if self.data_set.agents_to_predict == 'predefined':
-                pat = '0'
-            elif self.data_set.agents_to_predict == 'all':
-                pat = 'A'
-            else:
-                pat = self.data_set.agents_to_predict[0]
+            if self.split_file_option is not None:
+                # Add agent pred type            
+                if self.data_set.agents_to_predict == 'predefined':
+                    pat = '0'
+                elif self.data_set.agents_to_predict == 'all':
+                    pat = 'A'
+                else:
+                    pat = self.data_set.agents_to_predict[0]
+                    
+                agents_add = 'agents_' + pat
                 
-            agents_add = 'agents_' + pat
-            
-            split_file_option_list = self.split_file_option.split('--')
-            
-            # Add agents_add before the last part
-            split_file_option_list.insert(-1, agents_add)
-            
-            # Recombine
-            self.split_file_option = '--'.join(split_file_option_list)
-            
-            if self.split_file_option == self.split_file:
-                self.split_file_option = None
+                split_file_option_list = self.split_file_option.split('--')
+                
+                # Add agents_add before the last part
+                split_file_option_list.insert(-1, agents_add)
+                
+                # Recombine
+                self.split_file_option = '--'.join(split_file_option_list)
+                
+                if self.split_file_option == self.split_file:
+                    self.split_file_option = None
         else:
             self.split_file_option = None
     
