@@ -436,7 +436,7 @@ class HighD_direction(data_set_template):
         Sizes = Sizes[Past_available]
 
         # Distance to the existing agents
-        D = np.nanmin(((Pos[:,1:n_I + 1,...,:2] - tar_pos[:,:n_I,...,:2]) ** 2).sum(-1), -1)
+        D = np.nanmin(np.sqrt(((Pos[:,1:n_I + 1,...,:2] - tar_pos[:,:n_I,...,:2]) ** 2).sum(-1)), -1)
         Close_enough = (D > 0.5) & (D < 100)
         Pos = Pos[Close_enough]
         Sizes = Sizes[Close_enough]
