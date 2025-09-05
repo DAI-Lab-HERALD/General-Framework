@@ -481,6 +481,13 @@ class trajectron_salzmann_old(model_template):
         Types[T == 'M'] = 'VEHICLE'
         Types = Types.astype(str)
 
+        # Check for agents that do not exist
+        exists = torch.isfinite(X).any(-1).any(-1)
+        # Overwrite non existing agents with poistions outside the frame, to avoid nan backprop
+        X[~exists] = 1e6
+        if Y is not None:
+            Y[~exists] = 1e6
+
         # X = torch.from_numpy(X).to(dtype = torch.float32) #uncomment
         
         center_pos = X[:,0,-1]
@@ -565,9 +572,8 @@ class trajectron_salzmann_old(model_template):
         
 
         if img is not None:
-            img_batch = img[:,0,:,75:].astype(np.float32) / 255 # Cut of image behind VEHICLE'
-            img_batch = img_batch.transpose(0,3,1,2) # put channels first
-            img_batch = torch.from_numpy(img_batch).to(dtype = torch.float32)
+            img_batch = img[:,0,:,75:].float() / 255 # Cut of image behind VEHICLE'
+            img_batch = img_batch.permute(0,3,1,2) # put channels first
         else:
             img_batch = None
             
@@ -774,10 +780,6 @@ class trajectron_salzmann_old(model_template):
         self.trajectron.model_registrar.to(self.trajectron.device)
     
         S, S_St, first_h, Neighbor, Neighbor_edge, img, node_type, center_pos, rot_angle = self.extract_data_batch_tensor(X, T, None, img, num_steps)
-        
-        # Move img to device
-        if img is not None:
-            img = img.to(self.trajectron.device)
             
         torch.cuda.empty_cache()
         # Run prediction pass
@@ -785,9 +787,9 @@ class trajectron_salzmann_old(model_template):
         self.trajectron.model_registrar.to(self.trajectron.device)
         
         
-        predictions = model.predict(inputs                = S[:,0].to(self.trajectron.device),
-                                    inputs_st             = S_St[:,0].to(self.trajectron.device),
-                                    first_history_indices = first_h.to(self.trajectron.device),
+        predictions = model.predict(inputs                = S[:,0],
+                                    inputs_st             = S_St[:,0],
+                                    first_history_indices = first_h,
                                     neighbors             = Neighbor,
                                     neighbors_edge_value  = Neighbor_edge,
                                     robot                 = None,

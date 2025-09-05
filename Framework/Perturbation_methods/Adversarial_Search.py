@@ -334,6 +334,9 @@ class Adversarial_Search(perturbation_template):
 
         # Prepare data for adversarial attack (tensor/image prediction model)
         X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(X, Y)
+        if img is not None:
+            img = torch.from_numpy(img).float().to(self.pert_model.device)
+            img_m_per_px = torch.from_numpy(img_m_per_px).float().to(self.pert_model.device)
 
         # # Create a tensor for the perturbation
         # perturbation = torch.zeros_like(

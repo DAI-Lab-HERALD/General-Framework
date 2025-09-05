@@ -10,7 +10,6 @@ from Adversarial_classes.control_action import Control_action
 from Adversarial_classes.helper import Helper
 from Adversarial_classes.loss import Loss
 from Adversarial_classes.plot import Plot
-from Adversarial_classes.smoothing import Smoothing
 
 from PIL import Image
 
@@ -351,7 +350,9 @@ class Adversarial_Control_Action(perturbation_template):
 
         # Prepare data for adversarial attack (tensor/image prediction model)
         X, Y, positions_perturb, Y_Pred_iter_1, data_barrier = self._prepare_data_attack(X, Y)
-        
+        if img is not None:
+            img = torch.from_numpy(img).float().to(self.pert_model.device)
+            img_m_per_px = torch.from_numpy(img_m_per_px).float().to(self.pert_model.device)
         useful_agents = X.isfinite().all(-1).all(-1)
         X[~useful_agents] = torch.nan
         # Calculate initial control actions
@@ -381,7 +382,7 @@ class Adversarial_Control_Action(perturbation_template):
 
             # Split the adversarial position back to X and Y
             X_new, Y_new = Helper.return_data(adv_position, X, Y, self.future_action_included)
-
+            
             # Forward pass through the model
             Y_Pred = self.pert_model.predict_batch_tensor(X=X_new, T=T, S=S, C=C, 
                                                           img=img, img_m_per_px=img_m_per_px, graph = graph,
@@ -508,17 +509,9 @@ class Adversarial_Control_Action(perturbation_template):
         # Only use actually predicted target agent
         Y_Pred = Y_Pred[:,0]
 
-        # Gaussian smoothing module
-        # self.X_smoothed, self.X_smoothed_adv, self.Y_pred_smoothed, self.Y_pred_smoothed_adv = self._smoothing_module(
-        #     X, Y, control_action, perturbation, adv_position, velocity, heading)
-
         # Detach the tensor and convert to numpy
         X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier = Helper.detach_tensor(
             X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1, data_barrier)
-
-        # Plot the data
-        # self._ploting_module(X, X_new, Y, Y_new, Y_Pred, Y_Pred_iter_1,
-        #                      data_barrier, loss_store, control_action, perturbation)
 
         # Return Y to old shape
         Y_new = Helper.return_to_old_shape(Y_new, self.Y_shape)
@@ -614,40 +607,6 @@ class Adversarial_Control_Action(perturbation_template):
 
         return losses
 
-    def _smoothing_module(self, X, Y, control_action, perturbation, adv_position, velocity, heading):
-        """
-        Applies a smoothing module to the input data to perform randomized smoothing on control actions.
-
-        Parameters:
-        X (array-like): The ground truth observed position tensor with array shape (batch size, number agents, number time steps observed, coordinates (x,y)).
-        Y (array-like): The ground truth future position tensor with array shape (batch size, number agents, number time steps future, coordinates (x,y)).
-        control_action (array-like): The original control actions for the agents.
-        perturbation (array-like): The perturbations applied to the control actions.
-        adv_position (array-like): The adversarial positions for the agents.
-        velocity (array-like): The velocities of the agents at all time steps
-        heading (array-like): The headings (directions) of the agents at all time steps.
-
-        Returns:
-        X_smoothed (array-like): Smoothed observed position tensor.
-        X_smoothed_adv (array-like): Smoothed adversarial observed position tensor.
-        Y_pred_smoothed (array-like): Smoothed future position predictions.
-        Y_pred_smoothed_adv (array-like): Smoothed adversarial future position predictions.
-        """
-        # initialize smoothing
-        smoothing = Smoothing(self,
-                              X=X,
-                              Y=Y,
-                              control_action=control_action,
-                              control_action_perturbed=control_action+perturbation,
-                              adv_position=adv_position,
-                              velocity=velocity,
-                              heading=heading
-                              )
-
-        # Randomized smoothing
-        X_smoothed, X_smoothed_adv, Y_pred_smoothed, Y_pred_smoothed_adv = smoothing.randomized_smoothing()
-
-        return X_smoothed, X_smoothed_adv, Y_pred_smoothed, Y_pred_smoothed_adv
 
     def _assertion_check(self):
         """

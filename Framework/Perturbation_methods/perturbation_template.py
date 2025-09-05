@@ -159,6 +159,7 @@ class perturbation_template():
         num_batches = int(np.ceil(X.shape[0] / self.batch_size))
         for i_batch in range(num_batches):
             print(f'Perturbing batch {i_batch + 1}/{num_batches}', flush = True)
+            # Get the samples for this batch
             i_start = i_batch * self.batch_size
             i_end = min((i_batch + 1) * self.batch_size, X.shape[0])
 
@@ -194,7 +195,7 @@ class perturbation_template():
                                                       Imgs_rot = img_needed,
                                                       Imgs_index = np.arange(X_needed.shape[0]),
                                                       print_progress = False)
-                img_m_per_px_needed = data.Images.Target_MeterPerPx.loc[domain_needed.image_id.iloc[Use]]
+                img_m_per_px_needed = data.Images.Target_MeterPerPx.loc[domain_needed.image_id]
 
                 img = np.zeros((len(samples), X_sort.shape[1], *img_needed.shape[1:]), dtype = np.uint8)
                 img_m_per_px = np.zeros((len(samples), X_sort.shape[1]), dtype = np.float32)
