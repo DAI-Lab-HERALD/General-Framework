@@ -484,9 +484,15 @@ class trajectron_salzmann_old(model_template):
         # Check for agents that do not exist
         exists = torch.isfinite(X).any(-1).any(-1)
         # Overwrite non existing agents with poistions outside the frame, to avoid nan backprop
-        X[~exists] = 1e6
-        if Y is not None:
-            Y[~exists] = 1e6
+        extrapolated = torch.isfinite(X[exists]).all()
+        if extrapolated:
+            X = torch.nan_to_num(X, nan=1e6)
+            if Y is not None:
+                Y = torch.nan_to_num(Y, nan=1e6)
+        else:
+            X[~exists] = 1e6
+            if Y is not None:
+                Y[~exists] = 1e6
 
         # X = torch.from_numpy(X).to(dtype = torch.float32) #uncomment
         
