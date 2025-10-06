@@ -3058,6 +3058,84 @@ class data_set_template():
     
         return path_new
 
+    def apply_perturbation(self):
+        # Apply the perturbation
+        self = self.Perturbation.perturb(self)
+        
+        # Set perturbation to True in the Domain to be saved in the perturbed data
+        self.Domain['perturbation'] = True
+        
+        if self.classification_useful:
+            print("Extracting perturbed classification data (self.Output_path.shape: {})".format(self.Output_path.shape), flush = True)
+            # save old num_samples_path_pred
+            num_samples_path_pred = self.num_samples_path_pred + 0
+            self.num_samples_path_pred = 1
+            
+            # Exctract the update behavior for perturbed output
+            Output_A, Output_T_E = self._path_to_class_and_time(self.Output_path, np.arange(len(self.Output_path)), self.Output_T_pred, self.Domain)
+            
+            # Reset num_samples_path_pred
+            self.num_samples_path_pred = num_samples_path_pred
+            
+            # Set Output_A to bool
+            self.Output_A = Output_A.astype(int).astype(bool)
+            assert (self.Output_A.sum(1) == 1).all(), "Behavior extraction of perturbed data failed."
+            
+            # Set Output_T_E from dataframe to corresponding value
+            self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A.to_numpy().astype(bool)], 0).mean(1)
+            assert np.isfinite(self.Output_T_E).all(), "Behavior time extraction of perturbed data failed."
+        
+        # Get data that has to be saved in Domain
+        num_behaviors_out = self.Output_A[self.Behaviors].sum(axis=0).to_numpy()
+
+        # Remove unperturbed columns from domain
+        self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'], errors = 'ignore')
+
+        return num_behaviors_out
+
+    def save_data_fragment(self, num_behaviors_out, Agents, base_file):
+        save_data = np.array([
+                                self.Input_prediction,
+                                self.Input_path,
+                                self.Input_T,
+                                
+                                self.Output_path,
+                                self.Output_T,
+                                self.Output_T_pred,
+                                self.Output_A,
+                                self.Output_T_E, 0], object)
+        
+        save_domain = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
+
+        if self.size_given:
+            save_agent = np.array([self.Type, self.Size, self.Recorded, 0], object)
+        else:
+            save_agent = np.array([self.Type, self.Recorded, 0], object)
+        
+        
+        data_file_save = base_file + '_data.npy'
+        domain_file_save = base_file + '_domain.npy'
+        agent_file_save = base_file + '_AM.npy'
+        
+        # Save the data
+        np.save(data_file_save, save_data)
+        np.save(domain_file_save, save_domain)
+        np.save(agent_file_save, save_agent)
+
+        # Clear up memory by deleting the self attributes just saved
+        del self.Input_prediction
+        del self.Input_path
+        del self.Input_T
+
+        del self.Output_path
+        del self.Output_T
+        del self.Output_T_pred
+        del self.Output_A
+        del self.Output_T_E
+
+        del self.Type
+        del self.Recorded
+        del self.Domain
 
     def check_extracted_data_for_saving(self, path_file_adjust, last = False):
         # Get the dataset file
@@ -3227,76 +3305,9 @@ class data_set_template():
                     self.Domain.Scenario = perturbed_scenario
                 
                 # Apply the perturbation
-                self = self.Perturbation.perturb(self)
-                
-                # Set perturbation to True in the Domain to be saved in the perturbed data
-                self.Domain['perturbation'] = True
-                
-                if self.classification_useful:
-                    print("Extracting perturbed classification data (self.Output_path.shape: {})".format(self.Output_path.shape), flush = True)
-                    # save old num_samples_path_pred
-                    num_samples_path_pred = self.num_samples_path_pred + 0
-                    self.num_samples_path_pred = 1
-                    
-                    # Exctract the update behavior for perturbed output
-                    Output_A, Output_T_E = self._path_to_class_and_time(self.Output_path, np.arange(len(self.Output_path)), self.Output_T_pred, self.Domain)
-                    
-                    # Reset num_samples_path_pred
-                    self.num_samples_path_pred = num_samples_path_pred
-                    
-                    # Set Output_A to bool
-                    self.Output_A = Output_A.astype(int).astype(bool)
-                    assert (self.Output_A.sum(1) == 1).all(), "Behavior extraction of perturbed data failed."
-                    
-                    # Set Output_T_E from dataframe to corresponding value
-                    self.Output_T_E = np.stack(Output_T_E.to_numpy()[Output_A.to_numpy().astype(bool)], 0).mean(1)
-                    assert np.isfinite(self.Output_T_E).all(), "Behavior time extraction of perturbed data failed."
-                
-                # Remove unperturbed columns from domain
-                self.Domain = self.Domain.drop(columns = ['Unperturbed_input', 'Unperturbed_output'], errors = 'ignore')
+                num_behaviors_out = self.apply_perturbation()
             
-            save_data = np.array([
-                                    self.Input_prediction,
-                                    self.Input_path,
-                                    self.Input_T,
-                                    
-                                    self.Output_path,
-                                    self.Output_T,
-                                    self.Output_T_pred,
-                                    self.Output_A,
-                                    self.Output_T_E, 0], object)
-            
-            save_domain = np.array([self.Domain, self.num_behaviors, num_behaviors_out, Agents, 0], object)
-
-            if self.size_given:
-                save_agent = np.array([self.Type, self.Size, self.Recorded, 0], object)
-            else:
-                save_agent = np.array([self.Type, self.Recorded, 0], object)
-            
-            
-            data_file_save = data_file + data_file_addition + '_data.npy'
-            domain_file_save = data_file + data_file_addition + '_domain.npy'
-            agent_file_save = data_file + data_file_addition + '_AM.npy'
-            
-            # Save the data
-            np.save(data_file_save, save_data)
-            np.save(domain_file_save, save_domain)
-            np.save(agent_file_save, save_agent)
-
-            # Clear up memory by deleting the self attributes just saved
-            del self.Input_prediction
-            del self.Input_path
-            del self.Input_T
-
-            del self.Output_path
-            del self.Output_T
-            del self.Output_T_pred
-            del self.Output_A
-            del self.Output_T_E
-
-            del self.Type
-            del self.Recorded
-            del self.Domain
+            self.save_data_fragment(num_behaviors_out, Agents, data_file + data_file_addition)
             
 
 
@@ -3323,12 +3334,25 @@ class data_set_template():
         self.data_file = self.data_params_to_string(dt, num_timesteps_in, num_timesteps_out)
         data_file_final = self.data_file[:-4] + '_LLL_LLL_data.npy'
 
+        extraction_mode = 'full'
+        if os.path.isfile(data_file_final):
+            extraction_mode = 'load'
+        else:
+            # Check for perturbed data at least unperturbed data is available
+            if self.is_perturbed:
+                data_file_perturbde_parts = self.data_file.split('--Pertubation_')
+                data_file_unperturbed = data_file_perturbde_parts[0] + data_file_perturbde_parts[1][3:-4]
+                data_file_unperturbed_final = data_file_unperturbed + '_LLL_LLL_data.npy'
+                
+                if os.path.isfile(data_file_unperturbed_final):
+                    extraction_mode = 'perturb'
+
         # check if same data set has already been done in the same way
-        if not os.path.isfile(data_file_final):
+        if extraction_mode == 'full':
+            
             # load initial dataset, if not yet done
             self.load_raw_data()
-            
-            
+
 
             # If necessary, load constant gap size
             if ((self.t0_type[:9] == 'col_equal') or 
@@ -3381,8 +3405,75 @@ class data_set_template():
 
                 # Adjust base data file name accordingly
                 self.get_data_from_orig_path(Path_loaded, Type_old_loaded, Size_old_loaded, T_loaded, Domain_old_loaded, num_samples_loaded, path_file, path_file_adjust)
-                
-        
+
+        elif extraction_mode == 'perturb':
+            # Load the unperturbed data
+            data_file_perturbde_parts = self.data_file.split('--Pertubation_')
+            pert_index = data_file_perturbde_parts[1][:3]
+            data_file_unperturbed = data_file_perturbde_parts[0] + data_file_perturbde_parts[1][3:-4]
+            
+            # Go through original data
+            self.number_original_path_files = self.get_number_of_original_path_files()
+            for i_orig_path in range(self.number_original_path_files):
+                # Find the number of unperturbed data files available here
+                # Get path file adjustment
+                if self.number_original_path_files == 1:
+                    # Get path name adjustment
+                    path_file_adjust = '_LLL'
+                else:
+                    # Get path name adjustment
+                    if i_orig_path < self.number_original_path_files - 1:
+                        path_file_adjust = '_' + str(i_orig_path).zfill(3)
+                    else:
+                        path_file_adjust = '_LLL'
+                        
+                data_file_unperturbed_i = data_file_unperturbed + path_file_adjust 
+
+                # Find all the files that start with data_file_unperturbed_i and end with data.npy
+                folder_name = os.path.dirname(data_file_unperturbed_i)
+                base_name = os.path.basename(data_file_unperturbed_i)
+                data_files = [f for f in os.listdir(folder_name) if f.startswith(base_name) and f.endswith('_data.npy')]
+
+                for data_file in data_files:
+                    # Find separate domain and agent files
+                    data_file = os.path.join(folder_name, data_file)
+                    domain_file = data_file[:-8] + 'domain.npy'
+                    agent_file  = data_file[:-8] + 'AM.npy'
+
+                    # Load the data
+                    [
+                        self.Input_prediction,
+                        self.Input_path,
+                        self.Input_T,
+                        
+                        self.Output_path,
+                        self.Output_T,
+                        self.Output_T_pred,
+                        self.Output_A,
+                        self.Output_T_E,
+                        _,
+                    ] = np.load(data_file, allow_pickle=True)
+                    [self.Domain, self.num_behaviors, num_behaviors_out, Agents, _] = np.load(domain_file, allow_pickle=True)
+                    Agent_data = np.load(agent_file, allow_pickle=True)
+                    if len(Agent_data) == 3:
+                        [self.Type, self.Recorded, _] = Agent_data
+                        self.Size = None
+                        self.size_given = False
+                    else:
+                        assert len(Agent_data) == 4, "The loaded data has the wrong length."
+                        [self.Type, self.Size, self.Recorded, _] = Agent_data
+                        self.size_given = True
+
+                    # Overwrite Domain scenario with the perturbed scenario name
+                    self.Domain.Scenario = self.get_name()['print'] + ' (Pertubation_' + pert_index + ')'
+                    # Apply the perturbation
+                    num_behaviors_out = self.apply_perturbation()
+
+                    # Save the perturbed data
+                    base_file = self.data_file[:-4] + data_file[-17:-9]
+
+                    self.save_data_fragment(num_behaviors_out, Agents, base_file)
+
         # Get the number of files
         domain_files, self.number_data_files = self.get_number_of_data_files()
         

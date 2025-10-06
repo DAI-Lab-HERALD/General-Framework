@@ -365,6 +365,15 @@ class Experiment():
 
         print('Starting the running of the benchmark', flush = True)
         for i, data_set_dict in enumerate(self.Data_sets):
+            # If data_set is already defined from the previous loop, delete it to free up memory
+            if i > 0:
+                # Memory before deleting
+                for data_set_small in data_set.Datasets.values():
+                    for attr in list(vars(data_set_small)):
+                        delattr(data_set_small, attr)
+                for attr in list(vars(data_set)):
+                    delattr(data_set, attr)
+                del data_set
             # Get data set class
             data_set = data_interface(data_set_dict, self.parameters)
             
