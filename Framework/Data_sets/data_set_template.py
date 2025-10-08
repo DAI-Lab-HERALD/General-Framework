@@ -115,6 +115,26 @@ class data_set_template():
             raise AttributeError("'x' should be included as the first element self.path_data_info().")
         if path_info[1] != 'y': 
             raise AttributeError("'y' should be included as the second element self.path_data_info().")
+        
+        # Check if path data is consistent
+        # If v_x is included, v_y should be included too, and vice versa
+        if ('v_x' in path_info) != ('v_y' in path_info):
+            raise AttributeError("If 'v_x' is included in self.path_data_info(), 'v_y' should be included too, and vice versa.")
+        # Same for a_x and a_y
+        if ('a_x' in path_info) != ('a_y' in path_info):
+            raise AttributeError("If 'a_x' is included in self.path_data_info(), 'a_y' should be included too, and vice versa.")
+        # Same for v and theta
+        if ('v' in path_info) != ('theta' in path_info):
+            raise AttributeError("If 'v' is included in self.path_data_info(), 'theta' should be included too, and vice versa.")
+        
+        # If acceleration is included, than at least some form of velocity should be included
+        includes_velocity = ('v_x' in path_info) or ('v' in path_info)
+        includes_acceleration = ('a_x' in path_info) or ('a' in path_info)
+        if includes_acceleration and (not includes_velocity):
+            raise AttributeError("If acceleration ('a_x' or 'a') is included in self.path_data_info(), than at least some form of velocity ('v_x' or 'v') should be included too.")
+        # same with angles, if d_theta is included, theta should be included too
+        if ('d_theta' in path_info) and (not 'theta' in path_info):
+            raise AttributeError("If 'd_theta' is included in self.path_data_info(), 'theta' should be included too.")
 
         # check some of the aspect to see if pre_process worked
         if not isinstance(Path, pd.core.frame.DataFrame):
