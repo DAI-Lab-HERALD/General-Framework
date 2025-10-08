@@ -403,30 +403,24 @@ class perturbation_template():
             # Do total accelerations, based on previous velocities
             if 'a' in data_type:
                 i_a = data_type.index('a')
-                if 'a_x' in data_type:
-                    i_ax = data_type.index('a_x')
-                    P_ax = P_full[..., i_ax]
+                if 'v' in data_type:
+                    i_v = data_type.index('v')
+                    P_v = P_full[..., i_v]
                 else:
-                    # If velocities are required, they will have been calculated already
+                    i_v = data_type.index('v')
                     if 'v_x' in data_type:
                         i_vx = data_type.index('v_x')
                         P_vx = P_full[..., i_vx]
                     else:
                         P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
-                    P_ax = self.get_nan_gradient(P_vx, axis = -1) * dt
-                if 'a_y' in data_type:
-                    i_ay = data_type.index('a_y')
-                    P_ay = P_full[..., i_ay]
-                else:
-                    # If velocities are required, they will have been calculated already
                     if 'v_y' in data_type:
                         i_vy = data_type.index('v_y')
                         P_vy = P_full[..., i_vy]
                     else:
                         P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
-                    P_ay = self.get_nan_gradient(P_vy, axis = -1) * dt
+                    P_v = np.sqrt(P_vx**2 + P_vy**2)
 
-                P_a = np.sqrt(P_ax**2 + P_ay**2)
+                P_a = self.get_nan_gradient(P_v, axis = -1) * dt
                 P_full[..., i_a] = P_a
 
             # Do change in heading
