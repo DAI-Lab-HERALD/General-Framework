@@ -337,12 +337,12 @@ class perturbation_template():
             if 'v_x' in data_type:
                 i_vx = data_type.index('v_x')
                 
-                P_v_x = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
+                P_v_x = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
                 P_full[..., i_vx] = P_v_x
 
             if 'v_y' in data_type:
                 i_vy = data_type.index('v_y')
-                P_v_y = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
+                P_v_y = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
                 P_full[..., i_vy] = P_v_y
             
             # Do marginal accelerations, based on previous velocities
@@ -353,8 +353,8 @@ class perturbation_template():
                     i_vx = data_type.index('v_x')
                     P_vx = P_full[..., i_vx]
                 else:
-                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
-                P_ax = self.get_nan_gradient(P_vx, axis = -1) * dt
+                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
+                P_ax = self.get_nan_gradient(P_vx, axis = -1) / dt
                 P_full[..., i_ax] = P_ax
             
             if 'a_y' in data_type:
@@ -364,8 +364,8 @@ class perturbation_template():
                     i_vy = data_type.index('v_y')
                     P_vy = P_full[..., i_vy]
                 else:
-                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
-                P_ay = self.get_nan_gradient(P_vy, axis = -1) * dt
+                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
+                P_ay = self.get_nan_gradient(P_vy, axis = -1) / dt
                 P_full[..., i_ay] = P_ay
 
             # Do total velocities, based on previous velocities
@@ -375,12 +375,12 @@ class perturbation_template():
                     i_vx = data_type.index('v_x')
                     P_vx = P_full[..., i_vx]
                 else:
-                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
+                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
                 if 'v_y' in data_type:
                     i_vy = data_type.index('v_y')
                     P_vy = P_full[..., i_vy]
                 else:
-                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
+                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
                 P_v = np.sqrt(P_vx**2 + P_vy**2)
                 P_full[..., i_v] = P_v
             
@@ -391,12 +391,12 @@ class perturbation_template():
                     i_vx = data_type.index('v_x')
                     P_vx = P_full[..., i_vx]
                 else:
-                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
+                    P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
                 if 'v_y' in data_type:
                     i_vy = data_type.index('v_y')
                     P_vy = P_full[..., i_vy]
                 else:
-                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
+                    P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
                 P_theta = np.arctan2(P_vy, P_vx)
                 P_full[..., i_theta] = P_theta
 
@@ -412,15 +412,15 @@ class perturbation_template():
                         i_vx = data_type.index('v_x')
                         P_vx = P_full[..., i_vx]
                     else:
-                        P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
+                        P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
                     if 'v_y' in data_type:
                         i_vy = data_type.index('v_y')
                         P_vy = P_full[..., i_vy]
                     else:
-                        P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
+                        P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
                     P_v = np.sqrt(P_vx**2 + P_vy**2)
 
-                P_a = self.get_nan_gradient(P_v, axis = -1) * dt
+                P_a = self.get_nan_gradient(P_v, axis = -1) / dt
                 P_full[..., i_a] = P_a
 
             # Do change in heading
@@ -434,16 +434,16 @@ class perturbation_template():
                         i_vx = data_type.index('v_x')
                         P_vx = P_full[..., i_vx]
                     else:
-                        P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) * dt
+                        P_vx = self.get_nan_gradient(P_full[..., 0], axis = -1) / dt
                     if 'v_y' in data_type:
                         i_vy = data_type.index('v_y')
                         P_vy = P_full[..., i_vy]
                     else:
-                        P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) * dt
+                        P_vy = self.get_nan_gradient(P_full[..., 1], axis = -1) / dt
                     P_theta = np.arctan2(P_vy, P_vx)
 
                 P_theta = np.unwrap(P_theta, axis = -1)
-                P_d_theta = self.get_nan_gradient(P_theta, axis = -1) * dt
+                P_d_theta = self.get_nan_gradient(P_theta, axis = -1) / dt
                 P_full[..., i_d_theta] = P_d_theta
 
             # Reverse flattening of P_full
