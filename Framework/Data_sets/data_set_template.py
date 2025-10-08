@@ -123,9 +123,9 @@ class data_set_template():
         # Same for a_x and a_y
         if ('a_x' in path_info) != ('a_y' in path_info):
             raise AttributeError("If 'a_x' is included in self.path_data_info(), 'a_y' should be included too, and vice versa.")
-        # Same for v and theta
-        if ('v' in path_info) != ('theta' in path_info):
-            raise AttributeError("If 'v' is included in self.path_data_info(), 'theta' should be included too, and vice versa.")
+        # If longitudinal velocity is included, than also the heading angle should be included
+        if ('v' in path_info) and ('theta' not in path_info):
+            raise AttributeError("If 'v' is included in self.path_data_info(), 'theta' should be included too.")
         
         # If acceleration is included, than at least some form of velocity should be included
         includes_velocity = ('v_x' in path_info) or ('v' in path_info)
