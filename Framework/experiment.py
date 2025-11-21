@@ -1515,7 +1515,7 @@ class Experiment():
                 s_tot    = s_param['train_on_test']
 
                 s_class = getattr(importlib.import_module(s_name), s_name)
-                s_inst  = s_class(None, s_tp, s_rep, s_trainp, s_testp, s_tot)
+                s_inst  = s_class(data_set, s_tp, s_rep, s_trainp, s_testp, s_tot)
                 
                 sample_string += '\n{}: '.format(i + 1) + s_inst.get_name()['print']  
             print(sample_string, flush = True)  
@@ -1670,7 +1670,7 @@ class Experiment():
         return [op, ip, ind_p, output_A, output_T_E, img, graph, domain]
     
     
-    def _get_data_sample_pred(self, model, Index, ip, ind_p):
+    def _get_data_sample_pred(self, model, Index, ip, ind_p, likelihood = False):
 
         
         output = model.predict_actual(Index)
@@ -1685,16 +1685,19 @@ class Experiment():
         use_input = np.in1d(ind_p, ind_pp)
         
         opp = np.stack(output_path_pred[ind_pp].to_numpy().tolist(), 0) # n_samples x n_a x n_p x n_O x 2
-        opp_probs = np.stack(output_path_pred_probs[ind_pp].to_numpy().tolist(), 0).astype(float) # n_samples x n_a x (n_p + 1)
-        if len(opp_probs.shape) == 2:
-            assert opp_probs.shape[:2] == opp.shape[:2]
-            opp_probs = opp_probs[...,np.newaxis].repeat(opp.shape[2] + 1, axis = -1)
-        # Remove ground truth predictions
-        opp_probs = opp_probs[:, :, :-1]
-
         # Combine identical samples and number path predicted into one dimension
         opp = opp.transpose(0,2,1,3,4).reshape(opp.shape[0] * opp.shape[2], opp.shape[1], opp.shape[3], opp.shape[4])
-        opp_probs = opp_probs.transpose(0,2,1).reshape(opp.shape[0], opp.shape[1])
+        if likelihood:
+            opp_probs = np.stack(output_path_pred_probs[ind_pp].to_numpy().tolist(), 0).astype(float) # n_samples x n_a x (n_p + 1)
+            if len(opp_probs.shape) == 2:
+                assert opp_probs.shape[:2] == opp.shape[:2]
+                opp_probs = opp_probs[...,np.newaxis].repeat(opp.shape[2] + 1, axis = -1)
+            # Remove ground truth predictions
+            opp_probs = opp_probs[:, :, :-1]
+
+            opp_probs = opp_probs.transpose(0,2,1).reshape(opp.shape[0], opp.shape[1])
+        else:
+            opp_probs = None
 
         max_v = np.nanmax(np.stack([np.nanmax(opp, axis = (0,1,2)),
                                     np.max(ip[use_input,...,:2], axis = (0,1))], axis = 0), axis = 0)
@@ -1712,7 +1715,10 @@ class Experiment():
             np.random.shuffle(used)
             used = used[:3000]
             opp = opp[used]
-            opp_probs = opp_probs[used]
+            if likelihood:
+                opp_probs = opp_probs[used]
+            else:
+                opp_probs = None
         return [opp, opp_probs, ind_pp, min_v, max_v]
             
     
@@ -1940,7 +1946,7 @@ class Experiment():
              output_A, output_T_E, img, graph, domain] = self._get_data_sample(sample_ind, data_set, model, Output_A, Domain)
             
                                                                         
-            [opp, Lp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p)
+            [opp, Lp, ind_pp, min_v, max_v] = self._get_data_sample_pred(model, sample_ind, ip, ind_p, likelihood_visualization)
             
 
 
