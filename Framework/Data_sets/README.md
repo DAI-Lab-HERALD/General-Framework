@@ -113,8 +113,21 @@ clues about the actual future events about to happen.
         
     '''
     return image_decision
+
+  def includes_sceneGraphs(self = None):
+    r'''
+    If True, then graph data can be returned (if true, .graph_id has to be a column of 
+    **self.Domain_old** to indicate which of the saved graphs is linked to which sample).
+    If False, then no graph data is provided.
+        
+    Returns
+    -------
+    sceneGraphs_decision : bool
+        
+    '''
+    return sceneGraphs_decision
 ```
-The second function meanwhile returns the information if this dataset can provide background images of the situations that it is covering (return True) or not (return False).
+The secondand third function meanwhile returns the information if this dataset can provide respectively background images or scene_graphs of the situations that it is covering (return True) or not (return False).
 
 Lastly, one also has to define what kind of information is available in the dataset. I. e., is it only positional data, or does it also include recorded velocities, 
 acceleration, or other information. For this one has to define the function *path_data_info()*:
