@@ -3884,7 +3884,7 @@ class data_set_template():
         # Only keep non nan agents
         X_a = X[np.isfinite(X).all(-1)]
         assert len(X_a) > 0, "There are no agents in the scene."
-        X_a = X_a[np.newaxis, :] # shape = (1, num_agents, 2)
+        X_a = X_a[np.newaxis,...,:2] # shape = (1, num_agents, 2)
         
 
         # Get contents of loc_Graph
@@ -4308,7 +4308,7 @@ class data_set_template():
 
                 # Extraplate the values
                 later_time = t > t_true[-1]
-                path_new[later_time] = path_old[[-1]] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
+                path_new[later_time] = path_old[[-1],...,:2] + (t[later_time] - t_true[-1])[:,np.newaxis] * dx[[-1]]
 
             # Add new results
             Output_path_pred_add.loc[i_full, Index_old] = Output_path_pred.loc[i_full, Index_old]
