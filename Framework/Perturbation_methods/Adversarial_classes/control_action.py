@@ -119,7 +119,7 @@ class Control_action:
 
 
         ## Smooth along time dimension
-        # Determine if we shoudl smooth from the beginning or the end
+        # Determine if we should smooth from the beginning or the end
         pos_use = positions_perturb[useful_agent] # Shape: (n, num_time_steps, 2)
 
         i_first = pos_use.isfinite().all(-1).float().argmax(-1)
