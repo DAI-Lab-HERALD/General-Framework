@@ -15,4 +15,9 @@ If one wants to instead add new modules, detailed explanations on how to integra
 If you have questions regarding the usage of the framework or are interested in a collaboration, please contact J.F.Schumann@tudelft.nl.
 
 ## Citation
-When using this framework for your work, please cite the [initial paper](https://ieeexplore.ieee.org/abstract/document/10043012). Please be advised that we are planning to publish a new paper about this framework before the end of 2025, so if you do not plan to publish your work until then, please check the current preferred citation. Thank you very much. 
+When using this framework for your work, please cite the [paper](https://arxiv.org/abs/2509.14801). The simulation files and resulting paper results can be found here as well:
+- The file [STEP_simulations.zip](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/STEP_simulations.zip) has to be unzipped in the [Framework](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework) folder.
+- The file [STEP_results.zip](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/STEP_results.zip) has to be unzipped in the [Framework](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework) folder. Due to size constraints (Extracted data and predictions can approach over 100GB), we only share the resulting metrics reported in the paper.
+- The file [STEP_analysis.zip](https://github.com/DAI-Lab-HERALD/General-Framework/blob/main/Framework/STEP_analysis.zip) has to be unzipped in the [Framework](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework) folder.
+
+Thank you very much. 
