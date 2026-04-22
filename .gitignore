@@ -17,6 +17,9 @@ HRI_presentation.py
 *.dill
 *.feather
 *.zip
+!STEP_analysis.zip
+!STEP_results.zip
+!STEP_simulations.zip
 *.xlsx
 *.docx
 *.json
@@ -104,3 +107,7 @@ Framework/analysis_round_4.py
 *.sh
 Framework/convinience.py
 *.tex
+Framework/analysis_STEP_FIG_2.py
+Framework/analysis_STEP_TABLE_II.py
+Framework/analysis_STEP_TABLE_III.py
+Framework/analysis_STEP_TABLE_IV.py
