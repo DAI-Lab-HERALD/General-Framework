@@ -2057,7 +2057,7 @@ class data_set_template():
                         # Get the allready loaded data
                         Path_loaded = self.Path
                         T_loaded = self.T
-                        Type_loaded = self.Type
+                        Type_loaded = self.Type_old
                         Domain_old_loaded = self.Domain_old
                         num_samples_loaded = self.num_samples
                     else:
