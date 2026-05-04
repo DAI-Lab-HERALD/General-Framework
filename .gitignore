@@ -20,8 +20,6 @@ HRI_presentation.py
 !STEP_analysis.zip
 !STEP_results.zip
 !STEP_simulations.zip
-!Framework/simulations_randomized_smoothing_predict.py
-!Framework/simulations_randomized_smoothing_train.py
 *.xlsx
 *.docx
 *.json
@@ -62,6 +60,7 @@ Framework/Latex_files/*
 *.zarr/
 Data_sets/NuScenes/v1.0-mini/
 simulations*.py
+!Framework/simulations_randomized_smoothing.py
 Framework/Data_sets/Waymo/data/*/uncomp*
 Framework/Data_sets/Lyft/data/.unified_data_cache/
 Framework/experiments
