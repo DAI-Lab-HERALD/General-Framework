@@ -20,6 +20,8 @@ HRI_presentation.py
 !STEP_analysis.zip
 !STEP_results.zip
 !STEP_simulations.zip
+!Framework/simulations_randomized_smoothing_predict.py
+!Framework/simulations_randomized_smoothing_train.py
 *.xlsx
 *.docx
 *.json
