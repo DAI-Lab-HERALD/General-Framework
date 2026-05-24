@@ -800,7 +800,7 @@ Besides filling in missing positions in provided trajectories, it might also be 
     size_full : pandas.Series (optional)
       A pandas series with :math:`(N_{agents, full})` entries, that records the size of the agents for the considered
       sample in a numpy array (np.array([length, width])). The indices should correspond to the columns in **path_full** 
-      and include all columns of **size**. Returning this is optional. if it is not returned, defualt agent sizes are assumed
+      and include all columns of **size**. Returning this is optional. if it is not returned, default agent sizes are assumed
       for added agents.
     '''
 
@@ -809,7 +809,7 @@ Besides filling in missing positions in provided trajectories, it might also be 
     return path_full, agent_types_full
 ```
 
-As a helper function, one can use the following method allready implemented:
+As a helper function, one can use the following method already implemented:
 ```
   def extrapolate_path(self, path, t, mode = 'pos'):
     r'''
