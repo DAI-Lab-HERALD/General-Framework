@@ -9,6 +9,8 @@ python ../Framework/simulations.py
 
 It has to be noted that if one wants to use one of the datasets already included in the framework, it is required to access the respective raw data first. The instructions can be found in the README.md files in the corresponding folders in [../Framework/Data_sets/](https://github.com/julianschumann/General-Framework/tree/main/Framework/Data_sets).
 
+## Adding new modules
+
 If one wants to instead add new modules, detailed explanations on how to integrate [datasets](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Data_sets#adding-a-new-dataset-to-the-framework) and [scenario types](https://github.com/julianschumann/General-Framework/blob/main/Framework/Scenarios/README.md), [splitting methods](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Splitting_methods#adding-a-new-splitting-method-to-the-framework), [models](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Models#adding-a-new-model-to-the-framework), as well as [metrics](https://github.com/DAI-Lab-HERALD/General-Framework/tree/main/Framework/Evaluation_metrics#adding-a-new-evaluation-metric-to-the-framework) are available.
 
 ## Contact and collaboration
