@@ -288,7 +288,7 @@ Some common metrics like do not only require the predictions by the model, but a
       :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
       values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
       *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-      the position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
+      the center position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
       will always correspond to the output of the *path_data_info()* of the data_set from which this batch data
       was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
     Y : np.ndarray
@@ -588,7 +588,7 @@ For a given sample, the extracted images are centered around the last observed p
       :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
       values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
       *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-      the position data (*self.input_data_type = ['x', 'y', ...]*). 
+      the center position data (*self.input_data_type = ['x', 'y', ...]*). 
       If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
     Y_train : np.ndarray, optional
       This is the future observed data of the agents, in the form of a
@@ -803,7 +803,7 @@ def provide_batch_data(self, mode, batch_size, val_split_size = 0.0, ignore_map 
     :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
     values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
     *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-    the position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
+    the center position data (*self.input_data_type = ['x', 'y', ...]*). It must be noted that *self.input_data_type*
     will always correspond to the output of the *path_data_info()* of the data_set from which this batch data
     was loaded. If an agent is fully or some timesteps partially not observed, then this can include np.nan values.
   Y : np.ndarray, optional
@@ -1034,7 +1034,7 @@ def get_classification_data(self, train = True, return_categories = False):
     :math:`\{N_{samples} \times N_{agents} \times N_{I} \times N_{data}\}` dimensional numpy array with float 
     values. Here, :math:`N_{data}` are the number of information available. This information can be found in 
     *self.input_data_type*, which is a list of strings with the length of *N_{data}*. It will always contain
-    the position data (*self.input_data_type = ['x', 'y', ...]*).  If an agent is fully or for some timesteps 
+    the center position data (*self.input_data_type = ['x', 'y', ...]*).  If an agent is fully or for some timesteps 
     partially not observed, then this can include np.nan values.
   T : np.ndarray
     This is a :math:`\{N_{samples} \times N_{agents}\}` dimensional numpy array. It includes strings 
