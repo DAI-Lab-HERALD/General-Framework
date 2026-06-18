@@ -143,8 +143,8 @@ acceleration, or other information. For this one has to define the function *pat
       This is a list of strings, with each string indicating what type of data 
       is saved along the last dimension of the numpy arrays in **self.Path**.
       The following strings are right now admissible:
-      - 'x':        The :math:`x`-coordinate of the agent's position.
-      - 'y':        The :math:`y`-coordinate of the agent's position.
+      - 'x':        The :math:`x`-coordinate of the agent's center position.
+      - 'y':        The :math:`y`-coordinate of the agent's center position.
       - 'v_x':      The :math:`x`-component of the agent's velocity, 
                     i.e., :math:`v_x`.
       - 'v_y':      The :math:`y`-component of the agent's velocity, 
